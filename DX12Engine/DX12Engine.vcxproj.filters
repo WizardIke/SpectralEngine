@@ -1,0 +1,399 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Area">
+      <UniqueIdentifier>{b08f89e8-c5ef-47d8-a031-cd00acc69bac}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="BaseExecutor">
+      <UniqueIdentifier>{30cea1f6-4842-45a4-81b9-b173f5ef9af7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="BaseZone">
+      <UniqueIdentifier>{82b1869f-c665-4b66-af2d-80c3ddf24f8e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Camera">
+      <UniqueIdentifier>{434b7b73-2fd6-4cea-bc47-3028417b3712}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="D3D12">
+      <UniqueIdentifier>{c582a5a5-f13d-4097-b4f2-062e04285dce}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="D3D12GraphicsEngine">
+      <UniqueIdentifier>{d02ae592-3868-41a5-9496-362b2a37f08e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="DDSFileLoader">
+      <UniqueIdentifier>{b8c2e5b5-1fb1-4d05-ab86-d9b9ab3cbb58}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Exceptions">
+      <UniqueIdentifier>{b4e1c667-6d02-4c17-bb0c-c57a021146f0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Frustum">
+      <UniqueIdentifier>{b98b5144-73ec-4c00-9718-d7bf2b5fde1e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Input">
+      <UniqueIdentifier>{d230eaba-3648-42e5-9a08-b3ff901ef815}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Light">
+      <UniqueIdentifier>{1da70e47-cc90-4d69-a53a-3e490b8c47e0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Location">
+      <UniqueIdentifier>{c1f00c24-644d-4b56-a812-1788944f9806}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Locks">
+      <UniqueIdentifier>{4e406b92-454b-49a1-85dd-2f4a29f8b8c0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Locks\CriticalSection">
+      <UniqueIdentifier>{4f5e37c8-7c59-46b0-a22d-78074986f534}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Locks\ReadWriteLock">
+      <UniqueIdentifier>{797a3dda-dca0-4cf9-b189-2debaa80161a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Locks\spinlock">
+      <UniqueIdentifier>{9ca8b1ae-f9d2-42c5-b68a-718f19926b4a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Math">
+      <UniqueIdentifier>{0df7bc28-63a3-4b44-9176-0799db138149}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Math\EulerRotation">
+      <UniqueIdentifier>{ed96a038-a8be-497b-99b6-d70cc725c7a9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Math\Quaternion">
+      <UniqueIdentifier>{6f88a44a-824c-4bf7-bb69-33246fe97002}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="MeshAllocator">
+      <UniqueIdentifier>{11be4145-c9ac-4f40-bbdc-a937510c6f0e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="MeshManager">
+      <UniqueIdentifier>{70f7c9e7-5c0b-417f-b69f-addc45c9ee76}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="PlayerPosition">
+      <UniqueIdentifier>{2ce01355-b8e8-400a-8ab7-14c1675b08d4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="PointLight">
+      <UniqueIdentifier>{583d4257-8c59-4306-ae3d-94a88fb973b7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Queue">
+      <UniqueIdentifier>{0b03d907-d57a-49f5-8e6a-eaa709b5de54}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="RenderPass">
+      <UniqueIdentifier>{4a0d2e67-25c8-4650-95d9-11ca3150361e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ScopedFile">
+      <UniqueIdentifier>{16679715-85ea-4032-b0fd-76176515a8e4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="SharedResources">
+      <UniqueIdentifier>{3d915c62-676f-486c-a454-dd4d228b98ae}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Sound">
+      <UniqueIdentifier>{69db3b22-7b90-401d-bf71-ddb1279ac137}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Sound\SoundDecoder">
+      <UniqueIdentifier>{54ac0dca-4025-4f40-a835-caca72c3ef11}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="StreamingManager">
+      <UniqueIdentifier>{f7afdca9-ea2e-4355-bc7b-66c095dcd45d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Text Engine">
+      <UniqueIdentifier>{6702ec9e-05d4-40ef-85a6-85de628ee38f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Text Engine\BaseSentence">
+      <UniqueIdentifier>{3c8e1518-3306-4072-b0be-3cbde7bdf7c9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="TextureManager">
+      <UniqueIdentifier>{81af3b79-70f7-440f-bf4e-fe3925d94c48}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Timer">
+      <UniqueIdentifier>{4f7ffa57-20c5-4e7c-8732-485af5c1ea40}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="VRamFreeingManager">
+      <UniqueIdentifier>{e7651cd0-07b5-4966-804e-a2ff713025c3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Window">
+      <UniqueIdentifier>{2475bc54-16d6-4167-b495-51d28d5781a1}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="HresultException.h">
+      <Filter>Exceptions</Filter>
+    </ClInclude>
+    <ClInclude Include="Queue.h">
+      <Filter>Queue</Filter>
+    </ClInclude>
+    <ClInclude Include="EventCreationException.h">
+      <Filter>Exceptions</Filter>
+    </ClInclude>
+    <ClInclude Include="IDXGIAdapterNotFoundException.h">
+      <Filter>Exceptions</Filter>
+    </ClInclude>
+    <ClInclude Include="D3D12CreateDeviceFailedException.h">
+      <Filter>Exceptions</Filter>
+    </ClInclude>
+    <ClInclude Include="SharedResources.h">
+      <Filter>SharedResources</Filter>
+    </ClInclude>
+    <ClInclude Include="IOException.h">
+      <Filter>Exceptions</Filter>
+    </ClInclude>
+    <ClInclude Include="FileNotFoundException.h">
+      <Filter>Exceptions</Filter>
+    </ClInclude>
+    <ClInclude Include="Exception.h">
+      <Filter>Exceptions</Filter>
+    </ClInclude>
+    <ClInclude Include="AudioFormatNotSupportedException.h">
+      <Filter>Exceptions</Filter>
+    </ClInclude>
+    <ClInclude Include="FormatNotSupportedException.h">
+      <Filter>Exceptions</Filter>
+    </ClInclude>
+    <ClInclude Include="DDSFileLoader.h">
+      <Filter>DDSFileLoader</Filter>
+    </ClInclude>
+    <ClInclude Include="ScopedFile.h">
+      <Filter>ScopedFile</Filter>
+    </ClInclude>
+    <ClInclude Include="WindowsFileCreationException.h">
+      <Filter>Exceptions</Filter>
+    </ClInclude>
+    <ClInclude Include="TextureIndexOutOfRangeException.h">
+      <Filter>Exceptions</Filter>
+    </ClInclude>
+    <ClInclude Include="IndexOutOfRangeException.h">
+      <Filter>Exceptions</Filter>
+    </ClInclude>
+    <ClInclude Include="EndOfFileException.h">
+      <Filter>Exceptions</Filter>
+    </ClInclude>
+    <ClInclude Include="InvalidHeaderInfoException.h">
+      <Filter>Exceptions</Filter>
+    </ClInclude>
+    <ClInclude Include="SecurityException.h">
+      <Filter>Exceptions</Filter>
+    </ClInclude>
+    <ClInclude Include="AudioPlaybackException.h">
+      <Filter>Exceptions</Filter>
+    </ClInclude>
+    <ClInclude Include="ID3D12ResourceCreationFailedException.h">
+      <Filter>Exceptions</Filter>
+    </ClInclude>
+    <ClInclude Include="ID3D12ResourceMapFailedException.h">
+      <Filter>Exceptions</Filter>
+    </ClInclude>
+    <ClInclude Include="ReadWriteLock.h">
+      <Filter>Locks\ReadWriteLock</Filter>
+    </ClInclude>
+    <ClInclude Include="UnkownCpuFrequencyException.h">
+      <Filter>Exceptions</Filter>
+    </ClInclude>
+    <ClInclude Include="Spinlock.h">
+      <Filter>Locks\spinlock</Filter>
+    </ClInclude>
+    <ClInclude Include="CriticalSection.h">
+      <Filter>Locks\CriticalSection</Filter>
+    </ClInclude>
+    <ClInclude Include="D3D12GraphicsCommandList.h">
+      <Filter>D3D12</Filter>
+    </ClInclude>
+    <ClInclude Include="D3D12GraphicsEngine.h">
+      <Filter>D3D12GraphicsEngine</Filter>
+    </ClInclude>
+    <ClInclude Include="D3D12CommandAllocator.h">
+      <Filter>D3D12</Filter>
+    </ClInclude>
+    <ClInclude Include="D3D12Debug.h">
+      <Filter>D3D12</Filter>
+    </ClInclude>
+    <ClInclude Include="TextureManager.h">
+      <Filter>TextureManager</Filter>
+    </ClInclude>
+    <ClInclude Include="D3D12CommandQueue.h">
+      <Filter>D3D12</Filter>
+    </ClInclude>
+    <ClInclude Include="D3D12DescriptorHeap.h">
+      <Filter>D3D12</Filter>
+    </ClInclude>
+    <ClInclude Include="D3D12DevicePointer.h">
+      <Filter>D3D12</Filter>
+    </ClInclude>
+    <ClInclude Include="D3D12FencePointer.h">
+      <Filter>D3D12</Filter>
+    </ClInclude>
+    <ClInclude Include="DXGISwapChain4.h">
+      <Filter>D3D12</Filter>
+    </ClInclude>
+    <ClInclude Include="DXGIFactory.h">
+      <Filter>D3D12</Filter>
+    </ClInclude>
+    <ClInclude Include="DXGIAdapter.h">
+      <Filter>D3D12</Filter>
+    </ClInclude>
+    <ClInclude Include="Window.h">
+      <Filter>Window</Filter>
+    </ClInclude>
+    <ClInclude Include="D3D12Resource.h">
+      <Filter>D3D12</Filter>
+    </ClInclude>
+    <ClInclude Include="D3D12Heap.h">
+      <Filter>D3D12</Filter>
+    </ClInclude>
+    <ClInclude Include="VRamFreeingManager.h">
+      <Filter>VRamFreeingManager</Filter>
+    </ClInclude>
+    <ClInclude Include="Font.h">
+      <Filter>Text Engine</Filter>
+    </ClInclude>
+    <ClInclude Include="FontChar.h">
+      <Filter>Text Engine</Filter>
+    </ClInclude>
+    <ClInclude Include="Frustum.h">
+      <Filter>Frustum</Filter>
+    </ClInclude>
+    <ClInclude Include="PointLight.h">
+      <Filter>PointLight</Filter>
+    </ClInclude>
+    <ClInclude Include="InputManager.h">
+      <Filter>Input</Filter>
+    </ClInclude>
+    <ClInclude Include="PlayerPosition.h">
+      <Filter>PlayerPosition</Filter>
+    </ClInclude>
+    <ClInclude Include="Location.h">
+      <Filter>Location</Filter>
+    </ClInclude>
+    <ClInclude Include="SoundEngine.h">
+      <Filter>Sound</Filter>
+    </ClInclude>
+    <ClInclude Include="SoundDecoder.h">
+      <Filter>Sound\SoundDecoder</Filter>
+    </ClInclude>
+    <ClInclude Include="XAudio2SourceVoice.h">
+      <Filter>Sound</Filter>
+    </ClInclude>
+    <ClInclude Include="Area.h">
+      <Filter>Area</Filter>
+    </ClInclude>
+    <ClInclude Include="BaseZone.h">
+      <Filter>BaseZone</Filter>
+    </ClInclude>
+    <ClInclude Include="EulerRotation.h">
+      <Filter>Math\EulerRotation</Filter>
+    </ClInclude>
+    <ClInclude Include="Quaternion.h">
+      <Filter>Math\Quaternion</Filter>
+    </ClInclude>
+    <ClInclude Include="Light.h">
+      <Filter>Light</Filter>
+    </ClInclude>
+    <ClInclude Include="Win32Event.h">
+      <Filter>D3D12</Filter>
+    </ClInclude>
+    <ClInclude Include="BaseSentence.h">
+      <Filter>Text Engine\BaseSentence</Filter>
+    </ClInclude>
+    <ClInclude Include="Timer.h">
+      <Filter>Timer</Filter>
+    </ClInclude>
+    <ClInclude Include="BaseExecutor.h">
+      <Filter>BaseExecutor</Filter>
+    </ClInclude>
+    <ClInclude Include="MeshManager.h">
+      <Filter>MeshManager</Filter>
+    </ClInclude>
+    <ClInclude Include="Mesh.h">
+      <Filter>MeshManager</Filter>
+    </ClInclude>
+    <ClInclude Include="MeshAllocator.h">
+      <Filter>MeshAllocator</Filter>
+    </ClInclude>
+    <ClInclude Include="MainCamera.h">
+      <Filter>Camera</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderSubPass.h">
+      <Filter>RenderPass</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderPass.h">
+      <Filter>RenderPass</Filter>
+    </ClInclude>
+    <ClInclude Include="Vector2.h">
+      <Filter>Math</Filter>
+    </ClInclude>
+    <ClInclude Include="frameBufferCount.h" />
+    <ClInclude Include="StreamingManager.h">
+      <Filter>StreamingManager</Filter>
+    </ClInclude>
+    <ClInclude Include="HalfFinishedUploadRequset.h">
+      <Filter>StreamingManager</Filter>
+    </ClInclude>
+    <ClInclude Include="RamToVramUploadRequest.h">
+      <Filter>StreamingManager</Filter>
+    </ClInclude>
+    <ClInclude Include="d3dx12.h" />
+    <ClInclude Include="for_each.h" />
+    <ClInclude Include="Job.h" />
+    <ClInclude Include="TemplateFloat.h" />
+    <ClInclude Include="Vector4.h">
+      <Filter>Math</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="SharedResources.cpp">
+      <Filter>SharedResources</Filter>
+    </ClCompile>
+    <ClCompile Include="DDSFileLoader.cpp">
+      <Filter>DDSFileLoader</Filter>
+    </ClCompile>
+    <ClCompile Include="D3D12GraphicsEngine.cpp">
+      <Filter>D3D12GraphicsEngine</Filter>
+    </ClCompile>
+    <ClCompile Include="TextureManager.cpp">
+      <Filter>TextureManager</Filter>
+    </ClCompile>
+    <ClCompile Include="Window.cpp">
+      <Filter>Window</Filter>
+    </ClCompile>
+    <ClCompile Include="VRamFreeingManager.cpp">
+      <Filter>VRamFreeingManager</Filter>
+    </ClCompile>
+    <ClCompile Include="Font.cpp">
+      <Filter>Text Engine</Filter>
+    </ClCompile>
+    <ClCompile Include="Frustum.cpp">
+      <Filter>Frustum</Filter>
+    </ClCompile>
+    <ClCompile Include="InputManager.cpp">
+      <Filter>Input</Filter>
+    </ClCompile>
+    <ClCompile Include="PlayerPosition.cpp">
+      <Filter>PlayerPosition</Filter>
+    </ClCompile>
+    <ClCompile Include="BaseZone.cpp">
+      <Filter>BaseZone</Filter>
+    </ClCompile>
+    <ClCompile Include="EulerRotation.cpp">
+      <Filter>Math\EulerRotation</Filter>
+    </ClCompile>
+    <ClCompile Include="Quaternion.cpp">
+      <Filter>Math\Quaternion</Filter>
+    </ClCompile>
+    <ClCompile Include="BaseSentence.cpp">
+      <Filter>Text Engine\BaseSentence</Filter>
+    </ClCompile>
+    <ClCompile Include="Timer.cpp">
+      <Filter>Timer</Filter>
+    </ClCompile>
+    <ClCompile Include="BaseExecutor.cpp">
+      <Filter>BaseExecutor</Filter>
+    </ClCompile>
+    <ClCompile Include="MeshManager.cpp">
+      <Filter>MeshManager</Filter>
+    </ClCompile>
+    <ClCompile Include="MeshAllocator.cpp">
+      <Filter>MeshAllocator</Filter>
+    </ClCompile>
+    <ClCompile Include="MainCamera.cpp">
+      <Filter>Camera</Filter>
+    </ClCompile>
+    <ClCompile Include="StreamingManager.cpp">
+      <Filter>StreamingManager</Filter>
+    </ClCompile>
+    <ClCompile Include="AABBSweepTest.cpp" />
+  </ItemGroup>
+</Project>
