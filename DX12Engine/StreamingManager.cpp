@@ -210,35 +210,35 @@ StreamingManagerThreadLocal::StreamingManagerThreadLocal(ID3D12Device* const gra
 void StreamingManagerThreadLocal::update(BaseExecutor* const executor)
 {
 	auto& manager = executor->sharedResources->streamingManager;
-	if (copyFence->GetCompletedValue() == fenceValue)
+	if (copyFence->GetCompletedValue() >= fenceValue)
 	{
 		auto hr = currentCommandList->Close();
 		assert(hr == S_OK);
 		ID3D12CommandList* lists = currentCommandList;
 		manager.copyCommandQueue->ExecuteCommandLists(1u, &lists);
+		++fenceValue;
 		hr = manager.copyCommandQueue->Signal(copyFence, fenceValue);
 		assert(hr == S_OK);
+
+		ID3D12CommandAllocator* currentCommandAllocator;
+		if (currentCommandList == commandLists[0u])
+		{
+			currentCommandList = commandLists[1u];
+			currentHalfFinishedUploadRequestBuffer = &halfFinishedUploadRequestsBuffer[1u];
+			currentCommandAllocator = commandAllocators[1u].get();
+		}
+		else
+		{
+			currentCommandList = commandLists[0u];
+			currentHalfFinishedUploadRequestBuffer = &halfFinishedUploadRequestsBuffer[0u];
+			currentCommandAllocator = commandAllocators[0u].get();
+		}
+
+		auto hr = currentCommandAllocator->Reset();
+		assert(hr == S_OK);
+
+		currentCommandList->Reset(currentCommandAllocator, nullptr);
 	}
-
-	ID3D12CommandAllocator* currentCommandAllocator;
-	if (currentCommandList == commandLists[0u])
-	{
-		currentCommandList = commandLists[1u];
-		currentHalfFinishedUploadRequestBuffer = &halfFinishedUploadRequestsBuffer[1u];
-		currentCommandAllocator = commandAllocators[1u].get();
-	}
-	else
-	{
-		currentCommandList = commandLists[0u];
-		currentHalfFinishedUploadRequestBuffer = &halfFinishedUploadRequestsBuffer[0u];
-		currentCommandAllocator = commandAllocators[0u].get();
-	}
-
-	auto hr = currentCommandAllocator->Reset();
-	assert(hr == S_OK);
-
-	currentCommandList->Reset(currentCommandAllocator, nullptr);
-
 
 	auto readPos = uploadBufferReadPos;
 	for (auto& halfFinishedUploadRequest : *currentHalfFinishedUploadRequestBuffer)
