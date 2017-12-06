@@ -138,7 +138,7 @@ public:
 			{
 				if (camera->isInView(mainFrustum))
 				{
-					camera->bind(*executor->sharedResources, frameIndex, &currentData->commandLists[0u].get(),
+					camera->bindFirstThread(*executor->sharedResources, frameIndex, &currentData->commandLists[0u].get(),
 						&currentData->commandLists.data()[currentData->commandLists.size()].get());
 				}
 			}
@@ -177,6 +177,7 @@ public:
 	constexpr static auto state = state1;
 	using DependencyStates = DependencyStates_t;
 	constexpr static bool empty = true;
+	constexpr static auto commandListsPerFrame = 0u;
 
 	static void update2LastThread(ID3D12GraphicsCommandList* lastCommandList, uint32_t barrierCount, const D3D12_RESOURCE_BARRIER* barriers)
 	{

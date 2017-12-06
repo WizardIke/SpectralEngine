@@ -31,6 +31,7 @@ public:
 	void makeReflectionMatrix(DirectX::XMMATRIX& reflectionMatrix, float height);
 	bool isInView(const Frustum&) { return true; }
 	void bind(SharedResources& sharedResources, uint32_t frameIndex, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end);
+	void bindFirstThread(SharedResources& sharedResources, uint32_t frameIndex, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end);
 	ID3D12Resource* getImage(BaseExecutor* const executor);
 	DirectX::XMFLOAT3& position() { return location.position; }
 

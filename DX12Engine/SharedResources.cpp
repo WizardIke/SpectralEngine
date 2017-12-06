@@ -34,15 +34,17 @@ SharedResources::SharedResources(BaseExecutor* mainExecutor, bool fullScreen, bo
 void SharedResources::checkForWindowsMessages(BaseExecutor* const executor)
 {
 	MSG message;
-	while ((PeekMessage(&message, nullptr, 0, 0, PM_REMOVE)) > 0)
+	BOOL error;
+	while (true)
 	{
+		error = (PeekMessage(&message, nullptr, 0, 0, PM_REMOVE));
+		if (error == 0) { break; }
+		else if (error < 0) 
+		{
+			executor->sharedResources->nextPhaseJob = BaseExecutor::quit;
+		}
 		DispatchMessage(&message);
 	}
-	executor->sharedResources->nextPhaseJob = [](BaseExecutor* executor, std::unique_lock<std::mutex>&& lock)
-	{
-		lock.unlock();
-		executor->quit = true;
-	};
 }
 
 static LRESULT CALLBACK windowCallback(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
@@ -100,11 +102,7 @@ static LRESULT CALLBACK windowCallback(HWND hwnd, UINT message, WPARAM wParam, L
 			sharedResources->inputManager.SpacePressed = true;
 			return 0;
 		case VK_ESCAPE:
-			executor->sharedResources->nextPhaseJob = [](BaseExecutor* executor, std::unique_lock<std::mutex>&& lock)
-			{
-				lock.unlock();
-				executor->quit = true;
-			};
+			executor->sharedResources->nextPhaseJob = BaseExecutor::quit;
 			break;
 		default:
 			return 0;

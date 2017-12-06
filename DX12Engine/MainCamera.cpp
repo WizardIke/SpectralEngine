@@ -104,6 +104,28 @@ void MainCamera::bind(SharedResources& sharedResources, uint32_t frameIndex, ID3
 	auto commandList = *first;
 	commandList->OMSetRenderTargets(1u, &backBufferRenderTargetViewHandle, TRUE, &depthSencilViewHandle);
 	constexpr float clearColor[] = { 0.0f, 0.0f, 0.0f, 1.0f };
+}
+
+void MainCamera::bindFirstThread(SharedResources& sharedResources, uint32_t frameIndex, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end)
+{
+	auto viewPort = getViewPort(sharedResources.window);
+	auto scissorRect = getScissorRect(sharedResources.window);
+	for (auto start = first; start != end; ++start)
+	{
+		auto commandList = *start;
+		commandList->RSSetViewports(1u, &viewPort);
+		commandList->RSSetScissorRects(1u, &scissorRect);
+		commandList->SetGraphicsRootConstantBufferView(0u, cameraConstantBufferGpuAddress + constantBufferPerObjectAlignedSize * frameIndex);
+	}
+
+	D3D12_CPU_DESCRIPTOR_HANDLE backBufferRenderTargetViewHandle = renderTargetViewDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
+	backBufferRenderTargetViewHandle.ptr += frameIndex * sharedResources.graphicsEngine.renderTargetViewDescriptorSize;
+	D3D12_CPU_DESCRIPTOR_HANDLE depthSencilViewHandle = sharedResources.graphicsEngine.depthStencilDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
+
+	auto commandList = *first;
+	commandList->OMSetRenderTargets(1u, &backBufferRenderTargetViewHandle, TRUE, &depthSencilViewHandle);
+	constexpr float clearColor[] = { 0.0f, 0.0f, 0.0f, 1.0f };
+
 	commandList->ClearRenderTargetView(backBufferRenderTargetViewHandle, clearColor, 0u, nullptr);
 	commandList->ClearDepthStencilView(depthSencilViewHandle, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0u, nullptr);
 }

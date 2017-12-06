@@ -14,9 +14,18 @@ class RenderPass
 	unsigned int commandListCount = 0u;
 	BaseExecutor* firstExector;
 	unsigned int maxBarriers = 0u;
-	std::unique_ptr<D3D12_RESOURCE_BARRIER[]> barriers = nullptr;//size = maxDependences * maxCameras * 2
+	std::unique_ptr<D3D12_RESOURCE_BARRIER[]> barriers;//size = maxDependences * maxCameras * 2
 public:
-	RenderPass(BaseExecutor* const executor) : commandLists(new ID3D12CommandList*[sizeof...(RenderSubPass_t) * executor->sharedResources->maxThreads * 2u]) {}
+	RenderPass(BaseExecutor* const executor)
+	{
+		unsigned int commandListCount = 0u;
+		for_each(subPasses, [&commandListCount](auto& subPass)
+		{
+			commandListCount += subPass.commandListsPerFrame;
+		});
+		commandListCount += executor->sharedResources->maxThreads;
+		commandLists.reset(new ID3D12CommandList*[commandListCount]);
+	}
 
 	template<unsigned int subPassIndex, class Camera>
 	void addCamera(BaseExecutor* const executor, Camera* const camera)
@@ -195,12 +204,18 @@ public:
 	public:
 		ThreadLocal(BaseExecutor* const executor) : subPassesThreadLocal((sizeof(typename RenderSubPass_t::ThreadLocal), executor)...) {}
 
+		void update1(BaseExecutor* const executor, RenderPass<RenderSubPass_t...>& renderPass, unsigned int notFirstThread)
+		{
+			if (notFirstThread == 0u)
+			{
+				renderPass.firstExector = executor;
+			}
+		}
+
 		void update1After(BaseExecutor* const executor, RenderPass<RenderSubPass_t...>& renderPass, ID3D12RootSignature* rootSignature, unsigned int notFirstThread)
 		{
 			if (notFirstThread == 0u)
 			{
-				renderPass.commandListCount = 0u;
-				renderPass.firstExector = executor;
 				update1After<0u, sizeof...(RenderSubPass_t), true>(executor, renderPass, rootSignature);
 			}
 			else
@@ -252,92 +267,104 @@ public:
 		void update2(BaseExecutor* const executor, RenderPass<RenderSubPass_t...>& renderPass, unsigned int index)
 		{
 			constexpr auto subPassCount = sizeof...(RenderSubPass_t);
+			const unsigned int threadCount = (1u + executor->sharedResources->maxPrimaryThreads + executor->sharedResources->numPrimaryJobExeThreads);
 			if (executor == renderPass.firstExector) 
 			{
-				update2<0u, subPassCount>(executor, renderPass, renderPass.commandLists.get());
+				update2<0u, subPassCount>(executor, renderPass, renderPass.commandLists.get(), 0u, threadCount);
 			}
 			else
 			{
-				update2<0u, subPassCount>(executor, renderPass, renderPass.commandLists.get() + renderPass.commandListCount);
-				renderPass.commandListCount += std::tuple_element_t<0u, std::tuple<RenderSubPass_t...>>::commandListsPerFrame;
+				++renderPass.commandListCount;
+				update2<0u, subPassCount>(executor, renderPass, renderPass.commandLists.get(), renderPass.commandListCount, threadCount - renderPass.commandListCount);
 			}
 		}
 
 		template<unsigned int start, unsigned int end>
 		std::enable_if_t<!(start < end), void>
-			update2(BaseExecutor* const executor, RenderPass<RenderSubPass_t...>& renderPass, ID3D12CommandList** commandLists) {}
+			update2(BaseExecutor* const executor, RenderPass<RenderSubPass_t...>& renderPass, ID3D12CommandList** commandLists,
+				unsigned int listsBefore, unsigned int listsAfter) {}
 
 		template<unsigned int start, unsigned int end>
 		std::enable_if_t<start < end, void>
-			update2(BaseExecutor* const executor, RenderPass<RenderSubPass_t...>& renderPass, ID3D12CommandList** commandLists)
+			update2(BaseExecutor* const executor, RenderPass<RenderSubPass_t...>& renderPass, ID3D12CommandList** commandLists,
+				unsigned int listsBefore, unsigned int listsAfter)
 		{
-			update2Helper<start, end>(executor, renderPass, commandLists);
+			update2Helper<start, end>(executor, renderPass, commandLists, listsBefore, listsAfter);
 		}
 
 		template<unsigned int start, unsigned int end>
 		std::enable_if_t<!std::tuple_element_t<start, std::tuple<RenderSubPass_t...>>::empty, void>
-			update2Helper(BaseExecutor* const executor, RenderPass<RenderSubPass_t...>& renderPass, ID3D12CommandList** commandLists)
+			update2Helper(BaseExecutor* const executor, RenderPass<RenderSubPass_t...>& renderPass, ID3D12CommandList** commandLists,
+				unsigned int listsBefore, unsigned int listsAfter)
 		{
 			auto& subPassLocal = std::get<start>(subPassesThreadLocal);
 			auto& subPass = std::get<start>(renderPass.subPasses);
 			if (subPass.isInView(executor->sharedResources->mainFrustum))
 			{
+				commandLists += listsBefore * std::tuple_element_t<start, std::tuple<RenderSubPass_t...>>::commandListsPerFrame;
 				subPassLocal.update2(commandLists);
-				commandLists += (1u + executor->sharedResources->maxPrimaryThreads +
-					executor->sharedResources->numPrimaryJobExeThreads) * std::tuple_element_t<start, std::tuple<RenderSubPass_t...>>::commandListsPerFrame;
+				commandLists += listsAfter * std::tuple_element_t<start, std::tuple<RenderSubPass_t...>>::commandListsPerFrame;
 			}
-			update2<start + 1u, end>(executor, renderPass, commandLists);
+			update2<start + 1u, end>(executor, renderPass, commandLists, listsBefore, listsAfter);
 		}
 
 		template<unsigned int start, unsigned int end>
 		std::enable_if_t<std::tuple_element_t<start, std::tuple<RenderSubPass_t...>>::empty, void>
-			update2Helper(BaseExecutor* const executor, RenderPass<RenderSubPass_t...>& renderPass, ID3D12CommandList** commandLists)
+			update2Helper(BaseExecutor* const executor, RenderPass<RenderSubPass_t...>& renderPass, ID3D12CommandList** commandLists,
+				unsigned int listsBefore, unsigned int listsAfter)
 		{
-			update2<start + 1u, end>(executor, renderPass, commandLists);
+			update2<start + 1u, end>(executor, renderPass, commandLists, listsBefore, listsAfter);
 		}
 
 		void update2LastThread(BaseExecutor* const executor, RenderPass<RenderSubPass_t...>& renderPass, unsigned int index)
 		{
 			constexpr auto subPassCount = sizeof...(RenderSubPass_t);
 			ID3D12CommandList** newCommandLists;
+			const unsigned int threadCount = (1u + executor->sharedResources->maxPrimaryThreads + executor->sharedResources->numPrimaryJobExeThreads);
 			if (executor == renderPass.firstExector)
 			{
-				newCommandLists = update2LastThread<0u, subPassCount>(executor, renderPass, renderPass.commandLists.get());
+				newCommandLists = update2LastThread<0u, subPassCount>(executor, renderPass, renderPass.commandLists.get(), 0u, threadCount);
 			}
 			else
 			{
-				newCommandLists = update2LastThread<0u, subPassCount>(executor, renderPass, renderPass.commandLists.get() + renderPass.commandListCount);
-				renderPass.commandListCount += std::tuple_element_t<0u, std::tuple<RenderSubPass_t...>>::commandListsPerFrame;
+				++renderPass.commandListCount;
+				newCommandLists = update2LastThread<0u, subPassCount>(executor, renderPass, renderPass.commandLists.get(), renderPass.commandListCount,
+					threadCount - renderPass.commandListCount);
 			}
 			unsigned int commandListCount = static_cast<unsigned int>(newCommandLists - renderPass.commandLists.get());
 			executor->sharedResources->graphicsEngine.present(executor->sharedResources->window, renderPass.commandLists.get(), commandListCount);
+			renderPass.commandListCount = 0u;
 		}
 
 
 		template<unsigned int start, unsigned int end>
 		std::enable_if_t<!(start < end), ID3D12CommandList**>
-			update2LastThread(BaseExecutor* const executor, RenderPass<RenderSubPass_t...>& renderPass, ID3D12CommandList** commandLists)
+			update2LastThread(BaseExecutor* const executor, RenderPass<RenderSubPass_t...>& renderPass, ID3D12CommandList** commandLists,
+				unsigned int listsBefore, unsigned int listsAfter)
 		{
 			return commandLists;
 		}
 
 		template<unsigned int start, unsigned int end>
 		std::enable_if_t<start < end, ID3D12CommandList**>
-			update2LastThread(BaseExecutor* const executor, RenderPass<RenderSubPass_t...>& renderPass, ID3D12CommandList** commandLists)
+			update2LastThread(BaseExecutor* const executor, RenderPass<RenderSubPass_t...>& renderPass, ID3D12CommandList** commandLists,
+				unsigned int listsBefore, unsigned int listsAfter)
 		{
-			return update2LastThreadHelper<start, end>(executor, renderPass, commandLists);
+			return update2LastThreadHelper<start, end>(executor, renderPass, commandLists, listsBefore, listsAfter);
 		}
 
 		template<unsigned int start, unsigned int end>
 		std::enable_if_t<std::tuple_element_t<start, std::tuple<RenderSubPass_t...>>::empty, ID3D12CommandList**>
-			update2LastThreadHelper(BaseExecutor* const executor, RenderPass<RenderSubPass_t...>& renderPass, ID3D12CommandList** commandLists)
+			update2LastThreadHelper(BaseExecutor* const executor, RenderPass<RenderSubPass_t...>& renderPass, ID3D12CommandList** commandLists,
+				unsigned int listsBefore, unsigned int listsAfter)
 		{
-			return update2LastThread<start + 1u, end>(executor, renderPass, commandLists);
+			return update2LastThread<start + 1u, end>(executor, renderPass, commandLists, listsBefore, listsAfter);
 		}
 
 		template<unsigned int start, unsigned int subPassCount>
 		std::enable_if_t<!std::tuple_element_t<start, std::tuple<RenderSubPass_t...>>::empty, ID3D12CommandList**>
-			update2LastThreadHelper(BaseExecutor* const executor, RenderPass<RenderSubPass_t...>& renderPass, ID3D12CommandList** commandLists)
+			update2LastThreadHelper(BaseExecutor* const executor, RenderPass<RenderSubPass_t...>& renderPass, ID3D12CommandList** commandLists,
+				unsigned int listsBefore, unsigned int listsAfter)
 		{
 			constexpr auto nextSubPassIndex = getNextCameraSubPass<(start + 1u) % subPassCount, std::tuple<RenderSubPass_t...>>();
 			update2LastThreadEmptySubpasses<(start + 1u) % subPassCount, subPassCount>(executor, renderPass);
@@ -346,13 +373,13 @@ public:
 			auto& subPass = std::get<start>(renderPass.subPasses);
 			if (subPass.isInView(executor->sharedResources->mainFrustum))
 			{
+				commandLists += listsBefore * std::tuple_element_t<start, std::tuple<RenderSubPass_t...>>::commandListsPerFrame;
 				subPassLocal.update2(commandLists);
-				commandLists += (1u + executor->sharedResources->maxPrimaryThreads +
-					executor->sharedResources->numPrimaryJobExeThreads) * std::tuple_element_t<start, std::tuple<RenderSubPass_t...>>::commandListsPerFrame;
+				commandLists += listsAfter * std::tuple_element_t<start, std::tuple<RenderSubPass_t...>>::commandListsPerFrame;
 			}
 			if (nextSubPassIndex > start)
 			{
-				return update2LastThread<nextSubPassIndex, subPassCount>(executor, renderPass, commandLists);
+				return update2LastThread<nextSubPassIndex, subPassCount>(executor, renderPass, commandLists, listsBefore, listsAfter);
 			}
 			return commandLists;
 		}

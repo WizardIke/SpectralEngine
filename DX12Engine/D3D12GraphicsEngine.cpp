@@ -23,7 +23,6 @@ D3D12GraphicsEngine::D3D12GraphicsEngine(Window& window, bool fullScreen, bool v
 }()),
 
 directFenceEvent(nullptr, FALSE, FALSE, nullptr),
-fenceValues{ [](size_t i, uint64_t& element) {element = 0u; } },
 directFences([&](size_t i, D3D12FencePointer& element)
 {
 	new(&element) D3D12FencePointer(graphicsDevice, 0u, D3D12_FENCE_FLAG_NONE);
@@ -117,6 +116,10 @@ depthStencilHeap(graphicsDevice, []()
 		}
 	}
 
+	for (auto& fenceValue : fenceValues)
+	{
+		fenceValue = 0u;
+	}
 
 	window.createSwapChain(*this);
 	frameIndex = window.getCurrentBackBufferIndex();
@@ -125,9 +128,9 @@ depthStencilHeap(graphicsDevice, []()
 
 D3D12GraphicsEngine::~D3D12GraphicsEngine() {}
 
-void D3D12GraphicsEngine::present(Window& window, ID3D12CommandList** const ppCommandLists, const unsigned int numLists)
+void D3D12GraphicsEngine::present(Window& window, ID3D12CommandList** const commandLists, const unsigned int numLists)
 {
-	directCommandQueue->ExecuteCommandLists(numLists, ppCommandLists);
+	directCommandQueue->ExecuteCommandLists(numLists, commandLists);
 	++(fenceValues[frameIndex]);
 
 	auto hr = directCommandQueue->Signal(directFences[frameIndex], fenceValues[frameIndex]);

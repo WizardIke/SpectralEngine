@@ -23,7 +23,7 @@ public:
 
 	uint32_t frameIndex;
 	Array<D3D12FencePointer, frameBufferCount> directFences;
-	Array<uint64_t, frameBufferCount> fenceValues;
+	uint64_t fenceValues[frameBufferCount];
 	Event directFenceEvent;
 
 	uint32_t renderTargetViewDescriptorSize;

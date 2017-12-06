@@ -23,40 +23,28 @@ class BaseExecutor
 protected:
 	constexpr static unsigned int startingWorkStealingStackSize = 128u;
 	WorkStealingStack<Job, startingWorkStealingStackSize> workStealDeques[2u];
+	WorkStealingStack<Job, startingWorkStealingStackSize>* currentWorkStealingDeque;
+	bool mQuit;//local
 
 
-	void DoPrimaryJob();
+	void doPrimaryJob();
 	void runBackgroundJobs(Job job);
-	void swapWorkStealingDeques()
-	{
-		if (currentWorkStealingDeque == &workStealDeques[0u])
-		{
-			currentWorkStealingDeque = &workStealDeques[1u];
-		}
-		else
-		{
-			currentWorkStealingDeque = &workStealDeques[0u];
-		}
-	}
+	void swapWorkStealingDeques();
 
-#ifdef _DEBUG
+#ifndef NDEBUG
 	std::string type;
-#endif // _DEBUG
+#endif // NDEBUG
 
 	BaseExecutor(SharedResources* const sharedResources, unsigned long uploadHeapStartingSize, unsigned int uploadRequestBufferStartingCapacity, unsigned int halfFinishedUploadRequestBufferStartingCapasity);
 	~BaseExecutor();
 
 	virtual void update2(std::unique_lock<std::mutex>&& lock) = 0;
-
-	WorkStealingStack<Job, startingWorkStealingStackSize>* currentWorkStealingDeque;
 public:
-
 	SharedResources* sharedResources;//shared
 	StreamingManagerThreadLocal streamingManager;//local
 	VRamFreeingManager vRamFreeingManager;
 	std::default_random_engine randomNumberGenerator;
 	FixedSizeAllocator meshAllocator;
-	bool quit;//local
 
 	void run();
 
@@ -64,6 +52,8 @@ public:
 	WorkStealingStack<Job, startingWorkStealingStackSize>& updateJobQueue() { return workStealDeques[0u]; }
 	WorkStealingStack<Job, startingWorkStealingStackSize>& initializeJobQueue() { return workStealDeques[1u]; }
 
+
+	static void quit(BaseExecutor* exe, std::unique_lock<std::mutex>&& lock);
 
 	template<void(*update1NextPhaseJob)(BaseExecutor*, std::unique_lock<std::mutex>&& lock)>
 	void initialize(std::unique_lock<std::mutex>&& lock)

@@ -18,8 +18,37 @@ BaseExecutor::BaseExecutor(SharedResources* const sharedResources, unsigned long
 
 BaseExecutor::~BaseExecutor() {}
 
+void BaseExecutor::swapWorkStealingDeques()
+{
+	if (currentWorkStealingDeque == &workStealDeques[0u])
+	{
+		currentWorkStealingDeque = &workStealDeques[1u];
+	}
+	else
+	{
+		currentWorkStealingDeque = &workStealDeques[0u];
+	}
+}
 
-void BaseExecutor::DoPrimaryJob()
+void BaseExecutor::quit(BaseExecutor* exe, std::unique_lock<std::mutex>&& lock)
+{
+	const auto sharedResources = exe->sharedResources;
+	++sharedResources->numThreadsThatHaveFinished;
+	if (sharedResources->numThreadsThatHaveFinished == sharedResources->maxThreads)
+	{
+		sharedResources->numThreadsThatHaveFinished = 0u;
+		++sharedResources->generation;
+	}
+	else
+	{
+		sharedResources->conditionVariable.wait(lock, [oldGen = sharedResources->generation, &gen = sharedResources->generation]() {return oldGen != gen; });
+	}
+	lock.unlock();
+	exe->mQuit = true;
+}
+
+
+void BaseExecutor::doPrimaryJob()
 {
 	Job job;
 	bool found = currentWorkStealingDeque->pop(job);
@@ -50,10 +79,10 @@ void BaseExecutor::DoPrimaryJob()
 
 void BaseExecutor::run()
 {
-	quit = false;
-	while (!quit)
+	mQuit = false;
+	while (!mQuit)
 	{
-		DoPrimaryJob();
+		doPrimaryJob();
 	}
 }
 
