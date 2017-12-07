@@ -209,6 +209,7 @@ public:
 			if (notFirstThread == 0u)
 			{
 				renderPass.firstExector = executor;
+				renderPass.commandListCount = 0u;
 			}
 		}
 
@@ -333,7 +334,6 @@ public:
 			}
 			unsigned int commandListCount = static_cast<unsigned int>(newCommandLists - renderPass.commandLists.get());
 			executor->sharedResources->graphicsEngine.present(executor->sharedResources->window, renderPass.commandLists.get(), commandListCount);
-			renderPass.commandListCount = 0u;
 		}
 
 

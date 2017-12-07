@@ -17,10 +17,12 @@ public:
 		{
 			D3D12Debug debugController;
 			debugController->EnableDebugLayer();
+#ifdef USE_GRAPHICS_DEBUGGER
 			ID3D12Debug1* debug1Controller;
 			debugController->QueryInterface<ID3D12Debug1>(&debug1Controller);
 			debug1Controller->SetEnableGPUBasedValidation(true);
 			debug1Controller->Release();
+#endif
 		}
 #endif
 		HRESULT hr;

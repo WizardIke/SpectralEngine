@@ -22,14 +22,14 @@ D3D12GraphicsEngine::D3D12GraphicsEngine(Window& window, bool fullScreen, bool v
 	return commandQueueDesc;
 }()),
 
-directFenceEvent(nullptr, FALSE, FALSE, nullptr),
-directFences([&](size_t i, D3D12FencePointer& element)
+	directFenceEvent(nullptr, FALSE, FALSE, nullptr),
+	directFences([&](size_t i, D3D12FencePointer& element)
 {
 	new(&element) D3D12FencePointer(graphicsDevice, 0u, D3D12_FENCE_FLAG_NONE);
 }),
-renderTargetViewDescriptorSize(graphicsDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV)),
-constantBufferViewAndShaderResourceViewAndUnordedAccessViewDescriptorSize(graphicsDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE::D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV)),
-depthStencilDescriptorHeap(graphicsDevice, []()
+	renderTargetViewDescriptorSize(graphicsDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV)),
+	constantBufferViewAndShaderResourceViewAndUnordedAccessViewDescriptorSize(graphicsDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE::D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV)),
+	depthStencilDescriptorHeap(graphicsDevice, []()
 {
 	D3D12_DESCRIPTOR_HEAP_DESC depthStencilViewDescriptorHeapDesc;
 	depthStencilViewDescriptorHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
@@ -38,7 +38,7 @@ depthStencilDescriptorHeap(graphicsDevice, []()
 	depthStencilViewDescriptorHeapDesc.NodeMask = 0;
 	return depthStencilViewDescriptorHeapDesc;
 }()),
-depthStencilHeap(graphicsDevice, []()
+	depthStencilHeap(graphicsDevice, []()
 {
 	D3D12_HEAP_PROPERTIES depthSencilHeapProperties;
 	depthSencilHeapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;

@@ -234,20 +234,20 @@ void StreamingManagerThreadLocal::update(BaseExecutor* const executor)
 			currentCommandAllocator = commandAllocators[0u].get();
 		}
 
-		auto hr = currentCommandAllocator->Reset();
+		hr = currentCommandAllocator->Reset();
 		assert(hr == S_OK);
 
 		currentCommandList->Reset(currentCommandAllocator, nullptr);
-	}
 
-	auto readPos = uploadBufferReadPos;
-	for (auto& halfFinishedUploadRequest : *currentHalfFinishedUploadRequestBuffer)
-	{
-		halfFinishedUploadRequest.subresourceUploaded(executor);
-		readPos += halfFinishedUploadRequest.numberOfBytesToFree; //free memory
+		auto readPos = uploadBufferReadPos;
+		for (auto& halfFinishedUploadRequest : *currentHalfFinishedUploadRequestBuffer)
+		{
+			halfFinishedUploadRequest.subresourceUploaded(executor);
+			readPos += halfFinishedUploadRequest.numberOfBytesToFree; //free memory
+		}
+		uploadBufferReadPos = readPos;
+		currentHalfFinishedUploadRequestBuffer->clear();
 	}
-	uploadBufferReadPos = readPos;
-	currentHalfFinishedUploadRequestBuffer->clear();
 
 	//load resources into the upload buffer if there is enough space
 	addUploadToBuffer(executor);

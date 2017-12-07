@@ -33,6 +33,8 @@ public:
 
 	const unsigned int maxThreads = std::thread::hardware_concurrency() > 1u ? std::thread::hardware_concurrency() : 2u;
 
+	std::mutex syncMutex; //thread safe
+	std::condition_variable conditionVariable; //thread safe
 	unsigned int numPrimaryJobExeThreads; //not thread safe
 	Window window;
 	D3D12GraphicsEngine graphicsEngine;
@@ -46,9 +48,6 @@ public:
 	WorkStealingStackReference<Job>* nextWorkStealingQueues;
 
 	void(*nextPhaseJob)(BaseExecutor* executor, std::unique_lock<std::mutex>&& lock);
-
-	std::mutex syncMutex; //thread safe
-	std::condition_variable conditionVariable; //thread safe
 
 	StreamingManager streamingManager;
 	TextureManager textureManager; //thread safe

@@ -18,9 +18,9 @@ SharedResources::SharedResources(BaseExecutor* mainExecutor, bool fullScreen, bo
 	nextWorkStealingQueues(&workStealingQueues[0u]),
 	currentWorkStealingQueues(&workStealingQueues[maxThreads]),
 	nextPhaseJob([](BaseExecutor* executor, std::unique_lock<std::mutex>&& lock)
-{
-	lock.unlock();
-}),
+	{
+		lock.unlock();
+	}),
 	syncMutex(),
 	conditionVariable(),
 	timer(),
