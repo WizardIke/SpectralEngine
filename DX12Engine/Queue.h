@@ -1,10 +1,10 @@
 #pragma once
-#include "CriticalSection.h"
+#include <mutex>
 
 template<typename value_type>
 class Queue
 {
-	CriticalSection criticalSection;
+	std::mutex criticalSection;
 
 	value_type* buffer;
 	unsigned int capacity;

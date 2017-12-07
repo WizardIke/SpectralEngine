@@ -1,0 +1,564 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Areas">
+      <UniqueIdentifier>{a861972b-407e-4867-a0aa-cdb7b66d0013}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Areas\Cave">
+      <UniqueIdentifier>{c518d3bd-919c-4b3d-9f82-24ef1f1d62b0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Areas\Outside">
+      <UniqueIdentifier>{15969435-0dab-441b-b752-15fd74519ebd}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Areas\Cave\Models">
+      <UniqueIdentifier>{08e73ed4-9e87-4dc3-a124-a7d15624c691}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Areas\Cave\Zones">
+      <UniqueIdentifier>{ff654034-1a9f-4b08-aa04-e81dfe4799a0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Areas\Outside\Zones">
+      <UniqueIdentifier>{9e83f29a-fd97-483d-add6-990d3286b62a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Meshes">
+      <UniqueIdentifier>{ac795ac9-e9e2-4ade-aab0-e330efc4c12a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Models">
+      <UniqueIdentifier>{9fc6930c-5721-4c05-8c87-4e7058fada96}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="PipelineStateObjects">
+      <UniqueIdentifier>{a2d2c1a0-c139-49bc-9254-a963289359b2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="RootSignatures">
+      <UniqueIdentifier>{4e0b350c-89fe-4d50-882a-8ffa95c634e4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shaders">
+      <UniqueIdentifier>{948bd8db-4931-4db6-a12c-f48089f95bec}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shaders\Pixel">
+      <UniqueIdentifier>{48474832-16a1-4cd7-b13f-34a1b1b846bc}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shaders\Vertex">
+      <UniqueIdentifier>{8e71991e-b9ad-4cb9-b643-4823d442b903}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Textures">
+      <UniqueIdentifier>{58851b87-7d20-40a4-99ec-4d5409449881}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Sound">
+      <UniqueIdentifier>{8ed13261-c3fa-498e-9e9c-d1173d827c59}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Assets">
+      <UniqueIdentifier>{7c07c87e-0427-4a92-8157-40e4531ea7b1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Fonts">
+      <UniqueIdentifier>{9404683e-a60e-4a49-aba7-800788772e27}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="UserInterface">
+      <UniqueIdentifier>{b3ba8eaa-9188-4de4-9e17-8861ccaa8f4e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="UserInterface\Sentences">
+      <UniqueIdentifier>{8fdafff8-5626-43f9-9661-c6a41db4a2ce}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="AmbientMusic">
+      <UniqueIdentifier>{09e79b3c-09df-4a55-ad80-f7e66f2c888b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Executor">
+      <UniqueIdentifier>{a2e84a9a-1014-4eba-b21c-0fa8461798ba}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Executor\Executor">
+      <UniqueIdentifier>{0d2530c4-d0d3-49be-9537-9c5401927d5b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Executor\MainExecutor">
+      <UniqueIdentifier>{a5ba0de0-e762-4dfc-b434-8c3fa0184446}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Executor\PrimaryExecutor">
+      <UniqueIdentifier>{9dd77d3f-58e4-4eb9-aa06-d72e2f65b222}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Executor\BackgroundExecutor">
+      <UniqueIdentifier>{27fc4cf3-a014-4fe9-9c95-0a2fd950e7c1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Areas\Outside\Models">
+      <UniqueIdentifier>{a72817e4-81db-4081-ac17-578ae0c72784}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Cave\CaveArea.cpp">
+      <Filter>Areas\Cave</Filter>
+    </ClCompile>
+    <ClCompile Include="Cave\CaveModelPart1.cpp">
+      <Filter>Areas\Cave\Models</Filter>
+    </ClCompile>
+    <ClCompile Include="Cave\CaveZone1.cpp">
+      <Filter>Areas\Cave\Zones</Filter>
+    </ClCompile>
+    <ClCompile Include="Outside\OutSideArea.cpp">
+      <Filter>Areas\Outside</Filter>
+    </ClCompile>
+    <ClCompile Include="Outside\zone1.cpp">
+      <Filter>Areas\Outside\Zones</Filter>
+    </ClCompile>
+    <ClCompile Include="Models\WaterModel2.cpp">
+      <Filter>Models</Filter>
+    </ClCompile>
+    <ClCompile Include="RootSignatures.cpp">
+      <Filter>RootSignatures</Filter>
+    </ClCompile>
+    <ClCompile Include="Areas.cpp">
+      <Filter>Areas</Filter>
+    </ClCompile>
+    <ClCompile Include="AmbientMusic.cpp">
+      <Filter>Sound</Filter>
+    </ClCompile>
+    <ClCompile Include="PipelineStateObjects.cpp">
+      <Filter>PipelineStateObjects</Filter>
+    </ClCompile>
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="Assets.cpp">
+      <Filter>Assets</Filter>
+    </ClCompile>
+    <ClCompile Include="TextureNames.cpp">
+      <Filter>Textures</Filter>
+    </ClCompile>
+    <ClCompile Include="UserInterface\UserInterface.cpp">
+      <Filter>UserInterface</Filter>
+    </ClCompile>
+    <ClCompile Include="UserInterface\Sentences\CPUUsageSentence.cpp">
+      <Filter>UserInterface\Sentences</Filter>
+    </ClCompile>
+    <ClCompile Include="UserInterface\Sentences\FPSSentence.cpp">
+      <Filter>UserInterface\Sentences</Filter>
+    </ClCompile>
+    <ClCompile Include="UserInterface\Sentences\RenderCountSentence.cpp">
+      <Filter>UserInterface\Sentences</Filter>
+    </ClCompile>
+    <ClCompile Include="AmbientMusic.cpp">
+      <Filter>AmbientMusic</Filter>
+    </ClCompile>
+    <ClCompile Include="AmbientMusic.cpp" />
+    <ClCompile Include="Executor.cpp">
+      <Filter>Executor\Executor</Filter>
+    </ClCompile>
+    <ClCompile Include="MainExecutor.cpp">
+      <Filter>Executor\MainExecutor</Filter>
+    </ClCompile>
+    <ClCompile Include="PrimaryExecutor.cpp">
+      <Filter>Executor\PrimaryExecutor</Filter>
+    </ClCompile>
+    <ClCompile Include="BackgroundExecutor.cpp">
+      <Filter>Executor\BackgroundExecutor</Filter>
+    </ClCompile>
+    <ClCompile Include="AmbientMusic.cpp">
+      <Filter>AmbientMusic</Filter>
+    </ClCompile>
+    <ClCompile Include="MeshNames.cpp">
+      <Filter>Meshes</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Cave\CaveArea.h">
+      <Filter>Areas\Cave</Filter>
+    </ClInclude>
+    <ClInclude Include="Cave\CaveModelPart1.h">
+      <Filter>Areas\Cave\Models</Filter>
+    </ClInclude>
+    <ClInclude Include="Cave\CaveZone1.h">
+      <Filter>Areas\Cave\Zones</Filter>
+    </ClInclude>
+    <ClInclude Include="Outside\OutSideArea.h">
+      <Filter>Areas\Outside</Filter>
+    </ClInclude>
+    <ClInclude Include="Outside\zone1.h">
+      <Filter>Areas\Outside\Zones</Filter>
+    </ClInclude>
+    <ClInclude Include="Models\BathModel2.h">
+      <Filter>Models</Filter>
+    </ClInclude>
+    <ClInclude Include="Models\GroundModel2.h">
+      <Filter>Models</Filter>
+    </ClInclude>
+    <ClInclude Include="Models\IceModel2.h">
+      <Filter>Models</Filter>
+    </ClInclude>
+    <ClInclude Include="Models\WallModel2.h">
+      <Filter>Models</Filter>
+    </ClInclude>
+    <ClInclude Include="Models\WaterModel2.h">
+      <Filter>Models</Filter>
+    </ClInclude>
+    <ClInclude Include="RootSignatures.h">
+      <Filter>RootSignatures</Filter>
+    </ClInclude>
+    <ClInclude Include="Areas.h">
+      <Filter>Areas</Filter>
+    </ClInclude>
+    <ClInclude Include="AmbientMusic.h">
+      <Filter>Sound</Filter>
+    </ClInclude>
+    <ClInclude Include="PipelineStateObjects.h">
+      <Filter>PipelineStateObjects</Filter>
+    </ClInclude>
+    <ClInclude Include="Assets.h">
+      <Filter>Assets</Filter>
+    </ClInclude>
+    <ClInclude Include="TextureNames.h">
+      <Filter>Textures</Filter>
+    </ClInclude>
+    <ClInclude Include="UserInterface\UserInterface.h">
+      <Filter>UserInterface</Filter>
+    </ClInclude>
+    <ClInclude Include="UserInterface\Sentences\CPUUsageSentence.h">
+      <Filter>UserInterface\Sentences</Filter>
+    </ClInclude>
+    <ClInclude Include="UserInterface\Sentences\FPSSentence.h">
+      <Filter>UserInterface\Sentences</Filter>
+    </ClInclude>
+    <ClInclude Include="UserInterface\Sentences\RenderCountSentence.h">
+      <Filter>UserInterface\Sentences</Filter>
+    </ClInclude>
+    <ClInclude Include="AmbientMusic.h">
+      <Filter>AmbientMusic</Filter>
+    </ClInclude>
+    <ClInclude Include="AmbientMusic.h" />
+    <ClInclude Include="Executor.h">
+      <Filter>Executor\Executor</Filter>
+    </ClInclude>
+    <ClInclude Include="MainExecutor.h">
+      <Filter>Executor\MainExecutor</Filter>
+    </ClInclude>
+    <ClInclude Include="PrimaryExecutor.h">
+      <Filter>Executor\PrimaryExecutor</Filter>
+    </ClInclude>
+    <ClInclude Include="BackgroundExecutor.h">
+      <Filter>Executor\BackgroundExecutor</Filter>
+    </ClInclude>
+    <ClInclude Include="AmbientMusic.h">
+      <Filter>AmbientMusic</Filter>
+    </ClInclude>
+    <ClInclude Include="MeshNames.h">
+      <Filter>Meshes</Filter>
+    </ClInclude>
+    <ClInclude Include="TestZone.h">
+      <Filter>Areas\Outside\Zones</Filter>
+    </ClInclude>
+    <ClInclude Include="HighResPlane.h">
+      <Filter>Areas\Outside\Models</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderPass1.h" />
+    <ClInclude Include="Models\FireModel.h">
+      <Filter>Models</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Meshes\bath.mesh">
+      <Filter>Meshes</Filter>
+    </None>
+    <None Include="Meshes\cube.mesh">
+      <Filter>Meshes</Filter>
+    </None>
+    <None Include="Meshes\highResMesh1.mesh">
+      <Filter>Meshes</Filter>
+    </None>
+    <None Include="Meshes\plane1.mesh">
+      <Filter>Meshes</Filter>
+    </None>
+    <None Include="Meshes\sphere.mesh">
+      <Filter>Meshes</Filter>
+    </None>
+    <None Include="Meshes\square.mesh">
+      <Filter>Meshes</Filter>
+    </None>
+    <None Include="Meshes\squareWithNormals.mesh">
+      <Filter>Meshes</Filter>
+    </None>
+    <None Include="Meshes\wall.mesh">
+      <Filter>Meshes</Filter>
+    </None>
+    <None Include="Meshes\water.mesh">
+      <Filter>Meshes</Filter>
+    </None>
+    <None Include="Arial.fnt">
+      <Filter>Fonts</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="Textures\alpha01.dds">
+      <Filter>Textures</Filter>
+    </Image>
+    <Image Include="Textures\aluminium01.dds">
+      <Filter>Textures</Filter>
+    </Image>
+    <Image Include="Textures\Arial.dds">
+      <Filter>Textures</Filter>
+    </Image>
+    <Image Include="Textures\Arial.png">
+      <Filter>Textures</Filter>
+    </Image>
+    <Image Include="Textures\blue01.dds">
+      <Filter>Textures</Filter>
+    </Image>
+    <Image Include="Textures\braynzar.jpg">
+      <Filter>Textures</Filter>
+    </Image>
+    <Image Include="Textures\bump01.dds">
+      <Filter>Textures</Filter>
+    </Image>
+    <Image Include="Textures\bump02.dds">
+      <Filter>Textures</Filter>
+    </Image>
+    <Image Include="Textures\bump03.dds">
+      <Filter>Textures</Filter>
+    </Image>
+    <Image Include="Textures\dirt01.dds">
+      <Filter>Textures</Filter>
+    </Image>
+    <Image Include="Textures\fire01.dds">
+      <Filter>Textures</Filter>
+    </Image>
+    <Image Include="Textures\firealpha01.dds">
+      <Filter>Textures</Filter>
+    </Image>
+    <Image Include="Textures\firenoise01.dds">
+      <Filter>Textures</Filter>
+    </Image>
+    <Image Include="Textures\font.dds">
+      <Filter>Textures</Filter>
+    </Image>
+    <Image Include="Textures\glass01.dds">
+      <Filter>Textures</Filter>
+    </Image>
+    <Image Include="Textures\ground01.dds">
+      <Filter>Textures</Filter>
+    </Image>
+    <Image Include="Textures\ice01.dds">
+      <Filter>Textures</Filter>
+    </Image>
+    <Image Include="Textures\icebump01.dds">
+      <Filter>Textures</Filter>
+    </Image>
+    <Image Include="Textures\light01.dds">
+      <Filter>Textures</Filter>
+    </Image>
+    <Image Include="Textures\marble01.dds">
+      <Filter>Textures</Filter>
+    </Image>
+    <Image Include="Textures\seafloor.dds">
+      <Filter>Textures</Filter>
+    </Image>
+    <Image Include="Textures\spec02.dds">
+      <Filter>Textures</Filter>
+    </Image>
+    <Image Include="Textures\stone01.dds">
+      <Filter>Textures</Filter>
+    </Image>
+    <Image Include="Textures\stone02.dds">
+      <Filter>Textures</Filter>
+    </Image>
+    <Image Include="Textures\stone04.dds">
+      <Filter>Textures</Filter>
+    </Image>
+    <Image Include="Textures\wall01.dds">
+      <Filter>Textures</Filter>
+    </Image>
+    <Image Include="Textures\water01.dds">
+      <Filter>Textures</Filter>
+    </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <Media Include="sound01.wav">
+      <Filter>Sound</Filter>
+    </Media>
+    <Media Include="sound02.wav">
+      <Filter>Sound</Filter>
+    </Media>
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="Shaders\AlphaMapPS.hlsl">
+      <Filter>Shaders\Pixel</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\AmbientAndDirectionalLightPS.hlsl">
+      <Filter>Shaders\Pixel</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\BaseColorTexturePS.hlsl">
+      <Filter>Shaders\Pixel</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\BumpMapPS.hlsl">
+      <Filter>Shaders\Pixel</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\BumpMapVS.hlsl">
+      <Filter>Shaders\Vertex</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\FadePS.hlsl">
+      <Filter>Shaders\Pixel</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\FogPS.hlsl">
+      <Filter>Shaders\Pixel</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\FogVS.hlsl">
+      <Filter>Shaders\Vertex</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\HorizontalBlurPS.hlsl">
+      <Filter>Shaders\Pixel</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\LightMapPS.hlsl">
+      <Filter>Shaders\Pixel</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\MultiTexturePS.hlsl">
+      <Filter>Shaders\Pixel</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\palphamap.hlsl">
+      <Filter>Shaders\Pixel</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\pbumpmap.hlsl">
+      <Filter>Shaders\Pixel</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\pclipplane.hlsl">
+      <Filter>Shaders\Pixel</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\pcolor.hlsl">
+      <Filter>Shaders\Pixel</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\PerVertexColorPS.hlsl">
+      <Filter>Shaders\Pixel</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\PerVertexColorVS.hlsl">
+      <Filter>Shaders\Vertex</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\pfade.hlsl">
+      <Filter>Shaders\Pixel</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\pfire.hlsl">
+      <Filter>Shaders\Pixel</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\pfog.hlsl">
+      <Filter>Shaders\Pixel</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\pfont.hlsl">
+      <Filter>Shaders\Pixel</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\pglass.hlsl">
+      <Filter>Shaders\Pixel</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\plight.hlsl">
+      <Filter>Shaders\Pixel</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\plight2.hlsl">
+      <Filter>Shaders\Pixel</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\plightmap.hlsl">
+      <Filter>Shaders\Pixel</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\pmultitexture.hlsl">
+      <Filter>Shaders\Pixel</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\PointLightPS.hlsl">
+      <Filter>Shaders\Pixel</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\PointLightVS.hlsl">
+      <Filter>Shaders\Vertex</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\preflection.hlsl">
+      <Filter>Shaders\Pixel</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\prefraction.hlsl">
+      <Filter>Shaders\Pixel</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\pspecmap.hlsl">
+      <Filter>Shaders\Pixel</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\ptexture.hlsl">
+      <Filter>Shaders\Pixel</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\ptranslate.hlsl">
+      <Filter>Shaders\Pixel</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\ptransparent.hlsl">
+      <Filter>Shaders\Pixel</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\pwater.hlsl">
+      <Filter>Shaders\Pixel</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\SpecularMapPS.hlsl">
+      <Filter>Shaders\Pixel</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\SpecularMapVS.hlsl">
+      <Filter>Shaders\Vertex</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\TextPS.hlsl">
+      <Filter>Shaders\Pixel</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\TextureVS.hlsl">
+      <Filter>Shaders\Vertex</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\TextVS.hlsl">
+      <Filter>Shaders\Vertex</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\valphamap.hlsl">
+      <Filter>Shaders\Vertex</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\vbumpmap.hlsl">
+      <Filter>Shaders\Vertex</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\vclipplane.hlsl">
+      <Filter>Shaders\Vertex</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\vcolor.hlsl">
+      <Filter>Shaders\Vertex</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\vbasic1.hlsl">
+      <Filter>Shaders\Vertex</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\VerticalBlurPS.hlsl">
+      <Filter>Shaders\Pixel</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\vreflection.hlsl">
+      <Filter>Shaders\Vertex</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\vrefraction.hlsl">
+      <Filter>Shaders\Vertex</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\vspecmap.hlsl">
+      <Filter>Shaders\Vertex</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\vtexture.hlsl">
+      <Filter>Shaders\Vertex</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\vtranslate.hlsl">
+      <Filter>Shaders\Vertex</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\vtransparent.hlsl">
+      <Filter>Shaders\Vertex</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\vwater.hlsl">
+      <Filter>Shaders\Vertex</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\vfade.hlsl">
+      <Filter>Shaders\Vertex</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\vfire.hlsl">
+      <Filter>Shaders\Vertex</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\vfog.hlsl">
+      <Filter>Shaders\Vertex</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\vfont.hlsl">
+      <Filter>Shaders\Vertex</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\vglass.hlsl">
+      <Filter>Shaders\Vertex</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\vlight.hlsl">
+      <Filter>Shaders\Vertex</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\vlight2.hlsl">
+      <Filter>Shaders\Vertex</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\vlightmap.hlsl">
+      <Filter>Shaders\Vertex</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\vmultitexture.hlsl">
+      <Filter>Shaders\Vertex</Filter>
+    </FxCompile>
+    <FxCompile Include="StandardPS.hlsl">
+      <Filter>Shaders\Pixel</Filter>
+    </FxCompile>
+  </ItemGroup>
+</Project>

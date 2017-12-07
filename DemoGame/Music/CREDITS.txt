@@ -1,0 +1,14 @@
+Title:
+    Heroic Demise [Updated Version]
+
+Author:
+    Matthew Pablo
+
+URL:
+    http://opengameart.org/content/heroic-demise-updated-version
+
+License(s):
+    * CC-BY 3.0 ( http://creativecommons.org/licenses/by/3.0/legalcode )
+
+File(s):
+    * Heroic Demise (New).mp3
