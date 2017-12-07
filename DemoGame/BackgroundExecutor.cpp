@@ -62,11 +62,11 @@ void BackgroundExecutor::getIntoCorrectStateAfterDoingBackgroundJob()
 
 			if (assets->isFirstWorkStealingDecks())
 			{
-				currentWorkStealingDeque = &workStealDeques[1u];
+				currentWorkStealingDeque = &workStealDeques[0u];
 			}
 			else
 			{
-				currentWorkStealingDeque = &workStealDeques[0u];
+				currentWorkStealingDeque = &workStealDeques[1u];
 			}
 			lock.unlock();
 		}
@@ -76,11 +76,11 @@ void BackgroundExecutor::getIntoCorrectStateAfterDoingBackgroundJob()
 
 			if (assets->isFirstWorkStealingDecks())
 			{
-				currentWorkStealingDeque = &workStealDeques[1u];
+				currentWorkStealingDeque = &workStealDeques[0u];
 			}
 			else
 			{
-				currentWorkStealingDeque = &workStealDeques[0u];
+				currentWorkStealingDeque = &workStealDeques[1u];
 			}
 			lock.unlock();
 
@@ -94,11 +94,11 @@ void BackgroundExecutor::getIntoCorrectStateAfterDoingBackgroundJob()
 
 		if (assets->isFirstWorkStealingDecks())
 		{
-			currentWorkStealingDeque = &workStealDeques[1u];
+			currentWorkStealingDeque = &workStealDeques[0u];
 		}
 		else
 		{
-			currentWorkStealingDeque = &workStealDeques[0u];
+			currentWorkStealingDeque = &workStealDeques[1u];
 		}
 		lock.unlock();
 	}

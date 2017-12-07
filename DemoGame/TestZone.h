@@ -21,7 +21,7 @@ class TestZoneFunctions
 		constexpr static unsigned int numTextures = 1u;
 		constexpr static unsigned int numComponents = 3u;
 
-		static void callback(void* requester, BaseExecutor* executor)
+		static void componentUploaded(void* requester, BaseExecutor* executor)
 		{
 			const auto zone = reinterpret_cast<BaseZone* const>(requester);
 			BaseZone::componentUploaded<BaseZone::high, HDResources::numComponents>(zone, executor, ((HDResources*)zone->nextResources)->numComponentsLoaded);
@@ -66,9 +66,9 @@ class TestZoneFunctions
 			return resourceDesc;
 		}(), D3D12_RESOURCE_STATE_GENERIC_READ, nullptr)
 		{
-			unsigned int stone04 = TextureManager::loadTexture(TextureNames::stone04, zone, executor, callback);
+			unsigned int stone04 = TextureManager::loadTexture(TextureNames::stone04, zone, executor, componentUploaded);
 
-			MeshManager::loadMeshWithPositionTextureNormal(MeshNames::HighResMesh1, zone, executor, callback, &meshes[0]);
+			MeshManager::loadMeshWithPositionTextureNormal(MeshNames::HighResMesh1, zone, executor, componentUploaded, &meshes[0]);
 
 			uint8_t* perObjectConstantBuffersCpuAddress;
 			D3D12_RANGE readRange{ 0u, 0u };
@@ -126,23 +126,12 @@ class TestZoneFunctions
 			}
 		}
 
-		static void staticLoad(void*const zone1, BaseExecutor*const executor)
+		static void create(void*const zone1, BaseExecutor*const executor)
 		{
 			const auto zone = reinterpret_cast<BaseZone*const>(zone1);
-			try
-			{
-				zone->nextResources = new HDResources(executor, zone);
-				callback(zone, executor);
-			}
-			catch (...)
-			{
-				if (zone->nextResources)
-				{
-					delete (HDResources*)zone->nextResources;
-					zone->nextResources = nullptr;
-				}
-				throw;
-			}
+			zone->nextResources = malloc(sizeof(HDResources));
+			new(zone->nextResources) HDResources(executor, zone);
+			componentUploaded(zone, executor);
 		}
 
 		void destruct(BaseExecutor*const executor)
@@ -212,7 +201,7 @@ class TestZoneFunctions
 public:
 	static void loadHighDetailJobs(BaseZone* zone, BaseExecutor* const executor)
 	{
-		executor->sharedResources->backgroundQueue.push(Job(zone, &HDResources::staticLoad));
+		executor->sharedResources->backgroundQueue.push(Job(zone, &HDResources::create));
 	}
 	static void loadMediumDetailJobs(BaseZone* zone, BaseExecutor* const executor)
 	{
@@ -228,7 +217,9 @@ public:
 		executor->sharedResources->backgroundQueue.push(Job(zone, [](void*const zone1, BaseExecutor*const executor)
 		{
 			const auto zone = reinterpret_cast<BaseZone*const>(zone1);
-			delete reinterpret_cast<HDResources*>(zone->nextResources);
+			const auto resource = reinterpret_cast<HDResources*>(zone->nextResources);
+			resource->~HDResources();
+			free(zone->nextResources);
 			zone->nextResources = nullptr;
 			zone->lastComponentUnloaded<BaseZone::high>(executor);
 		}));

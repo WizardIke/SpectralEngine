@@ -70,12 +70,14 @@ public:
 			else if (levelOfDetail == medium)
 			{
 				levelOfDetail = high;
+				std::swap(currentResources, nextResources);
 				loadingMutex.unlock();
 				unloadMediumDetail(executor);
 			}
 			else if (levelOfDetail == low)
 			{
 				levelOfDetail = high;
+				std::swap(currentResources, nextResources);
 				loadingMutex.unlock();
 				unloadLowDetail(executor);
 			}
@@ -85,17 +87,22 @@ public:
 				if (nextLevelOfDetail == high)
 				{
 					transitioning = false;
+					std::swap(currentResources, nextResources);
 					loadingMutex.unlock();
 					start(executor);
 				}
 				else if (nextLevelOfDetail == medium)
 				{
+					std::swap(currentResources, nextResources);
 					loadingMutex.unlock();
+					start(executor);
 					loadMediumDetail(executor);
 				}
 				else //else if (nextLevelOfDetail == low) //nextLevelOfDetail == none has already been handled
 				{
+					std::swap(currentResources, nextResources);
 					loadingMutex.unlock();
+					start(executor);
 					loadLowDetail(executor);
 				}
 			}
@@ -111,12 +118,14 @@ public:
 			else if (levelOfDetail == high)
 			{
 				levelOfDetail = medium;
+				std::swap(currentResources, nextResources);
 				loadingMutex.unlock();
 				unloadHighDetail(executor);
 			}
 			else if (levelOfDetail == low)
 			{
 				levelOfDetail = medium;
+				std::swap(currentResources, nextResources);
 				loadingMutex.unlock();
 				unloadLowDetail(executor);
 			}
@@ -126,16 +135,19 @@ public:
 				if (nextLevelOfDetail == medium)
 				{
 					transitioning = false;
+					std::swap(currentResources, nextResources);
 					loadingMutex.unlock();
 					start(executor);
 				}
 				else if (nextLevelOfDetail == high)
 				{
+					std::swap(currentResources, nextResources);
 					loadingMutex.unlock();
 					loadHighDetail(executor);
 				}
 				else //else if (nextLevelOfDetail == low) //nextLevelOfDetail == none has already been handled
 				{
+					std::swap(currentResources, nextResources);
 					loadingMutex.unlock();
 					loadLowDetail(executor);
 				}
@@ -152,12 +164,14 @@ public:
 			else if (levelOfDetail == high)
 			{
 				levelOfDetail = low;
+				std::swap(currentResources, nextResources);
 				loadingMutex.unlock();
 				unloadHighDetail(executor);
 			}
 			else if (levelOfDetail == medium)
 			{
 				levelOfDetail = low;
+				std::swap(currentResources, nextResources);
 				loadingMutex.unlock();
 				unloadMediumDetail(executor);
 			}
@@ -167,16 +181,19 @@ public:
 				if (nextLevelOfDetail == low)
 				{
 					transitioning = false;
+					std::swap(currentResources, nextResources);
 					loadingMutex.unlock();
 					start(executor);
 				}
 				else if (nextLevelOfDetail == high)
 				{
 					loadingMutex.unlock();
+					std::swap(currentResources, nextResources);
 					loadHighDetail(executor);
 				}
 				else //else if (nextLevelOfDetail == medium) //nextLevelOfDetail == unloaded has already been handled
 				{
+					std::swap(currentResources, nextResources);
 					loadingMutex.unlock();
 					loadMediumDetail(executor);
 				}
