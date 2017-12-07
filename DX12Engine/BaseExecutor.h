@@ -29,7 +29,6 @@ protected:
 
 	void doPrimaryJob();
 	void runBackgroundJobs(Job job);
-	void swapWorkStealingDeques();
 
 #ifndef NDEBUG
 	std::string type;
@@ -84,10 +83,10 @@ public:
 			{
 				if (sharedResources->numThreadsThatHaveFinished / sharedResources->maxThreads == sharedResources->maxThreads + 1u)
 				{
-					std::swap(sharedResources->currentWorkStealingQueues, sharedResources->nextWorkStealingQueues);
 					sharedResources->nextPhaseJob = update1NextPhaseJob;
 
-					swapWorkStealingDeques();
+					sharedResources->currentWorkStealingQueues = &sharedResources->workStealingQueues[0u];
+					currentWorkStealingDeque = &workStealDeques[0u];
 				}
 
 				sharedResources->numThreadsThatHaveFinished = 0u;

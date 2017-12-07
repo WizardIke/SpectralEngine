@@ -32,20 +32,19 @@ public:
 		0u : (std::thread::hardware_concurrency()) - 1u - (maxBackgroundThreads);
 
 	const unsigned int maxThreads = std::thread::hardware_concurrency() > 1u ? std::thread::hardware_concurrency() : 2u;
+	unsigned int numPrimaryJobExeThreads; //not thread safe
 
 	std::mutex syncMutex; //thread safe
 	std::condition_variable conditionVariable; //thread safe
-	unsigned int numPrimaryJobExeThreads; //not thread safe
+	unsigned int numThreadsThatHaveFinished = 0u; //not thread safe
+	unsigned int generation = 0u; //not thread safe
+
 	Window window;
 	D3D12GraphicsEngine graphicsEngine;
 
 	std::unique_ptr<WorkStealingStackReference<Job>[]> workStealingQueues;
-	unsigned int numThreadsThatHaveFinished = 0u; //not thread safe
-	unsigned int generation = 0u; //not thread safe
-
 	Queue<Job> backgroundQueue; //thread safe
 	WorkStealingStackReference<Job>* currentWorkStealingQueues;
-	WorkStealingStackReference<Job>* nextWorkStealingQueues;
 
 	void(*nextPhaseJob)(BaseExecutor* executor, std::unique_lock<std::mutex>&& lock);
 
@@ -58,7 +57,7 @@ public:
 	InputManager inputManager;
 	PlayerPosition playerPosition;
 
-	bool isFirstWorkStealingDecks()
+	bool isUpdate1()
 	{
 		return currentWorkStealingQueues == workStealingQueues.get();
 	}

@@ -15,7 +15,6 @@ SharedResources::SharedResources(BaseExecutor* mainExecutor, bool fullScreen, bo
 	textureManager(),
 	backgroundQueue(backgroundQueueStartingLength),
 	workStealingQueues(new WorkStealingStackReference<Job>[(maxThreads) * 2u]),
-	nextWorkStealingQueues(&workStealingQueues[0u]),
 	currentWorkStealingQueues(&workStealingQueues[maxThreads]),
 	nextPhaseJob([](BaseExecutor* executor, std::unique_lock<std::mutex>&& lock)
 	{

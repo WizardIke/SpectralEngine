@@ -42,6 +42,7 @@ void BackgroundExecutor::update2(std::unique_lock<std::mutex>&& lock)
 	else
 	{
 		lock.unlock();
+		currentWorkStealingDeque = &updateJobQueue();
 		vRamFreeingManager.update(this);
 		streamingManager.update(this);
 	}
@@ -60,28 +61,14 @@ void BackgroundExecutor::getIntoCorrectStateAfterDoingBackgroundJob()
 
 			++(assets->numPrimaryJobExeThreads);
 
-			if (assets->isFirstWorkStealingDecks())
-			{
-				currentWorkStealingDeque = &workStealDeques[0u];
-			}
-			else
-			{
-				currentWorkStealingDeque = &workStealDeques[1u];
-			}
+			currentWorkStealingDeque = &updateJobQueue();
 			lock.unlock();
 		}
 		else
 		{
 			++(assets->numPrimaryJobExeThreads);
 
-			if (assets->isFirstWorkStealingDecks())
-			{
-				currentWorkStealingDeque = &workStealDeques[0u];
-			}
-			else
-			{
-				currentWorkStealingDeque = &workStealDeques[1u];
-			}
+			currentWorkStealingDeque = &renderJobQueue();
 			lock.unlock();
 
 			renderPass.update1After(this, assets->renderPass, assets->rootSignatures.rootSignature, 1u);
@@ -92,14 +79,7 @@ void BackgroundExecutor::getIntoCorrectStateAfterDoingBackgroundJob()
 	{
 		++(assets->numPrimaryJobExeThreads);
 
-		if (assets->isFirstWorkStealingDecks())
-		{
-			currentWorkStealingDeque = &workStealDeques[0u];
-		}
-		else
-		{
-			currentWorkStealingDeque = &workStealDeques[1u];
-		}
+		currentWorkStealingDeque = &updateJobQueue();
 		lock.unlock();
 	}
 }

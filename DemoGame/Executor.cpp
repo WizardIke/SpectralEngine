@@ -17,7 +17,7 @@ void Executor::update1(std::unique_lock<std::mutex>&& lock)
 	if (sharedResources->numThreadsThatHaveFinished == sharedResources->maxPrimaryThreads + sharedResources->numPrimaryJobExeThreads)
 	{
 		assets->renderPass.update1(assets->graphicsEngine);
-		std::swap(sharedResources->currentWorkStealingQueues, sharedResources->nextWorkStealingQueues);
+		sharedResources->currentWorkStealingQueues = &sharedResources->workStealingQueues[sharedResources->maxThreads];
 
 		sharedResources->nextPhaseJob = update2NextPhaseJob;
 		sharedResources->numThreadsThatHaveFinished = 0u;
@@ -32,7 +32,7 @@ void Executor::update1(std::unique_lock<std::mutex>&& lock)
 		lock.unlock();
 	}
 	
-	swapWorkStealingDeques();
+	currentWorkStealingDeque = &workStealDeques[1u];
 	renderPass.update1After(this, assets->renderPass, assets->rootSignatures.rootSignature, oldIndex);
 }
 
@@ -49,7 +49,7 @@ void Executor::update2(std::unique_lock<std::mutex>&& lock)
 	sharedResources->conditionVariable.wait(lock, [&generation = sharedResources->generation, gen = sharedResources->generation]() {return gen != generation; });
 	lock.unlock();
 
-	swapWorkStealingDeques();
+	currentWorkStealingDeque = &workStealDeques[0u];
 	vRamFreeingManager.update(this);
 	streamingManager.update(this);
 }

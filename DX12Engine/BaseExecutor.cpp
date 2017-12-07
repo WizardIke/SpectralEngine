@@ -18,18 +18,6 @@ BaseExecutor::BaseExecutor(SharedResources* const sharedResources, unsigned long
 
 BaseExecutor::~BaseExecutor() {}
 
-void BaseExecutor::swapWorkStealingDeques()
-{
-	if (currentWorkStealingDeque == &workStealDeques[0u])
-	{
-		currentWorkStealingDeque = &workStealDeques[1u];
-	}
-	else
-	{
-		currentWorkStealingDeque = &workStealDeques[0u];
-	}
-}
-
 void BaseExecutor::quit(BaseExecutor* exe, std::unique_lock<std::mutex>&& lock)
 {
 	const auto sharedResources = exe->sharedResources;

@@ -17,13 +17,13 @@ void MainExecutor::update2(std::unique_lock<std::mutex>&& lock)
 	assets->nextPhaseJob = update1NextPhaseJob;
 	renderPass.update2LastThread(this, assets->renderPass, assets->numThreadsThatHaveFinished);
 	assets->numThreadsThatHaveFinished = 0u;
-	++(assets->generation);
-	std::swap(assets->currentWorkStealingQueues, assets->nextWorkStealingQueues);
+	assets->currentWorkStealingQueues = &assets->workStealingQueues[0u];
 	assets->update(this);
+	++(assets->generation);
 	lock.unlock();
 	assets->conditionVariable.notify_all();
 
-	swapWorkStealingDeques();
+	currentWorkStealingDeque = &workStealDeques[0u];
 	vRamFreeingManager.update(this);
 	streamingManager.update(this);
 }
