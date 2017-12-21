@@ -56,11 +56,11 @@ public:
 		mCameras.pop_back();
 	}
 
-	bool isInView(const Frustum& frustum) const
+	bool isInView(const BaseExecutor* executor) const
 	{
 		for (auto& camera : mCameras)
 		{
-			if (camera->isInView(frustum))
+			if (camera->isInView(executor))
 			{
 				return true;
 			}
@@ -142,10 +142,9 @@ public:
 			resetCommandLists(frameIndex);
 			bindRootArguments(rootSignature, executor->sharedResources->graphicsEngine.mainDescriptorHeap);
 
-			auto& mainFrustum = executor->sharedResources->mainFrustum;
 			for (auto& camera : renderSubPass.cameras())
 			{
-				if (camera->isInView(mainFrustum))
+				if (camera->isInView(executor))
 				{
 					camera->bind(executor->sharedResources, &currentData->commandLists[0u].get(),
 						&currentData->commandLists.data()[currentData->commandLists.size()].get());
@@ -162,10 +161,9 @@ public:
 
 			currentData->commandLists[0u]->ResourceBarrier(barrierCount, barriers);
 
-			auto& mainFrustum = executor->sharedResources->mainFrustum;
 			for (auto& camera : renderSubPass.cameras())
 			{
-				if (camera->isInView(mainFrustum))
+				if (camera->isInView(executor))
 				{
 					camera->bindFirstThread(executor->sharedResources, &currentData->commandLists[0u].get(),
 						&currentData->commandLists.data()[currentData->commandLists.size()].get());
@@ -180,10 +178,9 @@ public:
 			resetCommandLists(frameIndex);
 			bindRootArguments(rootSignature, executor->sharedResources->graphicsEngine.mainDescriptorHeap);
 
-			auto& mainFrustum = executor->sharedResources->mainFrustum;
 			for (auto& camera : renderSubPass.cameras())
 			{
-				if (camera->isInView(mainFrustum))
+				if (camera->isInView(executor))
 				{
 					camera->bindFirstThread(executor->sharedResources, &currentData->commandLists[0u].get(),
 						&currentData->commandLists.data()[currentData->commandLists.size()].get());
@@ -230,7 +227,7 @@ public:
 	using DependencyStates = DependencyStates_t;
 	constexpr static auto commandListsPerFrame = 0u;
 
-	static bool isInView(const Frustum& frustum)
+	static bool isInView(const BaseExecutor* executor)
 	{
 		return true;
 	}
@@ -259,7 +256,7 @@ public:
 template<class RenderSubPass_t>
 class RenderSubPassGroup
 {
-	std::vector<RenderSubPass_t> subPasses;
+	std::vector<RenderSubPass_t> mSubPasses;
 
 	template<class Camera, class CameraIterator, class SubPassIterator>
 	class Iterator
@@ -270,6 +267,11 @@ class RenderSubPassGroup
 		Iterator(SubPassIterator iterator, CameraIterator current) : iterator(iterator), current(current) {}
 		Iterator(SubPassIterator iterator) : iterator(iterator), current(iterator->cameras().begin()) {}
 	public:
+		using value_type = Camera;
+		using difference_type = typename std::iterator_traits<Camera*>::difference_type;
+		using pointer = typename std::iterator_traits<Camera*>::pointer;
+		using reference = typename std::iterator_traits<Camera*>::reference;
+		using iterator_category = std::forward_iterator_tag;
 		Iterator& operator++()
 		{
 			++current;
@@ -322,46 +324,65 @@ public:
 
 	Iterable<CameraIterator> cameras()
 	{
-		return { CameraIterator(subPasses.begin()), CameraIterator(subPasses.end()) };
+		return { CameraIterator(mSubPasses.begin()), CameraIterator(mSubPasses.end()) };
 	}
 
 	Iterable<ConstCameraIterator> cameras() const
 	{
-		return { ConstCameraIterator(subPasses.begin()), ConstCameraIterator(subPasses.end()) };
+		return { ConstCameraIterator(mSubPasses.begin()), ConstCameraIterator(mSubPasses.end()) };
 	}
 
 	unsigned int cameraCount() const noexcept
 	{
 		unsigned int count = 0u;
-		for (auto& subPass : subPasses)
+		for (auto& subPass : mSubPasses)
 		{
 			count += subPass.cameraCount();
 		}
 		return count;
 	}
 
-	template<class RenderPass>
-	void addSubPass(BaseExecutor* const executor, RenderPass& renderPass)
+	Iterable<typename std::vector<RenderSubPass_t>::iterator> subPasses()
 	{
-		std::lock_guard<decltype(executor->sharedResources->syncMutex)> lock(executor->sharedResources->syncMutex);
-		subPasses.emplace_back(executor);
-		renderPass.updateBarrierCount();
+		return {mSubPasses};
 	}
 
-	void removeSubPass(BaseExecutor* const executor, RenderSubPass_t* subPass)
+	template<class RenderPass, class SubPasses>
+	SubPass& addSubPass(BaseExecutor* const executor, RenderPass& renderPass, SubPasses subPasses)
+	{
+		std::lock_guard<decltype(executor->sharedResources->syncMutex)> lock(executor->sharedResources->syncMutex);
+		mSubPasses.emplace_back(executor);
+		auto end = subPasses.end();
+		for (auto start = subPasses.begin(); start != end; ++start)
+		{
+			start->addSubPass(executor);
+		}
+		renderPass.updateBarrierCount();
+		return *(--mSubPasses.end());
+	}
+
+	template<class SubPasses>
+	void removeSubPass(BaseExecutor* const executor, SubPass* subPass, SubPasses subPasses)
 	{
 		using std::swap; using std::find;
 		std::lock_guard<decltype(executor->sharedResources->syncMutex)> lock(executor->sharedResources->syncMutex);
-		auto pos = find(subPasses.begin(), subPasses.end(), subPass);
-		swap(*pos, *subPasses.end());
-		subPasses.pop_back();
+		auto pos = find(mSubPasses.begin(), mSubPasses.end(), subPass);
+		auto index = std::distance(mSubPasses.begin(), pos);
+		swap(*pos, *mSubPasses.end());
+		mSubPasses.pop_back();
+
+		auto end = subPasses.end();
+		for (auto start = subPasses.begin(); start != end; ++start)
+		{
+			start->removeSubPass(executor, index);
+		}
 	}
 
-	bool isInView(const Frustum& frustum) const
+	bool isInView(const BaseExecutor* executor) const
 	{
-		for (auto& subPass : subPasses)
+		for (auto& subPass : mSubPasses)
 		{
-			if (subPass.isInView(frustum))
+			if (subPass.isInView(executor))
 			{
 				return true;
 			}
@@ -385,7 +406,7 @@ public:
 		void update1After(BaseExecutor* const executor, RenderSubPassGroup<RenderSubPass_t>& renderSubPassGruop,
 			ID3D12RootSignature* rootSignature)
 		{
-			auto subPass = renderSubPassGruop.subPasses.begin();
+			auto subPass = renderSubPassGruop.mSubPasses.begin();
 			for (auto& subPassLocal : mSubPasses)
 			{
 				subPassLocal.update1After(executor, *subPass, rootSignature);
@@ -396,7 +417,7 @@ public:
 		void update1AfterFirstThread(BaseExecutor* const executor, RenderSubPassGroup<RenderSubPass_t>& renderSubPassGroup,
 			ID3D12RootSignature* rootSignature, uint32_t barrierCount, const D3D12_RESOURCE_BARRIER* barriers)
 		{
-			auto subPass = renderSubPassGroup.subPasses.begin();
+			auto subPass = renderSubPassGroup.mSubPasses.begin();
 			auto subPassLocal = mSubPasses.begin();
 			subPassLocal->update1AfterFirstThread(executor, *subPass, rootSignature, barrierCount, barriers);
 			++subPassLocal;
@@ -426,16 +447,13 @@ public:
 
 		void addSubPass(BaseExecutor* const executor)
 		{
-			std::lock_guard<decltype(executor->sharedResources->syncMutex)> lock(executor->sharedResources->syncMutex);
 			mSubPasses.emplace_back(executor);
 		}
 
-		void removeSubPass(BaseExecutor* const executor, RenderSubPass_t* subPass)
+		void removeSubPass(BaseExecutor* const executor, size_t index)
 		{
-			using std::swap; using std::find;
-			std::lock_guard<decltype(executor->sharedResources->syncMutex)> lock(executor->sharedResources->syncMutex);
-			auto pos = find(mSubPasses.begin(), mSubPasses.end(), subPass);
-			swap(*pos, *mSubPasses.end());
+			using std::swap;
+			swap(mSubPasses[index], *mSubPasses.end());
 			mSubPasses.pop_back();
 		}
 	};

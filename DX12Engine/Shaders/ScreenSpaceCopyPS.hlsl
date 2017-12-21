@@ -13,6 +13,6 @@ struct Input
 
 float4 main(Input input) : SV_TARGET
 {
-	float2 texCoords = (input.xy + 1.f) * 0.5f;
+	float2 texCoords = (input.position.xy + 1.f) * 0.5f;
 	return textures[srcTexture].Sample(biliniarSampler, texCoords);
 }

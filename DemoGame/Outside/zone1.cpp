@@ -34,7 +34,7 @@ namespace
 	{
 		constexpr static unsigned char numMeshes = 6u;
 		constexpr static unsigned char numTextures = 9u;
-		constexpr static unsigned char numComponents = 2u + numTextures + numMeshes;
+		constexpr static unsigned char numComponents = 3u + numTextures + numMeshes;
 		constexpr static unsigned int numRenderTargetTextures = 1u;
 		constexpr static unsigned int numPointLights = 4u;
 
@@ -46,6 +46,11 @@ namespace
 		}
 
 		std::atomic<unsigned char> numComponentsLoaded = 0u;
+
+		static RenderPass1::Local::RenderToTextureSubPassGroup& getRenderToTextureSubPassGroup(Executor& executor)
+		{
+			return executor.renderPass.renderToTextureSubPassGroup();
+		}
 	public:
 		Mesh* meshes[numMeshes];
 		D3D12Resource perObjectConstantBuffers;
@@ -54,6 +59,7 @@ namespace
 		D3D12DescriptorHeap renderTargetTexturesDescriptorHeap;
 		unsigned int shaderResourceViews[numRenderTargetTextures];
 		std::array<Camera, numRenderTargetTextures> reflectionCameras;
+		std::array<RenderPass1::RenderToTextureSubPass*, numRenderTargetTextures> textureTargetTextureSubPasses;
 
 		Light light;
 		PointLight pointLights[numPointLights];
@@ -169,9 +175,6 @@ namespace
 				name += std::to_wstring(i);
 				renderTargetTextures[i]->SetName(name.c_str());
 #endif // _DEBUG
-
-
-				
 			}
 
 			executor->renderJobQueue().push(Job(zone, [](void* zone1, BaseExecutor* executor1)
@@ -190,6 +193,23 @@ namespace
 					renderTargetTextureBariers[i].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
 				}
 				executor->renderPass.colorSubPass().opaqueCommandList()->ResourceBarrier(numRenderTargetTextures, renderTargetTextureBariers);
+				componentUploaded(zone, executor);
+			}));
+
+			executor->updateJobQueue().push(Job(zone, [](void* zone1, BaseExecutor* executor1)
+			{
+				const auto zone = reinterpret_cast<BaseZone*>(zone1);
+				const auto executor = reinterpret_cast<Executor*>(executor1);
+				const auto assets = reinterpret_cast<Assets*>(executor->sharedResources);
+				const auto resource = reinterpret_cast<HDResources*>(zone->nextResources);
+
+				for (auto i = 0u; i < numRenderTargetTextures; ++i)
+				{
+					auto executors = assets->executors();
+					resource->textureTargetTextureSubPasses[i] = &assets->renderPass.renderToTextureSubPassGroup().addSubPass(executor, assets->renderPass,
+						executors.map<RenderPass1::Local::RenderToTextureSubPassGroup, getRenderToTextureSubPassGroup>());
+					resource->textureTargetTextureSubPasses[i]->addCamera(executor, assets->renderPass, &resource->reflectionCameras[i]);
+				}
 				componentUploaded(zone, executor);
 			}));
 
@@ -252,9 +272,10 @@ namespace
 
 			new(&bathModel1) BathModel2(PerObjectConstantBuffersGpuAddress, perObjectConstantBuffersCpuAddress, marble01);
 
-			new(&waterModel) WaterModel2(PerObjectConstantBuffersGpuAddress, perObjectConstantBuffersCpuAddress, shaderResourceViews[0], shaderResourceViews[1], water01);
+			new(&waterModel) WaterModel2(PerObjectConstantBuffersGpuAddress, perObjectConstantBuffersCpuAddress, shaderResourceViews[0],
+				sharedResources->warpTextureDescriptorIndex, water01);
 
-			new(&iceModel) IceModel2(PerObjectConstantBuffersGpuAddress, perObjectConstantBuffersCpuAddress, shaderResourceViews[2u], ice01, icebump01);
+			new(&iceModel) IceModel2(PerObjectConstantBuffersGpuAddress, perObjectConstantBuffersCpuAddress, sharedResources->warpTextureDescriptorIndex, ice01, icebump01);
 
 			new(&fireModel1) FireModel<templateFloat(55.0f), templateFloat(2.0f), templateFloat(64.0f)>(PerObjectConstantBuffersGpuAddress,
 				perObjectConstantBuffersCpuAddress, firenoise01, fire01, firealpha01);
@@ -318,7 +339,7 @@ namespace
 			auto depthStencilHandle = assets->graphicsEngine.depthStencilDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
 			if (waterModel.isInView(assets->mainCamera.frustum()))
 			{
-				const auto& renderToTextureFrustum = *assets->renderPass.renderToTextureSubPassGroup().subPasses().begin()->cameras().begin();
+				const auto& frustum = (*assets->renderPass.renderToTextureSubPassGroup().subPasses().begin()->cameras().begin())->frustum();
 				const auto commandList = executor->renderPass.renderToTextureSubPassGroup().subPasses().begin()->firstCommandList();
 
 				commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
@@ -326,7 +347,7 @@ namespace
 				constexpr uint64_t pointLightConstantBufferAlignedSize = (sizeof(LightConstantBuffer) + (size_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (size_t)1u) & ~((size_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (size_t)1u);
 				commandList->SetGraphicsRootConstantBufferView(1u, pointLightConstantBufferGpuAddress + frameIndex * pointLightConstantBufferAlignedSize);
 
-				if (wallModel.isInView(renderToTextureFrustum))
+				if (wallModel.isInView(frustum))
 				{
 					commandList->SetPipelineState(assets->pipelineStateObjects.directionalLight);
 					commandList->SetGraphicsRootConstantBufferView(2u, wallModel.vsPerObjectCBVGpuAddress);
@@ -335,7 +356,7 @@ namespace
 					commandList->IASetIndexBuffer(&meshes[wallModel.meshIndex]->indexBufferView);
 					commandList->DrawIndexedInstanced(meshes[wallModel.meshIndex]->indexCount, 1u, 0u, 0, 0u);
 				}
-				if (iceModel.isInView(renderToTextureFrustum))
+				if (iceModel.isInView(frustum))
 				{
 					commandList->SetPipelineState(assets->pipelineStateObjects.basic);
 					commandList->SetGraphicsRootConstantBufferView(2u, iceModel.vsConstantBufferGPU(frameIndex));
@@ -499,6 +520,16 @@ namespace
 			for (auto i = 0u; i < numRenderTargetTextures; ++i)
 			{
 				sharedResources->graphicsEngine.descriptorAllocator.deallocate(shaderResourceViews[i]);
+
+				executor->updateJobQueue().push(Job(textureTargetTextureSubPasses[i], [](void* subPass1, BaseExecutor* executor1)
+				{
+					const auto subPass = reinterpret_cast<RenderPass1::RenderToTextureSubPass*>(subPass1);
+					const auto executor = reinterpret_cast<Executor*>(executor1);
+					const auto assets = reinterpret_cast<Assets*>(executor->sharedResources);
+					auto executors = assets->executors();
+					assets->renderPass.renderToTextureSubPassGroup().removeSubPass(executor, subPass, 
+						executors.map<RenderPass1::Local::RenderToTextureSubPassGroup, getRenderToTextureSubPassGroup>());
+				}));
 			}
 
 			textureManager.unloadTexture(TextureNames::ground01, executor);

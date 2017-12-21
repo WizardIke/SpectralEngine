@@ -107,11 +107,11 @@ ID3D12Resource* Camera::getImage()
 
 void Camera::makeReflectionLocation(Location& location, float height)
 {
-	location.position.x = this->location.position.x;
-	location.position.y = height + height - this->location.position.y;
-	location.position.z = this->location.position.z;
+	location.position.x = mLocation.position.x;
+	location.position.y = height + height - mLocation.position.y;
+	location.position.z = mLocation.position.z;
 
-	location.rotation.x = -this->location.rotation.x;
-	location.rotation.x = this->location.rotation.x;
-	location.rotation.x = this->location.rotation.x;
+	location.rotation.x = -mLocation.rotation.x;
+	location.rotation.y = mLocation.rotation.y;
+	location.rotation.z = mLocation.rotation.z;
 }

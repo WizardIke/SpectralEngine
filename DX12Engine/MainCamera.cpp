@@ -32,11 +32,11 @@ MainCamera::~MainCamera() {}
 
 void MainCamera::update(SharedResources* const sharedResources, const Location& target)
 {
-	location.position = target.position;
-	location.rotation = target.rotation;
+	mLocation.position = target.position;
+	mLocation.rotation = target.rotation;
 
-	DirectX::XMVECTOR positionVector = XMLoadFloat3(&location.position);
-	DirectX::XMMATRIX rotationMatrix = DirectX::XMMatrixRotationRollPitchYaw(location.rotation.x, location.rotation.y, location.rotation.z);
+	DirectX::XMVECTOR positionVector = XMLoadFloat3(&mLocation.position);
+	DirectX::XMMATRIX rotationMatrix = DirectX::XMMatrixRotationRollPitchYaw(mLocation.rotation.x, mLocation.rotation.y, mLocation.rotation.z);
 
 	DirectX::XMFLOAT3 temp(0.0f, 0.0f, 1.0f);
 	DirectX::XMVECTOR lookAtVector = DirectX::XMVectorAdd(positionVector, XMVector3TransformCoord(DirectX::XMLoadFloat3(&temp), rotationMatrix));

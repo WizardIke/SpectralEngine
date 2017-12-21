@@ -107,7 +107,7 @@ namespace Cave
 			const auto commandList = executor->renderPass.colorSubPass().opaqueCommandList();
 			Assets* const assets = (Assets*)executor->sharedResources;
 
-			if (caveModelPart1.isInView(assets->mainFrustum))
+			if (caveModelPart1.isInView(assets->mainCamera.frustum()))
 			{
 				commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 				commandList->SetPipelineState(assets->pipelineStateObjects.directionalLight);

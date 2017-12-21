@@ -113,7 +113,7 @@ class TestZoneFunctions
 
 			commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-			if (highResPlaneModel.isInView(assets->mainFrustum))
+			if (highResPlaneModel.isInView(assets->mainCamera.frustum()))
 			{
 				commandList->SetPipelineState(assets->pipelineStateObjects.directionalLight);
 

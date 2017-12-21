@@ -105,7 +105,6 @@ void Assets::update(BaseExecutor* const executor)
 	timer.update();
 	playerPosition.update(executor);
 	mainCamera.update(this, playerPosition.location);
-	mainFrustum.update(mainCamera.projectionMatrix(), mainCamera.viewMatrix(), mainCamera.screenNear, mainCamera.screenDepth);
 	//soundEngine.SetListenerPosition(playerPosition.location.position, DS3D_IMMEDIATE);
 }
 
@@ -115,7 +114,6 @@ void Assets::start(BaseExecutor* executor)
 	checkForWindowsMessages(executor);
 	playerPosition.update(executor);
 	mainCamera.update(this, playerPosition.location);
-	mainFrustum.update(mainCamera.projectionMatrix(), mainCamera.viewMatrix(), mainCamera.screenNear, mainCamera.screenDepth);
 	//soundEngine.SetListenerPosition(playerPosition.location.position, DS3D_IMMEDIATE);
 
 	{

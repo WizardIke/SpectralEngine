@@ -377,9 +377,6 @@
     <FxCompile Include="Shaders\WaterNoReflectionTexturePS.hlsl">
       <Filter>Shaders\Pixel</Filter>
     </FxCompile>
-    <FxCompile Include="Shaders\BasicVS.hlsl">
-      <Filter>Shaders\Vertex</Filter>
-    </FxCompile>
     <FxCompile Include="Shaders\DirectionalLightPS.hlsl">
       <Filter>Shaders\Pixel</Filter>
     </FxCompile>
@@ -404,16 +401,19 @@
     <FxCompile Include="Shaders\TextVS.hlsl">
       <Filter>Shaders\Vertex</Filter>
     </FxCompile>
-    <FxCompile Include="BasicPS.hlsl">
-      <Filter>Shaders\Pixel</Filter>
-    </FxCompile>
-    <FxCompile Include="CopyPS.hlsl">
-      <Filter>Shaders\Pixel</Filter>
-    </FxCompile>
-    <FxCompile Include="CopyVS.hlsl">
+    <FxCompile Include="Shaders\WaterVS.hlsl">
       <Filter>Shaders\Vertex</Filter>
     </FxCompile>
-    <FxCompile Include="Shaders\WaterVS.hlsl">
+    <FxCompile Include="Shaders\BasicVS.hlsl">
+      <Filter>Shaders\Vertex</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\BasicPS.hlsl">
+      <Filter>Shaders\Pixel</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\CopyPS.hlsl">
+      <Filter>Shaders\Pixel</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\CopyVS.hlsl">
       <Filter>Shaders\Vertex</Filter>
     </FxCompile>
   </ItemGroup>

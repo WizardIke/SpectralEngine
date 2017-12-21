@@ -458,10 +458,10 @@
     <FxCompile Include="Shaders\StandardVS.hlsl">
       <Filter>Shaders\Vertex</Filter>
     </FxCompile>
-    <FxCompile Include="ScreenSpaceCopy.hlsl">
+    <FxCompile Include="Shaders\ScreenSpaceCopyPS.hlsl">
       <Filter>Shaders\Pixel</Filter>
     </FxCompile>
-    <FxCompile Include="ScreenSpaceCopyVS.hlsl">
+    <FxCompile Include="Shaders\ScreenSpaceCopyVS.hlsl">
       <Filter>Shaders\Vertex</Filter>
     </FxCompile>
   </ItemGroup>
