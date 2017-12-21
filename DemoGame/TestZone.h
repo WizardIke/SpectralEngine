@@ -115,7 +115,7 @@ class TestZoneFunctions
 
 			if (highResPlaneModel.isInView(assets->mainFrustum))
 			{
-				commandList->SetPipelineState(assets->pipelineStateObjects.lightPSO1);
+				commandList->SetPipelineState(assets->pipelineStateObjects.directionalLight);
 
 				commandList->SetGraphicsRootConstantBufferView(1u, pointLightConstantBufferGpuAddress);
 				commandList->SetGraphicsRootConstantBufferView(2u, highResPlaneModel.vsPerObjectCBVGpuAddress);

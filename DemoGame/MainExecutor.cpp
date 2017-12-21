@@ -15,10 +15,10 @@ void MainExecutor::update2(std::unique_lock<std::mutex>&& lock)
 	assets->conditionVariable.wait(lock, [assets = assets]() {return assets->numThreadsThatHaveFinished == assets->maxPrimaryThreads + assets->numPrimaryJobExeThreads; });
 
 	assets->nextPhaseJob = update1NextPhaseJob;
-	renderPass.update2LastThread(this, assets->renderPass, assets->numThreadsThatHaveFinished);
-	assets->numThreadsThatHaveFinished = 0u;
+	renderPass.update2LastThread(this, assets->renderPass);
 	assets->currentWorkStealingQueues = &assets->workStealingQueues[0u];
 	assets->update(this);
+	assets->numThreadsThatHaveFinished = 0u;
 	++(assets->generation);
 	lock.unlock();
 	assets->conditionVariable.notify_all();

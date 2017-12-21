@@ -7,8 +7,6 @@
 #include "Timer.h"
 #include "InputManager.h"
 #include "PlayerPosition.h"
-#include "MainCamera.h"
-#include "Frustum.h"
 #include "Queue.h"
 #include <mutex>
 #include "Job.h"
@@ -23,15 +21,11 @@ protected:
 
 	static void checkForWindowsMessages(BaseExecutor* const executor);
 public:
-	SharedResources(BaseExecutor* mainExecutor, bool fullScreen, bool vSync);
+	SharedResources(BaseExecutor* mainExecutor, bool fullScreen, bool vSync, unsigned int numThreads);
 
-	const unsigned int maxBackgroundThreads = unsigned int((float)std::thread::hardware_concurrency() / 4.0f + 0.5f) > 0u ?
-		unsigned int((float)std::thread::hardware_concurrency() / 4.0f + 0.5f) : 1u;
-
-	const unsigned int maxPrimaryThreads = static_cast<int>(std::thread::hardware_concurrency()) - 1 - static_cast<int>(maxBackgroundThreads) < 0 ?
-		0u : (std::thread::hardware_concurrency()) - 1u - (maxBackgroundThreads);
-
-	const unsigned int maxThreads = std::thread::hardware_concurrency() > 1u ? std::thread::hardware_concurrency() : 2u;
+	const unsigned int maxBackgroundThreads;
+	const unsigned int maxPrimaryThreads;
+	const unsigned int maxThreads;
 	unsigned int numPrimaryJobExeThreads; //not thread safe
 
 	std::mutex syncMutex; //thread safe
@@ -53,7 +47,6 @@ public:
 	MeshManager meshManager; //thread safe
 	SoundEngine soundEngine;
 	Timer timer;
-	Frustum mainFrustum;
 	InputManager inputManager;
 	PlayerPosition playerPosition;
 

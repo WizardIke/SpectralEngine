@@ -1,5 +1,4 @@
 Texture2D<float4> Textures[] : register(t0);
-
 SamplerState SampleType : register(s2);
 
 cbuffer PSPerObjectConstantBuffer : register(b1)

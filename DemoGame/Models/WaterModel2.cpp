@@ -1,32 +1,33 @@
 #include "WaterModel2.h"
 #include "../Assets.h"
 #include "../Executor.h"
+#define USE_REFLECTION_TEXTURE
+#include <Shaders/WaterMaterialPS.h>
+#undef USE_REFLECTION_TEXTURE
+#include <Shaders/WaterMaterialVS.h>
+
+constexpr static size_t vertexConstantBufferSize = (sizeof(WaterMaterialVS) + D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull) & ~(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull);
+constexpr static size_t pixelConstantBufferSize = (sizeof(WaterMaterialPS) + D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull) & ~(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull);
 
 WaterModel2::WaterModel2(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, uint8_t*& constantBufferCpuAddress, unsigned int reflectionTextureIndex, unsigned int refractionTextureIndex, unsigned int normalTextureIndex) :
 	waterTranslation(0.0f)
 {
+	vertexConstantBufferCpu = constantBufferCpuAddress;
+	constantBufferGpu = constantBufferGpuAddress;
+	constantBufferGpuAddress += frameBufferCount * vertexConstantBufferSize + pixelConstantBufferSize;
 	for (auto i = 0u; i < frameBufferCount; ++i)
 	{
-		vsPerObjectCBVGpuAddresses[i] = constantBufferGpuAddress;
-		constantBufferGpuAddress = (constantBufferGpuAddress + sizeof(VSPerObjectConstantBuffer) + D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull) & ~(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull);
-
-		vsPerObjectCBVCpuAddresses[i] = reinterpret_cast<VSPerObjectConstantBuffer*>(constantBufferCpuAddress);
-		constantBufferCpuAddress = reinterpret_cast<uint8_t*>((reinterpret_cast<size_t>(constantBufferCpuAddress) + sizeof(VSPerObjectConstantBuffer) + D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull)
-			& ~(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull));
+		auto buffer = reinterpret_cast<WaterMaterialVS*>(constantBufferCpuAddress);
+		buffer->worldMatrix = DirectX::XMMatrixTranslation(positionX, positionY, positionZ);
+		constantBufferCpuAddress += vertexConstantBufferSize;
 	}
-
-	psPerObjectCBVGpuAddress = constantBufferGpuAddress;
-	constantBufferGpuAddress = (constantBufferGpuAddress + sizeof(PSPerObjectConstantBuffer) + D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull) & ~(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull);
-
-	PSPerObjectConstantBuffer* psPerObjectCBVCpuAddress = reinterpret_cast<PSPerObjectConstantBuffer*>(constantBufferCpuAddress);
-	constantBufferCpuAddress = reinterpret_cast<uint8_t*>((reinterpret_cast<size_t>(constantBufferCpuAddress) + sizeof(PSPerObjectConstantBuffer) + D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull)
-		& ~(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull));
-
+	WaterMaterialPS* psPerObjectCBVCpuAddress = reinterpret_cast<WaterMaterialPS*>(constantBufferCpuAddress);
+	constantBufferCpuAddress += pixelConstantBufferSize;
 
 	psPerObjectCBVCpuAddress->reflectRefractScale = 0.02f;
-	psPerObjectCBVCpuAddress->reflectTexture = reflectionTextureIndex;
 	psPerObjectCBVCpuAddress->refractTexture = refractionTextureIndex;
 	psPerObjectCBVCpuAddress->normalTexture = normalTextureIndex;
+	psPerObjectCBVCpuAddress->reflectTexture = reflectionTextureIndex;
 }
 
 bool WaterModel2::isInView(const Frustum& Frustum)
@@ -45,10 +46,16 @@ void WaterModel2::update(Executor* const executor)
 		waterTranslation -= 1.0f;
 	}
 
-	assets->mainCamera.makeReflectionMatrix(reflectionMatrix, 2.75f);
-
-	vsPerObjectCBVCpuAddresses[frameIndex]->worldViewProjectionMatrix = DirectX::XMMatrixTranslation(positionX, positionY, positionZ) * assets->mainCamera.viewMatrix * assets->mainCamera.projectionMatrix;
-	vsPerObjectCBVCpuAddresses[frameIndex]->worldReflectionProjectionMatrix = DirectX::XMMatrixTranslation(positionX, positionY, positionZ) * reflectionMatrix * assets->mainCamera.projectionMatrix;
-
-	vsPerObjectCBVCpuAddresses[frameIndex]->waterTranslation = waterTranslation;
+	auto buffer = reinterpret_cast<WaterMaterialVS*>(vertexConstantBufferCpu + frameIndex * vertexConstantBufferSize);
+	buffer->waterTranslation = waterTranslation;
 }
+
+D3D12_GPU_VIRTUAL_ADDRESS WaterModel2::vsConstantBufferGPU(uint32_t frameIndex)
+{
+	return constantBufferGpu + frameIndex * vertexConstantBufferSize;
+}
+
+D3D12_GPU_VIRTUAL_ADDRESS WaterModel2::psConstantBufferGPU() 
+{
+	return constantBufferGpu + frameBufferCount * vertexConstantBufferSize; 
+};

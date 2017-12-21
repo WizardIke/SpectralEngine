@@ -1,14 +1,10 @@
 #include "Assets.h"
 
+#ifdef _WIN32
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR pScmdline, int iCmdshow)
+#else
+int main()
+#endif
 {
-	try
-	{ 
-		Assets game;
-	}
-	catch (...)
-	{
-		return 1; 
-	}
-	return 0;
+	Assets game;
 }

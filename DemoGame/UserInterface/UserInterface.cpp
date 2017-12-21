@@ -22,7 +22,7 @@ void UserInterface::update2(Executor* const executor)
 	const auto opaqueDirectCommandList = executor->renderPass.colorSubPass().opaqueCommandList();
 	
 
-	opaqueDirectCommandList->SetPipelineState(assets->pipelineStateObjects.textPSO);
+	opaqueDirectCommandList->SetPipelineState(assets->pipelineStateObjects.text);
 	opaqueDirectCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 	opaqueDirectCommandList->SetGraphicsRootConstantBufferView(3u, assets->arial.psPerObjectCBVGpuAddress);
 

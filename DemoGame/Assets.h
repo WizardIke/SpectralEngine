@@ -11,11 +11,13 @@
 #include "PrimaryExecutor.h"
 #include "BackgroundExecutor.h"
 #include "RenderPass.h"
+#include <D3D12Resource.h>
 
 class Assets : public SharedResources
 {
 public:
 	Assets();
+	~Assets();
 
 	MainExecutor mainExecutor;
 	RootSignatures rootSignatures;
@@ -27,6 +29,10 @@ public:
 	Areas areas;
 	AmbientMusic ambientMusic;
 	MainCamera mainCamera;
+
+	D3D12Resource warpTexture;
+	unsigned int warpTextureDescriptorIndex;
+	D3D12DescriptorHeap warpTextureCpuDescriptorHeap;
 
 	DynamicArray<BackgroundExecutor> backgroundExecutors;
 	DynamicArray<PrimaryExecutor> primaryExecutors;

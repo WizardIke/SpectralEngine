@@ -38,7 +38,7 @@ void Executor::update1(std::unique_lock<std::mutex>&& lock)
 
 void Executor::update2(std::unique_lock<std::mutex>&& lock)
 {
-	renderPass.update2(this, ((Assets*)sharedResources)->renderPass, sharedResources->numThreadsThatHaveFinished);
+	renderPass.update2(this, ((Assets*)sharedResources)->renderPass);
 	++(sharedResources->numThreadsThatHaveFinished);
 
 	if (sharedResources->numThreadsThatHaveFinished == sharedResources->maxPrimaryThreads + sharedResources->numPrimaryJobExeThreads)

@@ -1,5 +1,5 @@
 #pragma once
-struct ID3D12PipelineState;
+#include <D3D12PipelineState.h>
 struct ID3D12Device;
 class RootSignatures;
 
@@ -9,10 +9,13 @@ public:
 	PipelineStateObjects(ID3D12Device* const Device, RootSignatures& rootSignatures);
 	~PipelineStateObjects();
 
-	ID3D12PipelineState* textPSO;
-	ID3D12PipelineState* lightPSO1;
-	ID3D12PipelineState* pointLightPSO1;
-	ID3D12PipelineState* waterPSO1;
-	ID3D12PipelineState* glassPSO1;
-	ID3D12PipelineState* firePSO1;
+	D3D12PipelineState text;
+	D3D12PipelineState directionalLight;
+	D3D12PipelineState pointLight;
+	D3D12PipelineState waterWithReflectionTexture;
+	D3D12PipelineState waterNoReflectionTexture;
+	D3D12PipelineState glass;
+	D3D12PipelineState basic;
+	D3D12PipelineState fire;
+	D3D12PipelineState copy;
 };

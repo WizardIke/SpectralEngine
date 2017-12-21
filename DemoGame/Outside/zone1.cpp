@@ -16,6 +16,7 @@
 #include "../Executor.h"
 #include <array>
 #include <Vector4.h>
+#include <Camera.h>
 
 #include <Light.h>
 #include <PointLight.h>
@@ -34,7 +35,7 @@ namespace
 		constexpr static unsigned char numMeshes = 6u;
 		constexpr static unsigned char numTextures = 9u;
 		constexpr static unsigned char numComponents = 2u + numTextures + numMeshes;
-		constexpr static unsigned int numRenderTargetTextures = 3u;
+		constexpr static unsigned int numRenderTargetTextures = 1u;
 		constexpr static unsigned int numPointLights = 4u;
 
 
@@ -43,16 +44,16 @@ namespace
 			const auto zone = reinterpret_cast<BaseZone* const>(requester);
 			BaseZone::componentUploaded<BaseZone::high, HDResources::numComponents>(zone, executor, ((HDResources*)zone->nextResources)->numComponentsLoaded);
 		}
-	public:
-		std::atomic<unsigned char> numComponentsLoaded = 0u;
 
+		std::atomic<unsigned char> numComponentsLoaded = 0u;
+	public:
 		Mesh* meshes[numMeshes];
 		D3D12Resource perObjectConstantBuffers;
 		std::array<D3D12Resource, numRenderTargetTextures> renderTargetTextures;
 		D3D12_RESOURCE_STATES waterRenderTargetTextureState;
 		D3D12DescriptorHeap renderTargetTexturesDescriptorHeap;
-		D3D12_CPU_DESCRIPTOR_HANDLE renderTargetTexturesCpuDescriptorHandle;
 		unsigned int shaderResourceViews[numRenderTargetTextures];
+		std::array<Camera, numRenderTargetTextures> reflectionCameras;
 
 		Light light;
 		PointLight pointLights[numPointLights];
@@ -113,7 +114,7 @@ namespace
 		}())
 
 		{
-			const auto sharedResources = executor->sharedResources;
+			const auto sharedResources = (Assets*)executor->sharedResources;
 
 			unsigned int ground01 = TextureManager::loadTexture(TextureNames::ground01, zone, executor, componentUploaded);
 			unsigned int wall01 = TextureManager::loadTexture(TextureNames::wall01, zone, executor, componentUploaded);
@@ -207,27 +208,6 @@ namespace
 			HDSHaderResourceViewDesc.Texture2D.PlaneSlice = 0u;
 			HDSHaderResourceViewDesc.Texture2D.ResourceMinLODClamp = 0.0f;
 
-			auto tempRenderTargetTexturesCpuDescriptorHandle = renderTargetTexturesDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
-			renderTargetTexturesCpuDescriptorHandle = tempRenderTargetTexturesCpuDescriptorHandle;
-
-			for (auto i = 0u; i < numRenderTargetTextures; ++i)
-			{
-				shaderResourceViews[i] = sharedResources->graphicsEngine.descriptorAllocator.allocate();
-			}
-
-			auto tempshaderResourceViewCpuDescriptorHandle = sharedResources->graphicsEngine.mainDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
-			auto srvSize = sharedResources->graphicsEngine.constantBufferViewAndShaderResourceViewAndUnordedAccessViewDescriptorSize;
-
-			for (auto i = 0u; i < numRenderTargetTextures; ++i)
-			{
-				auto temp = tempshaderResourceViewCpuDescriptorHandle;
-				temp.ptr += srvSize * shaderResourceViews[i];
-				sharedResources->graphicsEngine.graphicsDevice->CreateShaderResourceView(renderTargetTextures[i], &HDSHaderResourceViewDesc, temp);
-
-				sharedResources->graphicsEngine.graphicsDevice->CreateRenderTargetView(renderTargetTextures[i], &HDRenderTargetViewDesc, tempRenderTargetTexturesCpuDescriptorHandle);
-				tempRenderTargetTexturesCpuDescriptorHandle.ptr += sharedResources->graphicsEngine.renderTargetViewDescriptorSize;
-			}
-
 			uint8_t* perObjectConstantBuffersCpuAddress;
 			D3D12_RANGE readRange{ 0u, 0u };
 			HRESULT hr = perObjectConstantBuffers->Map(0u, &readRange, reinterpret_cast<void**>(&perObjectConstantBuffersCpuAddress));
@@ -242,6 +222,29 @@ namespace
 
 			pointLightConstantBufferGpuAddress = PerObjectConstantBuffersGpuAddress;
 			PerObjectConstantBuffersGpuAddress += frameBufferCount * pointLightConstantBufferAlignedSize;
+
+
+			auto tempshaderResourceViewCpuDescriptorHandle = sharedResources->graphicsEngine.mainDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
+			auto srvSize = sharedResources->graphicsEngine.constantBufferViewAndShaderResourceViewAndUnordedAccessViewDescriptorSize;
+			auto tempRenderTargetTexturesCpuDescriptorHandle = renderTargetTexturesDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
+			auto depthStencilHandle = sharedResources->graphicsEngine.depthStencilDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
+			for (auto i = 0u; i < numRenderTargetTextures; ++i)
+			{
+				shaderResourceViews[i] = sharedResources->graphicsEngine.descriptorAllocator.allocate();
+				auto temp = tempshaderResourceViewCpuDescriptorHandle;
+				temp.ptr += srvSize * shaderResourceViews[i];
+				sharedResources->graphicsEngine.graphicsDevice->CreateShaderResourceView(renderTargetTextures[i], &HDSHaderResourceViewDesc, temp);
+
+				sharedResources->graphicsEngine.graphicsDevice->CreateRenderTargetView(renderTargetTextures[i], &HDRenderTargetViewDesc, tempRenderTargetTexturesCpuDescriptorHandle);
+				Location location;
+				sharedResources->mainCamera.makeReflectionLocation(location, waterModel.reflectionHeight());
+				new(&reflectionCameras[i]) Camera(sharedResources, renderTargetTextures[i], tempRenderTargetTexturesCpuDescriptorHandle, depthStencilHandle,
+					sharedResources->window.width(), sharedResources->window.height(), PerObjectConstantBuffersGpuAddress, perObjectConstantBuffersCpuAddress, 0.5f * 3.141f, 
+					location);
+
+				tempRenderTargetTexturesCpuDescriptorHandle.ptr += sharedResources->graphicsEngine.renderTargetViewDescriptorSize;
+			}
+			
 
 			new(&groundModel) GroundModel2(PerObjectConstantBuffersGpuAddress, perObjectConstantBuffersCpuAddress, ground01);
 
@@ -306,64 +309,96 @@ namespace
 			}
 		}
 
+		void renderToTexture(BaseExecutor* const executor1)
+		{
+			const auto executor = reinterpret_cast<Executor* const>(executor1);
+			const auto frameIndex = executor->sharedResources->graphicsEngine.frameIndex;
+			Assets* const assets = (Assets*)executor->sharedResources;
+
+			auto depthStencilHandle = assets->graphicsEngine.depthStencilDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
+			if (waterModel.isInView(assets->mainCamera.frustum()))
+			{
+				const auto& renderToTextureFrustum = *assets->renderPass.renderToTextureSubPassGroup().subPasses().begin()->cameras().begin();
+				const auto commandList = executor->renderPass.renderToTextureSubPassGroup().subPasses().begin()->firstCommandList();
+
+				commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+				constexpr uint64_t pointLightConstantBufferAlignedSize = (sizeof(LightConstantBuffer) + (size_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (size_t)1u) & ~((size_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (size_t)1u);
+				commandList->SetGraphicsRootConstantBufferView(1u, pointLightConstantBufferGpuAddress + frameIndex * pointLightConstantBufferAlignedSize);
+
+				if (wallModel.isInView(renderToTextureFrustum))
+				{
+					commandList->SetPipelineState(assets->pipelineStateObjects.directionalLight);
+					commandList->SetGraphicsRootConstantBufferView(2u, wallModel.vsPerObjectCBVGpuAddress);
+					commandList->SetGraphicsRootConstantBufferView(3u, wallModel.psPerObjectCBVGpuAddress);
+					commandList->IASetVertexBuffers(0u, 1u, &meshes[wallModel.meshIndex]->vertexBufferView);
+					commandList->IASetIndexBuffer(&meshes[wallModel.meshIndex]->indexBufferView);
+					commandList->DrawIndexedInstanced(meshes[wallModel.meshIndex]->indexCount, 1u, 0u, 0, 0u);
+				}
+				if (iceModel.isInView(renderToTextureFrustum))
+				{
+					commandList->SetPipelineState(assets->pipelineStateObjects.basic);
+					commandList->SetGraphicsRootConstantBufferView(2u, iceModel.vsConstantBufferGPU(frameIndex));
+					commandList->SetGraphicsRootConstantBufferView(3u, iceModel.psConstantBufferGPU());
+					commandList->IASetVertexBuffers(0u, 1u, &meshes[iceModel.meshIndex]->vertexBufferView);
+					commandList->IASetIndexBuffer(&meshes[iceModel.meshIndex]->indexBufferView);
+					commandList->DrawIndexedInstanced(meshes[iceModel.meshIndex]->indexCount, 1u, 0u, 0, 0u);
+				}
+			}
+		}
+
 		void update2(BaseExecutor* const executor1)
 		{
 			renderToTexture(executor1);
 
 			const auto executor = reinterpret_cast<Executor* const>(executor1);
+			Assets* const assets = (Assets*)executor->sharedResources;
 			const auto frameIndex = executor->sharedResources->graphicsEngine.frameIndex;
 			const auto opaqueDirectCommandList = executor->renderPass.colorSubPass().opaqueCommandList();
-			Assets* const assets = (Assets*)executor->sharedResources;
+			const auto transparantCommandList = executor->renderPass.colorSubPass().transparentCommandList();
+			auto depthStencilHandle = assets->graphicsEngine.depthStencilDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
+			auto backBufferRenderTargetCpuHandle = assets->mainCamera.getRenderTargetView();
+			auto warpTextureCpuDescriptorHandle = assets->warpTextureCpuDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
 
+			D3D12_RESOURCE_BARRIER copyStartBarriers[2u];
+			copyStartBarriers[0u].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+			copyStartBarriers[0u].Flags = D3D12_RESOURCE_BARRIER_FLAGS::D3D12_RESOURCE_BARRIER_FLAG_NONE;
+			copyStartBarriers[0u].Transition.pResource = assets->warpTexture;
+			copyStartBarriers[0u].Transition.StateBefore = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+			copyStartBarriers[0u].Transition.StateAfter = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET;
+			copyStartBarriers[0u].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
 
-			D3D12_RESOURCE_BARRIER beforeTransBarrier[numRenderTargetTextures];
-			beforeTransBarrier[0].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-			beforeTransBarrier[0].Flags = D3D12_RESOURCE_BARRIER_FLAG_END_ONLY;
-			beforeTransBarrier[0].Transition.pResource = renderTargetTextures[2];
-			beforeTransBarrier[0].Transition.StateBefore = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET;
-			beforeTransBarrier[0].Transition.StateAfter = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-			beforeTransBarrier[0].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+			copyStartBarriers[1u].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+			copyStartBarriers[1u].Flags = D3D12_RESOURCE_BARRIER_FLAGS::D3D12_RESOURCE_BARRIER_FLAG_NONE;
+			copyStartBarriers[1u].Transition.pResource = assets->window.getBuffer(frameIndex);
+			copyStartBarriers[1u].Transition.StateBefore = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET;
+			copyStartBarriers[1u].Transition.StateAfter = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+			copyStartBarriers[1u].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
 
-			unsigned int beforeBarrierCount = 1u;
-			if (waterRenderTargetTextureState == D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET)
-			{
-				beforeTransBarrier[beforeBarrierCount].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-				beforeTransBarrier[beforeBarrierCount].Flags = D3D12_RESOURCE_BARRIER_FLAG_END_ONLY;
-				beforeTransBarrier[beforeBarrierCount].Transition.pResource = renderTargetTextures[0];
-				beforeTransBarrier[beforeBarrierCount].Transition.StateBefore = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET;
-				beforeTransBarrier[beforeBarrierCount].Transition.StateAfter = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-				beforeTransBarrier[beforeBarrierCount].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-				++beforeBarrierCount;
+			D3D12_RESOURCE_BARRIER copyEndBarriers[2u];
+			copyEndBarriers[0u].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+			copyEndBarriers[0u].Flags = D3D12_RESOURCE_BARRIER_FLAGS::D3D12_RESOURCE_BARRIER_FLAG_NONE;
+			copyEndBarriers[0u].Transition.pResource = assets->warpTexture;
+			copyEndBarriers[0u].Transition.StateBefore = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET;
+			copyEndBarriers[0u].Transition.StateAfter = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+			copyEndBarriers[0u].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
 
-				beforeTransBarrier[beforeBarrierCount].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-				beforeTransBarrier[beforeBarrierCount].Flags = D3D12_RESOURCE_BARRIER_FLAG_END_ONLY;
-				beforeTransBarrier[beforeBarrierCount].Transition.pResource = renderTargetTextures[1];
-				beforeTransBarrier[beforeBarrierCount].Transition.StateBefore = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET;
-				beforeTransBarrier[beforeBarrierCount].Transition.StateAfter = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-				beforeTransBarrier[beforeBarrierCount].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-				++beforeBarrierCount;
-			}
+			copyEndBarriers[1u].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+			copyEndBarriers[1u].Flags = D3D12_RESOURCE_BARRIER_FLAGS::D3D12_RESOURCE_BARRIER_FLAG_NONE;
+			copyEndBarriers[1u].Transition.pResource = copyStartBarriers[1u].Transition.pResource;
+			copyEndBarriers[1u].Transition.StateBefore = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+			copyEndBarriers[1u].Transition.StateAfter = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET;
+			copyEndBarriers[1u].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
 
-			D3D12_RESOURCE_BARRIER afterTransBarrier[numRenderTargetTextures];
-			for (auto i = 0u; i < numRenderTargetTextures; ++i)
-			{
-				afterTransBarrier[i].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-				afterTransBarrier[i].Flags = D3D12_RESOURCE_BARRIER_FLAG_BEGIN_ONLY;
-				afterTransBarrier[i].Transition.pResource = renderTargetTextures[i];
-				afterTransBarrier[i].Transition.StateBefore = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-				afterTransBarrier[i].Transition.StateAfter = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET;
-				afterTransBarrier[i].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-			}
-
-			opaqueDirectCommandList->ResourceBarrier(beforeBarrierCount, beforeTransBarrier);
 			opaqueDirectCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
 			constexpr uint64_t pointLightConstantBufferAlignedSize = (sizeof(LightConstantBuffer) + (uint64_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (uint64_t)1u) & ~((uint64_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (uint64_t)1u);
 			opaqueDirectCommandList->SetGraphicsRootConstantBufferView(1u, pointLightConstantBufferGpuAddress + frameIndex * pointLightConstantBufferAlignedSize);
+			const auto& frustum = assets->mainCamera.frustum();
 
-			if (groundModel.isInView(assets->mainFrustum))
+			if (groundModel.isInView(frustum))
 			{
-				opaqueDirectCommandList->SetPipelineState(assets->pipelineStateObjects.pointLightPSO1);
+				opaqueDirectCommandList->SetPipelineState(assets->pipelineStateObjects.pointLight);
 
 				opaqueDirectCommandList->SetGraphicsRootConstantBufferView(2u, groundModel.vsPerObjectCBVGpuAddress);
 				opaqueDirectCommandList->SetGraphicsRootConstantBufferView(3u, groundModel.psPerObjectCBVGpuAddress);
@@ -372,8 +407,8 @@ namespace
 				opaqueDirectCommandList->DrawIndexedInstanced(meshes[groundModel.meshIndex]->indexCount, 1u, 0u, 0, 0u);
 			}
 
-			opaqueDirectCommandList->SetPipelineState(assets->pipelineStateObjects.lightPSO1);
-			if (wallModel.isInView(assets->mainFrustum))
+			opaqueDirectCommandList->SetPipelineState(assets->pipelineStateObjects.directionalLight);
+			if (wallModel.isInView(frustum))
 			{
 				opaqueDirectCommandList->SetGraphicsRootConstantBufferView(2u, wallModel.vsPerObjectCBVGpuAddress);
 				opaqueDirectCommandList->SetGraphicsRootConstantBufferView(3u, wallModel.psPerObjectCBVGpuAddress);
@@ -382,7 +417,7 @@ namespace
 				opaqueDirectCommandList->DrawIndexedInstanced(meshes[wallModel.meshIndex]->indexCount, 1u, 0u, 0, 0u);
 			}
 
-			if (bathModel1.isInView(assets->mainFrustum))
+			if (bathModel1.isInView(frustum))
 			{
 				opaqueDirectCommandList->SetGraphicsRootConstantBufferView(2u, bathModel1.vsPerObjectCBVGpuAddress);
 				opaqueDirectCommandList->SetGraphicsRootConstantBufferView(3u, bathModel1.psPerObjectCBVGpuAddress);
@@ -391,55 +426,69 @@ namespace
 				opaqueDirectCommandList->DrawIndexedInstanced(meshes[bathModel1.meshIndex]->indexCount, 1u, 0u, 0, 0u);
 			}
 
-			if (waterModel.isInView(assets->mainFrustum))
+			if (waterModel.isInView(frustum))
 			{
-				opaqueDirectCommandList->SetPipelineState(assets->pipelineStateObjects.waterPSO1);
+				transparantCommandList->ResourceBarrier(2u, copyStartBarriers);
+				transparantCommandList->OMSetRenderTargets(1u, &warpTextureCpuDescriptorHandle, TRUE, nullptr);
+				transparantCommandList->IASetPrimitiveTopology(D3D12_PRIMITIVE_TOPOLOGY::D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+				transparantCommandList->SetPipelineState(assets->pipelineStateObjects.copy);
+				transparantCommandList->SetGraphicsRootConstantBufferView(2u, waterModel.ssbbGpuAddress);
+				transparantCommandList->DrawIndexedInstanced(4u, 1u, 0u, 0, 0u);
 
-				opaqueDirectCommandList->SetGraphicsRootConstantBufferView(2u, waterModel.vsPerObjectCBVGpuAddresses[frameIndex]);
-				opaqueDirectCommandList->SetGraphicsRootConstantBufferView(3u, waterModel.psPerObjectCBVGpuAddress);
-				opaqueDirectCommandList->IASetVertexBuffers(0u, 1u, &meshes[waterModel.meshIndex]->vertexBufferView);
-				opaqueDirectCommandList->IASetIndexBuffer(&meshes[waterModel.meshIndex]->indexBufferView);
-				opaqueDirectCommandList->DrawIndexedInstanced(meshes[waterModel.meshIndex]->indexCount, 1u, 0u, 0, 0u);
+				transparantCommandList->ResourceBarrier(2u, copyEndBarriers);
+				transparantCommandList->OMSetRenderTargets(1u, &backBufferRenderTargetCpuHandle, TRUE, &depthStencilHandle);
+				transparantCommandList->IASetPrimitiveTopology(D3D12_PRIMITIVE_TOPOLOGY::D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+				transparantCommandList->SetPipelineState(assets->pipelineStateObjects.waterWithReflectionTexture);
+				transparantCommandList->SetGraphicsRootConstantBufferView(2u, waterModel.vsConstantBufferGPU(frameIndex));
+				transparantCommandList->SetGraphicsRootConstantBufferView(3u, waterModel.psConstantBufferGPU());
+				transparantCommandList->IASetVertexBuffers(0u, 1u, &meshes[waterModel.meshIndex]->vertexBufferView);
+				transparantCommandList->IASetIndexBuffer(&meshes[waterModel.meshIndex]->indexBufferView);
+				transparantCommandList->DrawIndexedInstanced(meshes[waterModel.meshIndex]->indexCount, 1u, 0u, 0, 0u);
 			}
 
 
-			if (iceModel.isInView(assets->mainFrustum))
+			if (iceModel.isInView(frustum))
 			{
-				opaqueDirectCommandList->SetPipelineState(assets->pipelineStateObjects.glassPSO1);
+				transparantCommandList->ResourceBarrier(2u, copyStartBarriers);
+				transparantCommandList->OMSetRenderTargets(1u, &warpTextureCpuDescriptorHandle, TRUE, nullptr);
+				transparantCommandList->IASetPrimitiveTopology(D3D12_PRIMITIVE_TOPOLOGY::D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+				transparantCommandList->SetPipelineState(assets->pipelineStateObjects.copy);
+				transparantCommandList->SetGraphicsRootConstantBufferView(2u, iceModel.ssbbGpuAddress);
+				transparantCommandList->DrawIndexedInstanced(4u, 1u, 0u, 0, 0u);
 
-				opaqueDirectCommandList->SetGraphicsRootConstantBufferView(2u, iceModel.vsPerObjectCBVGpuAddress);
-				opaqueDirectCommandList->SetGraphicsRootConstantBufferView(3u, iceModel.psPerObjectCBVGpuAddress);
-
-				opaqueDirectCommandList->IASetVertexBuffers(0u, 1u, &meshes[iceModel.meshIndex]->vertexBufferView);
-				opaqueDirectCommandList->IASetIndexBuffer(&meshes[iceModel.meshIndex]->indexBufferView);
-				opaqueDirectCommandList->DrawIndexedInstanced(meshes[iceModel.meshIndex]->indexCount, 1u, 0u, 0, 0u);
+				transparantCommandList->ResourceBarrier(2u, copyEndBarriers);
+				transparantCommandList->IASetPrimitiveTopology(D3D12_PRIMITIVE_TOPOLOGY::D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+				transparantCommandList->SetPipelineState(assets->pipelineStateObjects.glass);
+				transparantCommandList->SetGraphicsRootConstantBufferView(2u, iceModel.vsConstantBufferGPU(frameIndex));
+				transparantCommandList->SetGraphicsRootConstantBufferView(3u, iceModel.psConstantBufferGPU());
+				transparantCommandList->IASetVertexBuffers(0u, 1u, &meshes[iceModel.meshIndex]->vertexBufferView);
+				transparantCommandList->IASetIndexBuffer(&meshes[iceModel.meshIndex]->indexBufferView);
+				transparantCommandList->DrawIndexedInstanced(meshes[iceModel.meshIndex]->indexCount, 1u, 0u, 0, 0u);
 			}
 
 			const auto transparentDirectCommandList = executor->renderPass.colorSubPass().transparentCommandList();
 			transparentDirectCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-			if (fireModel1.isInView(assets->mainFrustum) || fireModel2.isInView(assets->mainFrustum))
+			if (fireModel1.isInView(frustum) || fireModel2.isInView(frustum))
 			{
-				transparentDirectCommandList->SetPipelineState(assets->pipelineStateObjects.firePSO1);
+				transparentDirectCommandList->SetPipelineState(assets->pipelineStateObjects.fire);
 
 				transparentDirectCommandList->IASetVertexBuffers(0u, 1u, &meshes[fireModel1.meshIndex]->vertexBufferView);
 				transparentDirectCommandList->IASetIndexBuffer(&meshes[fireModel1.meshIndex]->indexBufferView);
 
-				if (fireModel1.isInView(assets->mainFrustum))
+				if (fireModel1.isInView(frustum))
 				{
 					transparentDirectCommandList->SetGraphicsRootConstantBufferView(2u, fireModel1.vsConstantBufferGPU(frameIndex));
 					transparentDirectCommandList->SetGraphicsRootConstantBufferView(3u, fireModel1.psConstantBufferGPU());
 					transparentDirectCommandList->DrawIndexedInstanced(meshes[fireModel1.meshIndex]->indexCount, 1u, 0u, 0, 0u);
 				}
 
-				if (fireModel2.isInView(assets->mainFrustum))
+				if (fireModel2.isInView(frustum))
 				{
 					transparentDirectCommandList->SetGraphicsRootConstantBufferView(2u, fireModel2.vsConstantBufferGPU(frameIndex));
 					transparentDirectCommandList->SetGraphicsRootConstantBufferView(3u, fireModel2.psConstantBufferGPU());
 					transparentDirectCommandList->DrawIndexedInstanced(meshes[fireModel2.meshIndex]->indexCount, 1u, 0u, 0, 0u);
 				}
 			}
-
-			opaqueDirectCommandList->ResourceBarrier(numRenderTargetTextures, afterTransBarrier);
 		}
 
 		void destruct(BaseExecutor*const executor)
@@ -468,201 +517,6 @@ namespace
 			meshManager.unloadMesh(MeshNames::water, executor);
 			meshManager.unloadMesh(MeshNames::cube, executor);
 			meshManager.unloadMesh(MeshNames::square, executor);
-		}
-
-
-		void renderToTexture(BaseExecutor* const executor1)
-		{
-			const auto executor = reinterpret_cast<Executor* const>(executor1);
-			uint32_t frameIndex = executor->sharedResources->graphicsEngine.frameIndex;
-			ID3D12GraphicsCommandList* opaqueDirectCommandList = executor->renderPass.colorSubPass().opaqueCommandList();
-			Assets* const assets = (Assets*)executor->sharedResources;
-			uint32_t renderCount = 0u;
-
-			constexpr float clearColor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
-
-			D3D12_RESOURCE_BARRIER BeforeTransBarrier[numRenderTargetTextures];
-			for (auto i = 0u; i < numRenderTargetTextures; ++i)
-			{
-				BeforeTransBarrier[i].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-				BeforeTransBarrier[i].Flags = D3D12_RESOURCE_BARRIER_FLAG_END_ONLY;
-				BeforeTransBarrier[i].Transition.pResource = renderTargetTextures[i];
-				BeforeTransBarrier[i].Transition.StateBefore = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-				BeforeTransBarrier[i].Transition.StateAfter = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET;
-				BeforeTransBarrier[i].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-			}
-
-			D3D12_RESOURCE_BARRIER afterTransBarriers[numRenderTargetTextures];
-			afterTransBarriers[0].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-			afterTransBarriers[0].Flags = D3D12_RESOURCE_BARRIER_FLAG_BEGIN_ONLY;
-			afterTransBarriers[0].Transition.pResource = renderTargetTextures[2];
-			afterTransBarriers[0].Transition.StateBefore = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET;
-			afterTransBarriers[0].Transition.StateAfter = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-			afterTransBarriers[0].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-			unsigned int afterBarrierCount = 1u;
-
-
-			opaqueDirectCommandList->ResourceBarrier(numRenderTargetTextures, BeforeTransBarrier);
-			opaqueDirectCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
-			constexpr uint64_t pointLightConstantBufferAlignedSize = (sizeof(LightConstantBuffer) + (size_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (size_t)1u) & ~((size_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (size_t)1u);
-			opaqueDirectCommandList->SetGraphicsRootConstantBufferView(1u, pointLightConstantBufferGpuAddress + frameIndex * pointLightConstantBufferAlignedSize);
-
-			auto depthStencilHandle = assets->graphicsEngine.depthStencilDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
-			if (waterModel.isInView(assets->mainFrustum))
-			{
-				auto tempRenderTargetTexturesCpuDescriptorHandle = renderTargetTexturesCpuDescriptorHandle;
-				tempRenderTargetTexturesCpuDescriptorHandle.ptr += 1u * assets->graphicsEngine.constantBufferViewAndShaderResourceViewAndUnordedAccessViewDescriptorSize;
-				opaqueDirectCommandList->OMSetRenderTargets(1u, &tempRenderTargetTexturesCpuDescriptorHandle, TRUE, &depthStencilHandle);
-				opaqueDirectCommandList->ClearRenderTargetView(tempRenderTargetTexturesCpuDescriptorHandle, clearColor, 0u, nullptr);
-				opaqueDirectCommandList->ClearDepthStencilView(depthStencilHandle, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0u, 0u, nullptr);
-
-				opaqueDirectCommandList->SetPipelineState(assets->pipelineStateObjects.lightPSO1);
-				if (bathModel1.isInView(assets->mainFrustum))
-				{
-					opaqueDirectCommandList->SetGraphicsRootConstantBufferView(2u, bathModel1.vsPerObjectCBVGpuAddress);
-					opaqueDirectCommandList->SetGraphicsRootConstantBufferView(3u, bathModel1.psPerObjectCBVGpuAddress);
-					opaqueDirectCommandList->IASetVertexBuffers(0u, 1u, &meshes[bathModel1.meshIndex]->vertexBufferView);
-					opaqueDirectCommandList->IASetIndexBuffer(&meshes[bathModel1.meshIndex]->indexBufferView);
-					opaqueDirectCommandList->DrawIndexedInstanced(meshes[bathModel1.meshIndex]->indexCount, 1u, 0u, 0, 0u);
-					++renderCount;
-				}
-
-				Frustum renderToTextureFrustum;
-				renderToTextureFrustum.update(assets->mainCamera.projectionMatrix, waterModel.reflectionMatrix, assets->mainCamera.screenNear, assets->mainCamera.screenDepth);
-
-				tempRenderTargetTexturesCpuDescriptorHandle = renderTargetTexturesCpuDescriptorHandle;
-				opaqueDirectCommandList->OMSetRenderTargets(1u, &tempRenderTargetTexturesCpuDescriptorHandle, TRUE, &depthStencilHandle);
-				opaqueDirectCommandList->ClearRenderTargetView(tempRenderTargetTexturesCpuDescriptorHandle, clearColor, 0u, nullptr);
-				opaqueDirectCommandList->ClearDepthStencilView(depthStencilHandle, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
-
-				if (wallModel.isInView(renderToTextureFrustum))
-				{
-					opaqueDirectCommandList->SetGraphicsRootConstantBufferView(2u, wallModel.vsPerObjectCBVGpuAddress);
-					opaqueDirectCommandList->SetGraphicsRootConstantBufferView(3u, wallModel.psPerObjectCBVGpuAddress);
-					opaqueDirectCommandList->IASetVertexBuffers(0u, 1u, &meshes[wallModel.meshIndex]->vertexBufferView);
-					opaqueDirectCommandList->IASetIndexBuffer(&meshes[wallModel.meshIndex]->indexBufferView);
-					opaqueDirectCommandList->DrawIndexedInstanced(meshes[wallModel.meshIndex]->indexCount, 1u, 0u, 0, 0u);
-					++renderCount;
-				}
-			}
-
-			waterRenderTargetTextureState = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET;
-			if (iceModel.isInView(assets->mainFrustum))
-			{
-				auto tempRenderTargetTexturesCpuDescriptorHandle = renderTargetTexturesCpuDescriptorHandle;
-				tempRenderTargetTexturesCpuDescriptorHandle.ptr += 2u * assets->graphicsEngine.constantBufferViewAndShaderResourceViewAndUnordedAccessViewDescriptorSize;
-				opaqueDirectCommandList->OMSetRenderTargets(1u, &tempRenderTargetTexturesCpuDescriptorHandle, TRUE, &depthStencilHandle);
-				opaqueDirectCommandList->ClearRenderTargetView(tempRenderTargetTexturesCpuDescriptorHandle, clearColor, 0u, nullptr);
-				opaqueDirectCommandList->ClearDepthStencilView(depthStencilHandle, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0u, 0u, nullptr);
-
-				if (groundModel.isInView(assets->mainFrustum))
-				{
-					opaqueDirectCommandList->SetPipelineState(assets->pipelineStateObjects.pointLightPSO1);
-
-					opaqueDirectCommandList->SetGraphicsRootConstantBufferView(2u, groundModel.vsPerObjectCBVGpuAddress);
-					opaqueDirectCommandList->SetGraphicsRootConstantBufferView(3u, groundModel.psPerObjectCBVGpuAddress);
-					opaqueDirectCommandList->IASetVertexBuffers(0u, 1u, &meshes[groundModel.meshIndex]->vertexBufferView);
-					opaqueDirectCommandList->IASetIndexBuffer(&meshes[groundModel.meshIndex]->indexBufferView);
-					opaqueDirectCommandList->DrawIndexedInstanced(meshes[groundModel.meshIndex]->indexCount, 1u, 0u, 0, 0u);
-					++renderCount;
-				}
-
-				opaqueDirectCommandList->SetPipelineState(assets->pipelineStateObjects.lightPSO1);
-				if (wallModel.isInView(assets->mainFrustum))
-				{
-					opaqueDirectCommandList->SetGraphicsRootConstantBufferView(2u, wallModel.vsPerObjectCBVGpuAddress);
-					opaqueDirectCommandList->SetGraphicsRootConstantBufferView(3u, wallModel.psPerObjectCBVGpuAddress);
-					opaqueDirectCommandList->IASetVertexBuffers(0u, 1u, &meshes[wallModel.meshIndex]->vertexBufferView);
-					opaqueDirectCommandList->IASetIndexBuffer(&meshes[wallModel.meshIndex]->indexBufferView);
-					opaqueDirectCommandList->DrawIndexedInstanced(meshes[wallModel.meshIndex]->indexCount, 1u, 0u, 0, 0u);
-					++renderCount;
-				}
-
-				if (bathModel1.isInView(assets->mainFrustum))
-				{
-					opaqueDirectCommandList->SetGraphicsRootConstantBufferView(2u, bathModel1.vsPerObjectCBVGpuAddress);
-					opaqueDirectCommandList->SetGraphicsRootConstantBufferView(3u, bathModel1.psPerObjectCBVGpuAddress);
-					opaqueDirectCommandList->IASetVertexBuffers(0u, 1u, &meshes[bathModel1.meshIndex]->vertexBufferView);
-					opaqueDirectCommandList->IASetIndexBuffer(&meshes[bathModel1.meshIndex]->indexBufferView);
-					opaqueDirectCommandList->DrawIndexedInstanced(meshes[bathModel1.meshIndex]->indexCount, 1u, 0u, 0, 0u);
-					++renderCount;
-				}
-
-				if (fireModel1.isInView(assets->mainFrustum) || fireModel2.isInView(assets->mainFrustum))
-				{
-					opaqueDirectCommandList->SetPipelineState(assets->pipelineStateObjects.firePSO1);
-
-					opaqueDirectCommandList->IASetVertexBuffers(0u, 1u, &meshes[fireModel1.meshIndex]->vertexBufferView);
-					opaqueDirectCommandList->IASetIndexBuffer(&meshes[fireModel1.meshIndex]->indexBufferView);
-
-					if (fireModel1.isInView(assets->mainFrustum))
-					{
-						opaqueDirectCommandList->SetGraphicsRootConstantBufferView(2u, fireModel1.vsConstantBufferGPU(frameIndex));
-						opaqueDirectCommandList->SetGraphicsRootConstantBufferView(3u, fireModel1.psConstantBufferGPU());
-						opaqueDirectCommandList->DrawIndexedInstanced(meshes[fireModel1.meshIndex]->indexCount, 1u, 0u, 0, 0u);
-						++renderCount;
-					}
-
-					if (fireModel2.isInView(assets->mainFrustum))
-					{
-						opaqueDirectCommandList->SetGraphicsRootConstantBufferView(2u, fireModel2.vsConstantBufferGPU(frameIndex));
-						opaqueDirectCommandList->SetGraphicsRootConstantBufferView(3u, fireModel2.psConstantBufferGPU());
-						opaqueDirectCommandList->DrawIndexedInstanced(meshes[fireModel1.meshIndex]->indexCount, 1u, 0u, 0, 0u);
-						++renderCount;
-					}
-				}
-
-				if (waterModel.isInView(assets->mainFrustum))
-				{
-					D3D12_RESOURCE_BARRIER barriers[2];
-					barriers[0].Type = D3D12_RESOURCE_BARRIER_TYPE::D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-					barriers[0].Flags = D3D12_RESOURCE_BARRIER_FLAGS::D3D12_RESOURCE_BARRIER_FLAG_NONE;
-					barriers[0].Transition.pResource = renderTargetTextures[0];
-					barriers[0].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-					barriers[0].Transition.StateBefore = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET;
-					barriers[0].Transition.StateAfter = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-
-					barriers[1].Type = D3D12_RESOURCE_BARRIER_TYPE::D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-					barriers[1].Flags = D3D12_RESOURCE_BARRIER_FLAGS::D3D12_RESOURCE_BARRIER_FLAG_NONE;
-					barriers[1].Transition.pResource = renderTargetTextures[1];
-					barriers[1].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-					barriers[1].Transition.StateBefore = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET;
-					barriers[1].Transition.StateAfter = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-
-					opaqueDirectCommandList->ResourceBarrier(2u, barriers);
-					waterRenderTargetTextureState = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-
-					opaqueDirectCommandList->SetPipelineState(assets->pipelineStateObjects.waterPSO1);
-
-					opaqueDirectCommandList->SetGraphicsRootConstantBufferView(2u, waterModel.vsPerObjectCBVGpuAddresses[frameIndex]);
-					opaqueDirectCommandList->SetGraphicsRootConstantBufferView(3u, waterModel.psPerObjectCBVGpuAddress);
-					opaqueDirectCommandList->IASetVertexBuffers(0u, 1u, &meshes[waterModel.meshIndex]->vertexBufferView);
-					opaqueDirectCommandList->IASetIndexBuffer(&meshes[waterModel.meshIndex]->indexBufferView);
-					opaqueDirectCommandList->DrawIndexedInstanced(meshes[waterModel.meshIndex]->indexCount, 1u, 0u, 0, 0u);
-					++renderCount;
-				}
-			}
-			if (waterRenderTargetTextureState == D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET)
-			{
-				afterTransBarriers[afterBarrierCount].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-				afterTransBarriers[afterBarrierCount].Flags = D3D12_RESOURCE_BARRIER_FLAG_BEGIN_ONLY;
-				afterTransBarriers[afterBarrierCount].Transition.pResource = renderTargetTextures[0];
-				afterTransBarriers[afterBarrierCount].Transition.StateBefore = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET;
-				afterTransBarriers[afterBarrierCount].Transition.StateAfter = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-				afterTransBarriers[afterBarrierCount].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-				++afterBarrierCount;
-
-				afterTransBarriers[afterBarrierCount].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-				afterTransBarriers[afterBarrierCount].Flags = D3D12_RESOURCE_BARRIER_FLAG_BEGIN_ONLY;
-				afterTransBarriers[afterBarrierCount].Transition.pResource = renderTargetTextures[1];
-				afterTransBarriers[afterBarrierCount].Transition.StateBefore = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET;
-				afterTransBarriers[afterBarrierCount].Transition.StateAfter = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-				afterTransBarriers[afterBarrierCount].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-				++afterBarrierCount;
-			}
-
-			opaqueDirectCommandList->ResourceBarrier(afterBarrierCount, afterTransBarriers);
 		}
 	};
 
@@ -751,9 +605,9 @@ namespace
 
 			commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-			if (bathModel.isInView(assets->mainFrustum))
+			if (bathModel.isInView(assets->mainCamera.frustum()))
 			{
-				commandList->SetPipelineState(assets->pipelineStateObjects.lightPSO1);
+				commandList->SetPipelineState(assets->pipelineStateObjects.directionalLight);
 
 				commandList->SetGraphicsRootConstantBufferView(2u, bathModel.vsPerObjectCBVGpuAddress);
 				commandList->SetGraphicsRootConstantBufferView(3u, bathModel.psPerObjectCBVGpuAddress);

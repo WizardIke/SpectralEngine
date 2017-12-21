@@ -2,15 +2,23 @@
 #include <RenderPass.h>
 #include <RenderSubPass.h>
 #include <MainCamera.h>
+#include <Camera.h>
 #include <d3d12.h>
 #include <tuple>
+#include <Iterable.h>
 
 class RenderPass1
 {
-	using ColorRenderSubPass1 = RenderSubPass<MainCamera, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET, std::tuple<std::integral_constant<unsigned int, 1u>>, std::tuple<std::integral_constant<D3D12_RESOURCE_STATES, D3D12_RESOURCE_STATE_RENDER_TARGET>>, 2u>;
-	using PresentSubPass1 = RenderSubPass<MainCamera, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_PRESENT, std::tuple<std::integral_constant<unsigned int, 0u>>, std::tuple<std::integral_constant<D3D12_RESOURCE_STATES, D3D12_RESOURCE_STATE_PRESENT>>, 0u>;
-	using RenderPass11 = RenderPass<ColorRenderSubPass1, PresentSubPass1>;
-	constexpr static unsigned int colorSubPassIndex = 0u;
+	constexpr static unsigned int renderToTextureSubPassIndex = 0u;
+	constexpr static unsigned int colorSubPassIndex = 1u;
+	constexpr static unsigned int presentSubPassIndex = 2u;
+	using RenderToTextureSubPassGroup1 = RenderSubPassGroup<RenderSubPass<Camera, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET, std::tuple<>, std::tuple<>, 1u>>;
+	using ColorSubPass1 = RenderSubPass<MainCamera, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET, 
+		std::tuple<std::integral_constant<unsigned int, renderToTextureSubPassIndex>>,
+		std::tuple<std::integral_constant<D3D12_RESOURCE_STATES, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE>>, 2u>;
+	using PresentSubPass1 = RenderSubPass<MainCamera, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_PRESENT,
+		std::tuple<std::integral_constant<unsigned int, colorSubPassIndex>>, std::tuple<std::integral_constant<D3D12_RESOURCE_STATES, D3D12_RESOURCE_STATE_PRESENT>>, 0u>;
+	using RenderPass11 = RenderPass<RenderToTextureSubPassGroup1, ColorSubPass1, PresentSubPass1>;
 
 	RenderPass11 data;
 public:
@@ -18,16 +26,15 @@ public:
 
 	class Local
 	{
-		RenderPass1::RenderPass11::ThreadLocal data;
+		RenderPass11::ThreadLocal data;
 	public:
 		Local(BaseExecutor* const executor) : data(executor) {}
 
 		class ColorSubPass
 		{
 			friend class Local;
-			RenderPass1::ColorRenderSubPass1::ThreadLocal& data;
-			ColorSubPass(RenderPass1::ColorRenderSubPass1::ThreadLocal& data) : data(data) {}
-			
+			ColorSubPass1::ThreadLocal& data;
+			ColorSubPass(RenderPass1::ColorSubPass1::ThreadLocal& data) : data(data) {}
 		public:
 			ColorSubPass(const ColorSubPass& other) = default;
 			ID3D12GraphicsCommandList* opaqueCommandList() { return data.currentData->commandLists[0u]; }
@@ -35,6 +42,21 @@ public:
 		};
 
 		ColorSubPass colorSubPass() { return std::get<colorSubPassIndex>(data.subPassesThreadLocal); }
+
+		class RenderToTextureSubPassGroup
+		{
+			friend class Local
+			RenderToTextureSubPassGroup1::ThreadLocal& data;
+			RenderToTextureSubPassGroup(RenderToTextureSubPassGroup1::ThreadLocal& data) : data(data) {}
+			RenderToTextureSubPassGroup(const RenderToTextureSubPassGroup& other) = default;
+		public:
+			Iterable<std::vector<RenderToTextureSubPassGroup1::ThreadLocal::SubPass>::iterator> subPasses()
+			{
+				return data.subPasses();
+			}
+		};
+
+		RenderToTextureSubPassGroup renderToTextureSubPassGroup() { return std::get<renderToTextureSubPassIndex>(data.subPassesThreadLocal); }
 
 		void update1(BaseExecutor* const executor, RenderPass1& renderPass, unsigned int notFirstThread)
 		{
@@ -45,32 +67,20 @@ public:
 		{
 			data.update1After(executor, renderPass.data, rootSignature, index);
 		}
-		void update2(BaseExecutor* const executor, RenderPass1& renderPass, unsigned int index) { data.update2(executor, renderPass.data, index); }
-		void update2LastThread(BaseExecutor* const executor, RenderPass1& renderPass, unsigned int index) { data.update2LastThread(executor, renderPass.data, index); }
+		void update2(BaseExecutor* const executor, RenderPass1& renderPass) { data.update2(executor, renderPass.data); }
+		void update2LastThread(BaseExecutor* const executor, RenderPass1& renderPass) { data.update2LastThread(executor, renderPass.data); }
 	};
 
-	class ColorSubPass
-	{
-		friend class RenderPass1;
-		RenderPass1& parent;
-		ColorSubPass(RenderPass1& parent) : parent(parent) {}
-	public:
-		ColorSubPass(const ColorSubPass& other) = default;
-		void addCamera(BaseExecutor* executor, std::remove_reference_t<decltype(*RenderPass1::ColorRenderSubPass1::cameras[0u])>* camera)
-		{
-			parent.data.addCamera<colorSubPassIndex, std::remove_reference_t<decltype(*RenderPass1::ColorRenderSubPass1::cameras[0u])>>(executor, camera);
-		}
-
-		void removeCamera(BaseExecutor* executor, std::remove_reference_t<decltype(*RenderPass1::ColorRenderSubPass1::cameras[0u])>* camera)
-		{
-			parent.data.removeCamera<colorSubPassIndex, std::remove_reference_t<decltype(*RenderPass1::ColorRenderSubPass1::cameras[0u])>>(executor, camera);
-		}
-	};
-
-	ColorSubPass colorSubPass() { return ColorSubPass(*this); }
+	ColorSubPass1& colorSubPass() { return std::get<colorSubPassIndex>(data.subPasses); }
+	RenderToTextureSubPassGroup1 RenderToTextureSubPass() { return std::get<renderToTextureSubPassIndex>(data.subPasses); }
 
 	void update1(D3D12GraphicsEngine& graphicsEngine)
 	{
 		data.update1(graphicsEngine);
+	}
+
+	void updateBarrierCount()
+	{
+		data.updateBarrierCount();
 	}
 };

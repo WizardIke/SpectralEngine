@@ -1,5 +1,5 @@
 Texture2D<float4> textures[] : register(t0);
-SamplerState sampleType;
+SamplerState sampleType : register(s0);
 
 cbuffer perObjectBuffer : register(b1)
 {

@@ -109,6 +109,15 @@
     <Filter Include="Window">
       <UniqueIdentifier>{2475bc54-16d6-4167-b495-51d28d5781a1}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Shaders">
+      <UniqueIdentifier>{5fa2e970-e654-402b-90a2-cf0fd0df4e5e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shaders\Pixel">
+      <UniqueIdentifier>{5012bd23-8f0b-4659-b6d0-fa11a5b85747}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shaders\Vertex">
+      <UniqueIdentifier>{e9159c27-8f8f-4c7f-8d08-3fd508348cbc}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="HresultException.h">
@@ -208,12 +217,6 @@
       <Filter>D3D12</Filter>
     </ClInclude>
     <ClInclude Include="D3D12DescriptorHeap.h">
-      <Filter>D3D12</Filter>
-    </ClInclude>
-    <ClInclude Include="D3D12DevicePointer.h">
-      <Filter>D3D12</Filter>
-    </ClInclude>
-    <ClInclude Include="D3D12FencePointer.h">
       <Filter>D3D12</Filter>
     </ClInclude>
     <ClInclude Include="DXGISwapChain4.h">
@@ -332,6 +335,34 @@
     <ClInclude Include="Vector4.h">
       <Filter>Math</Filter>
     </ClInclude>
+    <ClInclude Include="Camera.h">
+      <Filter>Camera</Filter>
+    </ClInclude>
+    <ClInclude Include="D3D12Device.h">
+      <Filter>D3D12</Filter>
+    </ClInclude>
+    <ClInclude Include="D3D12PipelineState.h">
+      <Filter>D3D12</Filter>
+    </ClInclude>
+    <ClInclude Include="D3D12Fence.h">
+      <Filter>D3D12</Filter>
+    </ClInclude>
+    <ClInclude Include="Iterable.h" />
+    <ClInclude Include="Shaders\WaterMaterialPS.h">
+      <Filter>Shaders\Pixel</Filter>
+    </ClInclude>
+    <ClInclude Include="Shaders\WaterMaterialVS.h">
+      <Filter>Shaders\Vertex</Filter>
+    </ClInclude>
+    <ClInclude Include="Shaders\FireMaterialVS.h">
+      <Filter>Shaders\Vertex</Filter>
+    </ClInclude>
+    <ClInclude Include="Shaders\FireMaterialPS.h">
+      <Filter>Shaders\Pixel</Filter>
+    </ClInclude>
+    <ClInclude Include="Shaders\GlassMaterialPS.h">
+      <Filter>Shaders\Pixel</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="SharedResources.cpp">
@@ -395,5 +426,43 @@
       <Filter>StreamingManager</Filter>
     </ClCompile>
     <ClCompile Include="AABBSweepTest.cpp" />
+    <ClCompile Include="Camera.cpp">
+      <Filter>Camera</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="Shaders\WaterPS.hlsl">
+      <Filter>Shaders\Pixel</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\FirePS.hlsl">
+      <Filter>Shaders\Pixel</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\FireVs.hlsl">
+      <Filter>Shaders\Vertex</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\GlassPS.hlsl">
+      <Filter>Shaders\Pixel</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\Quad2DVS.hlsl">
+      <Filter>Shaders\Vertex</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\StandardPS.hlsl">
+      <Filter>Shaders\Pixel</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\TextPS.hlsl">
+      <Filter>Shaders\Pixel</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\WaterVS.hlsl">
+      <Filter>Shaders\Vertex</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\StandardVS.hlsl">
+      <Filter>Shaders\Vertex</Filter>
+    </FxCompile>
+    <FxCompile Include="ScreenSpaceCopy.hlsl">
+      <Filter>Shaders\Pixel</Filter>
+    </FxCompile>
+    <FxCompile Include="ScreenSpaceCopyVS.hlsl">
+      <Filter>Shaders\Vertex</Filter>
+    </FxCompile>
   </ItemGroup>
 </Project>

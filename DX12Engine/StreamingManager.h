@@ -1,6 +1,6 @@
 #pragma once
 #include "D3D12CommandQueue.h"
-#include "D3D12FencePointer.h"
+#include "D3D12Fence.h"
 #include "../Array/Array.h"
 #include "D3D12CommandAllocator.h"
 #include "D3D12GraphicsCommandList.h"
