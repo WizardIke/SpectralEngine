@@ -513,7 +513,7 @@ public:
 		{
 			using SubPasses = std::tuple<RenderSubPass_t...>;
 			constexpr unsigned int subPassCount = sizeof...(RenderSubPass_t);
-			if (std::get<subPassIndex>(renderPass.subPasses).commandListsPerFrame  != 0u)
+			if (std::get<lastCameraSubPassIndex>(renderPass.subPasses).commandListsPerFrame  != 0u)
 			{
 				auto& latCameraSubPassLocal = std::get<lastCameraSubPassIndex>(subPassesThreadLocal);
 				latCameraSubPassLocal.lastCommandList()->ResourceBarrier(barrierCount, renderPass.barriers.get());

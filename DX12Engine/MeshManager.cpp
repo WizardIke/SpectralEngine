@@ -44,14 +44,14 @@ void MeshManager::loadMeshUncached(StreamingManagerThreadLocal& streamingManager
 	MeshHeader meshHeader;
 	uploadRequest.file.read(meshHeader);
 
-	uint32_t vertexSize = vertexStrideInBytes * meshHeader.numVertices;
+	uint32_t vertexSizeBytes = vertexStrideInBytes * meshHeader.numVertices;
 	uint32_t indexSize;
 	if (meshHeader.numIndices != 0u) indexSize = sizeof(uint32_t) * meshHeader.numIndices;
 	else indexSize = sizeof(uint32_t) * meshHeader.numVertices;
 
-	uploadRequest.width = vertexPackedSize * meshHeader.numVertices + indexSize;
-	uploadRequest.height = vertexSize;
-	uploadRequest.depth = indexSize;
+	uploadRequest.width = vertexSizeBytes + indexSize;
+	uploadRequest.height = vertexSizeBytes;
+	uploadRequest.depth = meshHeader.numVertices * vertexPackedSize;
 	uploadRequest.format = DXGI_FORMAT_UNKNOWN;
 	uploadRequest.uploadSizeInBytes = uploadRequest.width;
 	uploadRequest.numSubresources = 1u;
@@ -173,7 +173,8 @@ void MeshManager::meshWithPositionTextureNormalTangentBitangentUseSubresourceHel
 {
 	wchar_t* filename = reinterpret_cast<wchar_t*>(request->requester);
 	auto vertexSizeBytes = request->height;
-	auto indexSizeBytes = request->depth;
+	auto indexSizeBytes = request->width - vertexSizeBytes;
+	auto sizeOnFile = request->depth;
 	constexpr auto vertexStrideInBytes = sizeof(MeshWithPositionTextureNormalTangentBitangent);
 	Mesh* mesh = meshManager.createMesh(meshAllocator, filename, graphicsDevice, vertexSizeBytes, vertexStrideInBytes,
 		indexSizeBytes);
@@ -187,18 +188,17 @@ void MeshManager::meshWithPositionTextureNormalTangentBitangentUseSubresourceHel
 	ID3D12GraphicsCommandList* copyCommandList = streamingManager.currentCommandList;
 	MeshWithPositionTextureNormalTangentBitangent* vertexUploadBuffer = reinterpret_cast<MeshWithPositionTextureNormalTangentBitangent* const>(uploadBufferCpuAddressOfCurrentPos);
 
-	uint32_t byteSize = static_cast<uint32_t>(request->uploadSizeInBytes);
 	{
-		std::unique_ptr<unsigned char[]> buffer(new unsigned char[byteSize]);
-		request->file.read(buffer.get(), byteSize);
+		std::unique_ptr<unsigned char[]> buffer(new unsigned char[sizeOnFile]);
+		request->file.read(buffer.get(), sizeOnFile);
 		request->file.close();
-		CalculateTangentBitangent(buffer.get(), buffer.get() + byteSize, vertexUploadBuffer);
+		CalculateTangentBitangent(buffer.get(), buffer.get() + sizeOnFile, vertexUploadBuffer);
 	}
 	
 	copyCommandList->CopyBufferRegion(mesh->vertices, 0u, uploadResource, uploadResourceOffset, vertexSizeBytes);
 
-	createIndices(reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(uploadBufferCpuAddressOfCurrentPos) + byteSize), mesh, request, uploadResource,
-		uploadResourceOffset + byteSize, indexSizeBytes, copyCommandList);
+	createIndices(reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(uploadBufferCpuAddressOfCurrentPos) + vertexSizeBytes), mesh, request, uploadResource,
+		uploadResourceOffset + vertexSizeBytes, indexSizeBytes, copyCommandList);
 }
 
 void MeshManager::meshWithPositionTextureNormalUseSubresourceHelper(RamToVramUploadRequest* request, void* const uploadBufferCpuAddressOfCurrentPos,
@@ -207,7 +207,8 @@ void MeshManager::meshWithPositionTextureNormalUseSubresourceHelper(RamToVramUpl
 {
 	wchar_t* filename = reinterpret_cast<wchar_t*>(request->requester);
 	auto vertexSizeBytes = request->height;
-	auto indexSizeBytes = request->depth;
+	auto indexSizeBytes = request->width - vertexSizeBytes;
+	auto sizeOnFile = request->depth;
 	constexpr auto vertexStrideInBytes = sizeof(MeshWithPositionTextureNormal);
 	Mesh* mesh = meshManager.createMesh(meshAllocator, filename, graphicsDevice, vertexSizeBytes, vertexStrideInBytes,
 		indexSizeBytes);
@@ -221,12 +222,11 @@ void MeshManager::meshWithPositionTextureNormalUseSubresourceHelper(RamToVramUpl
 	ID3D12GraphicsCommandList* copyCommandList = streamingManager.currentCommandList;
 	MeshWithPositionTextureNormal* vertexUploadBuffer = reinterpret_cast<MeshWithPositionTextureNormal* const>(uploadBufferCpuAddressOfCurrentPos);
 
-	uint32_t byteSize = static_cast<uint32_t>(request->uploadSizeInBytes);
 	{
-		std::unique_ptr<unsigned char[]> buffer(new unsigned char[byteSize]);
-		request->file.read(buffer.get(), static_cast<uint32_t>(byteSize));
+		std::unique_ptr<unsigned char[]> buffer(new unsigned char[sizeOnFile]);
+		request->file.read(buffer.get(), sizeOnFile);
 		request->file.close();
-		auto end = buffer.get() + byteSize;
+		auto end = buffer.get() + sizeOnFile;
 		auto start = buffer.get();
 		while (start != end)
 		{
@@ -254,8 +254,8 @@ void MeshManager::meshWithPositionTextureNormalUseSubresourceHelper(RamToVramUpl
 	}
 	copyCommandList->CopyBufferRegion(mesh->vertices, 0u, uploadResource, uploadResourceOffset, vertexSizeBytes);
 
-	createIndices(reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(uploadBufferCpuAddressOfCurrentPos) + byteSize), mesh, request, uploadResource,
-		uploadResourceOffset + byteSize, indexSizeBytes, copyCommandList);
+	createIndices(reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(uploadBufferCpuAddressOfCurrentPos) + vertexSizeBytes), mesh, request, uploadResource,
+		uploadResourceOffset + vertexSizeBytes, indexSizeBytes, copyCommandList);
 }
 
 void MeshManager::meshWithPositionTextureUseSubresourceHelper(RamToVramUploadRequest* request, void* const uploadBufferCpuAddressOfCurrentPos,
@@ -264,7 +264,8 @@ void MeshManager::meshWithPositionTextureUseSubresourceHelper(RamToVramUploadReq
 {
 	wchar_t* filename = reinterpret_cast<wchar_t*>(request->requester);
 	auto vertexSizeBytes = request->height;
-	auto indexSizeBytes = request->depth;
+	auto indexSizeBytes = request->width - vertexSizeBytes;
+	auto sizeOnFile = request->depth;
 	constexpr auto vertexStrideInBytes = sizeof(MeshWithPositionTexture);
 	Mesh* mesh = meshManager.createMesh(meshAllocator, filename, graphicsDevice, vertexSizeBytes, vertexStrideInBytes, indexSizeBytes);
 
@@ -277,12 +278,11 @@ void MeshManager::meshWithPositionTextureUseSubresourceHelper(RamToVramUploadReq
 	ID3D12GraphicsCommandList* copyCommandList = streamingManager.currentCommandList;
 	MeshWithPositionTexture* vertexUploadBuffer = reinterpret_cast<MeshWithPositionTexture* const>(uploadBufferCpuAddressOfCurrentPos);
 
-	uint32_t byteSize = static_cast<uint32_t>(request->uploadSizeInBytes);
 	{
-		std::unique_ptr<unsigned char[]> buffer(new unsigned char[byteSize]);
-		request->file.read(buffer.get(), static_cast<uint32_t>(byteSize));
+		std::unique_ptr<unsigned char[]> buffer(new unsigned char[sizeOnFile]);
+		request->file.read(buffer.get(), static_cast<uint32_t>(sizeOnFile));
 		request->file.close();
-		auto end = buffer.get() + byteSize;
+		auto end = buffer.get() + sizeOnFile;
 		auto start = buffer.get();
 		while (start != end)
 		{
@@ -304,8 +304,8 @@ void MeshManager::meshWithPositionTextureUseSubresourceHelper(RamToVramUploadReq
 	}
 	copyCommandList->CopyBufferRegion(mesh->vertices, 0u, uploadResource, uploadResourceOffset, vertexSizeBytes);
 
-	createIndices(reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(uploadBufferCpuAddressOfCurrentPos) + byteSize), mesh, request, uploadResource,
-		uploadResourceOffset + byteSize, indexSizeBytes, copyCommandList);
+	createIndices(reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(uploadBufferCpuAddressOfCurrentPos) + vertexSizeBytes), mesh, request, uploadResource,
+		uploadResourceOffset + vertexSizeBytes, indexSizeBytes, copyCommandList);
 }
 
 void MeshManager::meshWithPositionUseSubresourceHelper(RamToVramUploadRequest* request, void* const uploadBufferCpuAddressOfCurrentPos,
@@ -314,7 +314,8 @@ void MeshManager::meshWithPositionUseSubresourceHelper(RamToVramUploadRequest* r
 {
 	wchar_t* filename = reinterpret_cast<wchar_t*>(request->requester);
 	auto vertexSizeBytes = request->height;
-	auto indexSizeBytes = request->depth;
+	auto indexSizeBytes = request->width - vertexSizeBytes;
+	auto sizeOnFile = request->depth;
 	constexpr auto vertexStrideInBytes = sizeof(MeshWithPositionTextureNormal);
 	Mesh* mesh = meshManager.createMesh(meshAllocator, filename, graphicsDevice, vertexSizeBytes, vertexStrideInBytes, indexSizeBytes);
 
@@ -327,12 +328,11 @@ void MeshManager::meshWithPositionUseSubresourceHelper(RamToVramUploadRequest* r
 	ID3D12GraphicsCommandList* copyCommandList = streamingManager.currentCommandList;
 	MeshWithPosition* vertexUploadBuffer = reinterpret_cast<MeshWithPosition* const>(uploadBufferCpuAddressOfCurrentPos);
 
-	uint32_t byteSize = static_cast<uint32_t>(request->uploadSizeInBytes);
 	{
-		std::unique_ptr<unsigned char[]> buffer(new unsigned char[byteSize]);
-		request->file.read(buffer.get(), byteSize);
+		std::unique_ptr<unsigned char[]> buffer(new unsigned char[sizeOnFile]);
+		request->file.read(buffer.get(), sizeOnFile);
 		request->file.close();
-		auto end = buffer.get() + byteSize;
+		auto end = buffer.get() + sizeOnFile;
 		auto start = buffer.get();
 		while (start != end)
 		{
@@ -349,8 +349,8 @@ void MeshManager::meshWithPositionUseSubresourceHelper(RamToVramUploadRequest* r
 	}
 	copyCommandList->CopyBufferRegion(mesh->vertices, 0u, uploadResource, uploadResourceOffset, vertexSizeBytes);
 	;
-	createIndices(reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(uploadBufferCpuAddressOfCurrentPos) + byteSize), mesh, request, uploadResource,
-		uploadResourceOffset + byteSize, indexSizeBytes, copyCommandList);
+	createIndices(reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(uploadBufferCpuAddressOfCurrentPos) + vertexSizeBytes), mesh, request, uploadResource,
+		uploadResourceOffset + vertexSizeBytes, indexSizeBytes, copyCommandList);
 }
 
 void MeshManager::meshUploaded(void* requester, BaseExecutor* executor)
