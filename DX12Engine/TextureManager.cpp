@@ -4,39 +4,12 @@
 #include "SharedResources.h"
 #include "BaseExecutor.h"
 #include <d3d12.h>
+#include "D3D12GraphicsEngine.h"
 
 TextureManager::TextureManager() {}
 TextureManager::~TextureManager() {}
 
-unsigned int TextureManager::loadTexture(const wchar_t * filename, void* requester, BaseExecutor* const executor, void(*resourceUploadedCallback)(void* const requester, BaseExecutor* const executor))
-{
-	TextureManager& textureManager = executor->sharedResources->textureManager;
-	std::unique_lock<decltype(textureManager.mutex)> lock(textureManager.mutex);
-	Texture& texture = textureManager.textures[filename];
-	texture.numUsers += 1u;
-	if (texture.numUsers == 1u)
-	{
-		textureManager.uploadRequests.insert({ filename, PendingLoadRequest{ requester, resourceUploadedCallback } });
-		lock.unlock();
-
-		return textureManager.loadTextureUncached(executor, filename);
-	}
-	//the resource is loaded or loading
-	if (texture.loaded)
-	{
-		unsigned int textureIndex = texture.descriptorIndex;
-		lock.unlock();
-		resourceUploadedCallback(requester, executor);
-		return textureIndex;
-	}
-	else
-	{
-		textureManager.uploadRequests.insert({ filename, PendingLoadRequest{ requester, resourceUploadedCallback } });
-		return texture.descriptorIndex;
-	}
-}
-
-void TextureManager::unloadTexture(const wchar_t * filename, BaseExecutor* const executor)
+void TextureManager::unloadTexture(const wchar_t * filename, D3D12GraphicsEngine& graphicsEngine)
 {
 	unsigned int descriptorIndex = std::numeric_limits<unsigned int>::max();
 	{
@@ -51,18 +24,18 @@ void TextureManager::unloadTexture(const wchar_t * filename, BaseExecutor* const
 	}
 	if (descriptorIndex != std::numeric_limits<unsigned int>::max())
 	{
-		executor->sharedResources->graphicsEngine.descriptorAllocator.deallocate(descriptorIndex);
+		graphicsEngine.descriptorAllocator.deallocate(descriptorIndex);
 	}
 }
 
-unsigned int TextureManager::loadTextureUncached(BaseExecutor* const executor, const wchar_t * filename)
+unsigned int TextureManager::loadTextureUncachedHelper(StreamingManagerThreadLocal& streamingManager, D3D12GraphicsEngine& graphicsEngine, const wchar_t * filename,
+	void(*textureUseSubresource)(RamToVramUploadRequest* const request, BaseExecutor* executor1, void* const uploadBufferCpuAddressOfCurrentPos, ID3D12Resource* uploadResource,
+		uint64_t uploadResourceOffset))
 {
-	RamToVramUploadRequest& uploadRequest = executor->streamingManager.getUploadRequest();
+	RamToVramUploadRequest& uploadRequest = streamingManager.getUploadRequest();
+	uploadRequest.useSubresourcePointer = textureUseSubresource;
 	uploadRequest.requester = reinterpret_cast<void*>(const_cast<wchar_t *>(filename));
 	uploadRequest.resourceUploadedPointer = textureUploaded;
-	uploadRequest.useSubresourcePointer = textureUseSubresource;
-
-	auto& graphicsEngine = executor->sharedResources->graphicsEngine;
 
 	D3D12_SHADER_RESOURCE_VIEW_DESC textureShaderResourceView;
 	D3D12_RESOURCE_DESC textureResourceDesc;
@@ -140,19 +113,4 @@ void TextureManager::textureUploaded(void* storedFilename, BaseExecutor* executo
 			requestCopy.resourceUploaded(requestCopy.requester, executor);
 		}
 	}
-}
-
-void TextureManager::textureUseSubresource(RamToVramUploadRequest* const request, BaseExecutor* executor, void* const uploadBufferCpuAddressOfCurrentPos, ID3D12Resource* uploadResource,
-	uint64_t uploadResourceOffset)
-{
-	auto& textureManager = executor->sharedResources->textureManager;
-	ID3D12Resource* texture;
-	const wchar_t* filename = reinterpret_cast<wchar_t*>(request->requester);
-	{
-		std::lock_guard<decltype(textureManager.mutex)> lock(textureManager.mutex);
-		texture = textureManager.textures[filename].resource;
-	}
-
-	DDSFileLoader::LoadDDsSubresourceFromFile(executor->sharedResources->graphicsEngine.graphicsDevice, request->width, request->height, request->depth, request->format, request->file, uploadBufferCpuAddressOfCurrentPos,
-		texture, executor->streamingManager.currentCommandList, request->currentSubresourceIndex, uploadResource, uploadResourceOffset);
 }

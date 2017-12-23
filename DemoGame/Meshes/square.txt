@@ -1,3 +1,4 @@
+Vertex Type: position3f_texCoords2f_normal3f
 Vertex Count: 6
 
 Data:

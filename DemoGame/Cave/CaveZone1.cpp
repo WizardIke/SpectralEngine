@@ -37,7 +37,7 @@ namespace Cave
 		CaveModelPart1 caveModelPart1;
 
 
-		HDResources(BaseExecutor* const executor, void* zone) :
+		HDResources(Executor* const executor, void* zone) :
 			light(DirectX::XMFLOAT4(0.1f, 0.1f, 0.1f, 1.0f), DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f), DirectX::XMFLOAT3(0.0f, -0.894427191f, 0.447213595f)),
 			perObjectConstantBuffers(executor->sharedResources->graphicsEngine.graphicsDevice, []()
 		{
@@ -120,8 +120,9 @@ namespace Cave
 
 		void update1(BaseExecutor* const executor) {}
 
-		static void create(void*const zone1, BaseExecutor*const executor)
+		static void create(void*const zone1, BaseExecutor*const exe)
 		{
+			const auto executor = reinterpret_cast<Executor*>(exe);
 			const auto zone = reinterpret_cast<BaseZone*const>(zone1);
 			zone->nextResources = malloc(sizeof(HDResources));
 			new(zone->nextResources) HDResources(executor, zone);
@@ -133,8 +134,9 @@ namespace Cave
 			auto& sharedResources = executor->sharedResources;
 			auto& textureManager = sharedResources->textureManager;
 			auto& meshManager = sharedResources->meshManager;
+			auto& graphicsEngine = sharedResources->graphicsEngine;
 
-			textureManager.unloadTexture(TextureNames::stone04, executor);
+			textureManager.unloadTexture(TextureNames::stone04, graphicsEngine);
 
 			meshManager.unloadMesh(MeshNames::squareWithNormals, executor);
 		}

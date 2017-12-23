@@ -51,13 +51,13 @@ Mesh* FixedSizeAllocator::allocate()
 
 	Mesh* returnMesh = &(currentFreeElement->mesh);
 	currentFreeElement = currentFreeElement->nextFreeMesh;
-	new (returnMesh) Mesh();
+	//new (returnMesh) Mesh();
 	return returnMesh;
 }
 
 void FixedSizeAllocator::deallocate(Mesh* mesh)
 {
-	mesh->~Mesh();
+	//mesh->~Mesh();
 	lastFreeElement->nextFreeMesh = reinterpret_cast<Element*>(mesh);
 	lastFreeElement = reinterpret_cast<Element*>(mesh);
 	lastFreeElement->nextFreeMesh = nullptr;

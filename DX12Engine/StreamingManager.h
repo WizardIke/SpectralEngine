@@ -24,7 +24,7 @@ class StreamingManagerThreadLocal
 	D3D12FencePointer copyFence;
 	uint64_t fenceValue;
 	Array<D3D12CommandAllocator, 2u> commandAllocators;
-	D3D12GraphicsCommandListPointer commandLists[2u];
+	D3D12GraphicsCommandList commandLists[2u];
 
 	std::unique_ptr<RamToVramUploadRequest[]> uploadRequestBuffer;
 	unsigned int uploadRequestBufferCapacity;

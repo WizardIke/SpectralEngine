@@ -214,9 +214,11 @@ PipelineStateObjects::PipelineStateObjects(ID3D12Device* const device, RootSigna
 	ID3DBlob* waterReflectionsPS;
 
 	hr = D3DReadFileToBlob(L"../DemoGame/CompiledShaders/WaterVS.cso", &waterVS);
+	if (FAILED(hr)) throw false;
 	hr = D3DReadFileToBlob(L"../DemoGame/CompiledShaders/WaterWithReflectionTexturePS.cso", &waterReflectionsPS);
+	if (FAILED(hr)) throw false;
 
-	D3D12_INPUT_ELEMENT_DESC texturedInputLayout[] =
+	const D3D12_INPUT_ELEMENT_DESC texturedInputLayout[] =
 	{
 		{ "POSITION", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
 		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 16, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
@@ -246,7 +248,9 @@ PipelineStateObjects::PipelineStateObjects(ID3D12Device* const device, RootSigna
 	ID3DBlob* glassPS;
 
 	hr = D3DReadFileToBlob(L"../DemoGame/CompiledShaders/BasicVS.cso", &basicVS);
-	hr = D3DReadFileToBlob(L"../DemoGame/CompiledShaders/GlassPs.cso", &glassPS);
+	if (FAILED(hr)) throw false;
+	hr = D3DReadFileToBlob(L"../DemoGame/CompiledShaders/GlassPS.cso", &glassPS);
+	if (FAILED(hr)) throw false;
 
 	PSODesc.VS.pShaderBytecode = basicVS->GetBufferPointer();
 	PSODesc.VS.BytecodeLength = basicVS->GetBufferSize();
@@ -259,6 +263,7 @@ PipelineStateObjects::PipelineStateObjects(ID3D12Device* const device, RootSigna
 	ID3DBlob* basicPS;
 
 	hr = D3DReadFileToBlob(L"../DemoGame/CompiledShaders/BasicPS.cso", &basicPS);
+	if (FAILED(hr)) throw false;
 
 	PSODesc.PS.pShaderBytecode = basicPS->GetBufferPointer();
 	PSODesc.PS.BytecodeLength = basicPS->GetBufferSize();
@@ -270,15 +275,22 @@ PipelineStateObjects::PipelineStateObjects(ID3D12Device* const device, RootSigna
 	ID3DBlob* copyPS;
 
 	hr = D3DReadFileToBlob(L"../DemoGame/CompiledShaders/CopyVS.cso", &copyVS);
+	if (FAILED(hr)) throw false;
 	hr = D3DReadFileToBlob(L"../DemoGame/CompiledShaders/CopyPS.cso", &copyPS);
+	if (FAILED(hr)) throw false;
 
 	PSODesc.VS.pShaderBytecode = copyVS->GetBufferPointer();
 	PSODesc.VS.BytecodeLength = copyVS->GetBufferSize();
 	PSODesc.PS.pShaderBytecode = copyPS->GetBufferPointer();
 	PSODesc.PS.BytecodeLength = copyPS->GetBufferSize();
 
-	PSODesc.InputLayout.NumElements = 0u;
-	PSODesc.InputLayout.pInputElementDescs = nullptr;
+	D3D12_INPUT_ELEMENT_DESC copyInputLayout[] =
+	{
+		{ "POSITION", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+	};
+
+	PSODesc.InputLayout.NumElements = sizeof(copyInputLayout) / sizeof(D3D12_INPUT_ELEMENT_DESC);
+	PSODesc.InputLayout.pInputElementDescs = copyInputLayout;
 	PSODesc.DepthStencilState.DepthEnable = FALSE;
 
 	new(&copy) D3D12PipelineState(device, PSODesc);
@@ -288,7 +300,9 @@ PipelineStateObjects::PipelineStateObjects(ID3D12Device* const device, RootSigna
 	ID3DBlob* firePS;
 
 	hr = D3DReadFileToBlob(L"../DemoGame/CompiledShaders/FireVS.cso", &fireVS);
+	if (FAILED(hr)) throw false;
 	hr = D3DReadFileToBlob(L"../DemoGame/CompiledShaders/FirePS.cso", &firePS);
+	if (FAILED(hr)) throw false;
 
 	PSODesc.VS.pShaderBytecode = fireVS->GetBufferPointer();
 	PSODesc.VS.BytecodeLength = fireVS->GetBufferSize();

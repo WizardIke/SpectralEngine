@@ -19,15 +19,12 @@ public:
 
 	D3D12CommandAllocator() : data(nullptr) {}
 
-	D3D12CommandAllocator(const D3D12CommandAllocator& other) = delete;
-
 	void operator=(D3D12CommandAllocator&& other)
 	{
+		if (data) data->Release();
 		this->data = other.data;
 		other.data = nullptr;
 	}
-
-	void operator=(const D3D12CommandAllocator& other) = delete;
 
 	operator ID3D12CommandAllocator*()
 	{

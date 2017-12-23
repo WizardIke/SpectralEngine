@@ -9,12 +9,9 @@ template<class Element>
 class DynamicArray : public ArrayBase<Element>
 {
 public:
-	enum initializeElements
-	{
-		doNotInitialize = true,
-	};
+	class DoNotInitialize {};
 
-	DynamicArray(const ArraySize size, initializeElements) :
+	DynamicArray(const ArraySize size, DoNotInitialize) :
 		ArrayBase(reinterpret_cast<Element*>(new Memory<sizeof(Element), alignof(Element)>[size.size]), size.size) {}
 
 	DynamicArray(const ArraySize size) :

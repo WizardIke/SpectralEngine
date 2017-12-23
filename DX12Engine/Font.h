@@ -44,8 +44,20 @@ struct Font
 	FontChar* getChar(wchar_t c);
 
 	Font() {}
-	Font(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, uint8_t*& constantBufferCpuAddress, const wchar_t* const filename, const wchar_t* const textureFile, BaseExecutor* const executor);
+
+	template<class Executor>
+	Font(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, uint8_t*& constantBufferCpuAddress, const wchar_t* const filename, const wchar_t* const textureFile, Executor* const executor)
+	{
+		uint32_t textureIndex = executor->sharedResources->textureManager.loadTexture(textureFile, this, executor, [](void* requester, BaseExecutor* const executor) {});
+		auto windowWidth = executor->sharedResources->window.width();
+		auto windowHeight = executor->sharedResources->window.height();
+		create(constantBufferGpuAddress, constantBufferCpuAddress, filename, textureFile, textureIndex, windowWidth, windowHeight);
+	}
 
 	void destruct(BaseExecutor* const executor, const wchar_t* const textureFile);
 	~Font() {}
+
+private:
+	void create(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, uint8_t*& constantBufferCpuAddress, const wchar_t* const filename, const wchar_t* const textureFile,
+		unsigned int textureIndex, unsigned int windowWidth, unsigned int windowHeight);
 };

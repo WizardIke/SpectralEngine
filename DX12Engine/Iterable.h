@@ -30,12 +30,12 @@ class Iterable
 
 		bool operator!=(const Iterator2& other)
 		{
-			return *this != other;
+			return *((Iterator1*)this) != other;
 		}
 
 		bool operator==(const Iterator2& other)
 		{
-			return *this == other;
+			return *((Iterator1*)this) == other;
 		}
 	};
 public:

@@ -45,7 +45,7 @@ Assets::Assets() :
 	properties.CreationNodeMask = 0u;
 	properties.MemoryPoolPreference = D3D12_MEMORY_POOL::D3D12_MEMORY_POOL_UNKNOWN;
 	return properties;
-}(), D3D12_HEAP_FLAGS::D3D12_HEAP_FLAG_DENY_BUFFERS, window.getBuffer(0u)->GetDesc(), D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET, nullptr),
+}(), D3D12_HEAP_FLAGS::D3D12_HEAP_FLAG_NONE, window.getBuffer(0u)->GetDesc(), D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET, nullptr),
 
 	warpTextureCpuDescriptorHeap(graphicsEngine.graphicsDevice, []()
 {

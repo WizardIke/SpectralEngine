@@ -2,19 +2,27 @@
 #include "ArrayBase.h"
 #include "ArraySize.h"
 #include <cstddef>
+#include <memory>
 
-template<class Element, class Alloc = allocator<Element> >
+template<class Element, class Alloc = std::allocator<Element>>
 class ResizingArray : public ArrayBase<Element>, private Alloc
 {
+	using traits = std::allocator_traits<Alloc>;
 public:
-	using value_type = Element;
 	using allocator_type = Alloc;
-	using size_type = typename traits::size_type;
+	using size_type = std::size_t;
+	using value_type = Element;
+	using iterator = Element*;
+	using const_iterator = const Element*;
+	using reverse_iterator = ::std::reverse_iterator<iterator>;
+	using const_reverse_iterator = ::std::reverse_iterator<const_iterator>;
+	using pointer = value_type*;
+	using reference = value_type&;
+	using const_pointer = const pointer;
+	using const_reference = const reference;
 private:
 	size_type size;
-
-	using traits = std::allocator_traits<allocator_type>;
-	using pointer = typename traits::pointer;
+	
 
 	void resizeNoChecks()
 	{
@@ -34,7 +42,7 @@ private:
 	}
 	void resizeToKnownSizeNoChechs(size_type newSize)
 	{
-		Element*const temp = reinterpret_cast<Element*const>(new Memory<sizeof(Element), alignof(Element)>[newSize]);
+		Element*const temp = allocate(newSize);
 		if (size != 0u)
 		{
 			size_t i = size;
@@ -45,20 +53,18 @@ private:
 				--i;
 			} while (i != 0u);
 		}
-		delete[] reinterpret_cast<Memory<sizeof(Element), alignof(Element)>*>(buffer);
+		deallocate(buffer, mCapacity);
 		buffer = temp;
 		mCapacity = newSize;
 	}
 public:
 	ResizingArray() noexcept : ArrayBase<Element>(nullptr, 0u), size(0u) {}
 
-	ResizingArray(const ArraySize capacity) : ArrayBase<Element>(reinterpret_cast<Element*>(new Memory<sizeof(Element),
-		alignof(Element)>[capacity.size]), capacity.size), size(0) {}
+	ResizingArray(const ArraySize capacity) : ArrayBase<Element>(allocate(capacity.size), capacity.size), size(0) {}
 
 	template<typename Functor, typename Return = typename std::result_of_t<Functor(std::size_t)> >
 	ResizingArray(const ArraySize capacity, Functor& initializer, typename std::enable_if<true, Return>::type* = nullptr) :
-		ArrayBase<Element>(reinterpret_cast<Element*>(new Memory<sizeof(Element), alignof(Element)>[capacity.size]),
-			capacity.size), size(capacity.size)
+		ArrayBase<Element>(allocate(capacity.size), capacity.size), size(capacity.size)
 	{
 		std::size_t i;
 		try
@@ -84,8 +90,7 @@ public:
 
 	template<typename Functor, typename Return = typename std::result_of_t<Functor(std::size_t, Element&)> >
 	ResizingArray(const ArraySize capacity, Functor& initializer) :
-		ArrayBase<Element>(reinterpret_cast<Element*>(new Memory<sizeof(Element), alignof(Element)>[capacity.size]),
-			capacity.size), size(capacity.size)
+		ArrayBase<Element>(allocate(capacity.size), capacity.size), size(capacity.size)
 	{
 		std::size_t i;
 		try
@@ -111,8 +116,7 @@ public:
 
 	template<typename Functor, typename Return = typename std::result_of_t<Functor(std::size_t)> >
 	ResizingArray(const ArraySize size, const ArraySize capacity, Functor& initializer, typename std::enable_if<true, Return>::type* = nullptr) :
-		ArrayBase<Element>(reinterpret_cast<Element*>(new Memory<sizeof(Element), alignof(Element)>[capacity.size]),
-			capacity.size), size(size.size)
+		ArrayBase<Element>(allocate(capacity.size), capacity.size), size(size.size)
 	{
 		std::size_t i;
 		try
@@ -138,8 +142,7 @@ public:
 
 	template<typename Functor, typename Return = typename std::result_of_t<Functor(std::size_t, Element&)> >
 	ResizingArray(const ArraySize size, const ArraySize capacity, Functor& initializer) :
-		ArrayBase<Element>(reinterpret_cast<Element*>(new Memory<sizeof(Element), alignof(Element)>[capacity.size]),
-			capacity.size), size(size.size)
+		ArrayBase<Element>(allocate(capacity.size), capacity.size), size(size.size)
 	{
 		std::size_t i;
 		try
@@ -164,15 +167,14 @@ public:
 	}
 
 	ResizingArray(const std::initializer_list<Element> initializer) :
-		ArrayBase<Element>(reinterpret_cast<Element*>(new Memory<sizeof(Element), alignof(Element)>[initializer.size()]),
-			initializer.size()), size(initializer.size())
+		ArrayBase<Element>(allocate(capacity.size), initializer.size()), size(initializer.size())
 	{
 		const std::size_t size = initializer.size();
 		std::size_t i;
 		try
 		{
-			decltype(initializer.begin()) j;
-			for (i = 0u, j = initializer.begin(); j != initializer.end(); j++, ++i)
+			auto j = initializer.begin()
+			for (i = 0u; j != initializer.end(); j++, ++i)
 			{
 				new(&buffer[i]) Element(*j);
 			}
@@ -192,8 +194,7 @@ public:
 	}
 
 	ResizingArray(std::initializer_list<Element>&& initializer) :
-		ArrayBase<Element>(reinterpret_cast<Element*>(new Memory<sizeof(Element), alignof(Element)>[initializer.size()]),
-			initializer.size()), size(initializer.size())
+		ArrayBase<Element>(allocate(capacity.size), initializer.size()), size(initializer.size())
 	{
 		const std::size_t size = initializer.size();
 		std::size_t i;
@@ -220,8 +221,7 @@ public:
 	}
 
 	ResizingArray(const ArraySize capacity, const std::initializer_list<Element> initializer) :
-		ArrayBase<Element>(reinterpret_cast<Element*>(new Memory<sizeof(Element), alignof(Element)>[capacity.size]),
-			capacity.size), size(initializer.size())
+		ArrayBase<Element>(allocate(capacity.size), capacity.size), size(initializer.size())
 	{
 		std::size_t i;
 		try
@@ -247,8 +247,7 @@ public:
 	}
 
 	ResizingArray(const ArraySize capacity, std::initializer_list<Element>&& initializer) :
-		ArrayBase<Element>(reinterpret_cast<Element*>(new Memory<sizeof(Element), alignof(Element)>[capacity.size]),
-			capacity.size), size(initializer.size())
+		ArrayBase<Element>(allocate(capacity.size), capacity.size), size(initializer.size())
 	{
 		std::size_t i;
 		try
@@ -284,7 +283,7 @@ public:
 				--i;
 			} while (i != 0u);
 		}
-		delete[] reinterpret_cast<Memory<sizeof(Element), alignof(Element)>*>(buffer);
+		deallocate(buffer, mCapacity);
 	}
 
 	bool empty() const noexcept
@@ -324,7 +323,7 @@ public:
 				--i;
 			} while (i != 0u);
 		}
-		delete[] reinterpret_cast<Memory<sizeof(Element), alignof(Element)>*>(buffer);
+		deallocate(buffer, mCapacity);
 		mCapacity = other.mCapacity;
 		size = other.size;
 		buffer = other.buffer;
@@ -350,8 +349,8 @@ public:
 		}
 		if (count > mCapacity)
 		{
-			delete[] reinterpret_cast<Memory<sizeof(Element), alignof(Element)>*>(buffer);
-			buffer = reinterpret_cast<Element*const>(new Memory<sizeof(Element), alignof(Element)>[count]);
+			deallocate(buffer, mCapacity);
+			buffer = allocate(count);
 			mCapacity = count;
 		}
 		size = count;
@@ -383,8 +382,8 @@ public:
 
 		if (length > mCapacity)
 		{
-			delete[] reinterpret_cast<Memory<sizeof(Element), alignof(Element)>*>(buffer);
-			buffer = reinterpret_cast<Element*const>(new Memory<sizeof(Element), alignof(Element)>[length]);
+			deallocate(buffer, mCapacity);
+			buffer = allocate(length);
 			mCapacity = length;
 		}
 		size = length;
@@ -410,8 +409,8 @@ public:
 
 		if (listSize > mCapacity)
 		{
-			delete[] reinterpret_cast<Memory<sizeof(Element), alignof(Element)>*>(buffer);
-			buffer = reinterpret_cast<Element*const>(new Memory<sizeof(Element), alignof(Element)>[listSize]);
+			deallocate(buffer, mCapacity);
+			buffer = allocate(listSize);
 			mCapacity = listSize;
 		}
 		size = listSize;
@@ -809,8 +808,9 @@ public:
 	reference emplace_back(Args&&... args)
 	{
 		if (size == mCapacity) resizeNoChecks();
-		new(&buffer[size]) Element(std::forward(args)...);
+		new(&buffer[size]) Element(std::forward<Args>(args)...);
 		++size;
+		return buffer[size - 1];
 	}
 
 	void pop_back()

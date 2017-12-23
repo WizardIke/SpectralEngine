@@ -63,7 +63,7 @@ public:
 
 	ColorSubPass1& colorSubPass() { return std::get<colorSubPassIndex>(data.subPasses); }
 	using RenderToTextureSubPassGroup = RenderToTextureSubPassGroup1;
-	RenderToTextureSubPassGroup renderToTextureSubPassGroup() { return std::get<renderToTextureSubPassIndex>(data.subPasses); }
+	RenderToTextureSubPassGroup& renderToTextureSubPassGroup() { return std::get<renderToTextureSubPassIndex>(data.subPasses); }
 
 	void update1(D3D12GraphicsEngine& graphicsEngine)
 	{

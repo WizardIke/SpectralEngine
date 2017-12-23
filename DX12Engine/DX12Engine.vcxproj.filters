@@ -461,8 +461,5 @@
     <FxCompile Include="Shaders\ScreenSpaceCopyPS.hlsl">
       <Filter>Shaders\Pixel</Filter>
     </FxCompile>
-    <FxCompile Include="Shaders\ScreenSpaceCopyVS.hlsl">
-      <Filter>Shaders\Vertex</Filter>
-    </FxCompile>
   </ItemGroup>
 </Project>

@@ -1,1 +1,1 @@
-#include <Shaders/ScreenSpaceCopyVS.hlsl>
+#include <Shaders/StandardVS.hlsl>

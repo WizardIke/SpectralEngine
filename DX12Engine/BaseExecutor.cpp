@@ -2,9 +2,8 @@
 #include "HresultException.h"
 #include "SharedResources.h"
 
-BaseExecutor::BaseExecutor(SharedResources* const sharedResources, unsigned long uploadHeapStartingSize, unsigned int uploadRequestBufferStartingCapacity, unsigned int halfFinishedUploadRequestBufferStartingCapasity) :
+BaseExecutor::BaseExecutor(SharedResources* const sharedResources) :
 	sharedResources(sharedResources),
-	streamingManager(sharedResources->graphicsEngine.graphicsDevice, uploadHeapStartingSize, uploadRequestBufferStartingCapacity, halfFinishedUploadRequestBufferStartingCapasity),
 	currentWorkStealingDeque(&workStealDeques[1u])
 {
 	sharedResources->workStealingQueues[sharedResources->numThreadsThatHaveFinished] = workStealDeques[0u];

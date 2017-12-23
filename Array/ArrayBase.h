@@ -18,13 +18,19 @@ protected:
 		unsigned char padding[size];
 	};
 public:
-	typedef Element* iterator;
-	typedef ::std::reverse_iterator<iterator> reverse_iterator;
-	typedef ::std::reverse_iterator<const iterator> const_reverse_iterator;
+	using value_type = Element;
+	using iterator = Element*;
+	using const_iterator = const Element*;
+	using reverse_iterator = ::std::reverse_iterator<iterator>;
+	using const_reverse_iterator = ::std::reverse_iterator<const_iterator>;
+	using pointer = value_type*;
+	using reference = value_type&;
+	using const_pointer = const pointer;
+	using const_reference = const reference;
+	using size_type = std::size_t;
 
 	ArrayBase(Element* const buffer, const std::size_t capacity) : buffer(buffer), mCapacity(capacity) {}
 	ArrayBase(const ArrayBase&) = default;
-	ArrayBase(ArrayBase&&) = default;
 
 	Element& at(const std::size_t pos)
 	{
@@ -58,6 +64,10 @@ public:
 	{
 		return buffer[pos];
 	}
+	const Element& operator[](const std::size_t pos) const
+	{
+		return buffer[pos];
+	}
 	constexpr Element& get(const std::size_t pos) const
 	{
 		return *(buffer + pos);
@@ -79,6 +89,11 @@ public:
 	{
 		return buffer;
 	}
+
+	const_iterator begin() const noexcept
+	{
+		return buffer;
+	}
 	constexpr iterator cbegin() const noexcept
 	{
 		return buffer;
@@ -92,6 +107,10 @@ public:
 		return const_reverse_iterator(buffer);
 	}
 	iterator end() noexcept
+	{
+		return &buffer[mCapacity];
+	}
+	const_iterator end() const noexcept
 	{
 		return &buffer[mCapacity];
 	}

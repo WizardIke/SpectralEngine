@@ -39,7 +39,7 @@ class TestZoneFunctions
 		HighResPlane<x, z> highResPlaneModel;
 
 
-		HDResources(BaseExecutor* const executor, void* zone) :
+		HDResources(Executor* const executor, void* zone) :
 			light(DirectX::XMFLOAT4(0.1f, 0.1f, 0.1f, 1.0f), DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f), DirectX::XMFLOAT3(0.0f, -0.894427191f, 0.447213595f)),
 			perObjectConstantBuffers(executor->sharedResources->graphicsEngine.graphicsDevice, []()
 		{
@@ -126,8 +126,9 @@ class TestZoneFunctions
 			}
 		}
 
-		static void create(void*const zone1, BaseExecutor*const executor)
+		static void create(void*const zone1, BaseExecutor*const exe)
 		{
+			const auto executor = reinterpret_cast<Executor* const>(exe);
 			const auto zone = reinterpret_cast<BaseZone*const>(zone1);
 			zone->nextResources = malloc(sizeof(HDResources));
 			new(zone->nextResources) HDResources(executor, zone);

@@ -50,7 +50,6 @@ void StreamingManagerThreadLocal::addUploadToBuffer(BaseExecutor* const executor
 		{
 			auto startWritePos = uploadBufferWritePos;
 
-			size_t numBytes, numRows, rowBytes;
 			size_t subresouceWidth = uploadRequest.width >> uploadRequest.currentSubresourceIndex;
 			if (subresouceWidth == 0u) subresouceWidth = 1u;
 			size_t subresourceHeight = uploadRequest.height >> uploadRequest.currentSubresourceIndex;
@@ -61,6 +60,7 @@ void StreamingManagerThreadLocal::addUploadToBuffer(BaseExecutor* const executor
 			size_t subresourceSize;
 			if (uploadRequest.format != DXGI_FORMAT_UNKNOWN)
 			{
+				size_t numBytes, numRows, rowBytes;
 				DDSFileLoader::getSurfaceInfo(subresouceWidth, subresourceHeight, uploadRequest.format, numBytes, rowBytes, numRows);
 				subresourceSize = numBytes * subresourceDepth;
 			}
@@ -161,9 +161,9 @@ StreamingManagerThreadLocal::StreamingManagerThreadLocal(ID3D12Device* const gra
 }),
 	currentHalfFinishedUploadRequestBuffer(&halfFinishedUploadRequestsBuffer[0u])
 {
-	new(&commandLists[1u]) D3D12GraphicsCommandListPointer(graphicsDevice, 0u, D3D12_COMMAND_LIST_TYPE::D3D12_COMMAND_LIST_TYPE_COPY, commandAllocators[0u], nullptr);
+	new(&commandLists[1u]) D3D12GraphicsCommandList(graphicsDevice, 0u, D3D12_COMMAND_LIST_TYPE::D3D12_COMMAND_LIST_TYPE_COPY, commandAllocators[0u], nullptr);
 	commandLists[1u]->Close();
-	new(&commandLists[0u]) D3D12GraphicsCommandListPointer(graphicsDevice, 0u, D3D12_COMMAND_LIST_TYPE::D3D12_COMMAND_LIST_TYPE_COPY, commandAllocators[0u], nullptr);
+	new(&commandLists[0u]) D3D12GraphicsCommandList(graphicsDevice, 0u, D3D12_COMMAND_LIST_TYPE::D3D12_COMMAND_LIST_TYPE_COPY, commandAllocators[0u], nullptr);
 	currentCommandList = commandLists[0u];
 
 #ifndef NDEBUG
@@ -179,8 +179,8 @@ StreamingManagerThreadLocal::StreamingManagerThreadLocal(ID3D12Device* const gra
 		uploadHeapProperties.Type = D3D12_HEAP_TYPE_UPLOAD;
 		uploadHeapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
 		uploadHeapProperties.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
-		uploadHeapProperties.CreationNodeMask = 0u;
-		uploadHeapProperties.VisibleNodeMask = 0u;
+		uploadHeapProperties.CreationNodeMask = 1u;
+		uploadHeapProperties.VisibleNodeMask = 1u;
 
 		D3D12_RESOURCE_DESC uploadResouceDesc;
 		uploadResouceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;

@@ -32,7 +32,7 @@ namespace
 {
 	class HDResources
 	{
-		constexpr static unsigned char numMeshes = 6u;
+		constexpr static unsigned char numMeshes = 7u;
 		constexpr static unsigned char numTextures = 9u;
 		constexpr static unsigned char numComponents = 3u + numTextures + numMeshes;
 		constexpr static unsigned int numRenderTargetTextures = 1u;
@@ -138,6 +138,7 @@ namespace
 			MeshManager::loadMeshWithPositionTexture(MeshNames::water, zone, executor, componentUploaded, &meshes[3]);
 			MeshManager::loadMeshWithPositionTexture(MeshNames::cube, zone, executor, componentUploaded, &meshes[4]);
 			MeshManager::loadMeshWithPositionTexture(MeshNames::square, zone, executor, componentUploaded, &meshes[5]);
+			MeshManager::loadMeshWithPosition(MeshNames::aabb, zone, executor, componentUploaded, &meshes[6]);
 
 			D3D12_HEAP_PROPERTIES heapProperties;
 			heapProperties.Type = D3D12_HEAP_TYPE_DEFAULT;
@@ -447,20 +448,20 @@ namespace
 				opaqueDirectCommandList->DrawIndexedInstanced(meshes[bathModel1.meshIndex]->indexCount, 1u, 0u, 0, 0u);
 			}
 
+			transparantCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 			if (waterModel.isInView(frustum))
 			{
 				transparantCommandList->ResourceBarrier(2u, copyStartBarriers);
 				transparantCommandList->OMSetRenderTargets(1u, &warpTextureCpuDescriptorHandle, TRUE, nullptr);
-				transparantCommandList->IASetPrimitiveTopology(D3D12_PRIMITIVE_TOPOLOGY::D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 				transparantCommandList->SetPipelineState(assets->pipelineStateObjects.copy);
-				transparantCommandList->SetGraphicsRootConstantBufferView(2u, waterModel.ssbbGpuAddress);
-				transparantCommandList->DrawIndexedInstanced(4u, 1u, 0u, 0, 0u);
+				transparantCommandList->SetGraphicsRootConstantBufferView(2u, waterModel.vsConstantBufferGPU(frameIndex));
+				transparantCommandList->IASetVertexBuffers(0u, 1u, &meshes[6]->vertexBufferView);
+				transparantCommandList->IASetIndexBuffer(&meshes[6]->indexBufferView);
+				transparantCommandList->DrawIndexedInstanced(meshes[6]->indexCount, 1u, 0u, 0, 0u);
 
 				transparantCommandList->ResourceBarrier(2u, copyEndBarriers);
 				transparantCommandList->OMSetRenderTargets(1u, &backBufferRenderTargetCpuHandle, TRUE, &depthStencilHandle);
-				transparantCommandList->IASetPrimitiveTopology(D3D12_PRIMITIVE_TOPOLOGY::D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 				transparantCommandList->SetPipelineState(assets->pipelineStateObjects.waterWithReflectionTexture);
-				transparantCommandList->SetGraphicsRootConstantBufferView(2u, waterModel.vsConstantBufferGPU(frameIndex));
 				transparantCommandList->SetGraphicsRootConstantBufferView(3u, waterModel.psConstantBufferGPU());
 				transparantCommandList->IASetVertexBuffers(0u, 1u, &meshes[waterModel.meshIndex]->vertexBufferView);
 				transparantCommandList->IASetIndexBuffer(&meshes[waterModel.meshIndex]->indexBufferView);
@@ -472,42 +473,39 @@ namespace
 			{
 				transparantCommandList->ResourceBarrier(2u, copyStartBarriers);
 				transparantCommandList->OMSetRenderTargets(1u, &warpTextureCpuDescriptorHandle, TRUE, nullptr);
-				transparantCommandList->IASetPrimitiveTopology(D3D12_PRIMITIVE_TOPOLOGY::D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 				transparantCommandList->SetPipelineState(assets->pipelineStateObjects.copy);
-				transparantCommandList->SetGraphicsRootConstantBufferView(2u, iceModel.ssbbGpuAddress);
-				transparantCommandList->DrawIndexedInstanced(4u, 1u, 0u, 0, 0u);
+				transparantCommandList->SetGraphicsRootConstantBufferView(2u, iceModel.vsConstantBufferGPU(frameIndex));
+				transparantCommandList->IASetVertexBuffers(0u, 1u, &meshes[6]->vertexBufferView);
+				transparantCommandList->IASetIndexBuffer(&meshes[6]->indexBufferView);
+				transparantCommandList->DrawIndexedInstanced(meshes[6]->indexCount, 1u, 0u, 0, 0u);
 
 				transparantCommandList->ResourceBarrier(2u, copyEndBarriers);
-				transparantCommandList->IASetPrimitiveTopology(D3D12_PRIMITIVE_TOPOLOGY::D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 				transparantCommandList->SetPipelineState(assets->pipelineStateObjects.glass);
-				transparantCommandList->SetGraphicsRootConstantBufferView(2u, iceModel.vsConstantBufferGPU(frameIndex));
 				transparantCommandList->SetGraphicsRootConstantBufferView(3u, iceModel.psConstantBufferGPU());
 				transparantCommandList->IASetVertexBuffers(0u, 1u, &meshes[iceModel.meshIndex]->vertexBufferView);
 				transparantCommandList->IASetIndexBuffer(&meshes[iceModel.meshIndex]->indexBufferView);
 				transparantCommandList->DrawIndexedInstanced(meshes[iceModel.meshIndex]->indexCount, 1u, 0u, 0, 0u);
 			}
 
-			const auto transparentDirectCommandList = executor->renderPass.colorSubPass().transparentCommandList();
-			transparentDirectCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 			if (fireModel1.isInView(frustum) || fireModel2.isInView(frustum))
 			{
-				transparentDirectCommandList->SetPipelineState(assets->pipelineStateObjects.fire);
+				transparantCommandList->SetPipelineState(assets->pipelineStateObjects.fire);
 
-				transparentDirectCommandList->IASetVertexBuffers(0u, 1u, &meshes[fireModel1.meshIndex]->vertexBufferView);
-				transparentDirectCommandList->IASetIndexBuffer(&meshes[fireModel1.meshIndex]->indexBufferView);
+				transparantCommandList->IASetVertexBuffers(0u, 1u, &meshes[fireModel1.meshIndex]->vertexBufferView);
+				transparantCommandList->IASetIndexBuffer(&meshes[fireModel1.meshIndex]->indexBufferView);
 
 				if (fireModel1.isInView(frustum))
 				{
-					transparentDirectCommandList->SetGraphicsRootConstantBufferView(2u, fireModel1.vsConstantBufferGPU(frameIndex));
-					transparentDirectCommandList->SetGraphicsRootConstantBufferView(3u, fireModel1.psConstantBufferGPU());
-					transparentDirectCommandList->DrawIndexedInstanced(meshes[fireModel1.meshIndex]->indexCount, 1u, 0u, 0, 0u);
+					transparantCommandList->SetGraphicsRootConstantBufferView(2u, fireModel1.vsConstantBufferGPU(frameIndex));
+					transparantCommandList->SetGraphicsRootConstantBufferView(3u, fireModel1.psConstantBufferGPU());
+					transparantCommandList->DrawIndexedInstanced(meshes[fireModel1.meshIndex]->indexCount, 1u, 0u, 0, 0u);
 				}
 
 				if (fireModel2.isInView(frustum))
 				{
-					transparentDirectCommandList->SetGraphicsRootConstantBufferView(2u, fireModel2.vsConstantBufferGPU(frameIndex));
-					transparentDirectCommandList->SetGraphicsRootConstantBufferView(3u, fireModel2.psConstantBufferGPU());
-					transparentDirectCommandList->DrawIndexedInstanced(meshes[fireModel2.meshIndex]->indexCount, 1u, 0u, 0, 0u);
+					transparantCommandList->SetGraphicsRootConstantBufferView(2u, fireModel2.vsConstantBufferGPU(frameIndex));
+					transparantCommandList->SetGraphicsRootConstantBufferView(3u, fireModel2.psConstantBufferGPU());
+					transparantCommandList->DrawIndexedInstanced(meshes[fireModel2.meshIndex]->indexCount, 1u, 0u, 0, 0u);
 				}
 			}
 		}
@@ -517,9 +515,10 @@ namespace
 			const auto sharedResources = executor->sharedResources;
 			auto& textureManager = sharedResources->textureManager;
 			auto& meshManager = sharedResources->meshManager;
+			auto& graphicsEngine = sharedResources->graphicsEngine;
 			for (auto i = 0u; i < numRenderTargetTextures; ++i)
 			{
-				sharedResources->graphicsEngine.descriptorAllocator.deallocate(shaderResourceViews[i]);
+				graphicsEngine.descriptorAllocator.deallocate(shaderResourceViews[i]);
 
 				executor->updateJobQueue().push(Job(textureTargetTextureSubPasses[i], [](void* subPass1, BaseExecutor* executor1)
 				{
@@ -532,15 +531,15 @@ namespace
 				}));
 			}
 
-			textureManager.unloadTexture(TextureNames::ground01, executor);
-			textureManager.unloadTexture(TextureNames::wall01, executor);
-			textureManager.unloadTexture(TextureNames::marble01, executor);
-			textureManager.unloadTexture(TextureNames::water01, executor);
-			textureManager.unloadTexture(TextureNames::ice01, executor);
-			textureManager.unloadTexture(TextureNames::icebump01, executor);
-			textureManager.unloadTexture(TextureNames::firenoise01, executor);
-			textureManager.unloadTexture(TextureNames::fire01, executor);
-			textureManager.unloadTexture(TextureNames::firealpha01, executor);
+			textureManager.unloadTexture(TextureNames::ground01, graphicsEngine);
+			textureManager.unloadTexture(TextureNames::wall01, graphicsEngine);
+			textureManager.unloadTexture(TextureNames::marble01, graphicsEngine);
+			textureManager.unloadTexture(TextureNames::water01, graphicsEngine);
+			textureManager.unloadTexture(TextureNames::ice01, graphicsEngine);
+			textureManager.unloadTexture(TextureNames::icebump01, graphicsEngine);
+			textureManager.unloadTexture(TextureNames::firenoise01, graphicsEngine);
+			textureManager.unloadTexture(TextureNames::fire01, graphicsEngine);
+			textureManager.unloadTexture(TextureNames::firealpha01, graphicsEngine);
 
 			meshManager.unloadMesh(MeshNames::bath, executor);
 			meshManager.unloadMesh(MeshNames::plane1, executor);
@@ -573,9 +572,9 @@ namespace
 		Light light;
 
 
-		MDResources(BaseExecutor* const executor, void* zone) :
+		MDResources(BaseExecutor* const exe, void* zone) :
 			light(DirectX::XMFLOAT4(0.1f, 0.1f, 0.1f, 1.0f), DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f), DirectX::XMFLOAT3(0.0f, -0.894427191f, 0.447213595f)),
-			perObjectConstantBuffers(executor->sharedResources->graphicsEngine.graphicsDevice, []()
+			perObjectConstantBuffers(exe->sharedResources->graphicsEngine.graphicsDevice, []()
 		{
 			D3D12_HEAP_PROPERTIES heapProperties;
 			heapProperties.Type = D3D12_HEAP_TYPE_UPLOAD;
@@ -601,6 +600,7 @@ namespace
 			return resourceDesc;
 		}(), D3D12_RESOURCE_STATE_GENERIC_READ, nullptr)
 		{
+			const auto executor = reinterpret_cast<Executor*>(exe);
 			unsigned int marble01 = TextureManager::loadTexture(TextureNames::marble01, zone, executor, callback);
 
 			MeshManager::loadMeshWithPositionTextureNormal(MeshNames::bath, zone, executor, callback, &meshes[0]);
@@ -619,8 +619,9 @@ namespace
 			const auto sharedResources = executor->sharedResources;
 			auto& textureManager = sharedResources->textureManager;
 			auto& meshManager = sharedResources->meshManager;
+			auto& graphicsEngine = sharedResources->graphicsEngine;
 
-			textureManager.unloadTexture(TextureNames::marble01, executor);
+			textureManager.unloadTexture(TextureNames::marble01, graphicsEngine);
 
 			meshManager.unloadMesh(MeshNames::bath, executor);
 		}

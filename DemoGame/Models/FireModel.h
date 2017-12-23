@@ -19,7 +19,7 @@ class FireModel
 public:
 	D3D12_GPU_VIRTUAL_ADDRESS vsConstantBufferGPU(uint32_t frameIndex)
 	{
-		return perObjectCBVGpuAddress + frameIndex * VSPerObjectConstantBufferSize;
+		return constantBufferGpu + frameIndex * VSPerObjectConstantBufferSize;
 	}
 
 	D3D12_GPU_VIRTUAL_ADDRESS psConstantBufferGPU() { return constantBufferGpu + frameBufferCount * VSPerObjectConstantBufferSize; };

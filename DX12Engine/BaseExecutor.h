@@ -34,13 +34,12 @@ protected:
 	std::string type;
 #endif // NDEBUG
 
-	BaseExecutor(SharedResources* const sharedResources, unsigned long uploadHeapStartingSize, unsigned int uploadRequestBufferStartingCapacity, unsigned int halfFinishedUploadRequestBufferStartingCapasity);
+	BaseExecutor(SharedResources* const sharedResources);
 	~BaseExecutor();
 
 	virtual void update2(std::unique_lock<std::mutex>&& lock) = 0;
 public:
 	SharedResources* sharedResources;//shared
-	StreamingManagerThreadLocal streamingManager;//local
 	VRamFreeingManager vRamFreeingManager;
 	std::default_random_engine randomNumberGenerator;
 	FixedSizeAllocator meshAllocator;
@@ -55,7 +54,7 @@ public:
 	static void quit(BaseExecutor* exe, std::unique_lock<std::mutex>&& lock);
 
 	template<void(*update1NextPhaseJob)(BaseExecutor*, std::unique_lock<std::mutex>&& lock)>
-	void initialize(std::unique_lock<std::mutex>&& lock)
+	void initialize(std::unique_lock<std::mutex>&& lock, StreamingManagerThreadLocal& streamingManager)
 	{
 		if (streamingManager.hasPendingUploads())
 		{

@@ -25,12 +25,9 @@ FontChar* Font::getChar(const wchar_t c)
 	return nullptr;
 }
 
-Font::Font(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, uint8_t*& constantBufferCpuAddress, const wchar_t* const filename, const wchar_t* const textureFile, BaseExecutor* const executor)
+void Font::create(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, uint8_t*& constantBufferCpuAddress, const wchar_t* const filename, const wchar_t* const textureFile,
+	unsigned int textureIndex, unsigned int windowWidth, unsigned int windowHeight)
 {
-	auto windowWidth = executor->sharedResources->window.width();
-	auto windowHeight = executor->sharedResources->window.height();
-	uint32_t textureIndex = executor->sharedResources->textureManager.loadTexture(textureFile, this, executor, [](void* requester, BaseExecutor* const executor) {});
-
 	constexpr std::size_t psPerObjectConstantBufferSize = (sizeof(PSPerObjectConstantBuffer) + D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull) & ~(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull);
 	PSPerObjectConstantBuffer* psPerObjectCBVCpuAddress = reinterpret_cast<PSPerObjectConstantBuffer*>(constantBufferCpuAddress);
 	constantBufferCpuAddress += psPerObjectConstantBufferSize;
@@ -115,7 +112,7 @@ Font::Font(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, uint8_t*& consta
 	startpos = wtmp.find(L"\"") + 1;
 	std::wstring fontImage = wtmp.substr(startpos, wtmp.size() - startpos - 1); //would normally be used to load the texture
 
-	// get number of characters
+																				// get number of characters
 	fs >> tmp >> tmp; // chars count=97
 	startpos = tmp.find(L"=") + 1;
 	numCharacters = std::stoi(tmp.substr(startpos, tmp.size() - startpos));
@@ -206,5 +203,5 @@ Font::Font(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, uint8_t*& consta
 
 void Font::destruct(BaseExecutor* const executor, const wchar_t* const textureFile)
 {
-	executor->sharedResources->textureManager.unloadTexture(textureFile, executor);
+	executor->sharedResources->textureManager.unloadTexture(textureFile, executor->sharedResources->graphicsEngine);
 }
