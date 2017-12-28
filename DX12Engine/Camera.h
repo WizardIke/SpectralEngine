@@ -4,22 +4,18 @@
 #include "Location.h"
 #include "frameBufferCount.h"
 #include "Frustum.h"
+#include "Shaders/CameraConstantBuffer.h"
 class BaseExecutor;
 class SharedResources;
 
 class Camera
 {
 protected:
-	struct ConstantBuffer
-	{
-		DirectX::XMMATRIX viewProjectionMatrix;
-		DirectX::XMFLOAT3 cameraPosition;
-	};
-	constexpr static unsigned int constantBufferPerObjectAlignedSize = (sizeof(ConstantBuffer) + (size_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (size_t)1u)
+	constexpr static unsigned int constantBufferPerObjectAlignedSize = (sizeof(CameraConstantBuffer) + (size_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (size_t)1u)
 		& ~((size_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (size_t)1u);
 
 
-	ConstantBuffer* constantBufferCpuAddress;
+	CameraConstantBuffer* constantBufferCpuAddress;
 	D3D12_GPU_VIRTUAL_ADDRESS constantBufferGpuAddress;
 	Location mLocation;
 	Frustum mFrustum;

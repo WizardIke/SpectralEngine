@@ -1,8 +1,14 @@
 #include "Assets.h"
 #include "TextureNames.h"
 
+static void loadingResourceCallback(void* data, BaseExecutor* exe)
+{
+	const auto assets = reinterpret_cast<Assets*>(data);
+	assets->start(exe);
+}
+
 Assets::Assets() :
-	SharedResources(&mainExecutor, false, false, std::thread::hardware_concurrency() + 1u),
+	SharedResources(&mainExecutor, false, false, true, std::thread::hardware_concurrency()),
 	mainExecutor(this),
 	rootSignatures(graphicsEngine.graphicsDevice),
 	pipelineStateObjects(graphicsEngine.graphicsDevice, rootSignatures),
@@ -45,7 +51,7 @@ Assets::Assets() :
 	properties.CreationNodeMask = 0u;
 	properties.MemoryPoolPreference = D3D12_MEMORY_POOL::D3D12_MEMORY_POOL_UNKNOWN;
 	return properties;
-}(), D3D12_HEAP_FLAGS::D3D12_HEAP_FLAG_NONE, window.getBuffer(0u)->GetDesc(), D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET, nullptr),
+}(), D3D12_HEAP_FLAGS::D3D12_HEAP_FLAG_NONE, window.getBuffer(0u)->GetDesc(), D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, nullptr),
 
 	warpTextureCpuDescriptorHeap(graphicsEngine.graphicsDevice, []()
 {
@@ -73,14 +79,43 @@ Assets::Assets() :
 	if (FAILED(hr)) throw HresultException(hr);
 	auto constantBuffersGpuAddress = sharedConstantBuffer->GetGPUVirtualAddress();
 
-	new(&arial) Font(constantBuffersGpuAddress, constantBuffersCpuAddress, L"Arial.fnt", TextureNames::Arial, &mainExecutor);
-	new(&mainCamera) MainCamera(this, window.width(), window.height(), constantBuffersGpuAddress, constantBuffersCpuAddress, 0.5f * 3.141f, playerPosition.location);
+	new(&arial) Font(constantBuffersGpuAddress, constantBuffersCpuAddress, L"Arial.fnt", TextureNames::Arial, &mainExecutor, this, loadingResourceCallback);
+	new(&mainCamera) MainCamera(this, window.width(), window.height(), constantBuffersGpuAddress, constantBuffersCpuAddress, 0.25f * 3.141f, playerPosition.location);
 
 	renderPass.colorSubPass().addCamera(&mainExecutor, renderPass, &mainCamera);
-	warpTextureDescriptorIndex = graphicsEngine.descriptorAllocator.allocate();
 
-	start(&mainExecutor);
-	userInterface.start(&mainExecutor);
+
+	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc;
+	srvDesc.Format = DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM;
+	srvDesc.ViewDimension = D3D12_SRV_DIMENSION::D3D12_SRV_DIMENSION_TEXTURE2D;
+	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	srvDesc.Texture2D.MipLevels = 1u;
+	srvDesc.Texture2D.MostDetailedMip = 0u;
+	srvDesc.Texture2D.PlaneSlice = 0u;
+	srvDesc.Texture2D.ResourceMinLODClamp = 0u;
+	warpTextureDescriptorIndex = graphicsEngine.descriptorAllocator.allocate();
+	graphicsEngine.graphicsDevice->CreateShaderResourceView(warpTexture, &srvDesc, graphicsEngine.mainDescriptorHeap->GetCPUDescriptorHandleForHeapStart() +
+		graphicsEngine.constantBufferViewAndShaderResourceViewAndUnordedAccessViewDescriptorSize * warpTextureDescriptorIndex);
+
+	D3D12_RENDER_TARGET_VIEW_DESC warpTextureRtvDesc;
+	warpTextureRtvDesc.Format = DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM;
+	warpTextureRtvDesc.ViewDimension = D3D12_RTV_DIMENSION::D3D12_RTV_DIMENSION_TEXTURE2D;
+	warpTextureRtvDesc.Texture2D.MipSlice = 0u;
+	warpTextureRtvDesc.Texture2D.PlaneSlice = 0u;
+	graphicsEngine.graphicsDevice->CreateRenderTargetView(warpTexture, &warpTextureRtvDesc, warpTextureCpuDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
+
+#ifndef NDEBUG
+	warpTexture->SetName(L"Warp texture");
+#endif
+
+	checkForWindowsMessages(&mainExecutor);
+	playerPosition.update(&mainExecutor);
+	mainCamera.update(this, playerPosition.location);
+
+	{
+		std::lock_guard<decltype(syncMutex)> lock(syncMutex);
+		nextPhaseJob = Executor::initialize;
+	}
 
 	for (auto& executor : backgroundExecutors)
 	{
@@ -111,13 +146,6 @@ void Assets::update(BaseExecutor* const executor)
 void Assets::start(BaseExecutor* executor)
 {
 	timer.start();
-	checkForWindowsMessages(executor);
-	playerPosition.update(executor);
-	mainCamera.update(this, playerPosition.location);
+	userInterface.start(&mainExecutor);
 	//soundEngine.SetListenerPosition(playerPosition.location.position, DS3D_IMMEDIATE);
-
-	{
-		std::lock_guard<decltype(syncMutex)> lock(syncMutex);
-		nextPhaseJob = Executor::initialize;
-	}
 }

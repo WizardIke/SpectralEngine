@@ -1,30 +1,26 @@
 #pragma once
 #include <DXGI1_5.h>
 #include "HresultException.h"
-
-#if defined(_DEBUG)
 #include "D3D12Debug.h"
-#endif
 
 class DXGIFactory
 {
 	IDXGIFactory5* data;
 public:
-	DXGIFactory() : data(nullptr)
+	DXGIFactory(bool enableCpuDebugging, bool enableGpuDebugging) : data(nullptr)
 	{
-#if defined(_DEBUG)
-		// Enable the D3D12 debug layer.
+		if (enableCpuDebugging)
 		{
 			D3D12Debug debugController;
 			debugController->EnableDebugLayer();
-#ifdef USE_GRAPHICS_DEBUGGER
-			ID3D12Debug1* debug1Controller;
-			debugController->QueryInterface<ID3D12Debug1>(&debug1Controller);
-			debug1Controller->SetEnableGPUBasedValidation(true);
-			debug1Controller->Release();
-#endif
+			if (enableGpuDebugging)
+			{
+				ID3D12Debug1* debug1Controller;
+				debugController->QueryInterface<ID3D12Debug1>(&debug1Controller);
+				debug1Controller->SetEnableGPUBasedValidation(true);
+				debug1Controller->Release();
+			}
 		}
-#endif
 		HRESULT hr;
 #ifdef _DEBUG
 		hr = CreateDXGIFactory2(DXGI_CREATE_FACTORY_DEBUG, IID_PPV_ARGS(&data));

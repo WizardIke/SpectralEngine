@@ -246,6 +246,9 @@
     <ClInclude Include="Models\FireModel.h">
       <Filter>Models</Filter>
     </ClInclude>
+    <ClInclude Include="DirectionalLightMaterialPS.h">
+      <Filter>Shaders\Pixel</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="Meshes\bath.mesh">

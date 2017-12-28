@@ -8,6 +8,12 @@ void Executor::update1NextPhaseJob(BaseExecutor* exe, std::unique_lock<std::mute
 	executor->update1(std::move(lock));
 }
 
+void Executor::initialize(BaseExecutor* exe, std::unique_lock<std::mutex>&& lock)
+{
+	auto executor = reinterpret_cast<Executor*>(exe);
+	exe->initialize<Executor::update1NextPhaseJob>(std::move(lock), executor->streamingManager);
+}
+
 void Executor::update1(std::unique_lock<std::mutex>&& lock)
 {
 	Assets* const assets = (Assets*)sharedResources;

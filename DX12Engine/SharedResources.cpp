@@ -5,7 +5,7 @@
 
 static LRESULT CALLBACK windowCallback(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
 
-SharedResources::SharedResources(BaseExecutor* mainExecutor, bool fullScreen, bool vSync, unsigned int numThreads) :
+SharedResources::SharedResources(BaseExecutor* mainExecutor, bool fullScreen, bool vSync, bool enableGpuDebugging, unsigned int numThreads) :
 	maxBackgroundThreads(unsigned int((float)numThreads / 4.0f + 0.5f) > 0u ? unsigned int((float)numThreads / 4.0f + 0.5f) : 1u),
 	numPrimaryJobExeThreads(maxBackgroundThreads),
 	maxPrimaryThreads(static_cast<int>(numThreads) - 1 - static_cast<int>(maxBackgroundThreads) < 0 ? 0u : (numThreads) - 1u - (maxBackgroundThreads)),
@@ -14,7 +14,7 @@ SharedResources::SharedResources(BaseExecutor* mainExecutor, bool fullScreen, bo
 		[fullScreen]() {if (fullScreen) { return GetSystemMetrics(SM_CYVIRTUALSCREEN); } else return GetSystemMetrics(SM_CYSCREEN) / 2; }(),
 		[fullScreen]() {if (fullScreen) { return 0; } else return GetSystemMetrics(SM_CXSCREEN) / 5; }(),
 		[fullScreen]() {if (fullScreen) { return 0; } else return GetSystemMetrics(SM_CYSCREEN) / 5; }(), fullScreen, vSync),
-	graphicsEngine(window, fullScreen, vSync),
+	graphicsEngine(window, fullScreen, vSync, enableGpuDebugging),
 	textureManager(),
 	backgroundQueue(backgroundQueueStartingLength),
 	workStealingQueues(new WorkStealingStackReference<Job>[(maxThreads) * 2u]),

@@ -230,6 +230,7 @@ PipelineStateObjects::PipelineStateObjects(ID3D12Device* const device, RootSigna
 	PSODesc.VS.BytecodeLength = waterVS->GetBufferSize();
 	PSODesc.PS.pShaderBytecode = waterReflectionsPS->GetBufferPointer();
 	PSODesc.PS.BytecodeLength = waterReflectionsPS->GetBufferSize();
+	PSODesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC::D3D12_COMPARISON_FUNC_LESS;
 
 	new(&waterWithReflectionTexture) D3D12PipelineState(device, PSODesc);
 
@@ -291,9 +292,14 @@ PipelineStateObjects::PipelineStateObjects(ID3D12Device* const device, RootSigna
 
 	PSODesc.InputLayout.NumElements = sizeof(copyInputLayout) / sizeof(D3D12_INPUT_ELEMENT_DESC);
 	PSODesc.InputLayout.pInputElementDescs = copyInputLayout;
-	PSODesc.DepthStencilState.DepthEnable = FALSE;
+	//PSODesc.DepthStencilState.DepthEnable = FALSE;
+	PSODesc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK::D3D12_DEPTH_WRITE_MASK_ZERO;
 
 	new(&copy) D3D12PipelineState(device, PSODesc);
+
+#ifndef NDEBUG
+	copy->SetName(L"Copy pipeline state");
+#endif
 
 
 	ID3DBlob* fireVS;
@@ -313,7 +319,6 @@ PipelineStateObjects::PipelineStateObjects(ID3D12Device* const device, RootSigna
 	PSODesc.InputLayout.pInputElementDescs = texturedInputLayout;
 	PSODesc.BlendState.RenderTarget[0].BlendEnable = TRUE;
 	PSODesc.BlendState.RenderTarget[0].BlendOp = D3D12_BLEND_OP::D3D12_BLEND_OP_ADD;
-	PSODesc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK::D3D12_DEPTH_WRITE_MASK_ZERO;
 
 	new(&fire) D3D12PipelineState(device, PSODesc);
 }

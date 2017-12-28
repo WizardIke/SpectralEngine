@@ -26,58 +26,10 @@ SamplerState sampleType : register(s2);
 #endif
 
 #if defined(USE_PER_OBJECT_MINREFLECTANCE) || defined(USE_PER_OBJECT_SPECULAR) || defined(USE_SPECULAR_TEXTURE) || defined(USE_PER_OBJECT_THREE_COMPONENT_MINREFLECTANCE)
-cbuffer camera : register(b0)
-{
-    matrix viewProjectionMatrix;
-    float3 cameraPosition;
-}
+#include "CameraConstantBuffer.h"
 #endif
 
-cbuffer material : register(b1)
-{
-#ifdef USE_PER_OBJECT_BASE_COLOR
-    float4 baseColor;
-#endif
-#ifdef USE_PER_OBJECT_SPECULAR
-    float3 specularColor;
-    float specularPower;
-#endif
-#ifdef USE_PER_OBJECT_EMMISIVE_LIGHT
-    float4 emmisiveColor;
-#endif
-
-#if defined(USE_PER_OBJECT_MINREFLECTANCE) || defined(USE_PER_OBJECT_SPECULAR) || defined(USE_SPECULAR_TEXTURE)
-    float minReflectance;
-#endif
-
-#ifdef USE_PER_OBJECT_THREE_COMPONENT_MINREFLECTANCE
-    float3 minReflectance;
-#endif
-
-#ifdef USE_PER_OBJECT_ROUGHNESS_AS_MEAN_QUARED_SLOPE_OF_MICROFACETS
-    float roughnessAsMeanQuareSlopeOfMicrofacets;
-#endif
-
-#ifdef USE_BASE_COLOR_TEXTURE
-    uint baseColorTexture;
-#endif
-
-#ifdef USE_SPECULAR_TEXTURE
-    uint specularTexture;
-#endif
-
-#ifdef USE_AMBIENT_TEXTURE
-     uint ambientTexture;
-#endif
-
-#ifdef USE_NORAML_TEXTURE
-    uint normalTexture;
-#endif
-
-#ifdef USE_EMMISIVE_TEXTURE
-    uint emmisiveTexture;
-#endif
-};
+#include "StandardMaterialPS.h"
 
 #if defined(USE_DIRECTIONAL_LIGHT) || defined(USE_POINT_LIGHTS) || defined(USE_PER_OBJECT_AMBIENT)
 struct PointLight
@@ -118,14 +70,14 @@ struct Input
 };
 
 #ifdef USE_PER_OBJECT_MINREFLECTANCE
-float calulateRefractedLightHighQuality(in float nDotL)
+float calulateRefractedLightHighQuality(float nDotL)
 {
     return minReflectance + (1 - minReflectance) * pow(nDotL, 5);
 }
 #endif
 
 #ifdef USE_PER_OBJECT_THREE_COMPONENT_MINREFLECTANCE
-float3 calulateRefractedLightHighQualityThreeComponents(in float nDotL)
+float3 calulateRefractedLightHighQualityThreeComponents(float nDotL)
 {
     return minReflectance + (1 - minReflectance) * pow(nDotL, 5);
 }
@@ -138,8 +90,8 @@ float calulateRefractedLightMediumQuality()
 }
 #endif
 
-#if defined(USE_PER_OBJECT_MINREFLECTANCE) || defined(USE_PER_OBJECT_SPECULAR) || defined(USE_SPECULAR_TEXTURE)
-float schlickApproximateFresnel(in float vDotH)
+#if defined(USE_PER_OBJECT_MINREFLECTANCE)
+float schlickApproximateFresnel(float vDotH)
 {
     float base = 1 - vDotH;
     float exponential = pow(base, 5.0);
@@ -148,7 +100,7 @@ float schlickApproximateFresnel(in float vDotH)
 #endif
 
 #ifdef USE_PER_OBJECT_THREE_COMPONENT_MINREFLECTANCE
-float3 schlickApproximateFresnelThreeComponents(in float vDotH)
+float3 schlickApproximateFresnelThreeComponents(float vDotH)
 {
     float base = 1 - vDotH;
     float exponential = pow(base, 5.0);
@@ -156,14 +108,14 @@ float3 schlickApproximateFresnelThreeComponents(in float vDotH)
 }
 #endif
 
-float calulateBeckmannDistribution(in float nDotH, in float roughnessAsMeanQuareSlopeOfMicrofacets)
+float calulateBeckmannDistribution(float nDotH, float roughnessAsMeanQuareSlopeOfMicrofacets)
 {
     float nDotHSquared = nDotH * nDotH;
     float value = nDotHSquared * roughnessAsMeanQuareSlopeOfMicrofacets;
     return pow(2.718281828, (nDotHSquared - 1) / value) / (3.141592654 * value * nDotHSquared);
 }
 
-float calulateCookTorranceGeometryTermOverBase(in float nDotH, in float nDotV, in float vDotH, in float nDotL)
+float calulateCookTorranceGeometryTermOverBase(float nDotH, float nDotV, float vDotH, float nDotL)
 {
     float twoNDotHOverVDotH = 2 * nDotH / vDotH;
     return min(1, min(twoNDotHOverVDotH * nDotV, twoNDotHOverVDotH * nDotL)) /
@@ -176,7 +128,7 @@ float calulateImplicitGeometryTermOverBase()
 }
 
 #ifdef USE_PER_OBJECT_MINREFLECTANCE
-float calulateHighQualityBRDFReflection(in float3 viewDirection, in float3 reflectionNormal, in float lightIntensity, in float3 normal, in float roughnessAsMeanQuareSlopeOfMicrofacets)
+float calulateHighQualityBRDFReflection(float3 viewDirection, float3 reflectionNormal, float lightIntensity, float3 normal, float roughnessAsMeanQuareSlopeOfMicrofacets)
 {
     float nDotH = dot(normal, reflectionNormal);
     float nDotV = dot(normal, viewDirection);
@@ -186,7 +138,7 @@ float calulateHighQualityBRDFReflection(in float3 viewDirection, in float3 refle
 #endif
 
 #ifdef USE_PER_OBJECT_THREE_COMPONENT_MINREFLECTANCE
-float3 calulateHighQualityBRDFReflectionThreeComponents(in float3 viewDirection, in float3 reflectionNormal, in float lightIntensity, in float3 normal, in float roughnessAsMeanQuareSlopeOfMicrofacets)
+float3 calulateHighQualityBRDFReflectionThreeComponents(float3 viewDirection, float3 reflectionNormal, float lightIntensity, float3 normal, float roughnessAsMeanQuareSlopeOfMicrofacets)
 {
     float nDotH = dot(normal, reflectionNormal);
     float nDotV = dot(normal, viewDirection);
@@ -196,10 +148,9 @@ float3 calulateHighQualityBRDFReflectionThreeComponents(in float3 viewDirection,
 #endif
 
 #if defined(USE_PER_OBJECT_SPECULAR) || defined(USE_SPECULAR_TEXTURE)
-float2 calulateCheapReflectionAndRefraction(in float3 viewDirection, in float3 reflectionNormal, in float lightIntensity, in float3 normal, in float specularPower)
+float calulateCheapReflection(float3 viewDirection, float3 reflectionNormal, float lightIntensity, float3 normal, float specularPower)
 {
-    float fresnel = schlickApproximateFresnel(dot(viewDirection, reflectionNormal));
-    return float2(pow(saturate(dot(reflectionNormal, normal)), specularPower), lightIntensity * (1 - fresnel));
+    return pow(saturate(dot(reflectionNormal, normal)), specularPower);
 }
 #endif
 
@@ -243,9 +194,8 @@ float4 main(Input input) : SV_TARGET
         reflectedLight = calulateHighQualityBRDFReflectionThreeComponents(viewDirection, reflectionNormal, lightIntensity, normal, roughnessAsMeanQuareSlopeOfMicrofacets);
         refractedLight.rgb += calulateRefractedLightHighQualityThreeComponents(lightIntensity);
 #elif defined(USE_PER_OBJECT_SPECULAR)
-        float2 reflectRefract = calulateCheapReflectionAndRefraction(viewDirection, reflectionNormal, lightIntensity, normal, specularPower);
-        refractedLight += directionalLight * reflectRefract.g;
-        reflectedLight.rgb = specularColor * reflectRefract.r;
+        refractedLight += lightIntensity * directionalLight;
+        reflectedLight.rgb = specularColor * calulateCheapReflection(viewDirection, reflectionNormal, lightIntensity, normal, specularPower);
 #elif defined(USE_SPECULAR_TEXTURE)
         float4 specularMaterial = textures[specularTexture].Sample(sampleType, input.textureCoordinates);
         float2 reflectRefract = calulateCheapReflectionAndRefraction(viewDirection, reflectionNormal, lightIntensity, normal, specularMaterial.a);

@@ -2,6 +2,7 @@
 #include <DirectXMath.h>
 #include <Frustum.h>
 #include <d3d12.h>
+#include "DirectionalLightMaterialPS.h"
 
 template<unsigned int x, unsigned int z>
 class HighResPlane
@@ -10,13 +11,6 @@ public:
 	struct VSPerObjectConstantBuffer
 	{
 		DirectX::XMMATRIX worldMatrix;
-	};
-
-	struct PSPerObjectConstantBuffer
-	{
-		DirectX::XMFLOAT4 specularColor;
-		float specularPower;
-		UINT32 diffuseTexture;
 	};
 
 	D3D12_GPU_VIRTUAL_ADDRESS vsPerObjectCBVGpuAddress;
@@ -35,20 +29,20 @@ public:
 		constantBufferGpuAddress += vSPerObjectConstantBufferAlignedSize;
 
 		psPerObjectCBVGpuAddress = constantBufferGpuAddress;
-		constexpr size_t pSPerObjectConstantBufferAlignedSize = (sizeof(PSPerObjectConstantBuffer) + D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull) & ~(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull);
+		constexpr size_t pSPerObjectConstantBufferAlignedSize = (sizeof(DirectionalLightMaterialPS) + D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull) & ~(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull);
 		constantBufferGpuAddress += pSPerObjectConstantBufferAlignedSize;
 
 		VSPerObjectConstantBuffer* vsPerObjectCBVCpuAddress = reinterpret_cast<VSPerObjectConstantBuffer*>(constantBufferCpuAddress);
-		PSPerObjectConstantBuffer* psPerObjectCBVCpuAddress = reinterpret_cast<PSPerObjectConstantBuffer*>((reinterpret_cast<size_t>(constantBufferCpuAddress) + sizeof(VSPerObjectConstantBuffer) +
+		DirectionalLightMaterialPS* psPerObjectCBVCpuAddress = reinterpret_cast<DirectionalLightMaterialPS*>((reinterpret_cast<size_t>(constantBufferCpuAddress) + sizeof(VSPerObjectConstantBuffer) +
 			D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull) & ~(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull));
-		constantBufferCpuAddress = reinterpret_cast<uint8_t*>((reinterpret_cast<size_t>(psPerObjectCBVCpuAddress) + sizeof(PSPerObjectConstantBuffer) + D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull)
+		constantBufferCpuAddress = reinterpret_cast<uint8_t*>((reinterpret_cast<size_t>(psPerObjectCBVCpuAddress) + sizeof(DirectionalLightMaterialPS) + D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull)
 			& ~(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull));
 
 		vsPerObjectCBVCpuAddress->worldMatrix = DirectX::XMMatrixTranslation(positionX, positionY, positionZ);
 
-		psPerObjectCBVCpuAddress->specularColor = { 0.5f, 0.5f, 0.5f, 1.0f };
-		psPerObjectCBVCpuAddress->specularPower = 4.0f;
-		psPerObjectCBVCpuAddress->diffuseTexture = diffuseTextureIndex;
+		psPerObjectCBVCpuAddress->baseColorTexture = diffuseTextureIndex;
+		psPerObjectCBVCpuAddress->specularColor = { 0.01f, 0.01f, 0.01f };
+		psPerObjectCBVCpuAddress->specularPower = 16.0f;
 	}
 	~HighResPlane() {}
 

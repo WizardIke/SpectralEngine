@@ -284,7 +284,9 @@ public:
 	template<Lod lod, unsigned char numComponents>
 	static void componentUploaded(BaseZone* zone, BaseExecutor* const executor, std::atomic<unsigned char>& numComponentsLoaded)
 	{
-		auto oldNumComponentsLoaded = numComponentsLoaded.fetch_add(1u, std::memory_order_relaxed);
+		//uses memory_order_acq_rel because it needs to see all loaded parts if it's the last upload job
+		auto oldNumComponentsLoaded = numComponentsLoaded.fetch_add(1u, std::memory_order::memory_order_acq_rel); 
+
 		if (oldNumComponentsLoaded == numComponents - 1u)
 		{
 			zone->lastComponentLoaded<lod>(executor);

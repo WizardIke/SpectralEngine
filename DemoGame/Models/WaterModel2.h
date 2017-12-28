@@ -17,6 +17,7 @@ class WaterModel2
 public:
 	D3D12_GPU_VIRTUAL_ADDRESS vsConstantBufferGPU(uint32_t frameIndex);
 	D3D12_GPU_VIRTUAL_ADDRESS psConstantBufferGPU();
+	D3D12_GPU_VIRTUAL_ADDRESS vsAabbGpu();
 
 	constexpr static unsigned int meshIndex = 3u;
 

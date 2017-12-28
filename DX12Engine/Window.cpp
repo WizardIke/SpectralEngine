@@ -58,7 +58,7 @@ Window::~Window()
 	UnregisterClassW(applicationName, nullptr);
 }
 
-void Window::createSwapChain(D3D12GraphicsEngine& graphicsEngine)
+void Window::createSwapChain(D3D12GraphicsEngine& graphicsEngine, IDXGIFactory5* dxgiFactory)
 {
 	DXGI_SWAP_CHAIN_FULLSCREEN_DESC fullscreenDesc;
 	DXGI_SWAP_CHAIN_FULLSCREEN_DESC* fullscreenDescPointer = nullptr;
@@ -85,7 +85,7 @@ void Window::createSwapChain(D3D12GraphicsEngine& graphicsEngine)
 	swapChainDesc.Stereo = FALSE;
 	swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
 
-	swapChain = DXGISwapChain4(graphicsEngine.dxgiFactory, graphicsEngine.directCommandQueue, windowHandle, &swapChainDesc, fullscreenDescPointer, nullptr);
+	swapChain = DXGISwapChain4(dxgiFactory, graphicsEngine.directCommandQueue, windowHandle, &swapChainDesc, fullscreenDescPointer, nullptr);
 
 
 #ifdef _DEBUG

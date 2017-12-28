@@ -6,15 +6,21 @@
 #undef USE_REFLECTION_TEXTURE
 #include <Shaders/WaterMaterialVS.h>
 
+struct AABBMaterial
+{
+	DirectX::XMMATRIX worldMatrix;
+};
+
 constexpr static size_t vertexConstantBufferSize = (sizeof(WaterMaterialVS) + D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull) & ~(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull);
 constexpr static size_t pixelConstantBufferSize = (sizeof(WaterMaterialPS) + D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull) & ~(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull);
+constexpr static size_t aabbConstantBufferSize = (sizeof(AABBMaterial) + D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull) & ~(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull);
 
 WaterModel2::WaterModel2(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, uint8_t*& constantBufferCpuAddress, unsigned int reflectionTextureIndex, unsigned int refractionTextureIndex, unsigned int normalTextureIndex) :
 	waterTranslation(0.0f)
 {
 	vertexConstantBufferCpu = constantBufferCpuAddress;
 	constantBufferGpu = constantBufferGpuAddress;
-	constantBufferGpuAddress += frameBufferCount * vertexConstantBufferSize + pixelConstantBufferSize;
+	constantBufferGpuAddress += frameBufferCount * vertexConstantBufferSize + pixelConstantBufferSize + aabbConstantBufferSize;
 	for (auto i = 0u; i < frameBufferCount; ++i)
 	{
 		auto buffer = reinterpret_cast<WaterMaterialVS*>(constantBufferCpuAddress);
@@ -28,6 +34,10 @@ WaterModel2::WaterModel2(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, ui
 	psPerObjectCBVCpuAddress->refractTexture = refractionTextureIndex;
 	psPerObjectCBVCpuAddress->normalTexture = normalTextureIndex;
 	psPerObjectCBVCpuAddress->reflectTexture = reflectionTextureIndex;
+
+	auto aabbBuffer = reinterpret_cast<AABBMaterial*>(constantBufferCpuAddress);
+	constantBufferCpuAddress += aabbConstantBufferSize;
+	aabbBuffer->worldMatrix = DirectX::XMMatrixScaling(1.0f, 0.05f, 1.0f) * DirectX::XMMatrixTranslation(positionX, positionY, positionZ);
 }
 
 bool WaterModel2::isInView(const Frustum& Frustum)
@@ -59,3 +69,8 @@ D3D12_GPU_VIRTUAL_ADDRESS WaterModel2::psConstantBufferGPU()
 {
 	return constantBufferGpu + frameBufferCount * vertexConstantBufferSize; 
 };
+
+D3D12_GPU_VIRTUAL_ADDRESS WaterModel2::vsAabbGpu()
+{
+	return constantBufferGpu + frameBufferCount * vertexConstantBufferSize + pixelConstantBufferSize;
+}

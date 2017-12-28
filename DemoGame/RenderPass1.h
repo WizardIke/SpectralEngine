@@ -11,15 +11,12 @@ class RenderPass1
 {
 	constexpr static unsigned int renderToTextureSubPassIndex = 0u;
 	constexpr static unsigned int colorSubPassIndex = 1u;
-	constexpr static unsigned int presentSubPassIndex = 2u;
 	using RenderToTextureSubPass1 = RenderSubPass<Camera, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET, std::tuple<>, std::tuple<>, 1u>;
 	using RenderToTextureSubPassGroup1 = RenderSubPassGroup<RenderToTextureSubPass1>;
 	using ColorSubPass1 = RenderSubPass<MainCamera, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET, 
 		std::tuple<std::integral_constant<unsigned int, renderToTextureSubPassIndex>>,
-		std::tuple<std::integral_constant<D3D12_RESOURCE_STATES, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE>>, 2u>;
-	using PresentSubPass1 = RenderSubPass<MainCamera, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_PRESENT,
-		std::tuple<std::integral_constant<unsigned int, colorSubPassIndex>>, std::tuple<std::integral_constant<D3D12_RESOURCE_STATES, D3D12_RESOURCE_STATE_PRESENT>>, 0u>;
-	using RenderPass11 = RenderPass<RenderToTextureSubPassGroup1, ColorSubPass1, PresentSubPass1>;
+		std::tuple<std::integral_constant<D3D12_RESOURCE_STATES, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE>>, 2u, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_PRESENT, true>;
+	using RenderPass11 = RenderPass<RenderToTextureSubPassGroup1, ColorSubPass1>;
 
 	RenderPass11 data;
 public:

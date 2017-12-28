@@ -20,7 +20,7 @@ class Window
 	bool fullScreen;
 	bool vSync;
 
-	void createSwapChain(D3D12GraphicsEngine& graphicsEngine);
+	void createSwapChain(D3D12GraphicsEngine& graphicsEngine, IDXGIFactory5* dxgiFactory);
 public:
 	Window(void* callbackData, LRESULT CALLBACK WndProc(HWND hwnd, UINT umessage, WPARAM wparam, LPARAM lparam),
 		unsigned int width, unsigned int height, int positionX, int positionY, bool fullScreen, bool vSync);

@@ -21,7 +21,7 @@ protected:
 
 	static void checkForWindowsMessages(BaseExecutor* const executor);
 public:
-	SharedResources(BaseExecutor* mainExecutor, bool fullScreen, bool vSync, unsigned int numThreads);
+	SharedResources(BaseExecutor* mainExecutor, bool fullScreen, bool vSync, bool enableGpuDebugging, unsigned int numThreads);
 
 	const unsigned int maxBackgroundThreads;
 	const unsigned int maxPrimaryThreads;

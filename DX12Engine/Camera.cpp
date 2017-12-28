@@ -10,7 +10,7 @@ Camera::Camera(SharedResources* sharedResources, ID3D12Resource* image, D3D12_CP
 	renderTargetView(renderTargetView),
 	depthSencilView(depthSencilView)
 {
-	constantBufferCpuAddress = reinterpret_cast<ConstantBuffer*>(constantBufferCpuAddress1);
+	constantBufferCpuAddress = reinterpret_cast<CameraConstantBuffer*>(constantBufferCpuAddress1);
 	constantBufferCpuAddress1 += constantBufferPerObjectAlignedSize * frameBufferCount;
 	constantBufferGpuAddress = constantBufferGpuAddress1;
 	constantBufferGpuAddress1 += constantBufferPerObjectAlignedSize * frameBufferCount;
@@ -33,7 +33,7 @@ Camera::Camera(SharedResources* sharedResources, ID3D12Resource* image, D3D12_CP
 	const float screenAspect = static_cast<float>(width) / static_cast<float>(height);
 	mProjectionMatrix = DirectX::XMMatrixPerspectiveFovLH(fieldOfView, screenAspect, screenNear, screenDepth);
 
-	ConstantBuffer* constantBuffer = reinterpret_cast<ConstantBuffer*>(reinterpret_cast<unsigned char*>(constantBufferCpuAddress) + sharedResources->graphicsEngine.frameIndex * constantBufferPerObjectAlignedSize);
+	auto constantBuffer = reinterpret_cast<CameraConstantBuffer*>(reinterpret_cast<unsigned char*>(constantBufferCpuAddress) + sharedResources->graphicsEngine.frameIndex * constantBufferPerObjectAlignedSize);
 	constantBuffer->viewProjectionMatrix = mViewMatrix * mProjectionMatrix;
 	constantBuffer->cameraPosition = mLocation.position;
 
@@ -44,7 +44,7 @@ Camera::~Camera() {}
 
 void Camera::update(SharedResources* sharedResources, const DirectX::XMMATRIX& mViewMatrix)
 {
-	const auto constantBuffer = reinterpret_cast<ConstantBuffer*>(reinterpret_cast<unsigned char*>(constantBufferCpuAddress) + sharedResources->graphicsEngine.frameIndex * constantBufferPerObjectAlignedSize);
+	const auto constantBuffer = reinterpret_cast<CameraConstantBuffer*>(reinterpret_cast<unsigned char*>(constantBufferCpuAddress) + sharedResources->graphicsEngine.frameIndex * constantBufferPerObjectAlignedSize);
 	constantBuffer->viewProjectionMatrix = mViewMatrix * mProjectionMatrix;;
 	constantBuffer->cameraPosition = mLocation.position;
 
@@ -85,10 +85,8 @@ void Camera::bind(SharedResources* sharedResources, ID3D12GraphicsCommandList** 
 		commandList->RSSetViewports(1u, &viewPort);
 		commandList->RSSetScissorRects(1u, &scissorRect);
 		commandList->SetGraphicsRootConstantBufferView(0u, constantBufferGPU);
+		commandList->OMSetRenderTargets(1u, &renderTargetView, TRUE, &depthSencilView);
 	}
-
-	auto commandList = *first;
-	commandList->OMSetRenderTargets(1u, &renderTargetView, TRUE, &depthSencilView);
 }
 
 void Camera::bindFirstThread(SharedResources* sharedResources, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end)

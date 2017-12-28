@@ -65,7 +65,6 @@ public:
 				++(sharedResources->generation);
 				lock.unlock();
 				sharedResources->conditionVariable.notify_all();
-
 			}
 			else
 			{

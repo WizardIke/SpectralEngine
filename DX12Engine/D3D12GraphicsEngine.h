@@ -17,7 +17,7 @@ class Window;
 class D3D12GraphicsEngine
 {
 public:
-	DXGIFactory dxgiFactory;
+	//DXGIFactory dxgiFactory;
 	D3D12Device graphicsDevice;
 	D3D12CommandQueuePointer directCommandQueue;
 
@@ -62,13 +62,17 @@ private:
 			++freeStackEnd;
 		}
 	};
+
+	D3D12GraphicsEngine(Window& window, bool fullScreen, bool vSync, DXGIFactory factory);
 public:
 	D3D12DescriptorHeap mainDescriptorHeap;
 	DescriptorAllocator descriptorAllocator;
 
-	D3D12GraphicsEngine(Window& window, bool fullScreen, bool vSync);
+	D3D12GraphicsEngine(Window& window, bool fullScreen, bool vSync, bool enableGpuDebugging);
 	~D3D12GraphicsEngine();
 
 	void present(Window& window, ID3D12CommandList** ppCommandLists, unsigned int numLists);
 	void waitForPreviousFrame();
 };
+
+D3D12_CPU_DESCRIPTOR_HANDLE operator+(D3D12_CPU_DESCRIPTOR_HANDLE handle, size_t offset);

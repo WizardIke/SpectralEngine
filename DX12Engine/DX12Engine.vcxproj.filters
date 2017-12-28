@@ -363,6 +363,12 @@
     <ClInclude Include="Shaders\GlassMaterialPS.h">
       <Filter>Shaders\Pixel</Filter>
     </ClInclude>
+    <ClInclude Include="Shaders\CameraConstantBuffer.h">
+      <Filter>Shaders\Pixel</Filter>
+    </ClInclude>
+    <ClInclude Include="Shaders\StandardMaterialPS.h">
+      <Filter>Shaders\Pixel</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="SharedResources.cpp">

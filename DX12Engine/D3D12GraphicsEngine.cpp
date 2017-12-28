@@ -4,13 +4,17 @@
 #include "DXGIAdapter.h"
 #include "Window.h"
 
-#if defined(_DEBUG)
-#include "D3D12Debug.h"
-#endif
 
-D3D12GraphicsEngine::D3D12GraphicsEngine(Window& window, bool fullScreen, bool vSync) :
-	dxgiFactory(),
-	graphicsDevice(dxgiFactory, window.windowHandle, D3D_FEATURE_LEVEL_11_0),
+D3D12GraphicsEngine::D3D12GraphicsEngine(Window& window, bool fullScreen, bool vSync, bool enableGpuDebugging) : D3D12GraphicsEngine(window, fullScreen, vSync, 
+#ifndef NDEBUG
+	DXGIFactory(true, enableGpuDebugging))
+#else
+	DXGIFactory(false, enableGpuDebugging))
+#endif
+{}
+
+D3D12GraphicsEngine::D3D12GraphicsEngine(Window& window, bool fullScreen, bool vSync, DXGIFactory factory) :
+	graphicsDevice(factory, window.windowHandle, D3D_FEATURE_LEVEL_11_0),
 
 	directCommandQueue(graphicsDevice, []()
 {
@@ -121,7 +125,7 @@ D3D12GraphicsEngine::D3D12GraphicsEngine(Window& window, bool fullScreen, bool v
 		fenceValue = 0u;
 	}
 
-	window.createSwapChain(*this);
+	window.createSwapChain(*this, factory);
 	frameIndex = window.getCurrentBackBufferIndex();
 	window.setForgroundAndShow();
 }
@@ -148,4 +152,11 @@ void D3D12GraphicsEngine::waitForPreviousFrame()
 		if (FAILED(hr)) throw HresultException(hr);
 		WaitForSingleObject(directFenceEvent, INFINITE);
 	}
+}
+
+D3D12_CPU_DESCRIPTOR_HANDLE operator+(D3D12_CPU_DESCRIPTOR_HANDLE handle, size_t offset)
+{
+	D3D12_CPU_DESCRIPTOR_HANDLE retval;
+	retval.ptr = handle.ptr + offset;
+	return retval;
 }

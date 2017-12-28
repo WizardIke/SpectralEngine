@@ -196,6 +196,7 @@
     <ClInclude Include="Cave\CaveArea.h" />
     <ClInclude Include="Cave\CaveModelPart1.h" />
     <ClInclude Include="Cave\CaveZone1.h" />
+    <ClInclude Include="DirectionalLightMaterialPS.h" />
     <ClInclude Include="Executor.h" />
     <ClInclude Include="HighResPlane.h" />
     <ClInclude Include="MainExecutor.h" />

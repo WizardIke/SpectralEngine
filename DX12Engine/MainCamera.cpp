@@ -51,7 +51,6 @@ void MainCamera::update(SharedResources* const sharedResources, const Location& 
 	auto renderTargetViewHandle = renderTargetViewDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
 	renderTargetViewHandle.ptr += sharedResources->graphicsEngine.frameIndex * sharedResources->graphicsEngine.renderTargetViewDescriptorSize;
 	renderTargetView = renderTargetViewHandle;
-	depthSencilView = sharedResources->graphicsEngine.depthStencilDescriptorHeap->GetCPUDescriptorHandleForHeapStart();;
 
 	Camera::update(sharedResources, mViewMatrix);
 }

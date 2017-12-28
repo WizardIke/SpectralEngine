@@ -11,7 +11,6 @@ class IceModel2
 	{
 		DirectX::XMMATRIX worldMatrix;
 	};
-
 	D3D12_GPU_VIRTUAL_ADDRESS constantBufferGpu;
 	constexpr static float positionX = 69.0f, positionY = 5.0f, positionZ = 54.0f;
 
@@ -20,10 +19,13 @@ class IceModel2
 public:
 	D3D12_GPU_VIRTUAL_ADDRESS vsConstantBufferGPU(uint32_t frameIndex)
 	{
-		return constantBufferGpu + frameIndex * vsConstantBufferSize;
+		return constantBufferGpu;
 	}
 
-	D3D12_GPU_VIRTUAL_ADDRESS psConstantBufferGPU() { return constantBufferGpu + frameBufferCount * vsConstantBufferSize; };
+	D3D12_GPU_VIRTUAL_ADDRESS psConstantBufferGPU() { return constantBufferGpu + vsConstantBufferSize; };
+
+	D3D12_GPU_VIRTUAL_ADDRESS vsAabbGpu() { return constantBufferGpu + vsConstantBufferSize + psConstantBufferSize; }
+	D3D12_GPU_VIRTUAL_ADDRESS psAabbGpu() { return constantBufferGpu + vsConstantBufferSize + psConstantBufferSize + vsConstantBufferSize; }
 
 	constexpr static unsigned int meshIndex = 4u;
 
@@ -32,7 +34,7 @@ public:
 	IceModel2(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, uint8_t*& constantBufferCpuAddress, unsigned int refractionTextureIndex, unsigned int diffuseTextureIndex, unsigned int normalTextureIndex)
 	{
 		constantBufferGpu = constantBufferGpuAddress;
-		constantBufferGpuAddress += vsConstantBufferSize + psConstantBufferSize;
+		constantBufferGpuAddress += vsConstantBufferSize + vsConstantBufferSize + psConstantBufferSize;
 		auto vsBuffer = reinterpret_cast<VSPerObjectConstantBuffer*>(constantBufferCpuAddress);
 		vsBuffer->worldMatrix = DirectX::XMMATRIX(5.f, 0.f, 0.f, 0.f, 0.f, 5.f, 0.f, 0.f, 0.f, 0.f, 5.f, 0.f, positionX, positionY, positionZ, 1.f);
 		constantBufferCpuAddress += vsConstantBufferSize;
@@ -42,6 +44,9 @@ public:
 		psBuffer->diffuseTexture = diffuseTextureIndex;
 		psBuffer->normalTexture = normalTextureIndex;
 		constantBufferCpuAddress += psConstantBufferSize;
+		auto aabbBuffer = reinterpret_cast<VSPerObjectConstantBuffer*>(constantBufferCpuAddress);
+		aabbBuffer->worldMatrix = DirectX::XMMatrixScaling(2.0f, 2.0f, 2.0f) * DirectX::XMMatrixTranslation(positionX, positionY, positionZ);
+		constantBufferCpuAddress += vsConstantBufferSize;
 	}
 	~IceModel2() {}
 

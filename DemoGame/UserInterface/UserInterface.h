@@ -12,6 +12,8 @@ class UserInterface
 
 	void update1(Executor* const executor);
 	void update2(Executor* const executor);
+
+	void restart(Executor* const executor);
 public:
 	UserInterface(Executor* const executor);
 	~UserInterface() {}

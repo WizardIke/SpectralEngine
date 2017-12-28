@@ -191,9 +191,11 @@
     <ClInclude Include="Mesh.h" />
     <ClInclude Include="MeshAllocator.h" />
     <ClInclude Include="MeshManager.h" />
+    <ClInclude Include="Shaders\CameraConstantBuffer.h" />
     <ClInclude Include="Shaders\FireMaterialPS.h" />
     <ClInclude Include="Shaders\FireMaterialVS.h" />
     <ClInclude Include="Shaders\GlassMaterialPS.h" />
+    <ClInclude Include="Shaders\StandardMaterialPS.h" />
     <ClInclude Include="Shaders\WaterMaterialPS.h" />
     <ClInclude Include="Shaders\WaterMaterialVS.h" />
     <ClInclude Include="StreamingManager.h" />

@@ -4,6 +4,7 @@
 #include <Frustum.h>
 #include <d3d12.h>
 #include <Light.h>
+#include "../DirectionalLightMaterialPS.h"
 
 class WallModel2
 {
@@ -11,13 +12,6 @@ public:
 	struct VSPerObjectConstantBuffer
 	{
 		DirectX::XMMATRIX worldMatrix;
-	};
-
-	struct PSPerObjectConstantBuffer
-	{
-		DirectX::XMFLOAT4 specularColor;
-		float specularPower;
-		uint32_t baseColorTexture;
 	};
 
 	D3D12_GPU_VIRTUAL_ADDRESS vsPerObjectCBVGpuAddress;
@@ -33,13 +27,13 @@ public:
 		vsPerObjectCBVGpuAddress = constantBufferGpuAddress;
 		constantBufferGpuAddress = (constantBufferGpuAddress + sizeof(VSPerObjectConstantBuffer) + D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull) & ~(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull);
 		psPerObjectCBVGpuAddress = constantBufferGpuAddress;
-		constantBufferGpuAddress = (constantBufferGpuAddress + sizeof(PSPerObjectConstantBuffer) + D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull) & ~(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull);
+		constantBufferGpuAddress = (constantBufferGpuAddress + sizeof(DirectionalLightMaterialPS) + D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull) & ~(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull);
 
 		VSPerObjectConstantBuffer* vsPerObjectCBVCpuAddress = reinterpret_cast<VSPerObjectConstantBuffer*>(constantBufferCpuAddress);
 		constantBufferCpuAddress = reinterpret_cast<uint8_t*>((reinterpret_cast<size_t>(constantBufferCpuAddress) + sizeof(VSPerObjectConstantBuffer) + D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull)
 			& ~(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull));
-		PSPerObjectConstantBuffer* psPerObjectCBVCpuAddress = reinterpret_cast<PSPerObjectConstantBuffer*>(constantBufferCpuAddress);
-		constantBufferCpuAddress = reinterpret_cast<uint8_t*>((reinterpret_cast<size_t>(constantBufferCpuAddress) + sizeof(PSPerObjectConstantBuffer) + D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull)
+		auto psPerObjectCBVCpuAddress = reinterpret_cast<DirectionalLightMaterialPS*>(constantBufferCpuAddress);
+		constantBufferCpuAddress = reinterpret_cast<uint8_t*>((reinterpret_cast<size_t>(constantBufferCpuAddress) + sizeof(DirectionalLightMaterialPS) + D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull)
 			& ~(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull));
 
 		vsPerObjectCBVCpuAddress->worldMatrix = {	1.f, 0.f, 0.f, 0.f,
@@ -47,7 +41,7 @@ public:
 													0.f, 0.f, 1.f, 0.f,
 													positionX, positionY, positionZ, 1.f };
 
-		psPerObjectCBVCpuAddress->specularColor = DirectX::XMFLOAT4{ 0.5f, 0.5f, 0.5f, 1.0f };
+		psPerObjectCBVCpuAddress->specularColor = DirectX::XMFLOAT3{ 0.5f, 0.5f, 0.5f};
 		psPerObjectCBVCpuAddress->specularPower = 4.0f;
 		psPerObjectCBVCpuAddress->baseColorTexture = baseColorTextureIndex;
 	}

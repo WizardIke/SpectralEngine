@@ -33,7 +33,7 @@ void UserInterface::update2(Executor* const executor)
 	opaqueDirectCommandList->DrawInstanced(4u, static_cast<UINT>(FPSSentence.text.length()), 0u, 0u);
 }
 
-void UserInterface::start(Executor* const executor)
+void UserInterface::restart(Executor* const executor)
 {
 	executor->updateJobQueue().push(Job(this, [](void*const requester, BaseExecutor*const executor1)
 	{
@@ -45,7 +45,28 @@ void UserInterface::start(Executor* const executor)
 			auto executor = reinterpret_cast<Executor*>(executor1);
 			UserInterface* const ui = reinterpret_cast<UserInterface* const>(requester);
 			ui->update2(executor);
-			ui->start(executor);
+			ui->restart(executor);
 		}));
 	}));
+}
+
+void UserInterface::start(Executor* const executor)
+{
+	const auto sharedResources = executor->sharedResources;
+	sharedResources->syncMutex.lock();
+	if (sharedResources->nextPhaseJob == Executor::update1NextPhaseJob)
+	{
+		sharedResources->syncMutex.unlock();
+		restart(executor);
+	}
+	else
+	{
+		sharedResources->syncMutex.unlock();
+		executor->renderJobQueue().push(Job(this, [](void*const requester, BaseExecutor*const executor1)
+		{
+			const auto executor = reinterpret_cast<Executor*>(executor1);
+			const auto ui = reinterpret_cast<UserInterface*>(requester);
+			ui->restart(executor);
+		}));
+	}
 }
