@@ -33,9 +33,14 @@ Camera::Camera(SharedResources* sharedResources, ID3D12Resource* image, D3D12_CP
 	const float screenAspect = static_cast<float>(width) / static_cast<float>(height);
 	mProjectionMatrix = DirectX::XMMatrixPerspectiveFovLH(fieldOfView, screenAspect, screenNear, screenDepth);
 
-	auto constantBuffer = reinterpret_cast<CameraConstantBuffer*>(reinterpret_cast<unsigned char*>(constantBufferCpuAddress) + sharedResources->graphicsEngine.frameIndex * constantBufferPerObjectAlignedSize);
-	constantBuffer->viewProjectionMatrix = mViewMatrix * mProjectionMatrix;
-	constantBuffer->cameraPosition = mLocation.position;
+	for (auto i = 0u; i < frameBufferCount; ++i)
+	{
+		auto constantBuffer = reinterpret_cast<CameraConstantBuffer*>(reinterpret_cast<unsigned char*>(constantBufferCpuAddress) + i * constantBufferPerObjectAlignedSize);
+		constantBuffer->viewProjectionMatrix = mViewMatrix * mProjectionMatrix;
+		constantBuffer->cameraPosition = mLocation.position;
+		constantBuffer->screenWidth = (float)width;
+		constantBuffer->screenHeight = (float)height;
+	}
 
 	mFrustum.update(mProjectionMatrix, mViewMatrix, screenNear, screenDepth);
 }

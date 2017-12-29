@@ -1,6 +1,7 @@
 #include "WaterModel2.h"
 #include "../Assets.h"
 #include "../Executor.h"
+#include <SharedResources.h>
 #define USE_REFLECTION_TEXTURE
 #include <Shaders/WaterMaterialPS.h>
 #undef USE_REFLECTION_TEXTURE
@@ -37,7 +38,7 @@ WaterModel2::WaterModel2(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, ui
 
 	auto aabbBuffer = reinterpret_cast<AABBMaterial*>(constantBufferCpuAddress);
 	constantBufferCpuAddress += aabbConstantBufferSize;
-	aabbBuffer->worldMatrix = DirectX::XMMatrixScaling(1.0f, 0.05f, 1.0f) * DirectX::XMMatrixTranslation(positionX, positionY, positionZ);
+	aabbBuffer->worldMatrix = DirectX::XMMatrixScaling(4.0f, 0.05f, 4.0f) * DirectX::XMMatrixTranslation(positionX, positionY, positionZ);
 }
 
 bool WaterModel2::isInView(const Frustum& Frustum)

@@ -7,6 +7,7 @@
 #include <cstdint>
 class Executor;
 struct WaterMaterialVS;
+class SharedResources;
 
 class WaterModel2
 {
