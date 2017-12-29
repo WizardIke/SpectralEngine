@@ -75,13 +75,6 @@ D3D12GraphicsEngine::D3D12GraphicsEngine(Window& window, bool fullScreen, bool v
 	return depthOptimizedClearValue;
 }())
 {
-#ifdef _DEBUG
-	depthStencilDescriptorHeap->SetName(L"Depth/Stencil Descriptor Heap");
-	depthStencilHeap->SetName(L"Depth/Stencil Resource Heap");
-	directCommandQueue->SetName(L"Direct command queue");
-	graphicsDevice->SetName(L"Graphics device");
-#endif // _DEBUG
-
 	D3D12_DEPTH_STENCIL_VIEW_DESC depthStencilDesc;
 	depthStencilDesc.Format = DXGI_FORMAT_D32_FLOAT;
 	depthStencilDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
@@ -100,6 +93,16 @@ D3D12GraphicsEngine::D3D12GraphicsEngine(Window& window, bool fullScreen, bool v
 	heapDesc.NodeMask = 0u;
 
 	new(&mainDescriptorHeap) D3D12DescriptorHeap(graphicsDevice, heapDesc);
+
+#ifndef NDEBUG
+	depthStencilDescriptorHeap->SetName(L"Depth/Stencil Descriptor Heap");
+	depthStencilHeap->SetName(L"Depth/Stencil Resource Heap");
+	directCommandQueue->SetName(L"Direct command queue");
+	graphicsDevice->SetName(L"Graphics device");
+	mainDescriptorHeap->SetName(L"Main Descriptor Heap");
+#endif // _DEBUG
+
+
 	if (options.ResourceBindingTier == D3D12_RESOURCE_BINDING_TIER_1)
 	{
 		D3D12_SHADER_RESOURCE_VIEW_DESC nullSrvDesc;

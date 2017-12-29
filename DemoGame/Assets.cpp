@@ -106,6 +106,7 @@ Assets::Assets() :
 
 #ifndef NDEBUG
 	warpTexture->SetName(L"Warp texture");
+	warpTextureCpuDescriptorHeap->SetName(L"Warp texture descriptor heap");
 #endif
 
 	checkForWindowsMessages(&mainExecutor);

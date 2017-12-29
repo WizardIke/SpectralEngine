@@ -19,7 +19,7 @@ class TestZoneFunctions
 	{
 		constexpr static unsigned int numMeshes = 1u;
 		constexpr static unsigned int numTextures = 1u;
-		constexpr static unsigned int numComponents = 3u;
+		constexpr static unsigned int numComponents = 1u + numMeshes + numTextures;
 
 		static void componentUploaded(void* requester, BaseExecutor* executor)
 		{

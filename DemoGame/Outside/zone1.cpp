@@ -73,6 +73,7 @@ namespace
 		LightConstantBuffer* pointLightConstantBufferCpuAddress;
 		D3D12_GPU_VIRTUAL_ADDRESS pointLightConstantBufferGpuAddress;
 		D3D12_GPU_VIRTUAL_ADDRESS warpRenderingConstantBuffer;
+		unsigned int backBufferSrvs[frameBufferCount];
 
 		GroundModel2 groundModel;
 		WallModel2 wallModel;
@@ -101,7 +102,7 @@ namespace
 			D3D12_RESOURCE_DESC resourceDesc;
 			resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
 			resourceDesc.Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
-			resourceDesc.Width = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT; //might need changing
+			resourceDesc.Width = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
 			resourceDesc.Height = 1u;
 			resourceDesc.DepthOrArraySize = 1u;
 			resourceDesc.MipLevels = 1u;
@@ -123,6 +124,9 @@ namespace
 		}())
 
 		{
+#ifndef NDEBUG
+			renderTargetTexturesDescriptorHeap->SetName(L"Zone 1 Render Target texture descriptor heap");
+#endif
 			pointLights[0u] = PointLight{ Vector4{ 20.0f, 2.0f, 2.0f, 1.0f }, Vector4{ 52.0f, 5.0f, 76.0f, 1.f } };
 			pointLights[1u] = PointLight{ Vector4{ 2.0f, 20.0f, 2.0f, 1.0f }, Vector4{ 76.0f, 5.0f, 76.0f, 1.f } };
 			pointLights[2u] = PointLight{ Vector4{ 2.0f, 2.0f, 20.0f, 1.0f },Vector4{ 52.0f, 5.0f, 52.0f, 1.f } };
@@ -180,7 +184,7 @@ namespace
 					D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, &clearValue);
 
 #ifdef _DEBUG
-				std::wstring name = L" zone1 render to texture, texture ";
+				std::wstring name = L" zone1 render to texture ";
 				name += std::to_wstring(i);
 				renderTargetTextures[i]->SetName(name.c_str());
 #endif // _DEBUG
@@ -207,16 +211,14 @@ namespace
 			HDSHaderResourceViewDesc.Texture2D.PlaneSlice = 0u;
 			HDSHaderResourceViewDesc.Texture2D.ResourceMinLODClamp = 0.0f;
 
-			auto tempshaderResourceViewCpuDescriptorHandle = sharedResources->graphicsEngine.mainDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
+			auto shaderResourceViewCpuDescriptorHandle = sharedResources->graphicsEngine.mainDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
 			auto srvSize = sharedResources->graphicsEngine.constantBufferViewAndShaderResourceViewAndUnordedAccessViewDescriptorSize;
 			auto tempRenderTargetTexturesCpuDescriptorHandle = renderTargetTexturesDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
 			auto depthStencilHandle = sharedResources->graphicsEngine.depthStencilDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
 			for (auto i = 0u; i < numRenderTargetTextures; ++i)
 			{
 				shaderResourceViews[i] = sharedResources->graphicsEngine.descriptorAllocator.allocate();
-				auto temp = tempshaderResourceViewCpuDescriptorHandle;
-				temp.ptr += srvSize * shaderResourceViews[i];
-				sharedResources->graphicsEngine.graphicsDevice->CreateShaderResourceView(renderTargetTextures[i], &HDSHaderResourceViewDesc, temp);
+				sharedResources->graphicsEngine.graphicsDevice->CreateShaderResourceView(renderTargetTextures[i], &HDSHaderResourceViewDesc, shaderResourceViewCpuDescriptorHandle + srvSize * shaderResourceViews[i]);
 
 				sharedResources->graphicsEngine.graphicsDevice->CreateRenderTargetView(renderTargetTextures[i], &HDRenderTargetViewDesc, tempRenderTargetTexturesCpuDescriptorHandle);
 				Location location;
@@ -275,10 +277,25 @@ namespace
 			PerObjectConstantBuffersGpuAddress += frameBufferCount * pointLightConstantBufferAlignedSize;
 
 			warpRenderingConstantBuffer = PerObjectConstantBuffersGpuAddress;
-			auto psAabbBuffer = reinterpret_cast<AabbMaterialPS*>(perObjectConstantBuffersCpuAddress);
-			psAabbBuffer->srcTexture = sharedResources->warpTextureDescriptorIndex;
-			PerObjectConstantBuffersGpuAddress += psAabbBufferSize;
-			perObjectConstantBuffersCpuAddress += psAabbBufferSize;
+			PerObjectConstantBuffersGpuAddress += psAabbBufferSize * frameBufferCount;
+
+			D3D12_SHADER_RESOURCE_VIEW_DESC backBufferSrvDesc;
+			backBufferSrvDesc.Format = DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM;
+			backBufferSrvDesc.ViewDimension = D3D12_SRV_DIMENSION::D3D12_SRV_DIMENSION_TEXTURE2D;
+			backBufferSrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+			backBufferSrvDesc.Texture2D.MipLevels = 1u;
+			backBufferSrvDesc.Texture2D.MostDetailedMip = 0u;
+			backBufferSrvDesc.Texture2D.PlaneSlice = 0u;
+			backBufferSrvDesc.Texture2D.ResourceMinLODClamp = 0u;
+			for (auto i = 0u; i < frameBufferCount; ++i)
+			{
+				backBufferSrvs[i] = sharedResources->graphicsEngine.descriptorAllocator.allocate();
+				sharedResources->graphicsEngine.graphicsDevice->CreateShaderResourceView(sharedResources->window.getBuffer(i), &backBufferSrvDesc,
+					shaderResourceViewCpuDescriptorHandle + backBufferSrvs[i] * sharedResources->graphicsEngine.constantBufferViewAndShaderResourceViewAndUnordedAccessViewDescriptorSize);
+				auto psAabbBuffer = reinterpret_cast<AabbMaterialPS*>(perObjectConstantBuffersCpuAddress);
+				psAabbBuffer->srcTexture = backBufferSrvs[i];
+				perObjectConstantBuffersCpuAddress += psAabbBufferSize;
+			}
 			
 
 			new(&groundModel) GroundModel2(PerObjectConstantBuffersGpuAddress, perObjectConstantBuffersCpuAddress, ground01);
@@ -469,7 +486,7 @@ namespace
 				transparantCommandList->OMSetRenderTargets(1u, &warpTextureCpuDescriptorHandle, TRUE, &depthStencilHandle);
 				transparantCommandList->SetPipelineState(assets->pipelineStateObjects.copy);
 				transparantCommandList->SetGraphicsRootConstantBufferView(2u, waterModel.vsAabbGpu());
-				transparantCommandList->SetGraphicsRootConstantBufferView(3u, warpRenderingConstantBuffer);
+				transparantCommandList->SetGraphicsRootConstantBufferView(3u, warpRenderingConstantBuffer + frameIndex * psAabbBufferSize);
 				transparantCommandList->IASetVertexBuffers(0u, 1u, &meshes[6]->vertexBufferView);
 				transparantCommandList->IASetIndexBuffer(&meshes[6]->indexBufferView);
 				transparantCommandList->DrawIndexedInstanced(meshes[6]->indexCount, 1u, 0u, 0, 0u);
@@ -491,7 +508,7 @@ namespace
 				transparantCommandList->OMSetRenderTargets(1u, &warpTextureCpuDescriptorHandle, TRUE, &depthStencilHandle);
 				transparantCommandList->SetPipelineState(assets->pipelineStateObjects.copy);
 				transparantCommandList->SetGraphicsRootConstantBufferView(2u, iceModel.vsAabbGpu());
-				transparantCommandList->SetGraphicsRootConstantBufferView(3u, warpRenderingConstantBuffer);
+				transparantCommandList->SetGraphicsRootConstantBufferView(3u, warpRenderingConstantBuffer + frameIndex * psAabbBufferSize);
 				transparantCommandList->IASetVertexBuffers(0u, 1u, &meshes[6]->vertexBufferView);
 				transparantCommandList->IASetIndexBuffer(&meshes[6]->indexBufferView);
 				transparantCommandList->DrawIndexedInstanced(meshes[6]->indexCount, 1u, 0u, 0, 0u);
@@ -548,6 +565,11 @@ namespace
 					assets->renderPass.renderToTextureSubPassGroup().removeSubPass(executor, subPass, 
 						executors.map<RenderPass1::Local::RenderToTextureSubPassGroup, getRenderToTextureSubPassGroup>());
 				}));
+			}
+
+			for (auto i = 0u; i < frameBufferCount; ++i)
+			{
+				graphicsEngine.descriptorAllocator.deallocate(backBufferSrvs[i]);
 			}
 
 			textureManager.unloadTexture(TextureNames::ground01, graphicsEngine);
