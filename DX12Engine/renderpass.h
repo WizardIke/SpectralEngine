@@ -124,9 +124,32 @@ public:
 			if (stateBefore != stateAfter)
 			{
 				constexpr unsigned int subPassCount = sizeof...(RenderSubPass_t);
-				constexpr D3D12_RESOURCE_BARRIER_FLAGS flag = startIndex == (previousSubPassIndex + 1u) % subPassCount ? D3D12_RESOURCE_BARRIER_FLAG_NONE : D3D12_RESOURCE_BARRIER_FLAG_BEGIN_ONLY;
-				addBarrier<stateBefore, stateAfter, flag>(executor, std::get<transitioningResourceIndex>(subPasses), barriers, barrierCount);
+				addBeginBarriersOneResourceHelper2<stateBefore, stateAfter, transitioningResourceIndex, startIndex, (previousSubPassIndex + 1u) % subPassCount>(executor,
+					subPasses, barriers, barrierCount);
 			}
+		}
+
+		template<D3D12_RESOURCE_STATES stateBefore, D3D12_RESOURCE_STATES stateAfter, unsigned int transitioningResourceIndex, unsigned int nextIndex, unsigned int previousIndex>
+		static std::enable_if_t<previousIndex != nextIndex, void> addBeginBarriersOneResourceHelper2(BaseExecutor* executor, std::tuple<RenderSubPass_t...>& subPasses,
+			D3D12_RESOURCE_BARRIER* barriers, unsigned int& barrierCount)
+		{
+			if (std::get<previousIndex>(subPasses).isInView(executor))
+			{
+				addBarrier<stateBefore, stateAfter, D3D12_RESOURCE_BARRIER_FLAG_BEGIN_ONLY>(executor, std::get<transitioningResourceIndex>(subPasses), barriers, barrierCount);
+			}
+			else
+			{
+				constexpr unsigned int subPassCount = sizeof...(RenderSubPass_t);
+				addBeginBarriersOneResourceHelper2<stateBefore, stateAfter, transitioningResourceIndex, nextIndex, (previousIndex + 1u) % subPassCount>(executor,
+					subPasses, barriers, barrierCount);
+			}
+		}
+
+		template<D3D12_RESOURCE_STATES stateBefore, D3D12_RESOURCE_STATES stateAfter, unsigned int transitioningResourceIndex, unsigned int nextIndex, unsigned int previousIndex>
+		static std::enable_if_t<previousIndex == nextIndex, void> addBeginBarriersOneResourceHelper2(BaseExecutor* executor, std::tuple<RenderSubPass_t...>& subPasses,
+			D3D12_RESOURCE_BARRIER* barriers, unsigned int& barrierCount)
+		{
+			addBarrier<stateBefore, stateAfter, D3D12_RESOURCE_BARRIER_FLAG_NONE>(executor, std::get<transitioningResourceIndex>(subPasses), barriers, barrierCount);
 		}
 
 		template<unsigned int previousSubPassIndex, unsigned int startIndex, unsigned int transitioningResourceIndex, unsigned int dependencyIndex, unsigned int dependencyCount>
@@ -138,8 +161,8 @@ public:
 			if (stateBefore != stateAfter)
 			{
 				constexpr unsigned int subPassCount = sizeof...(RenderSubPass_t);
-				constexpr D3D12_RESOURCE_BARRIER_FLAGS flag = startIndex == (previousSubPassIndex + 1u) % subPassCount ? D3D12_RESOURCE_BARRIER_FLAG_NONE : D3D12_RESOURCE_BARRIER_FLAG_BEGIN_ONLY;
-				addBarrier<stateBefore, stateAfter, flag>(executor, std::get<transitioningResourceIndex>(subPasses), barriers, barrierCount);
+				addBeginBarriersOneResourceHelper2<stateBefore, stateAfter, transitioningResourceIndex, startIndex, (previousSubPassIndex + 1u) % subPassCount>(executor,
+					subPasses, barriers, barrierCount);
 			}
 		}
 
@@ -246,25 +269,42 @@ public:
 		{
 			using SubPasses = std::tuple<RenderSubPass_t...>;
 			using NextSubPass = std::tuple_element_t<nextIndex, SubPasses>;
-			constexpr unsigned int subPassCount = sizeof...(RenderSubPass_t);
-			constexpr unsigned int previousIndex = nextIndex == 0u ? subPassCount - 1u : nextIndex - 1u;
 			using Dependencies = decltype(std::tuple_cat(std::declval<typename NextSubPass::Dependencies>(),
 				std::declval<std::tuple<std::integral_constant<unsigned int, nextIndex>>>()));
 
 			addEndOnlyBarriers<nextIndex, 0u, std::tuple_size<Dependencies>::value, Dependencies>(executor, subPasses, barriers, barrierCount);
 		}
 
-		template<unsigned int nextIndex, unsigned int currentIndex, unsigned int endIndex, class ResourceIndices>
-		static std::enable_if_t<currentIndex != endIndex, void> addEndOnlyBarriers(BaseExecutor* executor,
+		template<unsigned int nextIndex, unsigned int currentResourceIndex, unsigned int endIndex, class ResourceIndices>
+		static std::enable_if_t<currentResourceIndex != endIndex, void> addEndOnlyBarriers(BaseExecutor* executor,
 			std::tuple<RenderSubPass_t...>& subPasses, D3D12_RESOURCE_BARRIER* barriers, unsigned int& barrierCount)
 		{
 			constexpr unsigned int subPassCount = sizeof...(RenderSubPass_t);
 			constexpr unsigned int previousIndex = nextIndex == 0u ? subPassCount - 1u : nextIndex - 1u;
-			constexpr unsigned int previouspreviousIndex = previousIndex == 0u ? subPassCount - 1u : previousIndex - 1u;
-			constexpr unsigned int index = std::tuple_element_t<currentIndex, ResourceIndices>::value;
-			addEndOnlyBarriersOneResource<previouspreviousIndex, nextIndex, index>(executor, subPasses, barriers, barrierCount);
-			addEndOnlyBarriers<nextIndex, currentIndex + 1u, endIndex, ResourceIndices>(executor, subPasses, barriers, barrierCount);
+			constexpr unsigned int transitioningResourceIndex = std::tuple_element_t<currentResourceIndex, ResourceIndices>::value;
+			addEndOnlyBarriersHelper<nextIndex, transitioningResourceIndex, previousIndex>(executor, subPasses, barriers, barrierCount);
+			addEndOnlyBarriers<nextIndex, currentResourceIndex + 1u, endIndex, ResourceIndices>(executor, subPasses, barriers, barrierCount);
 		}
+
+		template<unsigned int nextIndex, unsigned int transitioningResourceIndex, unsigned int previousIndex>
+		static std::enable_if_t<previousIndex != nextIndex, void> addEndOnlyBarriersHelper(BaseExecutor* executor,
+			std::tuple<RenderSubPass_t...>& subPasses, D3D12_RESOURCE_BARRIER* barriers, unsigned int& barrierCount)
+		{
+			constexpr unsigned int subPassCount = sizeof...(RenderSubPass_t);
+			constexpr unsigned int previouspreviousIndex = previousIndex == 0u ? subPassCount - 1u : previousIndex - 1u;
+			if (std::get<previousIndex>(subPasses).isInView(executor))
+			{
+				addEndOnlyBarriersOneResource<previouspreviousIndex, nextIndex, transitioningResourceIndex>(executor, subPasses, barriers, barrierCount);
+			}
+			else
+			{
+				addEndOnlyBarriersHelper<nextIndex, transitioningResourceIndex, previouspreviousIndex>(executor, subPasses, barriers, barrierCount);
+			}
+		}
+
+		template<unsigned int nextIndex, unsigned int transitioningResourceIndex, unsigned int previousIndex>
+		static std::enable_if_t<previousIndex == nextIndex, void> addEndOnlyBarriersHelper(BaseExecutor* executor,
+			std::tuple<RenderSubPass_t...>& subPasses, D3D12_RESOURCE_BARRIER* barriers, unsigned int& barrierCount) {}
 
 		template<unsigned int transitioningResourceIndex, unsigned int previousSubPassIndex>
 		constexpr static std::enable_if_t<transitioningResourceIndex == previousSubPassIndex, D3D12_RESOURCE_STATES> getStateBeforeBarriers() noexcept
