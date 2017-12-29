@@ -12,7 +12,7 @@ class FireModel
 {
 	uint8_t* constantBufferCpu;
 	D3D12_GPU_VIRTUAL_ADDRESS constantBufferGpu;
-	float flameTime;
+	float flameTime = 0.0f;
 
 	constexpr static size_t VSPerObjectConstantBufferSize = (sizeof(FireMaterialVS) + D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull) & ~(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull);
 	constexpr static size_t PSPerObjectConstantBufferSize = (sizeof(FireMaterialPS) + D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull) & ~(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull);
@@ -51,7 +51,7 @@ public:
 		psPerObjectCBVCpuAddress->distortion2 = DirectX::XMFLOAT2(0.1f, 0.3f);
 		psPerObjectCBVCpuAddress->distortion3 = DirectX::XMFLOAT2(0.1f, 0.1f);
 		psPerObjectCBVCpuAddress->distortionScale = 0.8f;
-		psPerObjectCBVCpuAddress->distortionBias = 0.5f;
+		psPerObjectCBVCpuAddress->distortionBias = 0.4f;
 		psPerObjectCBVCpuAddress->noiseTexture = normalTextureIndex;
 		psPerObjectCBVCpuAddress->fireTexture = diffuseTextureIndex;
 		psPerObjectCBVCpuAddress->alphaTexture = alphaTextureIndex;
@@ -65,9 +65,9 @@ public:
 	void update(uint32_t frameIndex, const DirectX::XMFLOAT3& position, float frameTime)
 	{
 		flameTime += 0.6f * frameTime;
-		if (flameTime > 1000.0f)
+		if (flameTime > 100.0f)
 		{
-			flameTime -= 1000.0f;
+			flameTime -= 100.0f;
 		}
 		float rotation = atan2(positionX - position.x, positionZ - position.z);
 

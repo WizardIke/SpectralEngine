@@ -32,8 +32,8 @@ Output main(Input input)
 	output.tex = input.tex;
 
 	// Compute texture coordinates for first noise texture using the first scale and upward scrolling speed values.
-	output.texCoords1 = (input.tex * scales.x);
-	output.texCoords1.y = output.texCoords1.y + (flameTime * scrollSpeeds.x);
+	output.texCoords1.x = (input.tex.x * scales.x);
+	output.texCoords1.y = (input.tex.y * scales.y) + (flameTime * scrollSpeeds.x);
 
 	// Compute texture coordinates for second noise texture using the second scale and upward scrolling speed values.
 	output.texCoords2 = (input.tex * scales.y);

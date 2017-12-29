@@ -78,7 +78,7 @@ RootSignatures::RootSignatures(ID3D12Device* const Device) : rootSignature(nullp
 		staticSampleDescs[2].MipLODBias = 0;
 		staticSampleDescs[2].MaxAnisotropy = 0;
 		staticSampleDescs[2].ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
-		staticSampleDescs[2].BorderColor = D3D12_STATIC_BORDER_COLOR_OPAQUE_WHITE;
+		staticSampleDescs[2].BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;
 		staticSampleDescs[2].MinLOD = 0.0f;
 		staticSampleDescs[2].MaxLOD = D3D12_FLOAT32_MAX;
 		staticSampleDescs[2].ShaderRegister = 2;
