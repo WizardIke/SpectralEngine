@@ -228,7 +228,7 @@ public:
 			}
 		}
 
-		void update2(ID3D12CommandList** commandLists)
+		void update2(ID3D12CommandList**& commandLists, unsigned int numThreads)
 		{
 			for (ID3D12GraphicsCommandList* commandList : currentData->commandLists)
 			{
@@ -239,8 +239,9 @@ public:
 			for (ID3D12GraphicsCommandList* commandList : currentData->commandLists)
 			{
 				*commandLists = commandList;
-				++commandLists;
+				commandLists += numThreads;
 			}
+
 		}
 
 		ID3D12GraphicsCommandList* lastCommandList() noexcept
@@ -455,12 +456,11 @@ public:
 			}
 		}
 
-		void update2(ID3D12CommandList** commandLists)
+		void update2(ID3D12CommandList**& commandLists, unsigned int numThreads)
 		{
-			for (auto& subPass : mSubPasses)
+			for (auto& subPassLocal : mSubPasses)
 			{
-				subPass.update2(commandLists);
-				commandLists += RenderSubPass_t::commandListsPerFrame;
+				subPassLocal.update2(commandLists, numThreads);
 			}
 		}
 

@@ -374,24 +374,23 @@ public:
 			{
 				if (threadCount == 1u)
 				{
-					update2LastThread<0u, subPassCount>(executor, renderPass, renderPass.commandLists.get(), 0u);
+					update2LastThread<0u, subPassCount>(executor, renderPass, renderPass.commandLists.get(), threadCount);
 				}
 				else
 				{
-					update2<0u, subPassCount>(executor, renderPass, renderPass.commandLists.get(), 0u, threadCount);
+					update2<0u, subPassCount>(executor, renderPass, renderPass.commandLists.get(), threadCount);
 				}
 			}
 			else
 			{
 				++renderPass.commandListCount;
-				auto listsAfter = threadCount - renderPass.commandListCount;
-				if (listsAfter == 1u)
+				if (threadCount == 1u + renderPass.commandListCount)
 				{
-					update2LastThread<0u, subPassCount>(executor, renderPass, renderPass.commandLists.get(), renderPass.commandListCount);
+					update2LastThread<0u, subPassCount>(executor, renderPass, renderPass.commandLists.get() + renderPass.commandListCount, threadCount);
 				}
 				else
 				{
-					update2<0u, subPassCount>(executor, renderPass, renderPass.commandLists.get(), renderPass.commandListCount, listsAfter);
+					update2<0u, subPassCount>(executor, renderPass, renderPass.commandLists.get() + renderPass.commandListCount, threadCount);
 				}
 			}
 		}
@@ -450,23 +449,23 @@ public:
 		template<unsigned int start, unsigned int end>
 		std::enable_if_t<start == end, void>
 			update2(BaseExecutor* const executor, RenderPass<RenderSubPass_t...>& renderPass, ID3D12CommandList** commandLists,
-				unsigned int listsBefore, unsigned int listsAfter) {}
+				unsigned int numThreads) {}
 
 		template<unsigned int start, unsigned int end>
 		std::enable_if_t<start != end, void>
 			update2(BaseExecutor* const executor, RenderPass<RenderSubPass_t...>& renderPass, ID3D12CommandList** commandLists,
-				unsigned int listsBefore, unsigned int listsAfter)
+				unsigned int numThreads)
 		{
 			const auto commandListsPerFrame = std::get<start>(renderPass.subPasses).commandListsPerFrame;
 			auto& subPassLocal = std::get<start>(subPassesThreadLocal);
 			auto& subPass = std::get<start>(renderPass.subPasses);
-			if (subPass.isInView(executor))
+			if (subPass.isInView(executor)) //currently first thread first list, second thread first list... end first thread second list etc. but should be all first list then all second lists etc.
 			{
-				commandLists += listsBefore * commandListsPerFrame;
-				subPassLocal.update2(commandLists);
-				commandLists += listsAfter * commandListsPerFrame;
+				//commandLists += listsBefore;
+				subPassLocal.update2(commandLists, numThreads);
+				//commandLists += listsAfter;
 			}
-			update2<start + 1u, end>(executor, renderPass, commandLists, listsBefore, listsAfter);
+			update2<start + 1u, end>(executor, renderPass, commandLists, numThreads);
 		}
 
 
@@ -478,31 +477,31 @@ public:
 		template<unsigned int start, unsigned int end>
 		std::enable_if_t<start != end, void>
 			update2LastThread(BaseExecutor* const executor, RenderPass<RenderSubPass_t...>& renderPass, ID3D12CommandList** commandLists,
-				unsigned int listsBefore)
+				unsigned int numThreads)
 		{
 			constexpr auto subPassCount = sizeof...(RenderSubPass_t);
 			auto& subPass = std::get<start>(renderPass.subPasses);
 			if (subPass.isInView(executor))
 			{
-				update2LastThreadHelper<start>(renderPass, commandLists, listsBefore);
+				update2LastThreadHelper<start>(renderPass, commandLists, numThreads);
 			}
-			update2LastThread<start + 1u, end>(executor, renderPass, commandLists, listsBefore);
+			update2LastThread<start + 1u, end>(executor, renderPass, commandLists, numThreads);
 		}
 
 		template<unsigned int index>
 		std::enable_if_t<!std::tuple_element_t<index, std::tuple<RenderSubPass_t...>>::isMainSubPass, void>
-			update2LastThreadHelper(RenderPass<RenderSubPass_t...>& renderPass, ID3D12CommandList**& commandLists, unsigned int listsBefore)
+			update2LastThreadHelper(RenderPass<RenderSubPass_t...>& renderPass, ID3D12CommandList**& commandLists, unsigned int numThreads)
 		{
 			const auto commandListsPerFrame = std::get<index>(renderPass.subPasses).commandListsPerFrame;
 			auto& subPassLocal = std::get<index>(subPassesThreadLocal);
-			commandLists += listsBefore * commandListsPerFrame;
-			subPassLocal.update2(commandLists);
-			commandLists += commandListsPerFrame;
+			//commandLists += listsBefore;
+			subPassLocal.update2(commandLists, numThreads);
+			//commandLists += 1u;
 		}
 
 		template<unsigned int index>
 		std::enable_if_t<std::tuple_element_t<index, std::tuple<RenderSubPass_t...>>::isMainSubPass, void>
-			update2LastThreadHelper(RenderPass<RenderSubPass_t...>& renderPass, ID3D12CommandList**& commandLists, unsigned int listsBefore)
+			update2LastThreadHelper(RenderPass<RenderSubPass_t...>& renderPass, ID3D12CommandList**& commandLists, unsigned int numThreads)
 		{
 			constexpr auto subPassCount = sizeof...(RenderSubPass_t);
 			auto cameras = std::get<index>(renderPass.subPasses).cameras();
@@ -525,9 +524,9 @@ public:
 			auto& subPassLocal = std::get<index>(subPassesThreadLocal);
 			subPassLocal.lastCommandList()->ResourceBarrier(barrierCount, barriers);
 			const auto commandListsPerFrame = std::get<index>(renderPass.subPasses).commandListsPerFrame;
-			commandLists += listsBefore * commandListsPerFrame;
-			subPassLocal.update2(commandLists);
-			commandLists += commandListsPerFrame;
+			//commandLists += listsBefore;
+			subPassLocal.update2(commandLists, numThreads);
+			//commandLists += 1u;
 		}
 	};
 
