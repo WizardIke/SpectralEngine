@@ -1,9 +1,6 @@
 Texture2D<float4> textures[] : register(t0);
 
-cbuffer Material : register(b1)
-{
-	uint srcTexture;
-}
+#include "CameraConstantBuffer.h"
 
 struct Input
 {
@@ -12,5 +9,5 @@ struct Input
 
 float4 main(Input input) : SV_TARGET
 {
-	return textures[srcTexture].Load(int3(input.position.xy, 0));
+	return textures[backBufferTexture].Load(int3(input.position.xy, 0));
 }

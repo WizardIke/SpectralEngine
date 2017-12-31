@@ -7,7 +7,8 @@ struct CameraConstantBuffer
 	DirectX::XMFLOAT3 cameraPosition;
 	float screenWidth;
 	float screenHeight;
-	};
+	uint32_t backBufferTexture;
+};
 #else
 cbuffer camera : register(b0)
 {
@@ -15,5 +16,6 @@ cbuffer camera : register(b0)
 	float3 cameraPosition;
 	float screenWidth;
 	float screenHeight;
+	uint backBufferTexture;
 }
 #endif

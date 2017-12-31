@@ -33,7 +33,7 @@ public:
 	Camera() {}
 	Camera(SharedResources* sharedResources, ID3D12Resource* image, D3D12_CPU_DESCRIPTOR_HANDLE renderTargetView, D3D12_CPU_DESCRIPTOR_HANDLE depthSencilView,
 		unsigned int width, unsigned int height, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1, uint8_t*& constantBufferCpuAddress1, float fieldOfView,
-		const Location& target);
+		const Location& target, uint32_t* backBufferTextures);
 	~Camera();
 
 	void update(SharedResources* sharedResources, const DirectX::XMMATRIX& mViewMatrix);

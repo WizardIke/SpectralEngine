@@ -133,6 +133,7 @@ Assets::Assets() :
 Assets::~Assets()
 {
 	graphicsEngine.descriptorAllocator.deallocate(warpTextureDescriptorIndex);
+	mainCamera.destruct(this);
 }
 
 void Assets::update(BaseExecutor* const executor)

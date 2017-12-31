@@ -67,13 +67,12 @@ namespace
 		unsigned int shaderResourceViews[numRenderTargetTextures];
 		std::array<Camera, numRenderTargetTextures> reflectionCameras;
 		std::array<RenderPass1::RenderToTextureSubPass*, numRenderTargetTextures> renderTargetTextureSubPasses;
+		unsigned int reflectionCameraBackBuffers[numRenderTargetTextures];
 
 		Light light;
 		PointLight pointLights[numPointLights];
 		LightConstantBuffer* pointLightConstantBufferCpuAddress;
 		D3D12_GPU_VIRTUAL_ADDRESS pointLightConstantBufferGpuAddress;
-		D3D12_GPU_VIRTUAL_ADDRESS warpRenderingConstantBuffer;
-		unsigned int backBufferSrvs[frameBufferCount];
 
 		GroundModel2 groundModel;
 		WallModel2 wallModel;
@@ -216,6 +215,16 @@ namespace
 			auto srvSize = sharedResources->graphicsEngine.constantBufferViewAndShaderResourceViewAndUnordedAccessViewDescriptorSize;
 			auto tempRenderTargetTexturesCpuDescriptorHandle = renderTargetTexturesDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
 			auto depthStencilHandle = sharedResources->graphicsEngine.depthStencilDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
+
+			D3D12_SHADER_RESOURCE_VIEW_DESC backBufferSrvDesc;
+			backBufferSrvDesc.Format = DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM;
+			backBufferSrvDesc.ViewDimension = D3D12_SRV_DIMENSION::D3D12_SRV_DIMENSION_TEXTURE2D;
+			backBufferSrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+			backBufferSrvDesc.Texture2D.MipLevels = 1u;
+			backBufferSrvDesc.Texture2D.MostDetailedMip = 0u;
+			backBufferSrvDesc.Texture2D.PlaneSlice = 0u;
+			backBufferSrvDesc.Texture2D.ResourceMinLODClamp = 0u;
+
 			for (auto i = 0u; i < numRenderTargetTextures; ++i)
 			{
 				shaderResourceViews[i] = sharedResources->graphicsEngine.descriptorAllocator.allocate();
@@ -224,9 +233,19 @@ namespace
 				sharedResources->graphicsEngine.graphicsDevice->CreateRenderTargetView(renderTargetTextures[i], &HDRenderTargetViewDesc, tempRenderTargetTexturesCpuDescriptorHandle);
 				Location location;
 				sharedResources->mainCamera.makeReflectionLocation(location, waterModel.reflectionHeight());
+
+				reflectionCameraBackBuffers[i] = sharedResources->graphicsEngine.descriptorAllocator.allocate();
+				sharedResources->graphicsEngine.graphicsDevice->CreateShaderResourceView(renderTargetTextures[i], &backBufferSrvDesc,
+					shaderResourceViewCpuDescriptorHandle + reflectionCameraBackBuffers[i] * sharedResources->graphicsEngine.constantBufferViewAndShaderResourceViewAndUnordedAccessViewDescriptorSize);
+				uint32_t backBuffers[frameBufferCount];
+				for (auto j = 0u; j < frameBufferCount; ++j)
+				{
+					backBuffers[j] = reflectionCameraBackBuffers[i];
+				}
+
 				new(&reflectionCameras[i]) Camera(sharedResources, renderTargetTextures[i], tempRenderTargetTexturesCpuDescriptorHandle, depthStencilHandle,
 					sharedResources->window.width(), sharedResources->window.height(), PerObjectConstantBuffersGpuAddress, perObjectConstantBuffersCpuAddress, 0.25f * 3.141f,
-					location);
+					location, backBuffers);
 
 				tempRenderTargetTexturesCpuDescriptorHandle.ptr += sharedResources->graphicsEngine.renderTargetViewDescriptorSize;
 			}
@@ -256,28 +275,6 @@ namespace
 
 			pointLightConstantBufferGpuAddress = PerObjectConstantBuffersGpuAddress;
 			PerObjectConstantBuffersGpuAddress += frameBufferCount * pointLightConstantBufferAlignedSize;
-
-			warpRenderingConstantBuffer = PerObjectConstantBuffersGpuAddress;
-			PerObjectConstantBuffersGpuAddress += psAabbBufferSize * frameBufferCount;
-
-			D3D12_SHADER_RESOURCE_VIEW_DESC backBufferSrvDesc;
-			backBufferSrvDesc.Format = DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM;
-			backBufferSrvDesc.ViewDimension = D3D12_SRV_DIMENSION::D3D12_SRV_DIMENSION_TEXTURE2D;
-			backBufferSrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-			backBufferSrvDesc.Texture2D.MipLevels = 1u;
-			backBufferSrvDesc.Texture2D.MostDetailedMip = 0u;
-			backBufferSrvDesc.Texture2D.PlaneSlice = 0u;
-			backBufferSrvDesc.Texture2D.ResourceMinLODClamp = 0u;
-			for (auto i = 0u; i < frameBufferCount; ++i)
-			{
-				backBufferSrvs[i] = sharedResources->graphicsEngine.descriptorAllocator.allocate();
-				sharedResources->graphicsEngine.graphicsDevice->CreateShaderResourceView(sharedResources->window.getBuffer(i), &backBufferSrvDesc,
-					shaderResourceViewCpuDescriptorHandle + backBufferSrvs[i] * sharedResources->graphicsEngine.constantBufferViewAndShaderResourceViewAndUnordedAccessViewDescriptorSize);
-				auto psAabbBuffer = reinterpret_cast<AabbMaterialPS*>(perObjectConstantBuffersCpuAddress);
-				psAabbBuffer->srcTexture = backBufferSrvs[i];
-				perObjectConstantBuffersCpuAddress += psAabbBufferSize;
-			}
-			
 
 			new(&groundModel) GroundModel2(PerObjectConstantBuffersGpuAddress, perObjectConstantBuffersCpuAddress, ground01);
 
@@ -358,13 +355,47 @@ namespace
 			auto depthStencilHandle = assets->graphicsEngine.depthStencilDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
 			if (waterModel.isInView(assets->mainCamera.frustum()))
 			{
-				const auto& frustum = (*assets->renderPass.renderToTextureSubPassGroup().subPasses().begin()->cameras().begin())->frustum();
+				const auto subPass = assets->renderPass.renderToTextureSubPassGroup().subPasses().begin();
+				const auto camera = *subPass->cameras().begin();
+				const auto& frustum = camera->frustum();
 				const auto commandList = executor->renderPass.renderToTextureSubPassGroup().subPasses().begin()->firstCommandList();
+				auto warpTextureCpuDescriptorHandle = assets->warpTextureCpuDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
+				auto backBufferRenderTargetCpuHandle = camera->getRenderTargetView();
 
 				commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
 				constexpr uint64_t pointLightConstantBufferAlignedSize = (sizeof(LightConstantBuffer) + (size_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (size_t)1u) & ~((size_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (size_t)1u);
 				commandList->SetGraphicsRootConstantBufferView(1u, pointLightConstantBufferGpuAddress + frameIndex * pointLightConstantBufferAlignedSize);
+
+				D3D12_RESOURCE_BARRIER copyStartBarriers[2u];
+				copyStartBarriers[0u].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+				copyStartBarriers[0u].Flags = D3D12_RESOURCE_BARRIER_FLAGS::D3D12_RESOURCE_BARRIER_FLAG_NONE;
+				copyStartBarriers[0u].Transition.pResource = assets->warpTexture;
+				copyStartBarriers[0u].Transition.StateBefore = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+				copyStartBarriers[0u].Transition.StateAfter = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET;
+				copyStartBarriers[0u].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+
+				copyStartBarriers[1u].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+				copyStartBarriers[1u].Flags = D3D12_RESOURCE_BARRIER_FLAGS::D3D12_RESOURCE_BARRIER_FLAG_NONE;
+				copyStartBarriers[1u].Transition.pResource = assets->window.getBuffer(frameIndex);
+				copyStartBarriers[1u].Transition.StateBefore = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET;
+				copyStartBarriers[1u].Transition.StateAfter = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+				copyStartBarriers[1u].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+
+				D3D12_RESOURCE_BARRIER copyEndBarriers[2u];
+				copyEndBarriers[0u].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+				copyEndBarriers[0u].Flags = D3D12_RESOURCE_BARRIER_FLAGS::D3D12_RESOURCE_BARRIER_FLAG_NONE;
+				copyEndBarriers[0u].Transition.pResource = assets->warpTexture;
+				copyEndBarriers[0u].Transition.StateBefore = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET;
+				copyEndBarriers[0u].Transition.StateAfter = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+				copyEndBarriers[0u].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+
+				copyEndBarriers[1u].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+				copyEndBarriers[1u].Flags = D3D12_RESOURCE_BARRIER_FLAGS::D3D12_RESOURCE_BARRIER_FLAG_NONE;
+				copyEndBarriers[1u].Transition.pResource = copyStartBarriers[1u].Transition.pResource;
+				copyEndBarriers[1u].Transition.StateBefore = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+				copyEndBarriers[1u].Transition.StateAfter = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET;
+				copyEndBarriers[1u].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
 
 				if (wallModel.isInView(frustum))
 				{
@@ -377,7 +408,17 @@ namespace
 				}
 				if (iceModel.isInView(frustum))
 				{
-					commandList->SetPipelineState(assets->pipelineStateObjects.basic);
+					commandList->ResourceBarrier(2u, copyStartBarriers);
+					commandList->OMSetRenderTargets(1u, &warpTextureCpuDescriptorHandle, TRUE, &depthStencilHandle);
+					commandList->SetPipelineState(assets->pipelineStateObjects.copy);
+					commandList->SetGraphicsRootConstantBufferView(2u, iceModel.vsAabbGpu());
+					commandList->IASetVertexBuffers(0u, 1u, &meshes[6]->vertexBufferView);
+					commandList->IASetIndexBuffer(&meshes[6]->indexBufferView);
+					commandList->DrawIndexedInstanced(meshes[6]->indexCount, 1u, 0u, 0, 0u);
+
+					commandList->ResourceBarrier(2u, copyEndBarriers);
+					commandList->OMSetRenderTargets(1u, &backBufferRenderTargetCpuHandle, TRUE, &depthStencilHandle);
+					commandList->SetPipelineState(assets->pipelineStateObjects.glass);
 					commandList->SetGraphicsRootConstantBufferView(2u, iceModel.vsConstantBufferGPU(frameIndex));
 					commandList->SetGraphicsRootConstantBufferView(3u, iceModel.psConstantBufferGPU());
 					commandList->IASetVertexBuffers(0u, 1u, &meshes[iceModel.meshIndex]->vertexBufferView);
@@ -473,7 +514,6 @@ namespace
 				transparantCommandList->OMSetRenderTargets(1u, &warpTextureCpuDescriptorHandle, TRUE, &depthStencilHandle);
 				transparantCommandList->SetPipelineState(assets->pipelineStateObjects.copy);
 				transparantCommandList->SetGraphicsRootConstantBufferView(2u, waterModel.vsAabbGpu());
-				transparantCommandList->SetGraphicsRootConstantBufferView(3u, warpRenderingConstantBuffer + frameIndex * psAabbBufferSize);
 				transparantCommandList->IASetVertexBuffers(0u, 1u, &meshes[7]->vertexBufferView);
 				transparantCommandList->IASetIndexBuffer(&meshes[7]->indexBufferView);
 				transparantCommandList->DrawIndexedInstanced(meshes[7]->indexCount, 1u, 0u, 0, 0u);
@@ -495,7 +535,6 @@ namespace
 				transparantCommandList->OMSetRenderTargets(1u, &warpTextureCpuDescriptorHandle, TRUE, &depthStencilHandle);
 				transparantCommandList->SetPipelineState(assets->pipelineStateObjects.copy);
 				transparantCommandList->SetGraphicsRootConstantBufferView(2u, iceModel.vsAabbGpu());
-				transparantCommandList->SetGraphicsRootConstantBufferView(3u, warpRenderingConstantBuffer + frameIndex * psAabbBufferSize);
 				transparantCommandList->IASetVertexBuffers(0u, 1u, &meshes[6]->vertexBufferView);
 				transparantCommandList->IASetIndexBuffer(&meshes[6]->indexBufferView);
 				transparantCommandList->DrawIndexedInstanced(meshes[6]->indexCount, 1u, 0u, 0, 0u);
@@ -552,11 +591,8 @@ namespace
 					assets->renderPass.renderToTextureSubPassGroup().removeSubPass(executor, subPass, 
 						executors.map<RenderPass1::Local::RenderToTextureSubPassGroup, getRenderToTextureSubPassGroup>());
 				}));
-			}
 
-			for (auto i = 0u; i < frameBufferCount; ++i)
-			{
-				graphicsEngine.descriptorAllocator.deallocate(backBufferSrvs[i]);
+				graphicsEngine.descriptorAllocator.deallocate(reflectionCameraBackBuffers[i]);
 			}
 
 			textureManager.unloadTexture(TextureNames::ground01, graphicsEngine);

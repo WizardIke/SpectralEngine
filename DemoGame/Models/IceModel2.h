@@ -46,7 +46,7 @@ public:
 		psBuffer->normalTexture = normalTextureIndex;
 		constantBufferCpuAddress += psConstantBufferSize;
 		auto aabbBuffer = reinterpret_cast<VSPerObjectConstantBuffer*>(constantBufferCpuAddress);
-		aabbBuffer->worldMatrix = DirectX::XMMatrixScaling(5.1f, 5.1f, 5.1f) * DirectX::XMMatrixTranslation(positionX, positionY, positionZ);
+		aabbBuffer->worldMatrix = DirectX::XMMatrixScaling(5.2f, 5.2f, 5.2f) * DirectX::XMMatrixTranslation(positionX, positionY, positionZ);
 		constantBufferCpuAddress += vsConstantBufferSize;
 	}
 	~IceModel2() {}
