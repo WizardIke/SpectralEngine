@@ -38,7 +38,7 @@ WaterModel2::WaterModel2(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, ui
 
 	auto aabbBuffer = reinterpret_cast<AABBMaterial*>(constantBufferCpuAddress);
 	constantBufferCpuAddress += aabbConstantBufferSize;
-	aabbBuffer->worldMatrix = DirectX::XMMatrixScaling(4.0f, 0.05f, 4.0f) * DirectX::XMMatrixTranslation(positionX, positionY, positionZ);
+	aabbBuffer->worldMatrix = DirectX::XMMatrixScaling(4.1f, 0.05f, 4.1f) * DirectX::XMMatrixTranslation(positionX, positionY, positionZ);
 }
 
 bool WaterModel2::isInView(const Frustum& Frustum)

@@ -12,7 +12,7 @@ class MeshManager
 {
 	struct MeshWithPositionTextureNormalTangentBitangent
 	{
-		float x, y, z, w;
+		float x, y, z;
 		float tu, tv;
 		float nx, ny, nz;
 		float tx, ty, tz;
@@ -21,20 +21,20 @@ class MeshManager
 
 	struct MeshWithPositionTextureNormal
 	{
-		float x, y, z, w;
+		float x, y, z;
 		float tu, tv;
 		float nx, ny, nz;
 	};
 
 	struct MeshWithPositionTexture
 	{
-		float x, y, z, w;
+		float x, y, z;
 		float tu, tv;
 	};
 
 	struct MeshWithPosition
 	{
-		float x, y, z, w;
+		float x, y, z;
 	};
 
 	struct PendingLoadRequest
@@ -137,7 +137,7 @@ public:
 		void(*resourceUploadedCallback)(void* const requester, BaseExecutor* const executor), Mesh** destination)
 	{
 		loadMesh(filename, requester, executor, resourceUploadedCallback, meshWithPositionTextureNormalTangentBitangentUseSubresource<Executor>,
-			sizeof(MeshWithPositionTextureNormalTangentBitangent), destination, sizeof(float) * 8u, executor->streamingManager);
+			sizeof(MeshWithPositionTextureNormalTangentBitangent), destination, sizeof(MeshWithPositionTextureNormal), executor->streamingManager);
 	}
 
 	template<class Executor>
@@ -145,7 +145,7 @@ public:
 		void(*resourceUploadedCallback)(void* const requester, BaseExecutor* const executor), Mesh** destination)
 	{
 		loadMesh(filename, requester, executor, resourceUploadedCallback, meshWithPositionTextureNormalUseSubresource<Executor>,
-			sizeof(MeshWithPositionTextureNormal), destination, sizeof(float) * 8u, executor->streamingManager);
+			sizeof(MeshWithPositionTextureNormal), destination, sizeof(MeshWithPositionTextureNormal), executor->streamingManager);
 	}
 
 	template<class Executor>
@@ -153,7 +153,7 @@ public:
 		void(*resourceUploadedCallback)(void* const requester, BaseExecutor* const executor), Mesh** destination)
 	{
 		loadMesh(filename, requester, executor, resourceUploadedCallback, meshWithPositionTextureUseSubresource<Executor>,
-			sizeof(MeshWithPositionTexture), destination, sizeof(float) * 5u, executor->streamingManager);
+			sizeof(MeshWithPositionTexture), destination, sizeof(MeshWithPositionTexture), executor->streamingManager);
 	}
 
 	template<class Executor>
@@ -161,7 +161,7 @@ public:
 		void(*resourceUploadedCallback)(void* const requester, BaseExecutor* const executor), Mesh** destination)
 	{
 		loadMesh(filename, requester, executor, resourceUploadedCallback, meshWithPositionUseSubresource<Executor>,
-			sizeof(MeshWithPosition), destination, sizeof(float) * 5u, executor->streamingManager);
+			sizeof(MeshWithPosition), destination, sizeof(MeshWithPosition), executor->streamingManager);
 	}
 
 	void unloadMesh(const wchar_t * const filename, BaseExecutor* const executor);

@@ -8,7 +8,7 @@ cbuffer Camera : register(b0)
 
 struct Input
 {
-	float4 position : POSITION;
+	float3 position : POSITION;
 	float2 tex : TEXCOORD0;
 };
 
@@ -22,8 +22,7 @@ Output main(Input input)
 {
 	Output output;
 
-	input.position.w = 1.0f;
-	float4 worldPosition = mul(worldMatrix, input.position);
+	float4 worldPosition = mul(worldMatrix, float4(input.position, 1.0f));
     output.position = mul(viewProjectionMatrix, worldPosition);
 
 	output.tex = input.tex + waterTranslation;

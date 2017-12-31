@@ -18,17 +18,7 @@ Camera::Camera(SharedResources* sharedResources, ID3D12Resource* image, D3D12_CP
 	mLocation.position = target.position;
 	mLocation.rotation = target.rotation;
 
-	DirectX::XMVECTOR positionVector = XMLoadFloat3(&mLocation.position);
-	DirectX::XMMATRIX rotationMatrix = DirectX::XMMatrixRotationRollPitchYaw(mLocation.rotation.x, mLocation.rotation.y, mLocation.rotation.z);
-
-	DirectX::XMFLOAT3 temp(0.0f, 0.0f, 1.0f);
-	DirectX::XMVECTOR lookAtVector = DirectX::XMVectorAdd(positionVector, XMVector3TransformCoord(DirectX::XMLoadFloat3(&temp), rotationMatrix));
-
-	DirectX::XMFLOAT3 up = DirectX::XMFLOAT3{ 0.0f, 1.0f, 0.0f };
-	DirectX::XMVECTOR upVector = XMVector3TransformCoord(DirectX::XMLoadFloat3(&up), rotationMatrix);
-
-	DirectX::XMMATRIX mViewMatrix;
-	mViewMatrix = DirectX::XMMatrixLookAtLH(positionVector, lookAtVector, upVector);
+	DirectX::XMMATRIX mViewMatrix = locationToMatrix(mLocation);
 
 	const float screenAspect = static_cast<float>(width) / static_cast<float>(height);
 	mProjectionMatrix = DirectX::XMMatrixPerspectiveFovLH(fieldOfView, screenAspect, screenNear, screenDepth);
@@ -117,4 +107,18 @@ void Camera::makeReflectionLocation(Location& location, float height)
 	location.rotation.x = -mLocation.rotation.x;
 	location.rotation.y = mLocation.rotation.y;
 	location.rotation.z = mLocation.rotation.z;
+}
+
+DirectX::XMMATRIX Camera::locationToMatrix(Location& location)
+{
+	DirectX::XMVECTOR positionVector = DirectX::XMLoadFloat3(&location.position);
+	DirectX::XMMATRIX rotationMatrix = DirectX::XMMatrixRotationRollPitchYaw(location.rotation.x, location.rotation.y, location.rotation.z);
+
+	DirectX::XMFLOAT3 temp(0.0f, 0.0f, 1.0f);
+	DirectX::XMVECTOR lookAtVector = DirectX::XMVectorAdd(positionVector, XMVector3TransformCoord(DirectX::XMLoadFloat3(&temp), rotationMatrix));
+
+	DirectX::XMFLOAT3 up = DirectX::XMFLOAT3{ 0.0f, 1.0f, 0.0f };
+	DirectX::XMVECTOR upVector = XMVector3TransformCoord(DirectX::XMLoadFloat3(&up), rotationMatrix);
+
+	return DirectX::XMMatrixLookAtLH(positionVector, lookAtVector, upVector);
 }

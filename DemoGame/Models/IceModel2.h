@@ -40,13 +40,13 @@ public:
 		constantBufferCpuAddress += vsConstantBufferSize;
 		auto psBuffer = reinterpret_cast<GlassMaterialPS*>(constantBufferCpuAddress);
 		psBuffer->refractionScale = 0.1f;
-		psBuffer->opacity = 0.02f;
+		psBuffer->opacity = 0.2f;
 		psBuffer->refractionTexture = refractionTextureIndex;
 		psBuffer->diffuseTexture = diffuseTextureIndex;
 		psBuffer->normalTexture = normalTextureIndex;
 		constantBufferCpuAddress += psConstantBufferSize;
 		auto aabbBuffer = reinterpret_cast<VSPerObjectConstantBuffer*>(constantBufferCpuAddress);
-		aabbBuffer->worldMatrix = DirectX::XMMatrixScaling(5.0f, 5.0f, 5.0f) * DirectX::XMMatrixTranslation(positionX, positionY, positionZ);
+		aabbBuffer->worldMatrix = DirectX::XMMatrixScaling(5.1f, 5.1f, 5.1f) * DirectX::XMMatrixTranslation(positionX, positionY, positionZ);
 		constantBufferCpuAddress += vsConstantBufferSize;
 	}
 	~IceModel2() {}

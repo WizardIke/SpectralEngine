@@ -32,7 +32,7 @@ namespace
 {
 	class HDResources
 	{
-		constexpr static unsigned char numMeshes = 7u;
+		constexpr static unsigned char numMeshes = 8u;
 		constexpr static unsigned char numTextures = 9u;
 		constexpr static unsigned char numComponents = 2u + numTextures + numMeshes;
 		constexpr static unsigned int numRenderTargetTextures = 1u;
@@ -151,6 +151,7 @@ namespace
 			MeshManager::loadMeshWithPositionTexture(MeshNames::cube, zone, executor, componentUploaded, &meshes[4]);
 			MeshManager::loadMeshWithPositionTexture(MeshNames::square, zone, executor, componentUploaded, &meshes[5]);
 			MeshManager::loadMeshWithPosition(MeshNames::aabb, zone, executor, componentUploaded, &meshes[6]);
+			MeshManager::loadMeshWithPosition(MeshNames::squareWithPos, zone, executor, componentUploaded, &meshes[7]);
 
 			D3D12_HEAP_PROPERTIES heapProperties;
 			heapProperties.Type = D3D12_HEAP_TYPE_DEFAULT;
@@ -229,43 +230,23 @@ namespace
 
 				tempRenderTargetTexturesCpuDescriptorHandle.ptr += sharedResources->graphicsEngine.renderTargetViewDescriptorSize;
 			}
-			/*
-			executor->renderJobQueue().push(Job(zone, [](void* zone1, BaseExecutor* executor1)
+			
+			executor->updateJobQueue().push(Job(zone, [](void* zone1, BaseExecutor* executor1)
 			{
 				const auto zone = reinterpret_cast<BaseZone*>(zone1);
-				const auto resource = reinterpret_cast<HDResources*>(zone->nextResources);
 				const auto executor = reinterpret_cast<Executor*>(executor1);
-				D3D12_RESOURCE_BARRIER renderTargetTextureBariers[numRenderTargetTextures];
+				const auto assets = reinterpret_cast<Assets*>(executor->sharedResources);
+				const auto resource = reinterpret_cast<HDResources*>(zone->nextResources);
+
 				for (auto i = 0u; i < numRenderTargetTextures; ++i)
 				{
-					renderTargetTextureBariers[i].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-					renderTargetTextureBariers[i].Flags = D3D12_RESOURCE_BARRIER_FLAG_BEGIN_ONLY;
-					renderTargetTextureBariers[i].Transition.pResource = resource->renderTargetTextures[i];
-					renderTargetTextureBariers[i].Transition.StateBefore = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-					renderTargetTextureBariers[i].Transition.StateAfter = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET;
-					renderTargetTextureBariers[i].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+					auto executors = assets->executors();
+					resource->renderTargetTextureSubPasses[i] = &assets->renderPass.renderToTextureSubPassGroup().addSubPass(executor, assets->renderPass,
+						executors.map<RenderPass1::Local::RenderToTextureSubPassGroup, getRenderToTextureSubPassGroup>());
+					resource->renderTargetTextureSubPasses[i]->addCamera(executor, assets->renderPass, &resource->reflectionCameras[i]);
 				}
-				executor->renderPass.colorSubPass().opaqueCommandList()->ResourceBarrier(numRenderTargetTextures, renderTargetTextureBariers);
-				*/
-				executor->updateJobQueue().push(Job(zone, [](void* zone1, BaseExecutor* executor1)
-				{
-					const auto zone = reinterpret_cast<BaseZone*>(zone1);
-					const auto executor = reinterpret_cast<Executor*>(executor1);
-					const auto assets = reinterpret_cast<Assets*>(executor->sharedResources);
-					const auto resource = reinterpret_cast<HDResources*>(zone->nextResources);
-
-					for (auto i = 0u; i < numRenderTargetTextures; ++i)
-					{
-						auto executors = assets->executors();
-						resource->renderTargetTextureSubPasses[i] = &assets->renderPass.renderToTextureSubPassGroup().addSubPass(executor, assets->renderPass,
-							executors.map<RenderPass1::Local::RenderToTextureSubPassGroup, getRenderToTextureSubPassGroup>());
-						resource->renderTargetTextureSubPasses[i]->addCamera(executor, assets->renderPass, &resource->reflectionCameras[i]);
-					}
-					componentUploaded(zone, executor);
-				}));
-				/*
+				componentUploaded(zone, executor);
 			}));
-			*/
 
 
 			constexpr uint64_t pointLightConstantBufferAlignedSize = (sizeof(LightConstantBuffer) + (uint64_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (uint64_t)1u) & 
@@ -340,6 +321,12 @@ namespace
 			waterModel.update(executor);
 			fireModel1.update(frameIndex, cameraPos, frameTime);
 			fireModel2.update(frameIndex, cameraPos, frameTime);
+			for (auto& camera : reflectionCameras)
+			{
+				Location location;
+				assets->mainCamera.makeReflectionLocation(location, waterModel.reflectionHeight());
+				camera.update(assets, Camera::locationToMatrix(location));
+			}
 
 			auto rotationMatrix = DirectX::XMMatrixTranslation(-64.0f, -5.0f, -64.0f) * DirectX::XMMatrixRotationAxis(DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f), assets->timer.frameTime) * DirectX::XMMatrixTranslation(64.0f, 5.0f, 64.0f);
 
@@ -487,9 +474,9 @@ namespace
 				transparantCommandList->SetPipelineState(assets->pipelineStateObjects.copy);
 				transparantCommandList->SetGraphicsRootConstantBufferView(2u, waterModel.vsAabbGpu());
 				transparantCommandList->SetGraphicsRootConstantBufferView(3u, warpRenderingConstantBuffer + frameIndex * psAabbBufferSize);
-				transparantCommandList->IASetVertexBuffers(0u, 1u, &meshes[6]->vertexBufferView);
-				transparantCommandList->IASetIndexBuffer(&meshes[6]->indexBufferView);
-				transparantCommandList->DrawIndexedInstanced(meshes[6]->indexCount, 1u, 0u, 0, 0u);
+				transparantCommandList->IASetVertexBuffers(0u, 1u, &meshes[7]->vertexBufferView);
+				transparantCommandList->IASetIndexBuffer(&meshes[7]->indexBufferView);
+				transparantCommandList->DrawIndexedInstanced(meshes[7]->indexCount, 1u, 0u, 0, 0u);
 
 				transparantCommandList->ResourceBarrier(2u, copyEndBarriers);
 				transparantCommandList->OMSetRenderTargets(1u, &backBufferRenderTargetCpuHandle, TRUE, &depthStencilHandle);

@@ -8,7 +8,7 @@ static void loadingResourceCallback(void* data, BaseExecutor* exe)
 }
 
 Assets::Assets() :
-	SharedResources(&mainExecutor, false, false, true, std::thread::hardware_concurrency()),
+	SharedResources(&mainExecutor, false, false, false, std::thread::hardware_concurrency()),
 	mainExecutor(this),
 	rootSignatures(graphicsEngine.graphicsDevice),
 	pipelineStateObjects(graphicsEngine.graphicsDevice, rootSignatures),

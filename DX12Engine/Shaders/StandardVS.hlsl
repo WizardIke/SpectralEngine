@@ -4,11 +4,7 @@
 //#define USE_TANGENT_FRAME
 //#define USE_WORLD_POSITION
 
-cbuffer Camera : register(b0)
-{
-	matrix viewProjectionMatrix;
-	float3 cameraPosition;
-};
+#include "CameraConstantBuffer.h"
 
 cbuffer Material : register(b1)
 {
@@ -17,7 +13,7 @@ cbuffer Material : register(b1)
 
 struct Input
 {
-	float4 position : POSITION;
+	float3 position : POSITION;
 #ifdef USE_PER_VERTEX_BASE_COLOR
 	float4 color : COLOR;
 #endif
@@ -58,8 +54,7 @@ Output main(Input input)
 {
 	Output output;
 
-	input.position.w = 1.0f;
-	float4 worldPosition = mul(worldMatrix, input.position);
+	float4 worldPosition = mul(worldMatrix, float4(input.position, 1.0f));
 	output.position = mul(viewProjectionMatrix, worldPosition);
 #ifdef USE_TEXTURE
 	output.texCoords = input.tex;

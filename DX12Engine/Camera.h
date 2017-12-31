@@ -38,6 +38,7 @@ public:
 
 	void update(SharedResources* sharedResources, const DirectX::XMMATRIX& mViewMatrix);
 	void makeReflectionLocation(Location& location, float height);
+	static DirectX::XMMATRIX locationToMatrix(Location& location);
 	bool isInView(const BaseExecutor*) { return true; }
 	void bind(SharedResources* sharedResources, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end);
 	void bindFirstThread(SharedResources* sharedResources, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end);

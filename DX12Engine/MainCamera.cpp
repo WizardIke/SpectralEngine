@@ -35,17 +35,7 @@ void MainCamera::update(SharedResources* const sharedResources, const Location& 
 	mLocation.position = target.position;
 	mLocation.rotation = target.rotation;
 
-	DirectX::XMVECTOR positionVector = XMLoadFloat3(&mLocation.position);
-	DirectX::XMMATRIX rotationMatrix = DirectX::XMMatrixRotationRollPitchYaw(mLocation.rotation.x, mLocation.rotation.y, mLocation.rotation.z);
-
-	DirectX::XMFLOAT3 temp(0.0f, 0.0f, 1.0f);
-	DirectX::XMVECTOR lookAtVector = DirectX::XMVectorAdd(positionVector, XMVector3TransformCoord(DirectX::XMLoadFloat3(&temp), rotationMatrix));
-
-	DirectX::XMFLOAT3 up = DirectX::XMFLOAT3{ 0.0f, 1.0f, 0.0f };
-	DirectX::XMVECTOR upVector = XMVector3TransformCoord(DirectX::XMLoadFloat3(&up), rotationMatrix);
-
-	DirectX::XMMATRIX mViewMatrix;
-	mViewMatrix = DirectX::XMMatrixLookAtLH(positionVector, lookAtVector, upVector);
+	DirectX::XMMATRIX mViewMatrix = locationToMatrix(mLocation);;
 
 	image = sharedResources->window.getBuffer(sharedResources->graphicsEngine.frameIndex);
 	auto renderTargetViewHandle = renderTargetViewDescriptorHeap->GetCPUDescriptorHandleForHeapStart();

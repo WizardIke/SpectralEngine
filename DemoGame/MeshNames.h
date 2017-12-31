@@ -12,4 +12,5 @@ public:
 	static const wchar_t* HighResMesh1;
 	static const wchar_t* squareWithNormals;
 	static const wchar_t* aabb;
+	static const wchar_t* squareWithPos;
 };

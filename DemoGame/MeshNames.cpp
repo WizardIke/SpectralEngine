@@ -9,3 +9,4 @@ const wchar_t* MeshNames::square = L"../DemoGame/Meshes/square.mesh";
 const wchar_t* MeshNames::HighResMesh1 = L"../DemoGame/Meshes/HighResMesh1.mesh";
 const wchar_t* MeshNames::squareWithNormals = L"../DemoGame/Meshes/squareWithNormals.mesh";
 const wchar_t* MeshNames::aabb = L"../DemoGame/Meshes/aabb.mesh";
+const wchar_t* MeshNames::squareWithPos = L"../DemoGame/Meshes/squareP.mesh";

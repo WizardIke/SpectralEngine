@@ -24,7 +24,7 @@ public:
 		unsigned int i = 0u;
 		for (oldWritePos %= capacity; oldWritePos != end; oldWritePos = (oldWritePos + 1u) % capacity, ++i)
 		{
-			data[oldWritePos] == elements[i];
+			data[oldWritePos] = elements[i];
 		}
 	}
 
@@ -67,7 +67,7 @@ public:
 	void push(ElementType&& element)
 	{
 		unsigned long oldWritePos = writePos.fetch_add(1u, std::memory_order_seq_cst); //makes new element available to early
-		data[oldWritePos % capacity] == std::move(element);
+		data[oldWritePos % capacity] = std::move(element);
 	}
 
 	void push(ElementType* elements, unsigned long numElements)
@@ -77,7 +77,7 @@ public:
 		unsigned long i = 0u;
 		for (oldWritePos %= capacity; oldWritePos != end; oldWritePos = (oldWritePos + 1u) % capacity, ++i)
 		{
-			data[oldWritePos] == elements[i];
+			data[oldWritePos] = elements[i];
 		}
 	}
 
@@ -127,7 +127,7 @@ public:
 	void push(value_type&& element)
 	{
 		unsigned int oldWritePos = writePos().fetch_add(1u); //must be sequencally consistent
-		data()[oldWritePos % capacity] == std::move(element);
+		data()[oldWritePos % capacity] = std::move(element);
 	}
 
 	void push(value_type* elements, unsigned int numElements)
@@ -137,7 +137,7 @@ public:
 		unsigned int i = 0u;
 		for (oldWritePos %= capacity; oldWritePos != end; oldWritePos = (oldWritePos + 1u) % capacity, ++i)
 		{
-			data()[oldWritePos] == elements[i];
+			data()[oldWritePos] = elements[i];
 		}
 	}
 

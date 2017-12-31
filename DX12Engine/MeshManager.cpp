@@ -236,7 +236,6 @@ void MeshManager::meshWithPositionTextureNormalUseSubresourceHelper(RamToVramUpl
 			start += sizeof(float);
 			vertexUploadBuffer->z = *reinterpret_cast<float*>(start);
 			start += sizeof(float);
-			vertexUploadBuffer->w = 1.0f;
 
 			vertexUploadBuffer->tu = *reinterpret_cast<float*>(start);
 			start += sizeof(float);
@@ -292,7 +291,6 @@ void MeshManager::meshWithPositionTextureUseSubresourceHelper(RamToVramUploadReq
 			start += sizeof(float);
 			vertexUploadBuffer->z = *reinterpret_cast<float*>(start);
 			start += sizeof(float);
-			vertexUploadBuffer->w = 1.0f;
 
 			vertexUploadBuffer->tu = *reinterpret_cast<float*>(start);
 			start += sizeof(float);
@@ -316,7 +314,7 @@ void MeshManager::meshWithPositionUseSubresourceHelper(RamToVramUploadRequest* r
 	auto vertexSizeBytes = request->height;
 	auto indexSizeBytes = request->width - vertexSizeBytes;
 	auto sizeOnFile = request->depth;
-	constexpr auto vertexStrideInBytes = sizeof(MeshWithPositionTextureNormal);
+	constexpr auto vertexStrideInBytes = sizeof(MeshWithPosition);
 	Mesh* mesh = meshManager.createMesh(meshAllocator, filename, graphicsDevice, vertexSizeBytes, vertexStrideInBytes, indexSizeBytes);
 
 	{
@@ -330,22 +328,8 @@ void MeshManager::meshWithPositionUseSubresourceHelper(RamToVramUploadRequest* r
 
 	{
 		std::unique_ptr<unsigned char[]> buffer(new unsigned char[sizeOnFile]);
-		request->file.read(buffer.get(), sizeOnFile);
+		request->file.read(uploadBufferCpuAddressOfCurrentPos, sizeOnFile);
 		request->file.close();
-		auto end = buffer.get() + sizeOnFile;
-		auto start = buffer.get();
-		while (start != end)
-		{
-			vertexUploadBuffer->x = *reinterpret_cast<float*>(start);
-			start += sizeof(float);
-			vertexUploadBuffer->y = *reinterpret_cast<float*>(start);
-			start += sizeof(float);
-			vertexUploadBuffer->z = *reinterpret_cast<float*>(start);
-			start += sizeof(float);
-			vertexUploadBuffer->w = 1.0f;
-
-			++vertexUploadBuffer;
-		}
 	}
 	copyCommandList->CopyBufferRegion(mesh->vertices, 0u, uploadResource, uploadResourceOffset, vertexSizeBytes);
 	;
@@ -454,7 +438,6 @@ void MeshManager::CalculateTangentBitangent(unsigned char* start, unsigned char*
 		Mesh->x = meshes[0].x;
 		Mesh->y = meshes[0].y;
 		Mesh->z = meshes[0].z;
-		Mesh->w = 1.f;
 		Mesh->tu = meshes[0].tu;
 		Mesh->tv = meshes[0].tv;
 		Mesh->nx = meshes[0].nx;
@@ -471,7 +454,6 @@ void MeshManager::CalculateTangentBitangent(unsigned char* start, unsigned char*
 		Mesh->x = meshes[1].x;
 		Mesh->y = meshes[1].y;
 		Mesh->z = meshes[1].z;
-		Mesh->w = 1.f;
 		Mesh->tu = meshes[1].tu;
 		Mesh->tv = meshes[1].tv;
 		Mesh->nx = meshes[1].nx;
@@ -488,7 +470,6 @@ void MeshManager::CalculateTangentBitangent(unsigned char* start, unsigned char*
 		Mesh->x = meshes[2].x;
 		Mesh->y = meshes[2].y;
 		Mesh->z = meshes[2].z;
-		Mesh->w = 1.f;
 		Mesh->tu = meshes[2].tu;
 		Mesh->tv = meshes[2].tv;
 		Mesh->nx = meshes[2].nx;
