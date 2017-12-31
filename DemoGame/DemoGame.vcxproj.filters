@@ -395,9 +395,6 @@
     <FxCompile Include="Shaders\LightVS.hlsl">
       <Filter>Shaders\Vertex</Filter>
     </FxCompile>
-    <FxCompile Include="Shaders\PointLightPS.hlsl">
-      <Filter>Shaders\Vertex</Filter>
-    </FxCompile>
     <FxCompile Include="Shaders\TextPS.hlsl">
       <Filter>Shaders\Pixel</Filter>
     </FxCompile>
@@ -417,6 +414,12 @@
       <Filter>Shaders\Pixel</Filter>
     </FxCompile>
     <FxCompile Include="Shaders\CopyVS.hlsl">
+      <Filter>Shaders\Vertex</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\PointLightPS.hlsl">
+      <Filter>Shaders\Pixel</Filter>
+    </FxCompile>
+    <FxCompile Include="GlassVS.hlsl">
       <Filter>Shaders\Vertex</Filter>
     </FxCompile>
   </ItemGroup>

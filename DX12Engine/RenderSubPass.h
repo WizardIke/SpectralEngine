@@ -394,7 +394,9 @@ public:
 		auto pos = find_if(mSubPasses.begin(), mSubPasses.end(), [subPass](const SubPass& sub) {return subPass == &sub; });
 		commandListsPerFrame -= pos->commandListsPerFrame;
 		auto index = std::distance(mSubPasses.begin(), pos);
-		swap(*pos, *(mSubPasses.end() - 1));
+
+		auto nearlyEnd = (mSubPasses.end() - 1);
+		if (pos != nearlyEnd) { swap(*pos, *(mSubPasses.end() - 1)); }
 		mSubPasses.pop_back();
 
 		auto end = subPasses.end();

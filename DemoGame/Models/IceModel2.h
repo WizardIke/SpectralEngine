@@ -39,7 +39,7 @@ public:
 		vsBuffer->worldMatrix = DirectX::XMMATRIX(5.f, 0.f, 0.f, 0.f, 0.f, 5.f, 0.f, 0.f, 0.f, 0.f, 5.f, 0.f, positionX, positionY, positionZ, 1.f);
 		constantBufferCpuAddress += vsConstantBufferSize;
 		auto psBuffer = reinterpret_cast<GlassMaterialPS*>(constantBufferCpuAddress);
-		psBuffer->refractionScale = 0.1f;
+		psBuffer->refractionScale = 0.4f;
 		psBuffer->opacity = 0.2f;
 		psBuffer->refractionTexture = refractionTextureIndex;
 		psBuffer->diffuseTexture = diffuseTextureIndex;

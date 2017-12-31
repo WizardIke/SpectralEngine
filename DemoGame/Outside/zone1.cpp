@@ -42,7 +42,7 @@ namespace
 		static void componentUploaded(void* requester, BaseExecutor* executor)
 		{
 			const auto zone = reinterpret_cast<BaseZone* const>(requester);
-			BaseZone::componentUploaded<BaseZone::high, HDResources::numComponents>(zone, executor, ((HDResources*)zone->nextResources)->numComponentsLoaded);
+			BaseZone::componentUploaded<BaseZone::high, BaseZone::medium>(zone, executor, ((HDResources*)zone->nextResources)->numComponentsLoaded, numComponents);
 		}
 
 		std::atomic<unsigned char> numComponentsLoaded = 0u;
@@ -51,13 +51,6 @@ namespace
 		{
 			return executor.renderPass.renderToTextureSubPassGroup();
 		}
-
-		struct AabbMaterialPS
-		{
-			uint32_t srcTexture;
-		};
-
-		constexpr static size_t psAabbBufferSize = (sizeof(AabbMaterialPS) + D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull) & ~(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull);
 	public:
 		Mesh* meshes[numMeshes];
 		D3D12Resource perObjectConstantBuffers;
@@ -377,7 +370,7 @@ namespace
 
 				copyStartBarriers[1u].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
 				copyStartBarriers[1u].Flags = D3D12_RESOURCE_BARRIER_FLAGS::D3D12_RESOURCE_BARRIER_FLAG_NONE;
-				copyStartBarriers[1u].Transition.pResource = assets->window.getBuffer(frameIndex);
+				copyStartBarriers[1u].Transition.pResource = camera->getImage();
 				copyStartBarriers[1u].Transition.StateBefore = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET;
 				copyStartBarriers[1u].Transition.StateAfter = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
 				copyStartBarriers[1u].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
@@ -624,7 +617,7 @@ namespace
 		static void callback(void* requester, BaseExecutor* executor)
 		{
 			auto zone = reinterpret_cast<BaseZone* const>(requester);
-			BaseZone::componentUploaded<BaseZone::medium, MDResources::numComponents>(zone, executor, ((MDResources*)zone->nextResources)->numComponentsLoaded);
+			BaseZone::componentUploaded<BaseZone::medium, BaseZone::medium>(zone, executor, ((MDResources*)zone->nextResources)->numComponentsLoaded, numComponents);
 		}
 	public:
 		std::atomic<unsigned char> numComponentsLoaded = 0u;
@@ -646,14 +639,13 @@ namespace
 			heapProperties.CreationNodeMask = 1u;
 			heapProperties.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
 			heapProperties.VisibleNodeMask = 1u;
-			// heapProperties = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
 			return heapProperties;
 		}(), D3D12_HEAP_FLAGS::D3D12_HEAP_FLAG_NONE, []()
 		{
 			D3D12_RESOURCE_DESC resourceDesc;
 			resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
 			resourceDesc.Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
-			resourceDesc.Width = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT; //might need changing
+			resourceDesc.Width = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
 			resourceDesc.Height = 1u;
 			resourceDesc.DepthOrArraySize = 1u;
 			resourceDesc.MipLevels = 1u;
@@ -715,7 +707,7 @@ namespace
 
 		void update1(BaseExecutor* const executor) {}
 
-		static void staticJobLoad(void*const zone1, BaseExecutor*const executor)
+		static void create(void*const zone1, BaseExecutor*const executor)
 		{
 			const auto zone = reinterpret_cast<BaseZone*const>(zone1);
 			
@@ -725,48 +717,70 @@ namespace
 		}
 	};
 
+	static void restart(BaseZone* const zone, BaseExecutor* const executor);
+	static void update1HighDetail(BaseZone* const zone, BaseExecutor* const executor)
+	{
+		executor->updateJobQueue().push(Job(zone, [](void*const zone1, BaseExecutor*const executor)
+		{
+			const auto zone = reinterpret_cast<BaseZone* const>(zone1);
+			reinterpret_cast<HDResources*>(zone->currentResources)->update1(executor);
+			executor->renderJobQueue().push(Job(zone, [](void*const zone1, BaseExecutor*const executor)
+			{
+				const auto zone = reinterpret_cast<BaseZone* const>(zone1);
+				reinterpret_cast<HDResources*>(zone->currentResources)->update2(executor);
+				restart(zone, executor);
+			}));
+		}));
+	}
+
+	static void update1MediumDetail(BaseZone* const zone, BaseExecutor* const executor)
+	{
+		executor->updateJobQueue().push(Job(zone, [](void*const zone1, BaseExecutor*const executor)
+		{
+			const auto zone = reinterpret_cast<BaseZone* const>(zone1);
+			reinterpret_cast<MDResources*>(zone->currentResources)->update1(executor);
+			executor->renderJobQueue().push(Job(zone, [](void*const zone1, BaseExecutor*const executor)
+			{
+				const auto zone = reinterpret_cast<BaseZone* const>(zone1);
+				reinterpret_cast<MDResources*>(zone->currentResources)->update2(executor);
+				restart(zone, executor);
+			}));
+		}));
+	}
+
 	static void restart(BaseZone* const zone, BaseExecutor* const executor)
 	{
-		auto oldLevelOfDetail = zone->levelOfDetail.load(std::memory_order::memory_order_seq_cst);
-		if (oldLevelOfDetail == 0u)
+		auto oldLevelOfDetail = zone->levelOfDetail.load(std::memory_order::memory_order_acquire);
+		switch (oldLevelOfDetail)
 		{
-			executor->updateJobQueue().push(Job(zone, [](void*const zone1, BaseExecutor*const executor)
-			{
-				const auto zone = reinterpret_cast<BaseZone* const>(zone1);
-				reinterpret_cast<HDResources*>(zone->currentResources)->update1(executor);
-				executor->renderJobQueue().push(Job(zone, [](void*const zone1, BaseExecutor*const executor)
-				{
-					const auto zone = reinterpret_cast<BaseZone* const>(zone1);
-					reinterpret_cast<HDResources*>(zone->currentResources)->update2(executor);
-					restart(zone, executor);
-				}));
-			}));
+		case BaseZone::high:
+			update1HighDetail(zone, executor);
+			break;
+		case BaseZone::medium:
+			update1MediumDetail(zone, executor);
+			break;
+		case BaseZone::transitionHighToMedium:
+		{
+			zone->transition<BaseZone::high, BaseZone::medium>(executor);
+			update1MediumDetail(zone, executor);
+			break;
 		}
-		else if (oldLevelOfDetail == 1u)
-		{
-			executor->updateJobQueue().push(Job(zone, [](void*const zone1, BaseExecutor*const executor)
-			{
-				const auto zone = reinterpret_cast<BaseZone* const>(zone1);
-				reinterpret_cast<MDResources*>(zone->currentResources)->update1(executor);
-				executor->renderJobQueue().push(Job(zone, [](void*const zone1, BaseExecutor*const executor)
-				{
-					const auto zone = reinterpret_cast<BaseZone* const>(zone1);
-					reinterpret_cast<MDResources*>(zone->currentResources)->update2(executor);
-					restart(zone, executor);
-				}));
-			}));
-		}
-		else if (oldLevelOfDetail == 2u)
-		{
-			executor->updateJobQueue().push(Job(zone, [](void*const zone1, BaseExecutor*const executor)
-			{
-				const auto zone = reinterpret_cast<BaseZone* const>(zone1);
-				executor->renderJobQueue().push(Job(zone, [](void*const zone1, BaseExecutor*const executor)
-				{
-					const auto zone = reinterpret_cast<BaseZone* const>(zone1);
-					restart(zone, executor);
-				}));
-			}));
+		case BaseZone::transitionHighToLow:
+			zone->transition<BaseZone::high, BaseZone::low>(executor);
+			break;
+		case BaseZone::transitionHighToUnloaded:
+			zone->transition<BaseZone::high, BaseZone::unloaded>(executor);
+			break;
+		case BaseZone::transitionMediumToHigh:
+			zone->transition<BaseZone::medium, BaseZone::high>(executor);
+			update1HighDetail(zone, executor);
+			break;
+		case BaseZone::transitionMediumToLow:
+			zone->transition<BaseZone::medium, BaseZone::low>(executor);
+			break;
+		case BaseZone::transitionMediumToUnloaded:
+			zone->transition<BaseZone::medium, BaseZone::unloaded>(executor);
+			break;
 		}
 	}
 
@@ -792,11 +806,11 @@ namespace
 		}
 		static void loadMediumDetailJobs(BaseZone* zone, BaseExecutor* const executor)
 		{
-			executor->sharedResources->backgroundQueue.push(Job(zone, &MDResources::staticJobLoad));
+			executor->sharedResources->backgroundQueue.push(Job(zone, &MDResources::create));
 		}
 		static void loadLowDetailJobs(BaseZone* zone, BaseExecutor* const executor)
 		{
-			zone->lastComponentLoaded<BaseZone::low>(executor);
+			zone->lastComponentLoaded<BaseZone::low, BaseZone::medium>(executor);
 		}
 
 		static void unloadHighDetailJobs(BaseZone* zone, BaseExecutor* const executor)
@@ -804,11 +818,11 @@ namespace
 			executor->sharedResources->backgroundQueue.push(Job(zone, [](void*const highDetailResource, BaseExecutor*const executor)
 			{
 				const auto zone = reinterpret_cast<BaseZone*const>(highDetailResource);
-				auto resource = reinterpret_cast<HDResources*>(zone->currentResources);
+				auto resource = reinterpret_cast<HDResources*>(zone->nextResources);
 				resource->destruct(executor);
 				resource->~HDResources();
-				free(zone->currentResources);
-				zone->currentResources = nullptr;
+				free(zone->nextResources);
+				zone->nextResources = nullptr;
 				zone->lastComponentUnloaded<BaseZone::high>(executor);
 			}));
 		}
@@ -817,10 +831,11 @@ namespace
 			executor->sharedResources->backgroundQueue.push(Job(zone, [](void*const zone1, BaseExecutor*const executor)
 			{
 				const auto zone = reinterpret_cast<BaseZone*const>(zone1);
-				auto resource = reinterpret_cast<MDResources*>(zone->currentResources);
+				auto resource = reinterpret_cast<MDResources*>(zone->nextResources);
+				resource->destruct(executor);
 				resource->~MDResources();
-				free(zone->currentResources);
-				zone->currentResources = nullptr;
+				free(zone->nextResources);
+				zone->nextResources = nullptr;
 				zone->lastComponentUnloaded<BaseZone::medium>(executor);
 			}));
 		}

@@ -24,7 +24,7 @@ class TestZoneFunctions
 		static void componentUploaded(void* requester, BaseExecutor* executor)
 		{
 			const auto zone = reinterpret_cast<BaseZone* const>(requester);
-			BaseZone::componentUploaded<BaseZone::high, HDResources::numComponents>(zone, executor, ((HDResources*)zone->nextResources)->numComponentsLoaded);
+			BaseZone::componentUploaded<BaseZone::high, BaseZone::high>(zone, executor, ((HDResources*)zone->nextResources)->numComponentsLoaded, numComponents);
 		}
 	public:
 		std::atomic<unsigned char> numComponentsLoaded = 0u;
@@ -55,7 +55,7 @@ class TestZoneFunctions
 			D3D12_RESOURCE_DESC resourceDesc;
 			resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
 			resourceDesc.Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
-			resourceDesc.Width = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT; //might need changing
+			resourceDesc.Width = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
 			resourceDesc.Height = 1u;
 			resourceDesc.DepthOrArraySize = 1u;
 			resourceDesc.MipLevels = 1u;
@@ -147,46 +147,43 @@ class TestZoneFunctions
 		}
 	};
 
-	static void restart(BaseZone* zone, BaseExecutor* const executor)
+	static void update1HighDetail(BaseZone* const zone, BaseExecutor* const executor)
 	{
-		auto oldLevelOfDetail = zone->levelOfDetail.load(std::memory_order::memory_order_seq_cst);
-		if (oldLevelOfDetail == 0u)
+		executor->updateJobQueue().push(Job(zone, [](void*const zone1, BaseExecutor*const executor)
 		{
-			executor->updateJobQueue().push(Job(zone, [](void*const zone1, BaseExecutor*const executor)
+			const auto zone = reinterpret_cast<BaseZone* const>(zone1);
+			reinterpret_cast<HDResources*>(zone->currentResources)->update1(executor);
+			executor->renderJobQueue().push(Job(zone, [](void*const zone1, BaseExecutor*const executor)
 			{
 				const auto zone = reinterpret_cast<BaseZone* const>(zone1);
-				reinterpret_cast<HDResources* const>(zone->currentResources)->update1(executor);
-				executor->renderJobQueue().push(Job(zone, [](void*const zone1, BaseExecutor*const executor)
-				{
-					const auto zone = reinterpret_cast<BaseZone* const>(zone1);
-					reinterpret_cast<HDResources* const>(zone->currentResources)->update2(executor);
-					restart(zone, executor);
-				}));
+				reinterpret_cast<HDResources*>(zone->currentResources)->update2(executor);
+				restart(zone, executor);
 			}));
-		}
-		else if (oldLevelOfDetail == 1u)
+		}));
+	}
+
+	static void restart(BaseZone* const zone, BaseExecutor* const executor)
+	{
+		auto oldLevelOfDetail = zone->levelOfDetail.load(std::memory_order::memory_order_acquire);
+		switch (oldLevelOfDetail)
 		{
-			executor->updateJobQueue().push(Job(zone, [](void*const zone1, BaseExecutor*const executor)
-			{
-				executor->renderJobQueue().push(Job(zone1, [](void*const zone1, BaseExecutor*const executor)
-				{
-					const auto zone = reinterpret_cast<BaseZone* const>(zone1);
-					restart(zone, executor);
-				}));
-			}));
-		}
-		else if (oldLevelOfDetail == 2u)
+		case BaseZone::high:
+			update1HighDetail(zone, executor);
+			break;
+		case BaseZone::transitionHighToMedium:
 		{
-			executor->updateJobQueue().push(Job(zone, [](void*const zone1, BaseExecutor*const executor)
-			{
-				executor->renderJobQueue().push(Job(zone1, [](void*const zone1, BaseExecutor*const executor)
-				{
-					const auto zone = reinterpret_cast<BaseZone* const>(zone1);
-					restart(zone, executor);
-				}));
-			}));
+			zone->transition<BaseZone::high, BaseZone::medium>(executor);
+			break;
+		}
+		case BaseZone::transitionHighToLow:
+			zone->transition<BaseZone::high, BaseZone::low>(executor);
+			break;
+		case BaseZone::transitionHighToUnloaded:
+			zone->transition<BaseZone::high, BaseZone::unloaded>(executor);
+			break;
 		}
 	}
+
 	static void update1(BaseZone* zone, BaseExecutor* const executor)
 	{
 		restart(zone, executor);
@@ -206,11 +203,11 @@ public:
 	}
 	static void loadMediumDetailJobs(BaseZone* zone, BaseExecutor* const executor)
 	{
-		zone->lastComponentLoaded<BaseZone::medium>(executor);
+		zone->lastComponentLoaded<BaseZone::medium, BaseZone::high>(executor);
 	}
 	static void loadLowDetailJobs(BaseZone* zone, BaseExecutor* const executor)
 	{
-		zone->lastComponentLoaded<BaseZone::low>(executor);
+		zone->lastComponentLoaded<BaseZone::low, BaseZone::high>(executor);
 	}
 
 	static void unloadHighDetailJobs(BaseZone* zone, BaseExecutor* const executor)
@@ -227,11 +224,11 @@ public:
 	}
 	static void unloadMediumDetailJobs(BaseZone* zone, BaseExecutor* const executor)
 	{
-		zone->lastComponentUnloaded<BaseZone::medium>(executor);
+		zone->lastComponentUnloaded<BaseZone::high>(executor);
 	}
 	static void unloadLowDetailJobs(BaseZone* zone, BaseExecutor* const executor)
 	{
-		zone->lastComponentUnloaded<BaseZone::low>(executor);
+		zone->lastComponentUnloaded<BaseZone::high>(executor);
 	}
 
 	static void start(BaseZone* zone, BaseExecutor* const executor)

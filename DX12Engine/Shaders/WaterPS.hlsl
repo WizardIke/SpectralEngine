@@ -11,19 +11,22 @@ struct Input
 {
 	float4 position : SV_POSITION;
 	float2 texCoords : TEXCOORD0;
+	float3 worldPos : TEXCOORD1;
 };
 
 float4 main(Input input) : SV_TARGET
 {
     float2 normal = (textures[normalTexture].Sample(wrapSample, input.texCoords)).xy - 0.5f;
 
+	float3 viewVector = cameraPosition - input.worldPos;
+	float oneOverDistanceToCamera = 1 / length(viewVector);
+
 	float2 refractTexCoord;
-	refractTexCoord.x = input.position.x / screenWidth + normal.x * reflectRefractScale;
-	refractTexCoord.y = input.position.y / screenHeight + normal.y * reflectRefractScale;
+	refractTexCoord.x = input.position.x / screenWidth + normal.x * reflectRefractScale * oneOverDistanceToCamera;
+	refractTexCoord.y = input.position.y / screenHeight + normal.y * reflectRefractScale * oneOverDistanceToCamera;
 
     //liniarly interpolate between reflectionTexture and refractionTexture
 	float4 color = textures[refractionTexture].Sample(clampSample, refractTexCoord);
-	//float4 color = textures[refractionTexture].Sample(clampSample, refractTexCoord);
 #ifdef USE_REFLECTION_TEXTURE
     color = lerp(textures[reflectionTexture].Sample(clampSample, float2(refractTexCoord.x, 1 - refractTexCoord.y)), color, 0.4f);
 #else

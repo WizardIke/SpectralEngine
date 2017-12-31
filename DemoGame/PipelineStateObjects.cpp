@@ -245,27 +245,32 @@ PipelineStateObjects::PipelineStateObjects(ID3D12Device* const device, RootSigna
 	new(&waterNoReflectionTexture) D3D12PipelineState(device, PSODesc);
 
 
-	ID3DBlob* basicVS;
+	ID3DBlob* glassVS;
 	ID3DBlob* glassPS;
 
-	hr = D3DReadFileToBlob(L"../DemoGame/CompiledShaders/BasicVS.cso", &basicVS);
+	hr = D3DReadFileToBlob(L"../DemoGame/CompiledShaders/GlassVS.cso", &glassVS);
 	if (FAILED(hr)) throw false;
 	hr = D3DReadFileToBlob(L"../DemoGame/CompiledShaders/GlassPS.cso", &glassPS);
 	if (FAILED(hr)) throw false;
 
-	PSODesc.VS.pShaderBytecode = basicVS->GetBufferPointer();
-	PSODesc.VS.BytecodeLength = basicVS->GetBufferSize();
+	PSODesc.VS.pShaderBytecode = glassVS->GetBufferPointer();
+	PSODesc.VS.BytecodeLength = glassVS->GetBufferSize();
 	PSODesc.PS.pShaderBytecode = glassPS->GetBufferPointer();
 	PSODesc.PS.BytecodeLength = glassPS->GetBufferSize();
 
 	new(&glass) D3D12PipelineState(device, PSODesc);
 
 
+	ID3DBlob* basicVS;
 	ID3DBlob* basicPS;
 
+	hr = D3DReadFileToBlob(L"../DemoGame/CompiledShaders/BasicVS.cso", &basicVS);
+	if (FAILED(hr)) throw false;
 	hr = D3DReadFileToBlob(L"../DemoGame/CompiledShaders/BasicPS.cso", &basicPS);
 	if (FAILED(hr)) throw false;
 
+	PSODesc.VS.pShaderBytecode = basicVS->GetBufferPointer();
+	PSODesc.VS.BytecodeLength = basicVS->GetBufferSize();
 	PSODesc.PS.pShaderBytecode = basicPS->GetBufferPointer();
 	PSODesc.PS.BytecodeLength = basicPS->GetBufferSize();
 

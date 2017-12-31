@@ -15,13 +15,13 @@ class BaseZone
 	class VTable
 	{
 	public:
-		void (*loadHighDetailJobs)(BaseZone* zone, BaseExecutor* const executor);
-		void (*loadMediumDetailJobs)(BaseZone* zone, BaseExecutor* const executor);
-		void (*loadLowDetailJobs)(BaseZone* zone, BaseExecutor* const executor);
+		void (*loadHighDetail)(BaseZone* zone, BaseExecutor* const executor);
+		void (*loadMediumDetail)(BaseZone* zone, BaseExecutor* const executor);
+		void (*loadLowDetail)(BaseZone* zone, BaseExecutor* const executor);
 
-		void (*unloadHighDetailJobs)(BaseZone* zone, BaseExecutor* const executor);
-		void (*unloadMediumDetailJobs)(BaseZone* zone, BaseExecutor* const executor);
-		void (*unloadLowDetailJobs)(BaseZone* zone, BaseExecutor* const executor);
+		void (*unloadHighDetail)(void* zone, BaseExecutor* const executor);
+		void (*unloadMediumDetail)(void* zone, BaseExecutor* const executor);
+		void (*unloadLowDetail)(void* zone, BaseExecutor* const executor);
 
 
 		void(*loadConnectedAreas)(BaseZone* zone, BaseExecutor* const executor, float distanceSquared, Area::VisitedNode* loadedAreas);
@@ -30,60 +30,104 @@ class BaseZone
 		void (*start)(BaseZone* zone, BaseExecutor* const executor);
 	};
 	const VTable* const vTable;
+
+	void unloadHighDetail(BaseExecutor* executor);
+	void unloadMediumDetail(BaseExecutor* executor);
+	void unloadLowDetail(BaseExecutor* executor);
 public:
 	BaseZone(const VTable* const vTable) : vTable(vTable) {}
-	BaseZone(BaseZone&& other) : vTable(other.vTable) {}
+	BaseZone(BaseZone&& other) : vTable(other.vTable) {} // should be deleted when c++17 becomes common. Only used for factory methods
 
 	template<class Zone>
 	static BaseZone create()
 	{
 		static const VTable table
 		{	
-			&Zone::loadHighDetailJobs , &Zone::loadMediumDetailJobs , &Zone::loadLowDetailJobs ,
-			&Zone::unloadHighDetailJobs , &Zone::unloadMediumDetailJobs , &Zone::unloadLowDetailJobs ,
-			&Zone::loadConnectedAreas, &Zone::changeArea, 
-			&Zone::start 
+			Zone::loadHighDetailJobs, Zone::loadMediumDetailJobs, Zone::loadLowDetailJobs,
+
+			[](void* zone, BaseExecutor* const executor) {Zone::unloadHighDetailJobs(reinterpret_cast<BaseZone*>(zone), executor); },
+			[](void* zone, BaseExecutor* const executor) {Zone::unloadMediumDetailJobs(reinterpret_cast<BaseZone*>(zone), executor); },
+			[](void* zone, BaseExecutor* const executor) {Zone::unloadLowDetailJobs(reinterpret_cast<BaseZone*>(zone), executor); },
+
+			Zone::loadConnectedAreas, Zone::changeArea, 
+			Zone::start 
 		};
 		return BaseZone(&table);
 	}
 	~BaseZone();
 
-	enum Lod
+	enum Lod : unsigned char
 	{
-		high = 0u,
-		medium = 1u,
-		low = 2u,
-		unloaded = std::numeric_limits<unsigned char>::max(),
+		high,
+		medium,
+		low,
+		unloaded,
+		transitionHighToMedium,
+		transitionHighToLow,
+		transitionHighToUnloaded,
+		transitionMediumToHigh,
+		transitionMediumToLow,
+		transitionMediumToUnloaded,
+		transitionLowToHigh,
+		transitionLowToMedium,
+		transitionLowToUnloaded,
 	};
 
-	template<Lod lod>
+	std::mutex loadingMutex;
+	void* currentResources = nullptr;
+	void* nextResources = nullptr;
+	std::atomic<Lod> levelOfDetail = unloaded;
+	Lod nextLevelOfDetail = unloaded;
+	bool transitioning = false;
+
+
+	template<Lod nextLod, Lod lowestLod>
 	void lastComponentLoaded(BaseExecutor* const executor)
 	{
-		if (lod == high)
+		if (nextLod == high)
 		{
 			loadingMutex.lock();
-			if (levelOfDetail == nextLevelOfDetail)
+			Lod oldLevelOfDetail = levelOfDetail.load(std::memory_order::memory_order_acquire);
+			if (oldLevelOfDetail == nextLevelOfDetail)
 			{
 				loadingMutex.unlock();
 				unloadHighDetail(executor);
 			}
-			else if (levelOfDetail == medium)
+			else if (oldLevelOfDetail == medium)
 			{
-				levelOfDetail = high;
-				std::swap(currentResources, nextResources);
-				loadingMutex.unlock();
-				unloadMediumDetail(executor);
+				if (lowestLod < medium) // this zone only supports high lod
+				{
+					levelOfDetail.store(high, std::memory_order::memory_order_release);
+					std::swap(currentResources, nextResources);
+					transitioning = false;
+					loadingMutex.unlock();
+					start(executor);
+				}
+				else
+				{
+					levelOfDetail.store(transitionMediumToHigh, std::memory_order::memory_order_release);
+					loadingMutex.unlock();
+				}
 			}
-			else if (levelOfDetail == low)
+			else if (oldLevelOfDetail == low)
 			{
-				levelOfDetail = high;
-				std::swap(currentResources, nextResources);
-				loadingMutex.unlock();
-				unloadLowDetail(executor);
+				if (lowestLod < low) // this zone only supports high and medium lod
+				{
+					levelOfDetail.store(high, std::memory_order::memory_order_release);
+					std::swap(currentResources, nextResources);
+					transitioning = false;
+					loadingMutex.unlock();
+					start(executor);
+				}
+				else
+				{
+					levelOfDetail.store(transitionLowToHigh, std::memory_order::memory_order_release);
+					loadingMutex.unlock();
+				}
 			}
 			else
 			{
-				levelOfDetail = high;
+				levelOfDetail.store(high, std::memory_order::memory_order_release);
 				if (nextLevelOfDetail == high)
 				{
 					transitioning = false;
@@ -96,220 +140,287 @@ public:
 					std::swap(currentResources, nextResources);
 					loadingMutex.unlock();
 					start(executor);
-					loadMediumDetail(executor);
+					vTable->loadMediumDetail(this, executor);
 				}
 				else //else if (nextLevelOfDetail == low) //nextLevelOfDetail == none has already been handled
 				{
 					std::swap(currentResources, nextResources);
 					loadingMutex.unlock();
 					start(executor);
-					loadLowDetail(executor);
+					vTable->loadLowDetail(this, executor);
 				}
 			}
 		}
-		else if (lod == medium)
+		else if (nextLod == medium)
 		{
 			loadingMutex.lock();
-			if (levelOfDetail == nextLevelOfDetail)
+			Lod oldLevelOfDetail = levelOfDetail.load(std::memory_order::memory_order_acquire);
+			if (oldLevelOfDetail == nextLevelOfDetail)
 			{
 				loadingMutex.unlock();
 				unloadMediumDetail(executor);
 			}
-			else if (levelOfDetail == high)
+			else if (oldLevelOfDetail == high)
 			{
-				levelOfDetail = medium;
-				std::swap(currentResources, nextResources);
+				levelOfDetail.store(transitionHighToMedium, std::memory_order::memory_order_release);
 				loadingMutex.unlock();
-				unloadHighDetail(executor);
 			}
-			else if (levelOfDetail == low)
+			else if (oldLevelOfDetail == low)
 			{
-				levelOfDetail = medium;
-				std::swap(currentResources, nextResources);
-				loadingMutex.unlock();
-				unloadLowDetail(executor);
+				if (lowestLod < low) // this zone only supports high and medium lod
+				{
+					levelOfDetail.store(medium, std::memory_order::memory_order_release);
+					std::swap(currentResources, nextResources);
+					transitioning = false;
+					loadingMutex.unlock();
+					start(executor);
+				}
+				else
+				{
+					levelOfDetail.store(transitionLowToMedium, std::memory_order::memory_order_release);
+					loadingMutex.unlock();
+				}
 			}
 			else
 			{
-				levelOfDetail = medium;
+				levelOfDetail.store(medium, std::memory_order::memory_order_release);
+
 				if (nextLevelOfDetail == medium)
 				{
 					transitioning = false;
 					std::swap(currentResources, nextResources);
 					loadingMutex.unlock();
-					start(executor);
+					if (lowestLod >= medium) // this zone supports more than just high lod
+					{
+						start(executor);
+					}
 				}
 				else if (nextLevelOfDetail == high)
 				{
 					std::swap(currentResources, nextResources);
 					loadingMutex.unlock();
-					loadHighDetail(executor);
+					if (lowestLod >= medium) // this zone supports more than just high lod
+					{
+						start(executor);
+					}
+					vTable->loadHighDetail(this, executor);
 				}
 				else //else if (nextLevelOfDetail == low) //nextLevelOfDetail == none has already been handled
 				{
 					std::swap(currentResources, nextResources);
 					loadingMutex.unlock();
-					loadLowDetail(executor);
+					if (lowestLod >= medium) // this zone supports more than just high lod
+					{
+						start(executor);
+					}
+					vTable->loadLowDetail(this, executor);
 				}
 			}
 		}
 		else
 		{
 			loadingMutex.lock();
-			if (levelOfDetail == nextLevelOfDetail)
+			Lod oldLevelOfDetail = levelOfDetail.load(std::memory_order::memory_order_acquire);
+			if (oldLevelOfDetail == nextLevelOfDetail)
 			{
 				loadingMutex.unlock();
 				unloadLowDetail(executor);
 			}
-			else if (levelOfDetail == high)
+			else if (oldLevelOfDetail == high)
 			{
-				levelOfDetail = low;
-				std::swap(currentResources, nextResources);
+				levelOfDetail.store(transitionHighToLow, std::memory_order::memory_order_release);
 				loadingMutex.unlock();
-				unloadHighDetail(executor);
 			}
-			else if (levelOfDetail == medium)
+			else if (oldLevelOfDetail == medium)
 			{
-				levelOfDetail = low;
-				std::swap(currentResources, nextResources);
-				loadingMutex.unlock();
-				unloadMediumDetail(executor);
+				if (lowestLod < medium) // this zone only supports high lod 
+				{
+					levelOfDetail.store(low, std::memory_order::memory_order_release);
+					transitioning = false;
+					loadingMutex.unlock();
+				}
+				else
+				{
+					levelOfDetail.store(transitionMediumToLow, std::memory_order::memory_order_release);
+					loadingMutex.unlock();
+				}
 			}
 			else
 			{
-				levelOfDetail = low;
+				levelOfDetail.store(low, std::memory_order::memory_order_release); 
 				if (nextLevelOfDetail == low)
 				{
 					transitioning = false;
 					std::swap(currentResources, nextResources);
 					loadingMutex.unlock();
-					start(executor);
+					if (lowestLod >= low)
+					{
+						start(executor);
+					}
 				}
 				else if (nextLevelOfDetail == high)
 				{
-					loadingMutex.unlock();
 					std::swap(currentResources, nextResources);
-					loadHighDetail(executor);
+					loadingMutex.unlock();
+					if (lowestLod >= low)
+					{
+						start(executor);
+					}
+					vTable->loadHighDetail(this, executor);
 				}
 				else //else if (nextLevelOfDetail == medium) //nextLevelOfDetail == unloaded has already been handled
 				{
 					std::swap(currentResources, nextResources);
 					loadingMutex.unlock();
-					loadMediumDetail(executor);
+					if (lowestLod >= low)
+					{
+						start(executor);
+					}
+					vTable->loadMediumDetail(this, executor);
 				}
 			}
 		}
 	}
 
-	template<Lod lod>
+	template<Lod previousLod, Lod nextLod>
+	void transition(BaseExecutor* executor)
+	{
+		{
+			std::lock_guard<decltype(loadingMutex)> lock(loadingMutex);
+			std::swap(currentResources, nextResources);
+			levelOfDetail.store(nextLod, std::memory_order::memory_order_release);
+		}
+
+		if (previousLod == high)
+		{
+			unloadHighDetail(executor);
+		}
+		else if (previousLod == medium)
+		{
+			unloadMediumDetail(executor);
+		}
+		else
+		{
+			unloadLowDetail(executor);
+		}
+	}
+
+	template<Lod lowestLod>
 	void lastComponentUnloaded(BaseExecutor* const executor)
 	{
-		if (lod == high)
+		loadingMutex.lock();
+		Lod currentLevelOfDetail = levelOfDetail.load(std::memory_order::memory_order_acquire);
+		if (currentLevelOfDetail == nextLevelOfDetail)
 		{
-			loadingMutex.lock();
-			if (levelOfDetail == nextLevelOfDetail)
+			transitioning = false;
+			loadingMutex.unlock();
+		}
+		else if (currentLevelOfDetail == high)
+		{
+			if (nextLevelOfDetail == medium)
 			{
-				transitioning = false;
 				loadingMutex.unlock();
+				vTable->loadMediumDetail(this, executor);
+			}
+			else if (nextLevelOfDetail == low)
+			{
+				loadingMutex.unlock();
+				vTable->loadLowDetail(this, executor);
+			}
+			else
+			{
+				levelOfDetail.store(transitionHighToUnloaded, std::memory_order::memory_order_release);
+				loadingMutex.unlock();
+			}
+		}
+		else if (currentLevelOfDetail == medium)
+		{
+			if (nextLevelOfDetail == high)
+			{
+				loadingMutex.unlock();
+				vTable->loadHighDetail(this, executor);
+			}
+			else if (nextLevelOfDetail == low)
+			{
+				loadingMutex.unlock();
+				vTable->loadLowDetail(this, executor);
+			}
+			else
+			{
+				if (lowestLod < medium)
+				{
+					loadingMutex.unlock();
+					unloadMediumDetail(executor);
+				}
+				else
+				{
+					levelOfDetail.store(transitionMediumToUnloaded, std::memory_order::memory_order_release);
+					loadingMutex.unlock();
+				}
+			}
+		}
+		else if(currentLevelOfDetail == low)
+		{
+			if (nextLevelOfDetail == high)
+			{
+				loadingMutex.unlock();
+				vTable->loadHighDetail(this, executor);
 			}
 			else if (nextLevelOfDetail == medium)
 			{
 				loadingMutex.unlock();
-				loadMediumDetail(executor);
-			}
-			else if (nextLevelOfDetail == low)
-			{
-				loadingMutex.unlock();
-				loadLowDetail(executor);
+				vTable->loadMediumDetail(this, executor);
 			}
 			else
 			{
-				levelOfDetail = unloaded;
-				loadingMutex.unlock();
-				unloadHighDetail(executor);
-			}
-		}
-		else if (lod == medium)
-		{
-			loadingMutex.lock();
-			if (levelOfDetail == nextLevelOfDetail)
-			{
-				transitioning = false;
-				loadingMutex.unlock();
-			}
-			else if (nextLevelOfDetail == high)
-			{
-				loadingMutex.unlock();
-				loadHighDetail(executor);
-			}
-			else if (nextLevelOfDetail == low)
-			{
-				loadingMutex.unlock();
-				loadLowDetail(executor);
-			}
-			else
-			{
-				levelOfDetail = unloaded;
-				loadingMutex.unlock();
-				unloadMediumDetail(executor);
+				if (lowestLod < low)
+				{
+					loadingMutex.unlock();
+					unloadMediumDetail(executor);
+				}
+				else
+				{
+					levelOfDetail.store(transitionLowToUnloaded, std::memory_order::memory_order_release);
+					loadingMutex.unlock();
+				}
 			}
 		}
 		else
 		{
-			loadingMutex.lock();
-			if (levelOfDetail == nextLevelOfDetail)
-			{
-				transitioning = false;
-				loadingMutex.unlock();
-			}
-			else if (nextLevelOfDetail == high)
+			if (nextLevelOfDetail == high)
 			{
 				loadingMutex.unlock();
-				loadHighDetail(executor);
+				vTable->loadHighDetail(this, executor);
 			}
 			else if (nextLevelOfDetail == medium)
 			{
 				loadingMutex.unlock();
-				loadMediumDetail(executor);
+				vTable->loadMediumDetail(this, executor);
 			}
 			else
 			{
-				levelOfDetail = unloaded;
 				loadingMutex.unlock();
-				unloadLowDetail(executor);
+				vTable->loadLowDetail(this, executor);
 			}
 		}
 	}
 
-	template<Lod lod, unsigned char numComponents>
-	static void componentUploaded(BaseZone* zone, BaseExecutor* const executor, std::atomic<unsigned char>& numComponentsLoaded)
+	template<Lod nextLod, Lod lowestLod>
+	static void componentUploaded(BaseZone* zone, BaseExecutor* const executor, std::atomic<unsigned char>& numComponentsLoaded, unsigned char numComponents)
 	{
-		//uses memory_order_acq_rel because it needs to see all loaded parts if it's the last upload job
+		//uses memory_order_acq_rel because it needs to see all loaded parts if it's the last load job and release it's load job otherwise
 		auto oldNumComponentsLoaded = numComponentsLoaded.fetch_add(1u, std::memory_order::memory_order_acq_rel); 
-
 		if (oldNumComponentsLoaded == numComponents - 1u)
 		{
-			zone->lastComponentLoaded<lod>(executor);
+			zone->lastComponentLoaded<nextLod, lowestLod>(executor);
 		}
 	}
-
-	std::mutex loadingMutex;
-	void* currentResources = nullptr;
-	void* nextResources = nullptr;
-	std::atomic<unsigned char> levelOfDetail = unloaded;
-	unsigned char nextLevelOfDetail = unloaded;
-	bool transitioning = false;
-
 
 	operator bool() {return vTable != nullptr;}
 
 	void loadHighDetail(BaseExecutor* const executor);
 	void loadMediumDetail(BaseExecutor* const executor);
 	void loadLowDetail(BaseExecutor* const executor);
-
-	void unloadHighDetail(BaseExecutor* executor);
-	void unloadMediumDetail(BaseExecutor* executor);
-	void unloadLowDetail(BaseExecutor* executor);
 	void unloadAll(BaseExecutor* executor);
 
 	void loadConnectedAreas(BaseExecutor* const executor, float distanceSquared, Area::VisitedNode* loadedAreas) 

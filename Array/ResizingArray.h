@@ -451,7 +451,7 @@ public:
 				buffer[i].~Element();
 				--i;
 			} while (i);
-			size = i;
+			size = 0u;
 		}
 	}
 
@@ -727,7 +727,7 @@ public:
 		}
 	}
 
-	template< class... Args >
+	template<class... Args>
 	iterator emplace(Element* pos, Args&&... args)
 	{
 		if (pos >= &buffer[mCapacity])
@@ -768,11 +768,13 @@ public:
 
 	iterator erase(Element* pos)
 	{
-		pos->~Element();
+		
 		--size;
-		for (Element* i = pos; i < &buffer[size]; ++i)
+		const auto end = &buffer[size]
+		for (; pos != end; ++pos)
 		{
-			new(i) Element(std::move(*(i + 1u)));
+			pos->~Element();
+			new(pos) Element(std::move(*(pos + 1u)));
 		}
 		buffer[size].~Element();
 	}
@@ -784,9 +786,12 @@ public:
 		{
 			first->~Element();
 		}
-		for (; last < &buffer[size]; ++last)
+		const auto end = &buffer[size];
+		for (; last != end; ++last)
 		{
-			new(last - numElements) Element(std::move(*last));
+			auto pos = last - numElements;
+			pos->~Element();
+			new(pos) Element(std::move(*last));
 		}
 	}
 
@@ -804,7 +809,7 @@ public:
 		++size;
 	}
 
-	template< typename... Args >
+	template<typename... Args>
 	reference emplace_back(Args&&... args)
 	{
 		if (size == mCapacity) resizeNoChecks();
@@ -815,8 +820,8 @@ public:
 
 	void pop_back()
 	{
-		buffer[size].~Element();
 		--size;
+		buffer[size].~Element();
 	}
 
 	void resize(size_t count)

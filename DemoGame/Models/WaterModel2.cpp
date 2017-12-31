@@ -31,7 +31,7 @@ WaterModel2::WaterModel2(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, ui
 	WaterMaterialPS* psPerObjectCBVCpuAddress = reinterpret_cast<WaterMaterialPS*>(constantBufferCpuAddress);
 	constantBufferCpuAddress += pixelConstantBufferSize;
 
-	psPerObjectCBVCpuAddress->reflectRefractScale = 0.02f;
+	psPerObjectCBVCpuAddress->reflectRefractScale = 0.2f;
 	psPerObjectCBVCpuAddress->refractTexture = refractionTextureIndex;
 	psPerObjectCBVCpuAddress->normalTexture = normalTextureIndex;
 	psPerObjectCBVCpuAddress->reflectTexture = reflectionTextureIndex;

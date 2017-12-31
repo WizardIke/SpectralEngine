@@ -461,9 +461,7 @@ public:
 			auto& subPass = std::get<start>(renderPass.subPasses);
 			if (subPass.isInView(executor)) //currently first thread first list, second thread first list... end first thread second list etc. but should be all first list then all second lists etc.
 			{
-				//commandLists += listsBefore;
 				subPassLocal.update2(commandLists, numThreads);
-				//commandLists += listsAfter;
 			}
 			update2<start + 1u, end>(executor, renderPass, commandLists, numThreads);
 		}
@@ -494,9 +492,7 @@ public:
 		{
 			const auto commandListsPerFrame = std::get<index>(renderPass.subPasses).commandListsPerFrame;
 			auto& subPassLocal = std::get<index>(subPassesThreadLocal);
-			//commandLists += listsBefore;
 			subPassLocal.update2(commandLists, numThreads);
-			//commandLists += 1u;
 		}
 
 		template<unsigned int index>
@@ -524,9 +520,7 @@ public:
 			auto& subPassLocal = std::get<index>(subPassesThreadLocal);
 			subPassLocal.lastCommandList()->ResourceBarrier(barrierCount, barriers);
 			const auto commandListsPerFrame = std::get<index>(renderPass.subPasses).commandListsPerFrame;
-			//commandLists += listsBefore;
 			subPassLocal.update2(commandLists, numThreads);
-			//commandLists += 1u;
 		}
 	};
 
