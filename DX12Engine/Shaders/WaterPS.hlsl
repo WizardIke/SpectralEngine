@@ -19,7 +19,7 @@ float4 main(Input input) : SV_TARGET
     float2 normal = (textures[normalTexture].Sample(wrapSample, input.texCoords)).xy - 0.5f;
 
 	float3 viewVector = cameraPosition - input.worldPos;
-	float oneOverDistanceToCamera = 1 / length(viewVector);
+	float oneOverDistanceToCamera =  rsqrt(dot(viewVector, viewVector));
 
 	float2 refractTexCoord;
 	refractTexCoord.x = input.position.x / screenWidth + normal.x * reflectRefractScale * oneOverDistanceToCamera;

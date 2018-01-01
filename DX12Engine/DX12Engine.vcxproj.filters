@@ -467,5 +467,8 @@
     <FxCompile Include="Shaders\ScreenSpaceCopyPS.hlsl">
       <Filter>Shaders\Pixel</Filter>
     </FxCompile>
+    <FxCompile Include="VtFeedbackPS.hlsl">
+      <Filter>Shaders\Pixel</Filter>
+    </FxCompile>
   </ItemGroup>
 </Project>

@@ -10,7 +10,7 @@ OutSideArea::OutSideArea() :
 	{ 
 		Zone1(),			nullptr,			nullptr,			nullptr,			nullptr,			nullptr,			nullptr,			nullptr,			nullptr,			nullptr,
 		TestZone<0u, 0u>(), TestZone<1u, 0u>(), TestZone<2u, 0u>(), TestZone<3u, 0u>(), TestZone<4u, 0u>(), TestZone<5u, 0u>(), TestZone<6u, 0u>(), TestZone<7u, 0u>(), TestZone<8u, 0u>(), TestZone<9u, 0u>(),
-		TestZone<0u, 1u>(), TestZone<1u, 1u>(), TestZone<2u, 1u>(), TestZone<3u, 0u>(), TestZone<4u, 1u>(), TestZone<5u, 1u>(), TestZone<6u, 1u>(), TestZone<7u, 1u>(), TestZone<8u, 1u>(), TestZone<9u, 1u>(),
+		TestZone<0u, 1u>(), TestZone<1u, 1u>(), TestZone<2u, 1u>(), TestZone<3u, 1u>(), TestZone<4u, 1u>(), TestZone<5u, 1u>(), TestZone<6u, 1u>(), TestZone<7u, 1u>(), TestZone<8u, 1u>(), TestZone<9u, 1u>(),
 		TestZone<0u, 2u>(), TestZone<1u, 2u>(), TestZone<2u, 2u>(), TestZone<3u, 2u>(), TestZone<4u, 2u>(), TestZone<5u, 2u>(), TestZone<6u, 2u>(), TestZone<7u, 2u>(), TestZone<8u, 2u>(), TestZone<9u, 2u>(),
 		TestZone<0u, 3u>(), TestZone<1u, 3u>(), TestZone<2u, 3u>(), TestZone<3u, 3u>(), TestZone<4u, 3u>(), TestZone<5u, 3u>(), TestZone<6u, 3u>(), TestZone<7u, 3u>(), TestZone<8u, 3u>(), TestZone<9u, 3u>(),
 		TestZone<0u, 4u>(), TestZone<1u, 4u>(), TestZone<2u, 4u>(), TestZone<3u, 4u>(), TestZone<4u, 4u>(), TestZone<5u, 4u>(), TestZone<6u, 4u>(), TestZone<7u, 4u>(), TestZone<8u, 4u>(), TestZone<9u, 4u>(),

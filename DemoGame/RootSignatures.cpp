@@ -41,7 +41,7 @@ RootSignatures::RootSignatures(ID3D12Device* const Device) : rootSignature(nullp
 		rootParameters[4].DescriptorTable.pDescriptorRanges = &textureDescriptorTableRanges[0];
 		rootParameters[4].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
-		D3D12_STATIC_SAMPLER_DESC staticSampleDescs[3];
+		D3D12_STATIC_SAMPLER_DESC staticSampleDescs[4];
 
 		staticSampleDescs[0].Filter = D3D12_FILTER_MIN_MAG_MIP_POINT;
 		staticSampleDescs[0].AddressU = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
@@ -85,10 +85,24 @@ RootSignatures::RootSignatures(ID3D12Device* const Device) : rootSignature(nullp
 		staticSampleDescs[2].RegisterSpace = 0;
 		staticSampleDescs[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
+		staticSampleDescs[3].Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
+		staticSampleDescs[3].AddressU = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+		staticSampleDescs[3].AddressV = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+		staticSampleDescs[3].AddressW = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+		staticSampleDescs[3].MipLODBias = 0;
+		staticSampleDescs[3].MaxAnisotropy = 0;
+		staticSampleDescs[3].ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
+		staticSampleDescs[3].BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;
+		staticSampleDescs[3].MinLOD = 0.0f;
+		staticSampleDescs[3].MaxLOD = D3D12_FLOAT32_MAX;
+		staticSampleDescs[3].ShaderRegister = 1;
+		staticSampleDescs[3].RegisterSpace = 0;
+		staticSampleDescs[3].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+
 		D3D12_ROOT_SIGNATURE_DESC rootSignatureDesc;
-		rootSignatureDesc.NumParameters = _countof(rootParameters);
+		rootSignatureDesc.NumParameters = sizeof(rootParameters) / sizeof(rootParameters[0]);
 		rootSignatureDesc.pParameters = rootParameters;
-		rootSignatureDesc.NumStaticSamplers = 3u;
+		rootSignatureDesc.NumStaticSamplers = sizeof(staticSampleDescs) / sizeof(staticSampleDescs[0]);
 		rootSignatureDesc.pStaticSamplers = staticSampleDescs;
 		rootSignatureDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT |
 			D3D12_ROOT_SIGNATURE_FLAG_DENY_HULL_SHADER_ROOT_ACCESS |
@@ -102,6 +116,8 @@ RootSignatures::RootSignatures(ID3D12Device* const Device) : rootSignature(nullp
 
 		hr = Device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&rootSignature));
 		if (FAILED(hr)) throw false;
+
+
 	}
 	catch (...)
 	{
