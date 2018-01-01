@@ -1,5 +1,6 @@
 #include "RootSignatures.h"
 #include <d3d12.h>
+#include <D3DBlob.h>
 
 RootSignatures::RootSignatures(ID3D12Device* const Device) : rootSignature(nullptr)
 {
@@ -109,9 +110,9 @@ RootSignatures::RootSignatures(ID3D12Device* const Device) : rootSignature(nullp
 			D3D12_ROOT_SIGNATURE_FLAG_DENY_DOMAIN_SHADER_ROOT_ACCESS |
 			D3D12_ROOT_SIGNATURE_FLAG_DENY_GEOMETRY_SHADER_ROOT_ACCESS;
 
-		ID3DBlob* errorBuff;
-		ID3DBlob* signature;
-		HRESULT hr = D3D12SerializeRootSignature(&rootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1, &signature, &errorBuff);
+		D3DBlob errorBuff;
+		D3DBlob signature;
+		HRESULT hr = D3D12SerializeRootSignature(&rootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1, &signature.get(), &errorBuff.get());
 		if (FAILED(hr)) throw false;
 
 		hr = Device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&rootSignature));

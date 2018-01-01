@@ -369,6 +369,9 @@
     <ClInclude Include="Shaders\StandardMaterialPS.h">
       <Filter>Shaders\Pixel</Filter>
     </ClInclude>
+    <ClInclude Include="D3DBlob.h">
+      <Filter>D3D12</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="SharedResources.cpp">

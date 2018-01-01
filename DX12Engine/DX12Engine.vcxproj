@@ -168,6 +168,7 @@
     <ClInclude Include="BaseZone.h" />
     <ClInclude Include="Camera.h" />
     <ClInclude Include="D3D12PipelineState.h" />
+    <ClInclude Include="D3DBlob.h" />
     <ClInclude Include="for_each.h" />
     <ClInclude Include="frameBufferCount.h" />
     <ClInclude Include="Iterable.h" />

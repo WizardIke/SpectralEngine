@@ -4,15 +4,16 @@
 #include <d3d12.h>
 #include "RootSignatures.h"
 #include <memory>
+#include <D3DBlob.h>
 
 PipelineStateObjects::PipelineStateObjects(ID3D12Device* const device, RootSignatures& rootSignatures)
 {
-	ID3DBlob* textVS;
-	ID3DBlob* textPS;
+	D3DBlob textVS;
+	D3DBlob textPS;
 
-	auto hr = D3DReadFileToBlob(L"../DemoGame/CompiledShaders/TextVS.cso", &textVS);
+	auto hr = D3DReadFileToBlob(L"../DemoGame/CompiledShaders/TextVS.cso", &textVS.get());
 	if (FAILED(hr)) throw false;
-	hr = D3DReadFileToBlob(L"../DemoGame/CompiledShaders/TextPS.cso", &textPS);
+	hr = D3DReadFileToBlob(L"../DemoGame/CompiledShaders/TextPS.cso", &textPS.get());
 	if (FAILED(hr)) throw false;
 
 	D3D12_INPUT_ELEMENT_DESC textInputLayout[] =
@@ -172,12 +173,12 @@ PipelineStateObjects::PipelineStateObjects(ID3D12Device* const device, RootSigna
 	new(&text) D3D12PipelineState(device, PSODesc);
 
 
-	ID3DBlob* lightVS;
-	ID3DBlob* directionalLightPS;
+	D3DBlob lightVS;
+	D3DBlob directionalLightPS;
 
-	hr = D3DReadFileToBlob(L"../DemoGame/CompiledShaders/LightVS.cso", &lightVS);
+	hr = D3DReadFileToBlob(L"../DemoGame/CompiledShaders/LightVS.cso", &lightVS.get());
 	if (FAILED(hr)) throw false;
-	hr = D3DReadFileToBlob(L"../DemoGame/CompiledShaders/DirectionalLightPS.cso", &directionalLightPS);
+	hr = D3DReadFileToBlob(L"../DemoGame/CompiledShaders/DirectionalLightPS.cso", &directionalLightPS.get());
 	if (FAILED(hr)) throw false;
 
 	D3D12_INPUT_ELEMENT_DESC LightInputLayout[] =
@@ -199,9 +200,9 @@ PipelineStateObjects::PipelineStateObjects(ID3D12Device* const device, RootSigna
 	new(&directionalLight) D3D12PipelineState(device, PSODesc);
 
 
-	ID3DBlob* pointLightPS;
+	D3DBlob pointLightPS;
 
-	hr = D3DReadFileToBlob(L"../DemoGame/CompiledShaders/PointLightPS.cso", &pointLightPS);
+	hr = D3DReadFileToBlob(L"../DemoGame/CompiledShaders/PointLightPS.cso", &pointLightPS.get());
 	if (FAILED(hr)) throw false;
 
 	PSODesc.PS.pShaderBytecode = pointLightPS->GetBufferPointer();
@@ -210,12 +211,12 @@ PipelineStateObjects::PipelineStateObjects(ID3D12Device* const device, RootSigna
 	new(&pointLight) D3D12PipelineState(device, PSODesc);
 
 
-	ID3DBlob* waterVS;
-	ID3DBlob* waterReflectionsPS;
+	D3DBlob waterVS;
+	D3DBlob waterReflectionsPS;
 
-	hr = D3DReadFileToBlob(L"../DemoGame/CompiledShaders/WaterVS.cso", &waterVS);
+	hr = D3DReadFileToBlob(L"../DemoGame/CompiledShaders/WaterVS.cso", &waterVS.get());
 	if (FAILED(hr)) throw false;
-	hr = D3DReadFileToBlob(L"../DemoGame/CompiledShaders/WaterWithReflectionTexturePS.cso", &waterReflectionsPS);
+	hr = D3DReadFileToBlob(L"../DemoGame/CompiledShaders/WaterWithReflectionTexturePS.cso", &waterReflectionsPS.get());
 	if (FAILED(hr)) throw false;
 
 	const D3D12_INPUT_ELEMENT_DESC texturedInputLayout[] =
@@ -235,9 +236,9 @@ PipelineStateObjects::PipelineStateObjects(ID3D12Device* const device, RootSigna
 	new(&waterWithReflectionTexture) D3D12PipelineState(device, PSODesc);
 
 
-	ID3DBlob* waterNoReflectionsPS;
+	D3DBlob waterNoReflectionsPS;
 
-	hr = D3DReadFileToBlob(L"../DemoGame/CompiledShaders/WaterNoReflectionTexturePS.cso", &waterNoReflectionsPS);
+	hr = D3DReadFileToBlob(L"../DemoGame/CompiledShaders/WaterNoReflectionTexturePS.cso", &waterNoReflectionsPS.get());
 
 	PSODesc.PS.pShaderBytecode = waterNoReflectionsPS->GetBufferPointer();
 	PSODesc.PS.BytecodeLength = waterNoReflectionsPS->GetBufferSize();
@@ -245,12 +246,12 @@ PipelineStateObjects::PipelineStateObjects(ID3D12Device* const device, RootSigna
 	new(&waterNoReflectionTexture) D3D12PipelineState(device, PSODesc);
 
 
-	ID3DBlob* glassVS;
-	ID3DBlob* glassPS;
+	D3DBlob glassVS;
+	D3DBlob glassPS;
 
-	hr = D3DReadFileToBlob(L"../DemoGame/CompiledShaders/GlassVS.cso", &glassVS);
+	hr = D3DReadFileToBlob(L"../DemoGame/CompiledShaders/GlassVS.cso", &glassVS.get());
 	if (FAILED(hr)) throw false;
-	hr = D3DReadFileToBlob(L"../DemoGame/CompiledShaders/GlassPS.cso", &glassPS);
+	hr = D3DReadFileToBlob(L"../DemoGame/CompiledShaders/GlassPS.cso", &glassPS.get());
 	if (FAILED(hr)) throw false;
 
 	PSODesc.VS.pShaderBytecode = glassVS->GetBufferPointer();
@@ -261,12 +262,12 @@ PipelineStateObjects::PipelineStateObjects(ID3D12Device* const device, RootSigna
 	new(&glass) D3D12PipelineState(device, PSODesc);
 
 
-	ID3DBlob* basicVS;
-	ID3DBlob* basicPS;
+	D3DBlob basicVS;
+	D3DBlob basicPS;
 
-	hr = D3DReadFileToBlob(L"../DemoGame/CompiledShaders/BasicVS.cso", &basicVS);
+	hr = D3DReadFileToBlob(L"../DemoGame/CompiledShaders/BasicVS.cso", &basicVS.get());
 	if (FAILED(hr)) throw false;
-	hr = D3DReadFileToBlob(L"../DemoGame/CompiledShaders/BasicPS.cso", &basicPS);
+	hr = D3DReadFileToBlob(L"../DemoGame/CompiledShaders/BasicPS.cso", &basicPS.get());
 	if (FAILED(hr)) throw false;
 
 	PSODesc.VS.pShaderBytecode = basicVS->GetBufferPointer();
@@ -277,12 +278,12 @@ PipelineStateObjects::PipelineStateObjects(ID3D12Device* const device, RootSigna
 	new(&basic) D3D12PipelineState(device, PSODesc);
 
 
-	ID3DBlob* copyVS;
-	ID3DBlob* copyPS;
+	D3DBlob copyVS;
+	D3DBlob copyPS;
 
-	hr = D3DReadFileToBlob(L"../DemoGame/CompiledShaders/CopyVS.cso", &copyVS);
+	hr = D3DReadFileToBlob(L"../DemoGame/CompiledShaders/CopyVS.cso", &copyVS.get());
 	if (FAILED(hr)) throw false;
-	hr = D3DReadFileToBlob(L"../DemoGame/CompiledShaders/CopyPS.cso", &copyPS);
+	hr = D3DReadFileToBlob(L"../DemoGame/CompiledShaders/CopyPS.cso", &copyPS.get());
 	if (FAILED(hr)) throw false;
 
 	PSODesc.VS.pShaderBytecode = copyVS->GetBufferPointer();
@@ -307,12 +308,12 @@ PipelineStateObjects::PipelineStateObjects(ID3D12Device* const device, RootSigna
 #endif
 
 
-	ID3DBlob* fireVS;
-	ID3DBlob* firePS;
+	D3DBlob fireVS;
+	D3DBlob firePS;
 
-	hr = D3DReadFileToBlob(L"../DemoGame/CompiledShaders/FireVS.cso", &fireVS);
+	hr = D3DReadFileToBlob(L"../DemoGame/CompiledShaders/FireVS.cso", &fireVS.get());
 	if (FAILED(hr)) throw false;
-	hr = D3DReadFileToBlob(L"../DemoGame/CompiledShaders/FirePS.cso", &firePS);
+	hr = D3DReadFileToBlob(L"../DemoGame/CompiledShaders/FirePS.cso", &firePS.get());
 	if (FAILED(hr)) throw false;
 
 	PSODesc.VS.pShaderBytecode = fireVS->GetBufferPointer();
