@@ -16,7 +16,7 @@ constexpr static size_t vertexConstantBufferSize = (sizeof(WaterMaterialVS) + D3
 constexpr static size_t pixelConstantBufferSize = (sizeof(WaterMaterialPS) + D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull) & ~(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull);
 constexpr static size_t aabbConstantBufferSize = (sizeof(AABBMaterial) + D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull) & ~(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull);
 
-WaterModel2::WaterModel2(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, uint8_t*& constantBufferCpuAddress, unsigned int reflectionTextureIndex, unsigned int refractionTextureIndex, unsigned int normalTextureIndex) :
+WaterModel2::WaterModel2(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, uint8_t*& constantBufferCpuAddress, unsigned int reflectionTextureIndex, unsigned int refractionTextureIndex) :
 	waterTranslation(0.0f)
 {
 	vertexConstantBufferCpu = constantBufferCpuAddress;
@@ -33,7 +33,6 @@ WaterModel2::WaterModel2(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, ui
 
 	psPerObjectCBVCpuAddress->reflectRefractScale = 0.2f;
 	psPerObjectCBVCpuAddress->refractTexture = refractionTextureIndex;
-	psPerObjectCBVCpuAddress->normalTexture = normalTextureIndex;
 	psPerObjectCBVCpuAddress->reflectTexture = reflectionTextureIndex;
 
 	auto aabbBuffer = reinterpret_cast<AABBMaterial*>(constantBufferCpuAddress);
@@ -74,4 +73,10 @@ D3D12_GPU_VIRTUAL_ADDRESS WaterModel2::psConstantBufferGPU()
 D3D12_GPU_VIRTUAL_ADDRESS WaterModel2::vsAabbGpu()
 {
 	return constantBufferGpu + frameBufferCount * vertexConstantBufferSize + pixelConstantBufferSize;
+}
+
+void WaterModel2::setNormalTexture(uint32_t normalTexture, uint8_t* cpuStartAddress, D3D12_GPU_VIRTUAL_ADDRESS gpuStartAddress)
+{
+	auto buffer = reinterpret_cast<WaterMaterialPS*>(cpuStartAddress + (constantBufferGpu - gpuStartAddress + vertexConstantBufferSize * frameBufferCount));
+	buffer->normalTexture = normalTexture;
 }

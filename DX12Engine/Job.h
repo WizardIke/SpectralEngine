@@ -4,32 +4,31 @@ class BaseExecutor;
 
 class Job
 {
-	void* worker;
-	void(*job)(void*const worker, BaseExecutor* const executor);
+	void* requester;
+	void(*job)(void*const requester, BaseExecutor* const executor);
 public:
-	Job(void* const worker, void(*job)(void*const worker, BaseExecutor* const executor)) : worker(worker), job(job) {}
+	Job(void* const requester, void(*job)(void*const requester, BaseExecutor* const executor)) : requester(requester), job(job) {}
 	Job() {}
 
 	void operator()(BaseExecutor* const executor)
 	{
-		job(worker, executor);
+		job(requester, executor);
 	}
 
-	Job operator=(const Job other)
+	void operator=(const Job& other)
 	{
-		this->job = other.job;
-		this->worker = other.worker;
-		return *this;
+		job = other.job;
+		requester = other.requester;
 	}
 
 
 	bool operator==(const Job other)
 	{
-		return this->worker == other.worker && this->job == other.job;
+		return requester == other.requester && job == other.job;
 	}
 
 	bool operator!=(const Job other)
 	{
-		return this->worker != other.worker || this->job != other.job;
+		return requester != other.requester || job != other.job;
 	}
 };

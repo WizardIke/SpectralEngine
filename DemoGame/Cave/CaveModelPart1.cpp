@@ -4,10 +4,10 @@
 #include <Quaternion.h>
 #include <Frustum.h>
 
-CaveModelPart1::CaveModelPart1(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, uint8_t*& constantBufferCpuAddress, unsigned int baseColorTextureIndex)
+CaveModelPart1::CaveModelPart1(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, uint8_t*& constantBufferCpuAddress)
 {
 
-	perObjectCBVGpuAddress = constantBufferGpuAddress;
+	gpuBuffer = constantBufferGpuAddress;
 	constantBufferGpuAddress += vSPerObjectConstantBufferAlignedSize * numSquares + pSPerObjectConstantBufferAlignedSize;
 
 	VSPerObjectConstantBuffer* vsPerObjectCBVCpuAddress = reinterpret_cast<VSPerObjectConstantBuffer*>(constantBufferCpuAddress);
@@ -86,53 +86,52 @@ CaveModelPart1::CaveModelPart1(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddre
 	psPerObjectCBVCpuAddress->specularColor[2] = 0.5f;
 	psPerObjectCBVCpuAddress->specularColor[3] = 1.0f;
 	psPerObjectCBVCpuAddress->specularPower = 4.0f;
-	psPerObjectCBVCpuAddress->baseColorTexture = baseColorTextureIndex;
 }
 
-void CaveModelPart1::render(ID3D12GraphicsCommandList* const directCommandList, Mesh** meshes)
+void CaveModelPart1::render(ID3D12GraphicsCommandList* const directCommandList)
 {
-	directCommandList->IASetVertexBuffers(0u, 1u, &meshes[meshIndex]->vertexBufferView);
-	directCommandList->IASetIndexBuffer(&meshes[meshIndex]->indexBufferView);
-	directCommandList->SetGraphicsRootConstantBufferView(3u, perObjectCBVGpuAddress + vSPerObjectConstantBufferAlignedSize * numSquares);
+	directCommandList->IASetVertexBuffers(0u, 1u, &mesh->vertexBufferView);
+	directCommandList->IASetIndexBuffer(&mesh->indexBufferView);
+	directCommandList->SetGraphicsRootConstantBufferView(3u, gpuBuffer + vSPerObjectConstantBufferAlignedSize * numSquares);
 
 	//needs to draw instances
-	directCommandList->SetGraphicsRootConstantBufferView(2u, perObjectCBVGpuAddress);
-	directCommandList->DrawIndexedInstanced(meshes[meshIndex]->indexCount, 1u, 0u, 0, 0u);
+	directCommandList->SetGraphicsRootConstantBufferView(2u, gpuBuffer);
+	directCommandList->DrawIndexedInstanced(mesh->indexCount, 1u, 0u, 0, 0u);
 
-	directCommandList->SetGraphicsRootConstantBufferView(2u, perObjectCBVGpuAddress + vSPerObjectConstantBufferAlignedSize);
-	directCommandList->DrawIndexedInstanced(meshes[meshIndex]->indexCount, 1u, 0u, 0, 0u);
+	directCommandList->SetGraphicsRootConstantBufferView(2u, gpuBuffer + vSPerObjectConstantBufferAlignedSize);
+	directCommandList->DrawIndexedInstanced(mesh->indexCount, 1u, 0u, 0, 0u);
 
-	directCommandList->SetGraphicsRootConstantBufferView(2u, perObjectCBVGpuAddress + vSPerObjectConstantBufferAlignedSize * 2u);
-	directCommandList->DrawIndexedInstanced(meshes[meshIndex]->indexCount, 1u, 0u, 0, 0u);
+	directCommandList->SetGraphicsRootConstantBufferView(2u, gpuBuffer + vSPerObjectConstantBufferAlignedSize * 2u);
+	directCommandList->DrawIndexedInstanced(mesh->indexCount, 1u, 0u, 0, 0u);
 
-	directCommandList->SetGraphicsRootConstantBufferView(2u, perObjectCBVGpuAddress + vSPerObjectConstantBufferAlignedSize * 3u);
-	directCommandList->DrawIndexedInstanced(meshes[meshIndex]->indexCount, 1u, 0u, 0, 0u);
-
-
-	directCommandList->SetGraphicsRootConstantBufferView(2u, perObjectCBVGpuAddress + vSPerObjectConstantBufferAlignedSize * 4u);
-	directCommandList->DrawIndexedInstanced(meshes[meshIndex]->indexCount, 1u, 0u, 0, 0u);
-
-	directCommandList->SetGraphicsRootConstantBufferView(2u, perObjectCBVGpuAddress + vSPerObjectConstantBufferAlignedSize * 5u);
-	directCommandList->DrawIndexedInstanced(meshes[meshIndex]->indexCount, 1u, 0u, 0, 0u);
-
-	directCommandList->SetGraphicsRootConstantBufferView(2u, perObjectCBVGpuAddress + vSPerObjectConstantBufferAlignedSize * 6u);
-	directCommandList->DrawIndexedInstanced(meshes[meshIndex]->indexCount, 1u, 0u, 0, 0u);
-
-	directCommandList->SetGraphicsRootConstantBufferView(2u, perObjectCBVGpuAddress + vSPerObjectConstantBufferAlignedSize * 7u);
-	directCommandList->DrawIndexedInstanced(meshes[meshIndex]->indexCount, 1u, 0u, 0, 0u);
+	directCommandList->SetGraphicsRootConstantBufferView(2u, gpuBuffer + vSPerObjectConstantBufferAlignedSize * 3u);
+	directCommandList->DrawIndexedInstanced(mesh->indexCount, 1u, 0u, 0, 0u);
 
 
-	directCommandList->SetGraphicsRootConstantBufferView(2u, perObjectCBVGpuAddress + vSPerObjectConstantBufferAlignedSize * 8u);
-	directCommandList->DrawIndexedInstanced(meshes[meshIndex]->indexCount, 1u, 0u, 0, 0u);
+	directCommandList->SetGraphicsRootConstantBufferView(2u, gpuBuffer + vSPerObjectConstantBufferAlignedSize * 4u);
+	directCommandList->DrawIndexedInstanced(mesh->indexCount, 1u, 0u, 0, 0u);
 
-	directCommandList->SetGraphicsRootConstantBufferView(2u, perObjectCBVGpuAddress + vSPerObjectConstantBufferAlignedSize * 9u);
-	directCommandList->DrawIndexedInstanced(meshes[meshIndex]->indexCount, 1u, 0u, 0, 0u);
+	directCommandList->SetGraphicsRootConstantBufferView(2u, gpuBuffer + vSPerObjectConstantBufferAlignedSize * 5u);
+	directCommandList->DrawIndexedInstanced(mesh->indexCount, 1u, 0u, 0, 0u);
 
-	directCommandList->SetGraphicsRootConstantBufferView(2u, perObjectCBVGpuAddress + vSPerObjectConstantBufferAlignedSize * 10u);
-	directCommandList->DrawIndexedInstanced(meshes[meshIndex]->indexCount, 1u, 0u, 0, 0u);
+	directCommandList->SetGraphicsRootConstantBufferView(2u, gpuBuffer + vSPerObjectConstantBufferAlignedSize * 6u);
+	directCommandList->DrawIndexedInstanced(mesh->indexCount, 1u, 0u, 0, 0u);
 
-	directCommandList->SetGraphicsRootConstantBufferView(2u, perObjectCBVGpuAddress + vSPerObjectConstantBufferAlignedSize * 11u);
-	directCommandList->DrawIndexedInstanced(meshes[meshIndex]->indexCount, 1u, 0u, 0, 0u);
+	directCommandList->SetGraphicsRootConstantBufferView(2u, gpuBuffer + vSPerObjectConstantBufferAlignedSize * 7u);
+	directCommandList->DrawIndexedInstanced(mesh->indexCount, 1u, 0u, 0, 0u);
+
+
+	directCommandList->SetGraphicsRootConstantBufferView(2u, gpuBuffer + vSPerObjectConstantBufferAlignedSize * 8u);
+	directCommandList->DrawIndexedInstanced(mesh->indexCount, 1u, 0u, 0, 0u);
+
+	directCommandList->SetGraphicsRootConstantBufferView(2u, gpuBuffer + vSPerObjectConstantBufferAlignedSize * 9u);
+	directCommandList->DrawIndexedInstanced(mesh->indexCount, 1u, 0u, 0, 0u);
+
+	directCommandList->SetGraphicsRootConstantBufferView(2u, gpuBuffer + vSPerObjectConstantBufferAlignedSize * 10u);
+	directCommandList->DrawIndexedInstanced(mesh->indexCount, 1u, 0u, 0, 0u);
+
+	directCommandList->SetGraphicsRootConstantBufferView(2u, gpuBuffer + vSPerObjectConstantBufferAlignedSize * 11u);
+	directCommandList->DrawIndexedInstanced(mesh->indexCount, 1u, 0u, 0, 0u);
 }
 
 bool CaveModelPart1::isInView(const Frustum& Frustum)

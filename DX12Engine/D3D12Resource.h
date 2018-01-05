@@ -21,6 +21,13 @@ public:
 		if (FAILED(hr)) throw ID3D12ResourceCreationFailedException();
 	}
 
+	D3D12Resource(ID3D12Device* const device, const D3D12_RESOURCE_DESC& resourceDesc,
+		const D3D12_RESOURCE_STATES initialResourceState, const D3D12_CLEAR_VALUE* const optimizedClearValue) : data(nullptr)
+	{
+		auto hr = device->CreateReservedResource(&resourceDesc, initialResourceState, optimizedClearValue, IID_PPV_ARGS(&data));
+		if (FAILED(hr)) throw ID3D12ResourceCreationFailedException();
+	}
+
 	D3D12Resource(D3D12Resource&& other) : data(other.data)
 	{
 		other.data = nullptr;
@@ -48,6 +55,13 @@ public:
 	ID3D12Resource*& set()
 	{
 		return data;
+	}
+
+	ID3D12Resource* release()
+	{
+		auto ret = data;
+		data = nullptr;
+		return ret;
 	}
 
 	bool operator==(std::nullptr_t)

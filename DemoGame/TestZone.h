@@ -26,12 +26,11 @@ class TestZoneFunctions
 			const auto zone = reinterpret_cast<BaseZone* const>(requester);
 			BaseZone::componentUploaded<BaseZone::high, BaseZone::high>(zone, executor, ((HDResources*)zone->nextResources)->numComponentsLoaded, numComponents);
 		}
-	public:
+
 		std::atomic<unsigned char> numComponentsLoaded = 0u;
-
-		Mesh* meshes[numMeshes];
 		D3D12Resource perObjectConstantBuffers;
-
+		uint8_t* perObjectConstantBuffersCpuAddress;
+	public:
 		Light light;
 		LightConstantBuffer* pointLightConstantBufferCpuAddress;
 		D3D12_GPU_VIRTUAL_ADDRESS pointLightConstantBufferGpuAddress;
@@ -66,20 +65,33 @@ class TestZoneFunctions
 			return resourceDesc;
 		}(), D3D12_RESOURCE_STATE_GENERIC_READ, nullptr)
 		{
-			unsigned int stone04 = TextureManager::loadTexture(TextureNames::stone04, zone, executor, componentUploaded);
-
-			MeshManager::loadMeshWithPositionTextureNormal(MeshNames::HighResMesh1, zone, executor, componentUploaded, &meshes[0]);
-
-			uint8_t* perObjectConstantBuffersCpuAddress;
 			D3D12_RANGE readRange{ 0u, 0u };
 			HRESULT hr = perObjectConstantBuffers->Map(0u, &readRange, reinterpret_cast<void**>(&perObjectConstantBuffersCpuAddress));
 			if (FAILED(hr)) throw ID3D12ResourceMapFailedException();
 			auto PerObjectConstantBuffersGpuAddress = perObjectConstantBuffers->GetGPUVirtualAddress();
+			auto cpuConstantBuffer = perObjectConstantBuffersCpuAddress;
+
+			new(&highResPlaneModel) HighResPlane<x, z>(PerObjectConstantBuffersGpuAddress, cpuConstantBuffer);
+
+			TextureManager::loadTexture(executor, TextureNames::stone04, { zone, [](void* requester, BaseExecutor* executor, unsigned int textureID) {
+				const auto zone = reinterpret_cast<BaseZone*>(requester);
+				auto resources = ((HDResources*)zone->nextResources);
+				resources->highResPlaneModel.setDiffuseTexture(textureID, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
+				componentUploaded(requester, executor);
+			} });
+
+			MeshManager::loadMeshWithPositionTextureNormal(MeshNames::HighResMesh1, zone, executor, [](void* requester, BaseExecutor* executor, Mesh* mesh)
+			{
+				const auto zone = reinterpret_cast<BaseZone* const>(requester);
+				const auto resources = ((HDResources*)zone->nextResources);
+				resources->highResPlaneModel.mesh = mesh;
+				componentUploaded(requester, executor);
+			});
 
 			constexpr uint64_t pointLightConstantBufferAlignedSize = (sizeof(LightConstantBuffer) + (uint64_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (uint64_t)1u) & ~((uint64_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (uint64_t)1u);
 
-			pointLightConstantBufferCpuAddress = reinterpret_cast<LightConstantBuffer*>(perObjectConstantBuffersCpuAddress);
-			perObjectConstantBuffersCpuAddress += pointLightConstantBufferAlignedSize;
+			pointLightConstantBufferCpuAddress = reinterpret_cast<LightConstantBuffer*>(cpuConstantBuffer);
+			cpuConstantBuffer += pointLightConstantBufferAlignedSize;
 
 			pointLightConstantBufferGpuAddress = PerObjectConstantBuffersGpuAddress;
 			PerObjectConstantBuffersGpuAddress += pointLightConstantBufferAlignedSize;
@@ -96,11 +108,12 @@ class TestZoneFunctions
 			pointLightConstantBufferCpuAddress->lightDirection.y = -0.7f;
 			pointLightConstantBufferCpuAddress->lightDirection.z = 0.7f;
 			pointLightConstantBufferCpuAddress->pointLightCount = 0u;
-
-			new(&highResPlaneModel) HighResPlane<x, z>(PerObjectConstantBuffersGpuAddress, perObjectConstantBuffersCpuAddress, stone04);
 		}
 
-		~HDResources() {}
+		~HDResources() 
+		{
+			perObjectConstantBuffers->Unmap(0u, nullptr);
+		}
 
 		void update1(BaseExecutor* const executor) {}
 
@@ -118,11 +131,11 @@ class TestZoneFunctions
 				commandList->SetPipelineState(assets->pipelineStateObjects.directionalLight);
 
 				commandList->SetGraphicsRootConstantBufferView(1u, pointLightConstantBufferGpuAddress);
-				commandList->SetGraphicsRootConstantBufferView(2u, highResPlaneModel.vsPerObjectCBVGpuAddress);
-				commandList->SetGraphicsRootConstantBufferView(3u, highResPlaneModel.psPerObjectCBVGpuAddress);
-				commandList->IASetVertexBuffers(0u, 1u, &meshes[highResPlaneModel.meshIndex]->vertexBufferView);
-				commandList->IASetIndexBuffer(&meshes[highResPlaneModel.meshIndex]->indexBufferView);
-				commandList->DrawIndexedInstanced(meshes[highResPlaneModel.meshIndex]->indexCount, 1u, 0u, 0, 0u);
+				commandList->SetGraphicsRootConstantBufferView(2u, highResPlaneModel.vsBufferGpu());
+				commandList->SetGraphicsRootConstantBufferView(3u, highResPlaneModel.psBufferGpu());
+				commandList->IASetVertexBuffers(0u, 1u, &highResPlaneModel.mesh->vertexBufferView);
+				commandList->IASetIndexBuffer(&highResPlaneModel.mesh->indexBufferView);
+				commandList->DrawIndexedInstanced(highResPlaneModel.mesh->indexCount, 1u, 0u, 0, 0u);
 			}
 		}
 

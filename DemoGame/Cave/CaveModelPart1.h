@@ -21,10 +21,20 @@ class CaveModelPart1
 
 	constexpr static size_t vSPerObjectConstantBufferAlignedSize = (sizeof(VSPerObjectConstantBuffer) + (size_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (size_t)1u) & ~((size_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (size_t)1u);
 	constexpr static size_t pSPerObjectConstantBufferAlignedSize = (sizeof(PSPerObjectConstantBuffer) + (size_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (size_t)1u) & ~((size_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (size_t)1u);
+
+	D3D12_GPU_VIRTUAL_ADDRESS gpuBuffer;
 public:
+	D3D12_GPU_VIRTUAL_ADDRESS vsBufferGpu()
+	{
+		return gpuBuffer;
+	}
 
+	D3D12_GPU_VIRTUAL_ADDRESS psBufferGpu()
+	{
+		return gpuBuffer + vSPerObjectConstantBufferAlignedSize * numSquares;
+	}
 
-	D3D12_GPU_VIRTUAL_ADDRESS perObjectCBVGpuAddress;
+	Mesh* mesh;
 
 	constexpr static unsigned int meshIndex = 0u;
 	constexpr static unsigned int numSquares = 12u;
@@ -32,10 +42,16 @@ public:
 
 	CaveModelPart1() {}
 
-	CaveModelPart1(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, uint8_t*& constantBufferCpuAddress, unsigned int baseColorTextureIndex);
+	CaveModelPart1(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, uint8_t*& constantBufferCpuAddress);
 	~CaveModelPart1() {}
 
 	bool CaveModelPart1::isInView(const Frustum& Frustum);
 
-	void render(ID3D12GraphicsCommandList* const directCommandList, Mesh** meshes);
+	void render(ID3D12GraphicsCommandList* const directCommandList);
+
+	void setDiffuseTexture(uint32_t diffuseTexture, uint8_t* cpuStartAddress, D3D12_GPU_VIRTUAL_ADDRESS gpuStartAddress)
+	{
+		auto buffer = reinterpret_cast<PSPerObjectConstantBuffer*>(cpuStartAddress + (gpuBuffer - gpuStartAddress + vSPerObjectConstantBufferAlignedSize * numSquares));
+		buffer->baseColorTexture = diffuseTexture;
+	}
 };

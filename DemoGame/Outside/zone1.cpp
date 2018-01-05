@@ -52,8 +52,10 @@ namespace
 			return executor.renderPass.renderToTextureSubPassGroup();
 		}
 	public:
-		Mesh* meshes[numMeshes];
+		Mesh* squareWithPos;
+		Mesh* cubeWithPos;
 		D3D12Resource perObjectConstantBuffers;
+		uint8_t* perObjectConstantBuffersCpuAddress;
 		std::array<D3D12Resource, numRenderTargetTextures> renderTargetTextures;
 		D3D12_RESOURCE_STATES waterRenderTargetTextureState;
 		D3D12DescriptorHeap renderTargetTexturesDescriptorHeap;
@@ -126,24 +128,11 @@ namespace
 
 			const auto sharedResources = (Assets*)executor->sharedResources;
 
-			unsigned int ground01 = TextureManager::loadTexture(TextureNames::ground01, zone, executor, componentUploaded);
-			unsigned int wall01 = TextureManager::loadTexture(TextureNames::wall01, zone, executor, componentUploaded);
-			unsigned int marble01 = TextureManager::loadTexture(TextureNames::marble01, zone, executor, componentUploaded);
-			unsigned int water01 = TextureManager::loadTexture(TextureNames::water01, zone, executor, componentUploaded);
-			unsigned int ice01 = TextureManager::loadTexture(TextureNames::ice01, zone, executor, componentUploaded);
-			unsigned int icebump01 = TextureManager::loadTexture(TextureNames::icebump01, zone, executor, componentUploaded);
-			unsigned int firenoise01 = TextureManager::loadTexture(TextureNames::firenoise01, zone, executor, componentUploaded);
-			unsigned int fire01 = TextureManager::loadTexture(TextureNames::fire01, zone, executor, componentUploaded);
-			unsigned int firealpha01 = TextureManager::loadTexture(TextureNames::firealpha01, zone, executor, componentUploaded);
-
-			MeshManager::loadMeshWithPositionTextureNormal(MeshNames::bath, zone, executor, componentUploaded, &meshes[0]);
-			MeshManager::loadMeshWithPositionTextureNormal(MeshNames::plane1, zone, executor, componentUploaded, &meshes[1]);
-			MeshManager::loadMeshWithPositionTextureNormal(MeshNames::wall, zone, executor, componentUploaded, &meshes[2]);
-			MeshManager::loadMeshWithPositionTexture(MeshNames::water, zone, executor, componentUploaded, &meshes[3]);
-			MeshManager::loadMeshWithPositionTexture(MeshNames::cube, zone, executor, componentUploaded, &meshes[4]);
-			MeshManager::loadMeshWithPositionTexture(MeshNames::square, zone, executor, componentUploaded, &meshes[5]);
-			MeshManager::loadMeshWithPosition(MeshNames::aabb, zone, executor, componentUploaded, &meshes[6]);
-			MeshManager::loadMeshWithPosition(MeshNames::squareWithPos, zone, executor, componentUploaded, &meshes[7]);
+			D3D12_RANGE readRange{ 0u, 0u };
+			HRESULT hr = perObjectConstantBuffers->Map(0u, &readRange, reinterpret_cast<void**>(&perObjectConstantBuffersCpuAddress));
+			if (FAILED(hr)) throw HresultException(hr);
+			auto PerObjectConstantBuffersGpuAddress = perObjectConstantBuffers->GetGPUVirtualAddress();
+			uint8_t* cpuConstantBuffer = perObjectConstantBuffersCpuAddress;
 
 			D3D12_HEAP_PROPERTIES heapProperties;
 			heapProperties.Type = D3D12_HEAP_TYPE_DEFAULT;
@@ -182,12 +171,6 @@ namespace
 				renderTargetTextures[i]->SetName(name.c_str());
 #endif // _DEBUG
 			}
-
-			uint8_t* perObjectConstantBuffersCpuAddress;
-			D3D12_RANGE readRange{ 0u, 0u };
-			HRESULT hr = perObjectConstantBuffers->Map(0u, &readRange, reinterpret_cast<void**>(&perObjectConstantBuffersCpuAddress));
-			if (FAILED(hr)) throw HresultException(hr);
-			auto PerObjectConstantBuffersGpuAddress = perObjectConstantBuffers->GetGPUVirtualAddress();
 
 			D3D12_RENDER_TARGET_VIEW_DESC HDRenderTargetViewDesc;
 			HDRenderTargetViewDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
@@ -237,11 +220,145 @@ namespace
 				}
 
 				new(&reflectionCameras[i]) Camera(sharedResources, renderTargetTextures[i], tempRenderTargetTexturesCpuDescriptorHandle, depthStencilHandle,
-					sharedResources->window.width(), sharedResources->window.height(), PerObjectConstantBuffersGpuAddress, perObjectConstantBuffersCpuAddress, 0.25f * 3.141f,
+					sharedResources->window.width(), sharedResources->window.height(), PerObjectConstantBuffersGpuAddress, cpuConstantBuffer, 0.25f * 3.141f,
 					location, backBuffers);
 
 				tempRenderTargetTexturesCpuDescriptorHandle.ptr += sharedResources->graphicsEngine.renderTargetViewDescriptorSize;
 			}
+
+			new(&bathModel1) BathModel2(PerObjectConstantBuffersGpuAddress, cpuConstantBuffer);
+
+			new(&groundModel) GroundModel2(PerObjectConstantBuffersGpuAddress, cpuConstantBuffer);
+
+			new(&wallModel) WallModel2(PerObjectConstantBuffersGpuAddress, cpuConstantBuffer);
+
+			new(&waterModel) WaterModel2(PerObjectConstantBuffersGpuAddress, cpuConstantBuffer, shaderResourceViews[0],
+				sharedResources->warpTextureDescriptorIndex);
+
+			new(&iceModel) IceModel2(PerObjectConstantBuffersGpuAddress, cpuConstantBuffer, sharedResources->warpTextureDescriptorIndex);
+
+			new(&fireModel1) FireModel<templateFloat(55.0f), templateFloat(2.0f), templateFloat(64.0f)>(PerObjectConstantBuffersGpuAddress,
+				cpuConstantBuffer);
+
+			new(&fireModel2) FireModel<templateFloat(53.0f), templateFloat(2.0f), templateFloat(64.0f)>(PerObjectConstantBuffersGpuAddress,
+				cpuConstantBuffer);
+
+			TextureManager::loadTexture(executor, TextureNames::ground01, { zone, [](void* requester, BaseExecutor* executor, unsigned int textureID) {
+				const auto zone = reinterpret_cast<BaseZone*>(requester);
+				auto resources = ((HDResources*)zone->nextResources);
+				resources->groundModel.setDiffuseTexture(textureID, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
+				componentUploaded(requester, executor);
+			} });
+			TextureManager::loadTexture(executor, TextureNames::wall01, { zone, [](void* requester, BaseExecutor* executor, unsigned int textureID) {
+				const auto zone = reinterpret_cast<BaseZone*>(requester);
+				auto resources = ((HDResources*)zone->nextResources);
+				resources->wallModel.setDiffuseTexture(textureID, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
+				componentUploaded(requester, executor);
+			} });
+			TextureManager::loadTexture(executor, TextureNames::marble01, {zone, [](void* requester, BaseExecutor* executor, unsigned int textureID) {
+				const auto zone = reinterpret_cast<BaseZone*>(requester);
+				auto resources = ((HDResources*)zone->nextResources);
+				resources->bathModel1.setDiffuseTexture(textureID, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
+					componentUploaded(requester, executor);
+			}});
+
+			TextureManager::loadTexture(executor, TextureNames::water01, { zone, [](void* requester, BaseExecutor* executor, unsigned int textureID) {
+				const auto zone = reinterpret_cast<BaseZone*>(requester);
+				auto resources = ((HDResources*)zone->nextResources);
+				resources->waterModel.setNormalTexture(textureID, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
+				componentUploaded(requester, executor);
+			} });
+			TextureManager::loadTexture(executor, TextureNames::ice01, { zone, [](void* requester, BaseExecutor* executor, unsigned int textureID) {
+				const auto zone = reinterpret_cast<BaseZone*>(requester);
+				auto resources = ((HDResources*)zone->nextResources);
+				resources->iceModel.setDiffuseTexture(textureID, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
+				componentUploaded(requester, executor);
+			} });
+			TextureManager::loadTexture(executor, TextureNames::icebump01, { zone, [](void* requester, BaseExecutor* executor, unsigned int textureID) {
+				const auto zone = reinterpret_cast<BaseZone*>(requester);
+				auto resources = ((HDResources*)zone->nextResources);
+				resources->iceModel.setNormalTexture(textureID, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
+				componentUploaded(requester, executor);
+			} });
+			TextureManager::loadTexture(executor, TextureNames::firenoise01, { zone, [](void* requester, BaseExecutor* executor, unsigned int textureID) {
+				const auto zone = reinterpret_cast<BaseZone*>(requester);
+				auto resources = ((HDResources*)zone->nextResources);
+				resources->fireModel1.setNormalTexture(textureID, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
+				resources->fireModel2.setNormalTexture(textureID, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
+				componentUploaded(requester, executor);
+			} });
+			TextureManager::loadTexture(executor, TextureNames::fire01, { zone, [](void* requester, BaseExecutor* executor, unsigned int textureID) {
+				const auto zone = reinterpret_cast<BaseZone*>(requester);
+				auto resources = ((HDResources*)zone->nextResources);
+				resources->fireModel1.setDiffuseTexture(textureID, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
+				resources->fireModel2.setDiffuseTexture(textureID, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
+				componentUploaded(requester, executor);
+			} });
+			TextureManager::loadTexture(executor, TextureNames::firealpha01, { zone, [](void* requester, BaseExecutor* executor, unsigned int textureID) {
+				const auto zone = reinterpret_cast<BaseZone*>(requester);
+				auto resources = ((HDResources*)zone->nextResources);
+				resources->fireModel1.setAlphaTexture(textureID, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
+				resources->fireModel2.setAlphaTexture(textureID, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
+				componentUploaded(requester, executor);
+			} });
+
+			MeshManager::loadMeshWithPositionTextureNormal(MeshNames::bath, zone, executor, [](void* requester, BaseExecutor* executor, Mesh* mesh)
+			{
+				const auto zone = reinterpret_cast<BaseZone* const>(requester);
+				auto resources = ((HDResources*)zone->nextResources);
+				resources->bathModel1.mesh = mesh;
+				componentUploaded(requester, executor);
+			});
+			MeshManager::loadMeshWithPositionTextureNormal(MeshNames::plane1, zone, executor, [](void* requester, BaseExecutor* executor, Mesh* mesh)
+			{
+				const auto zone = reinterpret_cast<BaseZone* const>(requester);
+				auto resources = ((HDResources*)zone->nextResources);
+				resources->groundModel.mesh = mesh;
+				componentUploaded(requester, executor);
+			});
+			MeshManager::loadMeshWithPositionTextureNormal(MeshNames::wall, zone, executor, [](void* requester, BaseExecutor* executor, Mesh* mesh)
+			{
+				const auto zone = reinterpret_cast<BaseZone* const>(requester);
+				auto resources = ((HDResources*)zone->nextResources);
+				resources->wallModel.mesh = mesh;
+				componentUploaded(requester, executor);
+			});
+			MeshManager::loadMeshWithPositionTexture(MeshNames::water, zone, executor, [](void* requester, BaseExecutor* executor, Mesh* mesh)
+			{
+				const auto zone = reinterpret_cast<BaseZone* const>(requester);
+				auto resources = ((HDResources*)zone->nextResources);
+				resources->waterModel.mesh = mesh;
+				componentUploaded(requester, executor);
+			});
+			MeshManager::loadMeshWithPositionTexture(MeshNames::cube, zone, executor, [](void* requester, BaseExecutor* executor, Mesh* mesh)
+			{
+				const auto zone = reinterpret_cast<BaseZone* const>(requester);
+				auto resources = ((HDResources*)zone->nextResources);
+				resources->iceModel.mesh = mesh;
+				componentUploaded(requester, executor);
+			});
+			MeshManager::loadMeshWithPositionTexture(MeshNames::square, zone, executor, [](void* requester, BaseExecutor* executor, Mesh* mesh)
+			{
+				const auto zone = reinterpret_cast<BaseZone* const>(requester);
+				auto resources = ((HDResources*)zone->nextResources);
+				resources->fireModel1.mesh = mesh;
+				resources->fireModel2.mesh = mesh;
+				componentUploaded(requester, executor);
+			});
+			MeshManager::loadMeshWithPosition(MeshNames::aabb, zone, executor, [](void* requester, BaseExecutor* executor, Mesh* mesh)
+			{
+				const auto zone = reinterpret_cast<BaseZone* const>(requester);
+				auto resources = ((HDResources*)zone->nextResources);
+				resources->cubeWithPos = mesh;
+				componentUploaded(requester, executor);
+			});
+			MeshManager::loadMeshWithPosition(MeshNames::squareWithPos, zone, executor, [](void* requester, BaseExecutor* executor, Mesh* mesh)
+			{
+				const auto zone = reinterpret_cast<BaseZone* const>(requester);
+				auto resources = ((HDResources*)zone->nextResources);
+				resources->squareWithPos = mesh;
+				componentUploaded(requester, executor);
+			});
 			
 			executor->updateJobQueue().push(Job(zone, [](void* zone1, BaseExecutor* executor1)
 			{
@@ -263,29 +380,11 @@ namespace
 
 			constexpr uint64_t pointLightConstantBufferAlignedSize = (sizeof(LightConstantBuffer) + (uint64_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (uint64_t)1u) & 
 				~((uint64_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (uint64_t)1u);
-			pointLightConstantBufferCpuAddress = reinterpret_cast<LightConstantBuffer*>(perObjectConstantBuffersCpuAddress);
-			perObjectConstantBuffersCpuAddress += frameBufferCount * pointLightConstantBufferAlignedSize;
+			pointLightConstantBufferCpuAddress = reinterpret_cast<LightConstantBuffer*>(cpuConstantBuffer);
+			cpuConstantBuffer += frameBufferCount * pointLightConstantBufferAlignedSize;
 
 			pointLightConstantBufferGpuAddress = PerObjectConstantBuffersGpuAddress;
 			PerObjectConstantBuffersGpuAddress += frameBufferCount * pointLightConstantBufferAlignedSize;
-
-			new(&groundModel) GroundModel2(PerObjectConstantBuffersGpuAddress, perObjectConstantBuffersCpuAddress, ground01);
-
-			new(&wallModel) WallModel2(PerObjectConstantBuffersGpuAddress, perObjectConstantBuffersCpuAddress, wall01);
-
-			new(&bathModel1) BathModel2(PerObjectConstantBuffersGpuAddress, perObjectConstantBuffersCpuAddress, marble01);
-
-			new(&waterModel) WaterModel2(PerObjectConstantBuffersGpuAddress, perObjectConstantBuffersCpuAddress, shaderResourceViews[0],
-				sharedResources->warpTextureDescriptorIndex, water01);
-
-			new(&iceModel) IceModel2(PerObjectConstantBuffersGpuAddress, perObjectConstantBuffersCpuAddress, sharedResources->warpTextureDescriptorIndex, ice01, icebump01);
-
-			new(&fireModel1) FireModel<templateFloat(55.0f), templateFloat(2.0f), templateFloat(64.0f)>(PerObjectConstantBuffersGpuAddress,
-				perObjectConstantBuffersCpuAddress, firenoise01, fire01, firealpha01);
-
-			new(&fireModel2) FireModel<templateFloat(53.0f), templateFloat(2.0f), templateFloat(64.0f)>(PerObjectConstantBuffersGpuAddress,
-				perObjectConstantBuffersCpuAddress, firenoise01, fire01, firealpha01);
-
 			//sound3D1.Play(DSBPLAY_LOOPING);
 		}
 
@@ -393,11 +492,11 @@ namespace
 				if (wallModel.isInView(frustum))
 				{
 					commandList->SetPipelineState(assets->pipelineStateObjects.directionalLight);
-					commandList->SetGraphicsRootConstantBufferView(2u, wallModel.vsPerObjectCBVGpuAddress);
-					commandList->SetGraphicsRootConstantBufferView(3u, wallModel.psPerObjectCBVGpuAddress);
-					commandList->IASetVertexBuffers(0u, 1u, &meshes[wallModel.meshIndex]->vertexBufferView);
-					commandList->IASetIndexBuffer(&meshes[wallModel.meshIndex]->indexBufferView);
-					commandList->DrawIndexedInstanced(meshes[wallModel.meshIndex]->indexCount, 1u, 0u, 0, 0u);
+					commandList->SetGraphicsRootConstantBufferView(2u, wallModel.vsBufferGpu());
+					commandList->SetGraphicsRootConstantBufferView(3u, wallModel.psBufferGpu());
+					commandList->IASetVertexBuffers(0u, 1u, &wallModel.mesh->vertexBufferView);
+					commandList->IASetIndexBuffer(&wallModel.mesh->indexBufferView);
+					commandList->DrawIndexedInstanced(wallModel.mesh->indexCount, 1u, 0u, 0, 0u);
 				}
 				if (iceModel.isInView(frustum))
 				{
@@ -405,18 +504,18 @@ namespace
 					commandList->OMSetRenderTargets(1u, &warpTextureCpuDescriptorHandle, TRUE, &depthStencilHandle);
 					commandList->SetPipelineState(assets->pipelineStateObjects.copy);
 					commandList->SetGraphicsRootConstantBufferView(2u, iceModel.vsAabbGpu());
-					commandList->IASetVertexBuffers(0u, 1u, &meshes[6]->vertexBufferView);
-					commandList->IASetIndexBuffer(&meshes[6]->indexBufferView);
-					commandList->DrawIndexedInstanced(meshes[6]->indexCount, 1u, 0u, 0, 0u);
+					commandList->IASetVertexBuffers(0u, 1u, &cubeWithPos->vertexBufferView);
+					commandList->IASetIndexBuffer(&cubeWithPos->indexBufferView);
+					commandList->DrawIndexedInstanced(cubeWithPos->indexCount, 1u, 0u, 0, 0u);
 
 					commandList->ResourceBarrier(2u, copyEndBarriers);
 					commandList->OMSetRenderTargets(1u, &backBufferRenderTargetCpuHandle, TRUE, &depthStencilHandle);
 					commandList->SetPipelineState(assets->pipelineStateObjects.glass);
 					commandList->SetGraphicsRootConstantBufferView(2u, iceModel.vsConstantBufferGPU(frameIndex));
 					commandList->SetGraphicsRootConstantBufferView(3u, iceModel.psConstantBufferGPU());
-					commandList->IASetVertexBuffers(0u, 1u, &meshes[iceModel.meshIndex]->vertexBufferView);
-					commandList->IASetIndexBuffer(&meshes[iceModel.meshIndex]->indexBufferView);
-					commandList->DrawIndexedInstanced(meshes[iceModel.meshIndex]->indexCount, 1u, 0u, 0, 0u);
+					commandList->IASetVertexBuffers(0u, 1u, &iceModel.mesh->vertexBufferView);
+					commandList->IASetIndexBuffer(&iceModel.mesh->indexBufferView);
+					commandList->DrawIndexedInstanced(iceModel.mesh->indexCount, 1u, 0u, 0, 0u);
 				}
 			}
 		}
@@ -474,30 +573,30 @@ namespace
 			{
 				opaqueDirectCommandList->SetPipelineState(assets->pipelineStateObjects.pointLight);
 
-				opaqueDirectCommandList->SetGraphicsRootConstantBufferView(2u, groundModel.vsPerObjectCBVGpuAddress);
-				opaqueDirectCommandList->SetGraphicsRootConstantBufferView(3u, groundModel.psPerObjectCBVGpuAddress);
-				opaqueDirectCommandList->IASetVertexBuffers(0u, 1u, &meshes[groundModel.meshIndex]->vertexBufferView);
-				opaqueDirectCommandList->IASetIndexBuffer(&meshes[groundModel.meshIndex]->indexBufferView);
-				opaqueDirectCommandList->DrawIndexedInstanced(meshes[groundModel.meshIndex]->indexCount, 1u, 0u, 0, 0u);
+				opaqueDirectCommandList->SetGraphicsRootConstantBufferView(2u, groundModel.vsBufferGpu());
+				opaqueDirectCommandList->SetGraphicsRootConstantBufferView(3u, groundModel.psBufferGpu());
+				opaqueDirectCommandList->IASetVertexBuffers(0u, 1u, &groundModel.mesh->vertexBufferView);
+				opaqueDirectCommandList->IASetIndexBuffer(&groundModel.mesh->indexBufferView);
+				opaqueDirectCommandList->DrawIndexedInstanced(groundModel.mesh->indexCount, 1u, 0u, 0, 0u);
 			}
 
 			opaqueDirectCommandList->SetPipelineState(assets->pipelineStateObjects.directionalLight);
 			if (wallModel.isInView(frustum))
 			{
-				opaqueDirectCommandList->SetGraphicsRootConstantBufferView(2u, wallModel.vsPerObjectCBVGpuAddress);
-				opaqueDirectCommandList->SetGraphicsRootConstantBufferView(3u, wallModel.psPerObjectCBVGpuAddress);
-				opaqueDirectCommandList->IASetVertexBuffers(0u, 1u, &meshes[wallModel.meshIndex]->vertexBufferView);
-				opaqueDirectCommandList->IASetIndexBuffer(&meshes[wallModel.meshIndex]->indexBufferView);
-				opaqueDirectCommandList->DrawIndexedInstanced(meshes[wallModel.meshIndex]->indexCount, 1u, 0u, 0, 0u);
+				opaqueDirectCommandList->SetGraphicsRootConstantBufferView(2u, wallModel.vsBufferGpu());
+				opaqueDirectCommandList->SetGraphicsRootConstantBufferView(3u, wallModel.psBufferGpu());
+				opaqueDirectCommandList->IASetVertexBuffers(0u, 1u, &wallModel.mesh->vertexBufferView);
+				opaqueDirectCommandList->IASetIndexBuffer(&wallModel.mesh->indexBufferView);
+				opaqueDirectCommandList->DrawIndexedInstanced(wallModel.mesh->indexCount, 1u, 0u, 0, 0u);
 			}
 
 			if (bathModel1.isInView(frustum))
 			{
-				opaqueDirectCommandList->SetGraphicsRootConstantBufferView(2u, bathModel1.vsPerObjectCBVGpuAddress);
-				opaqueDirectCommandList->SetGraphicsRootConstantBufferView(3u, bathModel1.psPerObjectCBVGpuAddress);
-				opaqueDirectCommandList->IASetVertexBuffers(0u, 1u, &meshes[bathModel1.meshIndex]->vertexBufferView);
-				opaqueDirectCommandList->IASetIndexBuffer(&meshes[bathModel1.meshIndex]->indexBufferView);
-				opaqueDirectCommandList->DrawIndexedInstanced(meshes[bathModel1.meshIndex]->indexCount, 1u, 0u, 0, 0u);
+				opaqueDirectCommandList->SetGraphicsRootConstantBufferView(2u, bathModel1.vsBufferGpu());
+				opaqueDirectCommandList->SetGraphicsRootConstantBufferView(3u, bathModel1.psBufferGpu());
+				opaqueDirectCommandList->IASetVertexBuffers(0u, 1u, &bathModel1.mesh->vertexBufferView);
+				opaqueDirectCommandList->IASetIndexBuffer(&bathModel1.mesh->indexBufferView);
+				opaqueDirectCommandList->DrawIndexedInstanced(bathModel1.mesh->indexCount, 1u, 0u, 0, 0u);
 			}
 
 			transparantCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
@@ -507,18 +606,18 @@ namespace
 				transparantCommandList->OMSetRenderTargets(1u, &warpTextureCpuDescriptorHandle, TRUE, &depthStencilHandle);
 				transparantCommandList->SetPipelineState(assets->pipelineStateObjects.copy);
 				transparantCommandList->SetGraphicsRootConstantBufferView(2u, waterModel.vsAabbGpu());
-				transparantCommandList->IASetVertexBuffers(0u, 1u, &meshes[7]->vertexBufferView);
-				transparantCommandList->IASetIndexBuffer(&meshes[7]->indexBufferView);
-				transparantCommandList->DrawIndexedInstanced(meshes[7]->indexCount, 1u, 0u, 0, 0u);
+				transparantCommandList->IASetVertexBuffers(0u, 1u, &squareWithPos->vertexBufferView);
+				transparantCommandList->IASetIndexBuffer(&squareWithPos->indexBufferView);
+				transparantCommandList->DrawIndexedInstanced(squareWithPos->indexCount, 1u, 0u, 0, 0u);
 
 				transparantCommandList->ResourceBarrier(2u, copyEndBarriers);
 				transparantCommandList->OMSetRenderTargets(1u, &backBufferRenderTargetCpuHandle, TRUE, &depthStencilHandle);
 				transparantCommandList->SetPipelineState(assets->pipelineStateObjects.waterWithReflectionTexture);
 				transparantCommandList->SetGraphicsRootConstantBufferView(2u, waterModel.vsConstantBufferGPU(frameIndex));
 				transparantCommandList->SetGraphicsRootConstantBufferView(3u, waterModel.psConstantBufferGPU());
-				transparantCommandList->IASetVertexBuffers(0u, 1u, &meshes[waterModel.meshIndex]->vertexBufferView);
-				transparantCommandList->IASetIndexBuffer(&meshes[waterModel.meshIndex]->indexBufferView);
-				transparantCommandList->DrawIndexedInstanced(meshes[waterModel.meshIndex]->indexCount, 1u, 0u, 0, 0u);
+				transparantCommandList->IASetVertexBuffers(0u, 1u, &waterModel.mesh->vertexBufferView);
+				transparantCommandList->IASetIndexBuffer(&waterModel.mesh->indexBufferView);
+				transparantCommandList->DrawIndexedInstanced(waterModel.mesh->indexCount, 1u, 0u, 0, 0u);
 			}
 
 
@@ -528,39 +627,39 @@ namespace
 				transparantCommandList->OMSetRenderTargets(1u, &warpTextureCpuDescriptorHandle, TRUE, &depthStencilHandle);
 				transparantCommandList->SetPipelineState(assets->pipelineStateObjects.copy);
 				transparantCommandList->SetGraphicsRootConstantBufferView(2u, iceModel.vsAabbGpu());
-				transparantCommandList->IASetVertexBuffers(0u, 1u, &meshes[6]->vertexBufferView);
-				transparantCommandList->IASetIndexBuffer(&meshes[6]->indexBufferView);
-				transparantCommandList->DrawIndexedInstanced(meshes[6]->indexCount, 1u, 0u, 0, 0u);
+				transparantCommandList->IASetVertexBuffers(0u, 1u, &cubeWithPos->vertexBufferView);
+				transparantCommandList->IASetIndexBuffer(&cubeWithPos->indexBufferView);
+				transparantCommandList->DrawIndexedInstanced(cubeWithPos->indexCount, 1u, 0u, 0, 0u);
 
 				transparantCommandList->ResourceBarrier(2u, copyEndBarriers);
 				transparantCommandList->OMSetRenderTargets(1u, &backBufferRenderTargetCpuHandle, TRUE, &depthStencilHandle);
 				transparantCommandList->SetPipelineState(assets->pipelineStateObjects.glass);
 				transparantCommandList->SetGraphicsRootConstantBufferView(2u, iceModel.vsConstantBufferGPU(frameIndex));
 				transparantCommandList->SetGraphicsRootConstantBufferView(3u, iceModel.psConstantBufferGPU());
-				transparantCommandList->IASetVertexBuffers(0u, 1u, &meshes[iceModel.meshIndex]->vertexBufferView);
-				transparantCommandList->IASetIndexBuffer(&meshes[iceModel.meshIndex]->indexBufferView);
-				transparantCommandList->DrawIndexedInstanced(meshes[iceModel.meshIndex]->indexCount, 1u, 0u, 0, 0u);
+				transparantCommandList->IASetVertexBuffers(0u, 1u, &iceModel.mesh->vertexBufferView);
+				transparantCommandList->IASetIndexBuffer(&iceModel.mesh->indexBufferView);
+				transparantCommandList->DrawIndexedInstanced(iceModel.mesh->indexCount, 1u, 0u, 0, 0u);
 			}
 
 			if (fireModel1.isInView(frustum) || fireModel2.isInView(frustum))
 			{
 				transparantCommandList->SetPipelineState(assets->pipelineStateObjects.fire);
 
-				transparantCommandList->IASetVertexBuffers(0u, 1u, &meshes[fireModel1.meshIndex]->vertexBufferView);
-				transparantCommandList->IASetIndexBuffer(&meshes[fireModel1.meshIndex]->indexBufferView);
+				transparantCommandList->IASetVertexBuffers(0u, 1u, &fireModel1.mesh->vertexBufferView);
+				transparantCommandList->IASetIndexBuffer(&fireModel1.mesh->indexBufferView);
 
 				if (fireModel1.isInView(frustum))
 				{
 					transparantCommandList->SetGraphicsRootConstantBufferView(2u, fireModel1.vsConstantBufferGPU(frameIndex));
 					transparantCommandList->SetGraphicsRootConstantBufferView(3u, fireModel1.psConstantBufferGPU());
-					transparantCommandList->DrawIndexedInstanced(meshes[fireModel1.meshIndex]->indexCount, 1u, 0u, 0, 0u);
+					transparantCommandList->DrawIndexedInstanced(fireModel1.mesh->indexCount, 1u, 0u, 0, 0u);
 				}
 
 				if (fireModel2.isInView(frustum))
 				{
 					transparantCommandList->SetGraphicsRootConstantBufferView(2u, fireModel2.vsConstantBufferGPU(frameIndex));
 					transparantCommandList->SetGraphicsRootConstantBufferView(3u, fireModel2.psConstantBufferGPU());
-					transparantCommandList->DrawIndexedInstanced(meshes[fireModel2.meshIndex]->indexCount, 1u, 0u, 0, 0u);
+					transparantCommandList->DrawIndexedInstanced(fireModel2.mesh->indexCount, 1u, 0u, 0, 0u);
 				}
 			}
 		}
@@ -604,6 +703,8 @@ namespace
 			meshManager.unloadMesh(MeshNames::water, executor);
 			meshManager.unloadMesh(MeshNames::cube, executor);
 			meshManager.unloadMesh(MeshNames::square, executor);
+
+			perObjectConstantBuffers->Unmap(0u, nullptr);
 		}
 	};
 
@@ -619,11 +720,11 @@ namespace
 			auto zone = reinterpret_cast<BaseZone* const>(requester);
 			BaseZone::componentUploaded<BaseZone::medium, BaseZone::medium>(zone, executor, ((MDResources*)zone->nextResources)->numComponentsLoaded, numComponents);
 		}
-	public:
-		std::atomic<unsigned char> numComponentsLoaded = 0u;
 
-		Mesh* meshes[numMeshes];
+		std::atomic<unsigned char> numComponentsLoaded = 0u;
+	public:
 		D3D12Resource perObjectConstantBuffers;
+		uint8_t* perObjectConstantBuffersCpuAddress;
 
 		BathModel2 bathModel;
 		Light light;
@@ -657,17 +758,29 @@ namespace
 		}(), D3D12_RESOURCE_STATE_GENERIC_READ, nullptr)
 		{
 			const auto executor = reinterpret_cast<Executor*>(exe);
-			unsigned int marble01 = TextureManager::loadTexture(TextureNames::marble01, zone, executor, callback);
 
-			MeshManager::loadMeshWithPositionTextureNormal(MeshNames::bath, zone, executor, callback, &meshes[0]);
-
-			uint8_t* perObjectConstantBuffersCpuAddress;
 			D3D12_RANGE readRange{ 0u, 0u };
 			HRESULT hr = perObjectConstantBuffers->Map(0u, &readRange, reinterpret_cast<void**>(&perObjectConstantBuffersCpuAddress));
 			if (FAILED(hr)) throw HresultException(hr);
 			auto PerObjectConstantBuffersGpuAddress = perObjectConstantBuffers->GetGPUVirtualAddress();
+			auto cpuConstantBuffer = perObjectConstantBuffersCpuAddress;
 
-			new(&bathModel) BathModel2(PerObjectConstantBuffersGpuAddress, perObjectConstantBuffersCpuAddress, marble01);
+			new(&bathModel) BathModel2(PerObjectConstantBuffersGpuAddress, cpuConstantBuffer);
+
+			TextureManager::loadTexture(executor, TextureNames::marble01, { zone, [](void* requester, BaseExecutor* executor, unsigned int textureID) {
+				const auto zone = reinterpret_cast<BaseZone*>(requester);
+				auto resources = ((MDResources*)zone->nextResources);
+				resources->bathModel.setDiffuseTexture(textureID, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
+				callback(requester, executor);
+			} });
+
+			MeshManager::loadMeshWithPositionTextureNormal(MeshNames::bath, zone, executor, [](void* requester, BaseExecutor* executor, Mesh* mesh)
+			{
+				const auto zone = reinterpret_cast<BaseZone* const>(requester);
+				const auto resources = ((MDResources*)zone->nextResources);
+				resources->bathModel.mesh = mesh;
+				callback(requester, executor);
+			});
 		}
 
 		void destruct(BaseExecutor*const executor)
@@ -680,6 +793,8 @@ namespace
 			textureManager.unloadTexture(TextureNames::marble01, graphicsEngine);
 
 			meshManager.unloadMesh(MeshNames::bath, executor);
+
+			perObjectConstantBuffers->Unmap(0u, nullptr);
 		}
 
 		~MDResources() {}
@@ -697,11 +812,11 @@ namespace
 			{
 				commandList->SetPipelineState(assets->pipelineStateObjects.directionalLight);
 
-				commandList->SetGraphicsRootConstantBufferView(2u, bathModel.vsPerObjectCBVGpuAddress);
-				commandList->SetGraphicsRootConstantBufferView(3u, bathModel.psPerObjectCBVGpuAddress);
-				commandList->IASetVertexBuffers(0u, 1u, &meshes[bathModel.meshIndex]->vertexBufferView);
-				commandList->IASetIndexBuffer(&meshes[bathModel.meshIndex]->indexBufferView);
-				commandList->DrawIndexedInstanced(meshes[bathModel.meshIndex]->indexCount, 1u, 0u, 0, 0u);
+				commandList->SetGraphicsRootConstantBufferView(2u, bathModel.vsBufferGpu());
+				commandList->SetGraphicsRootConstantBufferView(3u, bathModel.psBufferGpu());
+				commandList->IASetVertexBuffers(0u, 1u, &bathModel.mesh->vertexBufferView);
+				commandList->IASetIndexBuffer(&bathModel.mesh->indexBufferView);
+				commandList->DrawIndexedInstanced(bathModel.mesh->indexCount, 1u, 0u, 0, 0u);
 			}
 		}
 

@@ -2,32 +2,32 @@
 #include <d3d12.h>
 #include "HresultException.h"
 
-class D3D12CommandQueuePointer
+class D3D12CommandQueue
 {
 	ID3D12CommandQueue* data;
 public:
-	D3D12CommandQueuePointer(ID3D12Device* const device, const D3D12_COMMAND_QUEUE_DESC& desc) : data(nullptr)
+	D3D12CommandQueue(ID3D12Device* const device, const D3D12_COMMAND_QUEUE_DESC& desc) : data(nullptr)
 	{
 		HRESULT hr = device->CreateCommandQueue(&desc, IID_PPV_ARGS(&data));
 		if (FAILED(hr)) throw HresultException(hr);
 	}
-	D3D12CommandQueuePointer(D3D12CommandQueuePointer&& other) : data(other.data)
+	D3D12CommandQueue(D3D12CommandQueue&& other) : data(other.data)
 	{
 		other.data = nullptr;
 	}
 
-	D3D12CommandQueuePointer() : data(nullptr) {}
+	D3D12CommandQueue() : data(nullptr) {}
 
-	D3D12CommandQueuePointer(const D3D12CommandQueuePointer& other) = delete;
+	D3D12CommandQueue(const D3D12CommandQueue& other) = delete;
 
-	void operator=(D3D12CommandQueuePointer&& other)
+	void operator=(D3D12CommandQueue&& other)
 	{
 		if (data) data->Release();
 		data = other.data;
 		other.data = nullptr;
 	}
 
-	void operator=(const D3D12CommandQueuePointer& other) = delete;
+	void operator=(const D3D12CommandQueue& other) = delete;
 
 	void operator=(nullptr_t)
 	{
@@ -55,7 +55,7 @@ public:
 		return data;
 	}
 
-	~D3D12CommandQueuePointer()
+	~D3D12CommandQueue()
 	{
 		if (data) data->Release();
 	}

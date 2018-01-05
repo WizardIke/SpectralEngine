@@ -45,32 +45,32 @@ void StreamingManagerThreadLocal::addUploadToBuffer(BaseExecutor* const executor
 	while (readPos != uploadRequestBufferWritePos)
 	{
 		auto& uploadRequest = uploadRequestBuffer[readPos];
-		auto numSubresources = uploadRequest.numSubresources;
-		while (uploadRequest.currentSubresourceIndex < numSubresources)
+		while (uploadRequest.currentArrayIndex < uploadRequest.arraySize)
 		{
 			auto startWritePos = uploadBufferWritePos;
 
-			size_t subresouceWidth = uploadRequest.width >> uploadRequest.currentSubresourceIndex;
+			size_t subresouceWidth = uploadRequest.width >> uploadRequest.currentMipLevel;
 			if (subresouceWidth == 0u) subresouceWidth = 1u;
-			size_t subresourceHeight = uploadRequest.height >> uploadRequest.currentSubresourceIndex;
-			if (subresourceHeight == 0u) subresourceHeight = 1u;
-			size_t subresourceDepth = uploadRequest.depth >> uploadRequest.currentSubresourceIndex;
-			if (subresourceDepth == 0u) subresourceDepth = 1u;
 
 			size_t subresourceSize;
-			if (uploadRequest.format != DXGI_FORMAT_UNKNOWN)
+			if (uploadRequest.dimension != D3D12_RESOURCE_DIMENSION::D3D12_RESOURCE_DIMENSION_BUFFER)
 			{
+				size_t subresourceHeight = uploadRequest.height >> uploadRequest.currentMipLevel;
+				if (subresourceHeight == 0u) subresourceHeight = 1u;
+				size_t subresourceDepth = uploadRequest.depth >> uploadRequest.currentMipLevel;
+				if (subresourceDepth == 0u) subresourceDepth = 1u;
+
 				size_t numBytes, numRows, rowBytes;
 				DDSFileLoader::getSurfaceInfo(subresouceWidth, subresourceHeight, uploadRequest.format, numBytes, rowBytes, numRows);
 				subresourceSize = numBytes * subresourceDepth;
 			}
-			else //we have a buffer
+			else
 			{
 				subresourceSize = subresouceWidth;
 			}
 
-
-			unsigned long newUploadBufferWritePos = (uploadBufferWritePos + (unsigned long)D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT - (unsigned long)1u) & ~((unsigned long)D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT - (unsigned long)1u);
+			unsigned long newUploadBufferWritePos = (uploadBufferWritePos + (unsigned long)D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT - (unsigned long)1u) & 
+				~((unsigned long)D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT - (unsigned long)1u);
 
 			unsigned long requiredWriteIndex = newUploadBufferWritePos + static_cast<unsigned long>(subresourceSize);
 			if ((newUploadBufferWritePos < uploadBufferReadPos && requiredWriteIndex < uploadBufferReadPos) ||
@@ -86,10 +86,15 @@ void StreamingManagerThreadLocal::addUploadToBuffer(BaseExecutor* const executor
 				uploadRequest.useSubresource(executor, reinterpret_cast<void*>(uploadBufferCpuAddress + newUploadBufferWritePos), uploadBuffer, newUploadBufferWritePos);
 				uploadBufferWritePos = requiredWriteIndex;
 
-				++(uploadRequest.currentSubresourceIndex);
+				++(uploadRequest.currentMipLevel);
+				if (uploadRequest.currentMipLevel == uploadRequest.mipLevels)
+				{
+					uploadRequest.currentMipLevel = uploadRequest.mostDetailedMip;
+					++uploadRequest.currentArrayIndex;
+				}
 				//create event to free memory when gpu finishes
 				currentHalfFinishedUploadRequestBuffer->push_back(HalfFinishedUploadRequest{ requiredWriteIndex - startWritePos, uploadRequest.requester,
-					uploadRequest.currentSubresourceIndex == uploadRequest.numSubresources ? uploadRequest.resourceUploadedPointer : nullptr });
+					uploadRequest.currentArrayIndex == uploadRequest.arraySize ? uploadRequest.resourceUploadedPointer : nullptr });
 			}
 			else
 			{
@@ -262,6 +267,5 @@ RamToVramUploadRequest& StreamingManagerThreadLocal::getUploadRequest()
 	{
 		resizeBuffer(uploadRequestBuffer, uploadRequestBufferReadPos, uploadRequestBufferWritePos, uploadRequestBufferCapacity);
 	}
-	returnValue.currentSubresourceIndex = 0u;
 	return returnValue;
 }

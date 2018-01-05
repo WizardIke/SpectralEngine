@@ -14,9 +14,13 @@
 class StreamingManager
 {
 	friend class StreamingManagerThreadLocal;
-	D3D12CommandQueuePointer copyCommandQueue;
+	D3D12CommandQueue copyCommandQueue;
 public:
 	StreamingManager(ID3D12Device* const graphicsDevice);
+	ID3D12CommandQueue* commandQueue()
+	{
+		return copyCommandQueue;
+	}
 };
 
 class StreamingManagerThreadLocal

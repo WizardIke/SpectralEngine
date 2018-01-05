@@ -12,7 +12,7 @@
 #include "StreamingManager.h"
 #include "VRamFreeingManager.h"
 #include "Job.h"
-#include "MeshAllocator.h"
+#include "FixedSizeAllocator.h"
 #include <random>
 #include <memory>
 #include <mutex>
@@ -42,7 +42,7 @@ public:
 	SharedResources* sharedResources;//shared
 	VRamFreeingManager vRamFreeingManager;
 	std::default_random_engine randomNumberGenerator;
-	FixedSizeAllocator meshAllocator;
+	FixedSizeAllocator<Mesh> meshAllocator;
 
 	void run();
 

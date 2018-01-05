@@ -85,6 +85,7 @@ public:
 	RootSignatures rootSignatures;
 	PipelineStateObjects pipelineStateObjects; //Immutable
 	D3D12Resource sharedConstantBuffer;
+	uint8_t* constantBuffersCpuAddress;
 	RenderPass1 renderPass;
 	Font arial; //Immutable
 	UserInterface userInterface;

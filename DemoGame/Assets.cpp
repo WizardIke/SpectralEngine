@@ -1,9 +1,10 @@
 #include "Assets.h"
 #include "TextureNames.h"
 
-static void loadingResourceCallback(void* data, BaseExecutor* exe)
+static void loadingResourceCallback(void* data, BaseExecutor* exe, unsigned int textureID)
 {
 	const auto assets = reinterpret_cast<Assets*>(data);
+	assets->arial.setDiffuseTexture(textureID, assets->constantBuffersCpuAddress, assets->sharedConstantBuffer->GetGPUVirtualAddress());
 	assets->start(exe);
 }
 
@@ -72,15 +73,14 @@ Assets::Assets() :
 		new(&element) PrimaryExecutor(this);
 	})
 {
-
-	uint8_t* constantBuffersCpuAddress;
 	D3D12_RANGE readRange{ 0u, 0u };
 	HRESULT hr = sharedConstantBuffer->Map(0u, &readRange, reinterpret_cast<void**>(&constantBuffersCpuAddress));
 	if (FAILED(hr)) throw HresultException(hr);
+	uint8_t* cpuConstantBuffer = constantBuffersCpuAddress;
 	auto constantBuffersGpuAddress = sharedConstantBuffer->GetGPUVirtualAddress();
 
-	new(&arial) Font(constantBuffersGpuAddress, constantBuffersCpuAddress, L"Arial.fnt", TextureNames::Arial, &mainExecutor, this, loadingResourceCallback);
-	new(&mainCamera) MainCamera(this, window.width(), window.height(), constantBuffersGpuAddress, constantBuffersCpuAddress, 0.25f * 3.141f, playerPosition.location);
+	new(&arial) Font(constantBuffersGpuAddress, cpuConstantBuffer, L"Arial.fnt", TextureNames::Arial, &mainExecutor, this, loadingResourceCallback);
+	new(&mainCamera) MainCamera(this, window.width(), window.height(), constantBuffersGpuAddress, cpuConstantBuffer, 0.25f * 3.141f, playerPosition.location);
 
 	renderPass.colorSubPass().addCamera(&mainExecutor, renderPass, &mainCamera);
 

@@ -16,26 +16,26 @@
 namespace DDSFileLoader
 {
 	constexpr static uint32_t DDS_MAGIC = 0x20534444;
-	constexpr static unsigned int DDS_FOURCC = 0x00000004;  // DDPF_FOURCC
-	constexpr static unsigned int DDS_RGB   =      0x00000040;  // DDPF_RGB
-	constexpr static unsigned int DDS_LUMINANCE =  0x00020000;  // DDPF_LUMINANCE
-	constexpr static unsigned int DDS_ALPHA    =   0x00000002;  // DDPF_ALPHA
+	constexpr static uint32_t DDS_FOURCC = 0x00000004;  // DDPF_FOURCC
+	constexpr static uint32_t DDS_RGB   =      0x00000040;  // DDPF_RGB
+	constexpr static uint32_t DDS_LUMINANCE =  0x00020000;  // DDPF_LUMINANCE
+	constexpr static uint32_t DDS_ALPHA    =   0x00000002;  // DDPF_ALPHA
 
-	constexpr static unsigned int DDS_HEADER_FLAGS_VOLUME = 0x00800000;  // DDSD_DEPTH
+	constexpr static uint32_t DDS_HEADER_FLAGS_VOLUME = 0x00800000;  // DDSD_DEPTH
 
-	constexpr static unsigned int DDS_HEIGHT = 0x00000002; // DDSD_HEIGHT
-	constexpr static unsigned int DDS_WIDTH = 0x00000004; // DDSD_WIDTH
+	constexpr static uint32_t DDS_HEIGHT = 0x00000002; // DDSD_HEIGHT
+	constexpr static uint32_t DDS_WIDTH = 0x00000004; // DDSD_WIDTH
 
-	constexpr static unsigned int DDS_CUBEMAP_POSITIVEX = 0x00000600; // DDSCAPS2_CUBEMAP | DDSCAPS2_CUBEMAP_POSITIVEX
-	constexpr static unsigned int DDS_CUBEMAP_NEGATIVEX = 0x00000a00; // DDSCAPS2_CUBEMAP | DDSCAPS2_CUBEMAP_NEGATIVEX
-	constexpr static unsigned int DDS_CUBEMAP_POSITIVEY = 0x00001200; // DDSCAPS2_CUBEMAP | DDSCAPS2_CUBEMAP_POSITIVEY
-	constexpr static unsigned int DDS_CUBEMAP_NEGATIVEY = 0x00002200; // DDSCAPS2_CUBEMAP | DDSCAPS2_CUBEMAP_NEGATIVEY
-	constexpr static unsigned int DDS_CUBEMAP_POSITIVEZ = 0x00004200; // DDSCAPS2_CUBEMAP | DDSCAPS2_CUBEMAP_POSITIVEZ
-	constexpr static unsigned int DDS_CUBEMAP_NEGATIVEZ = 0x00008200; // DDSCAPS2_CUBEMAP | DDSCAPS2_CUBEMAP_NEGATIVEZ
+	constexpr static uint32_t DDS_CUBEMAP_POSITIVEX = 0x00000600; // DDSCAPS2_CUBEMAP | DDSCAPS2_CUBEMAP_POSITIVEX
+	constexpr static uint32_t DDS_CUBEMAP_NEGATIVEX = 0x00000a00; // DDSCAPS2_CUBEMAP | DDSCAPS2_CUBEMAP_NEGATIVEX
+	constexpr static uint32_t DDS_CUBEMAP_POSITIVEY = 0x00001200; // DDSCAPS2_CUBEMAP | DDSCAPS2_CUBEMAP_POSITIVEY
+	constexpr static uint32_t DDS_CUBEMAP_NEGATIVEY = 0x00002200; // DDSCAPS2_CUBEMAP | DDSCAPS2_CUBEMAP_NEGATIVEY
+	constexpr static uint32_t DDS_CUBEMAP_POSITIVEZ = 0x00004200; // DDSCAPS2_CUBEMAP | DDSCAPS2_CUBEMAP_POSITIVEZ
+	constexpr static uint32_t DDS_CUBEMAP_NEGATIVEZ = 0x00008200; // DDSCAPS2_CUBEMAP | DDSCAPS2_CUBEMAP_NEGATIVEZ
 
-	constexpr static unsigned int DDS_CUBEMAP_ALLFACES = (DDS_CUBEMAP_POSITIVEX | DDS_CUBEMAP_NEGATIVEX | DDS_CUBEMAP_POSITIVEY | DDS_CUBEMAP_NEGATIVEY | DDS_CUBEMAP_POSITIVEZ | DDS_CUBEMAP_NEGATIVEZ);
+	constexpr static uint32_t DDS_CUBEMAP_ALLFACES = (DDS_CUBEMAP_POSITIVEX | DDS_CUBEMAP_NEGATIVEX | DDS_CUBEMAP_POSITIVEY | DDS_CUBEMAP_NEGATIVEY | DDS_CUBEMAP_POSITIVEZ | DDS_CUBEMAP_NEGATIVEZ);
 
-	constexpr static unsigned int DDS_CUBEMAP = 0x00000200; // DDSCAPS2_CUBEMAP
+	constexpr static uint32_t DDS_CUBEMAP = 0x00000200; // DDSCAPS2_CUBEMAP
 
 #ifndef MAKEFOURCC
 #define MAKEFOURCC(ch0, ch1, ch2, ch3)                              \
@@ -57,6 +57,7 @@ namespace DDSFileLoader
 
 	struct DDS_HEADER
 	{
+		uint32_t ddsMagicNumber;
 		uint32_t        size;
 		uint32_t        flags;
 		uint32_t        height;
@@ -76,13 +77,13 @@ namespace DDSFileLoader
 	struct DDS_HEADER_DXT10
 	{
 		DXGI_FORMAT     dxgiFormat;
-		uint32_t        resourceDimension;
+		uint32_t        dimension;
 		uint32_t        miscFlag; // see D3D11_RESOURCE_MISC_FLAG
 		uint32_t        arraySize;
 		uint32_t        miscFlags2;
 	};
 
-	static size_t BitsPerPixel(DXGI_FORMAT fmt)
+	static size_t bitsPerPixel(DXGI_FORMAT fmt)
 	{
 		switch (fmt)
 		{
@@ -228,9 +229,11 @@ namespace DDSFileLoader
 		}
 	}
 
-#define ISBITMASK( r,g,b,a ) ( ddpf.RBitMask == r && ddpf.GBitMask == g && ddpf.BBitMask == b && ddpf.ABitMask == a )
-	static DXGI_FORMAT GetDXGIFormat(const DDS_PIXELFORMAT& ddpf)
+
+
+	static DXGI_FORMAT getDXGIFormat(const DDS_PIXELFORMAT& ddpf)
 	{
+#define ISBITMASK( r,g,b,a ) ( ddpf.RBitMask == r && ddpf.GBitMask == g && ddpf.BBitMask == b && ddpf.ABitMask == a )
 		if (ddpf.flags & DDS_RGB)
 		{
 			// Note that sRGB formats are written using the "DX10" extended header
@@ -437,9 +440,11 @@ namespace DDSFileLoader
 		}
 
 		return DXGI_FORMAT_UNKNOWN;
+
+#undef ISBITMASK
 	}
 
-	static DXGI_FORMAT MakeSRGB(DXGI_FORMAT format)
+	static DXGI_FORMAT makeSRGB(DXGI_FORMAT format)
 	{
 		switch (format)
 		{
@@ -569,7 +574,7 @@ namespace DDSFileLoader
 		}
 		else
 		{
-			size_t bpp = BitsPerPixel(fmt);
+			size_t bpp = bitsPerPixel(fmt);
 			rowBytes = (width * bpp + 7) / 8; // round up to nearest byte
 			outNumRows = height;
 			outNumBytes = rowBytes * height;
@@ -578,8 +583,9 @@ namespace DDSFileLoader
 		outRowBytes = rowBytes;
 	}
 
-	void GetDDSTextureInfoFromFile(D3D12_RESOURCE_DESC& textureDesc, ScopedFile& textureFile, D3D12_SHADER_RESOURCE_VIEW_DESC& textureView, bool forceSRGB)
+	TextureInfo getDDSTextureInfoFromFile(ScopedFile& textureFile)
 	{
+		TextureInfo textureInfo;
 		LARGE_INTEGER FileSize = { 0 };
 #if (_WIN32_WINNT >= _WIN32_WINNT_VISTA)
 		FILE_STANDARD_INFO fileInfo;
@@ -591,49 +597,32 @@ namespace DDSFileLoader
 #else
 		GetFileSizeEx(TextureFile.file, &FileSize);
 #endif
-		if (FileSize.QuadPart < (sizeof(DDS_HEADER) + sizeof(uint32_t)))
+		if (FileSize.QuadPart < (sizeof(DDS_HEADER)))
 		{
 			throw EndOfFileException();
-		}
-
-		uint32_t ddsMagicNumber;
-		textureFile.read(ddsMagicNumber);
-
-		if (ddsMagicNumber != DDS_MAGIC)
-		{
-			throw FormatNotSupportedException();
 		}
 
 		DDS_HEADER ddsHeader;
 		textureFile.read(ddsHeader);
 
-		if (ddsHeader.size != sizeof(DDS_HEADER) ||
+		if (ddsHeader.ddsMagicNumber != DDS_MAGIC || ddsHeader.size != (sizeof(DDS_HEADER) - 4u) ||
 			ddsHeader.ddspf.size != sizeof(DDS_PIXELFORMAT))
 		{
 			throw FormatNotSupportedException();
 		}
 
-		bool dxt10Header = false;
-		if ((ddsHeader.ddspf.flags & DDS_FOURCC) &&
-			(MAKEFOURCC('D', 'X', '1', '0') == ddsHeader.ddspf.fourCC))
+		uint32_t dimension = D3D12_RESOURCE_DIMENSION_UNKNOWN;
+		uint32_t arraySize = 1;
+		DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN;
+
+		if ((ddsHeader.ddspf.flags & DDS_FOURCC) && (MAKEFOURCC('D', 'X', '1', '0') == ddsHeader.ddspf.fourCC))
 		{
-			// Must be long enough for both headers and magic value
-			if (FileSize.QuadPart < (sizeof(DDS_HEADER) + sizeof(uint32_t) + sizeof(DDS_HEADER_DXT10)))
+			// Must be long enough for both headers
+			if (FileSize.QuadPart < (sizeof(DDS_HEADER) + sizeof(DDS_HEADER_DXT10)))
 			{
 				throw EndOfFileException();
 			}
-			dxt10Header = true;
-		}
 
-		uint32_t resourceDimension = D3D12_RESOURCE_DIMENSION_UNKNOWN;
-		UINT arraySize = 1;
-		DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN;
-		bool isCubeMap = false;
-
-		if (ddsHeader.mipMapCount == 0u) ddsHeader.mipMapCount = 1u;
-
-		if (dxt10Header)
-		{
 			DDS_HEADER_DXT10 d3d10ext;
 			textureFile.read(d3d10ext);
 
@@ -654,15 +643,15 @@ namespace DDSFileLoader
 				throw FormatNotSupportedException();
 
 			default:
-				if (BitsPerPixel(format) == 0u)
+				if (bitsPerPixel(format) == 0u)
 				{
 					throw InvalidHeaderInfoException();
 				}
 			}
 
-			resourceDimension = d3d10ext.resourceDimension;
+			dimension = d3d10ext.dimension;
 
-			switch (resourceDimension)
+			switch (dimension)
 			{
 			case D3D12_RESOURCE_DIMENSION_TEXTURE1D:
 				// D3DX writes 1D textures with a fixed Height of 1
@@ -670,7 +659,157 @@ namespace DDSFileLoader
 				{
 					throw InvalidHeaderInfoException();
 				}
-				ddsHeader.height = ddsHeader.depth = 1;
+				ddsHeader.height = 1;
+				ddsHeader.depth = 1;
+				break;
+
+			case D3D12_RESOURCE_DIMENSION_TEXTURE2D:
+				if (d3d10ext.miscFlag & 0x4L) //D3D11_RESOURCE_MISC_TEXTURECUBE = 0x4L
+				{
+					arraySize *= 6;
+				}
+				ddsHeader.depth = 1;
+				break;
+
+			case D3D12_RESOURCE_DIMENSION_TEXTURE3D:
+				if (!(ddsHeader.flags & DDS_HEADER_FLAGS_VOLUME))
+				{
+					throw InvalidHeaderInfoException();
+				}
+
+				if (arraySize > 1)
+				{
+					throw FormatNotSupportedException();
+				}
+				break;
+
+			default:
+				throw FormatNotSupportedException();
+			}
+		}
+		else
+		{
+			format = getDXGIFormat(ddsHeader.ddspf);
+
+			if (format == DXGI_FORMAT_UNKNOWN)
+			{
+				throw FormatNotSupportedException();
+			}
+
+			if (ddsHeader.flags & DDS_HEADER_FLAGS_VOLUME)
+			{
+				dimension = D3D12_RESOURCE_DIMENSION_TEXTURE3D;
+			}
+			else
+			{
+				if (ddsHeader.caps2 & DDS_CUBEMAP)
+				{
+					// We require all six faces to be defined
+					if ((ddsHeader.caps2 & DDS_CUBEMAP_ALLFACES) != DDS_CUBEMAP_ALLFACES)
+					{
+						throw InvalidHeaderInfoException();
+					}
+
+					arraySize = 6;
+				}
+
+				ddsHeader.depth = 1;
+				dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+
+				// Note there's no way for a legacy Direct3D 9 DDS to express a '1D' texture
+			}
+
+			assert(bitsPerPixel(format) != 0);
+		}
+
+		textureInfo.format = format;
+		textureInfo.dimension = static_cast<D3D12_RESOURCE_DIMENSION>(dimension);
+		textureInfo.width = ddsHeader.width;
+		textureInfo.height = ddsHeader.height;
+		textureInfo.depthOrArraySize = arraySize;
+		textureInfo.mipLevels = ddsHeader.mipMapCount == 0u ? 1u : ddsHeader.mipMapCount;
+		return textureInfo;
+	}
+
+	void getDDSTextureInfoFromFile(D3D12_RESOURCE_DESC& textureDesc, ScopedFile& textureFile, D3D12_SHADER_RESOURCE_VIEW_DESC& textureView, bool forceSRGB)
+	{
+		LARGE_INTEGER FileSize = { 0 };
+#if (_WIN32_WINNT >= _WIN32_WINNT_VISTA)
+		FILE_STANDARD_INFO fileInfo;
+		if (!GetFileInformationByHandleEx(textureFile.file, FileStandardInfo, &fileInfo, sizeof(fileInfo)))
+		{
+			throw HresultException(HRESULT_FROM_WIN32(GetLastError()));
+		}
+		FileSize = fileInfo.EndOfFile;
+#else
+		GetFileSizeEx(TextureFile.file, &FileSize);
+#endif
+		if (FileSize.QuadPart < (sizeof(DDS_HEADER)))
+		{
+			throw EndOfFileException();
+		}
+
+		DDS_HEADER ddsHeader;
+		textureFile.read(ddsHeader);
+
+		if (ddsHeader.ddsMagicNumber != DDS_MAGIC || ddsHeader.size != sizeof(DDS_HEADER) ||
+			ddsHeader.ddspf.size != sizeof(DDS_PIXELFORMAT))
+		{
+			throw FormatNotSupportedException();
+		}
+
+		uint32_t dimension;
+		uint32_t arraySize = 1;
+		DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN;
+		bool isCubeMap = false;
+		if (ddsHeader.mipMapCount == 0u) ddsHeader.mipMapCount = 1u;
+
+		if ((ddsHeader.ddspf.flags & DDS_FOURCC) && (MAKEFOURCC('D', 'X', '1', '0') == ddsHeader.ddspf.fourCC))
+		{
+			// Must be long enough for both headers
+			if (FileSize.QuadPart < (sizeof(DDS_HEADER) + sizeof(DDS_HEADER_DXT10)))
+			{
+				throw EndOfFileException();
+			}
+
+			DDS_HEADER_DXT10 d3d10ext;
+			textureFile.read(d3d10ext);
+
+			arraySize = d3d10ext.arraySize;
+			if (arraySize == 0u)
+			{
+				throw FormatNotSupportedException();
+			}
+
+			format = d3d10ext.dxgiFormat;
+
+			switch (format)
+			{
+			case DXGI_FORMAT_AI44:
+			case DXGI_FORMAT_IA44:
+			case DXGI_FORMAT_P8:
+			case DXGI_FORMAT_A8P8:
+				throw FormatNotSupportedException();
+
+			default:
+				if (bitsPerPixel(format) == 0u)
+				{
+					throw InvalidHeaderInfoException();
+				}
+			}
+
+			dimension = d3d10ext.dimension;
+
+			switch (dimension)
+			{
+			case D3D12_RESOURCE_DIMENSION_TEXTURE1D:
+				// D3DX writes 1D textures with a fixed Height of 1
+				if ((ddsHeader.flags & DDS_HEIGHT) && ddsHeader.height != 1u)
+				{
+					throw InvalidHeaderInfoException();
+				}
+				ddsHeader.height = 1;
+				ddsHeader.depth = 1;
 				break;
 
 			case D3D12_RESOURCE_DIMENSION_TEXTURE2D:
@@ -700,7 +839,7 @@ namespace DDSFileLoader
 		}
 		else
 		{
-			format = GetDXGIFormat(ddsHeader.ddspf);
+			format = getDXGIFormat(ddsHeader.ddspf);
 
 			if (format == DXGI_FORMAT_UNKNOWN)
 			{
@@ -709,7 +848,7 @@ namespace DDSFileLoader
 
 			if (ddsHeader.flags & DDS_HEADER_FLAGS_VOLUME)
 			{
-				resourceDimension = D3D12_RESOURCE_DIMENSION_TEXTURE3D;
+				dimension = D3D12_RESOURCE_DIMENSION_TEXTURE3D;
 			}
 			else
 			{
@@ -726,15 +865,15 @@ namespace DDSFileLoader
 				}
 
 				ddsHeader.depth = 1;
-				resourceDimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+				dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
 
 				// Note there's no way for a legacy Direct3D 9 DDS to express a '1D' texture
 			}
 
-			assert(BitsPerPixel(format) != 0);
+			assert(bitsPerPixel(format) != 0);
 		}
 
-		if (forceSRGB) { format = MakeSRGB(format); }
+		if (forceSRGB) { format = makeSRGB(format); }
 
 		textureDesc.Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
 		textureDesc.Format = format;
@@ -752,7 +891,7 @@ namespace DDSFileLoader
 			throw SecurityException();
 		}
 
-		switch (resourceDimension)
+		switch (dimension)
 		{
 		case D3D12_RESOURCE_DIMENSION_TEXTURE1D:
 			if ((arraySize > D3D12_REQ_TEXTURE1D_ARRAY_AXIS_DIMENSION) ||
@@ -1067,15 +1206,15 @@ namespace DDSFileLoader
 		Device->CreateShaderResourceView(DefaultTexture, &TextureSRVDesc, TextureDecriptorHandle);
 	}
 
-	void LoadDDsSubresourceFromFile(ID3D12Device* const Device, uint32_t textureWidth, uint32_t textureHeight, uint32_t textureDepth, DXGI_FORMAT format, ScopedFile TextureFile, void* const UploadBuffer, ID3D12Resource* const destResource,
-		ID3D12GraphicsCommandList* const CopyCommandList, const uint32_t SubresourceIndex, ID3D12Resource* uploadResource, uint64_t uploadResourceOffset)
+	void loadSubresourceFromFile(ID3D12Device* const graphicsDevice, uint64_t textureWidth, uint32_t textureHeight, uint32_t textureDepth, DXGI_FORMAT format, uint16_t arrayIndex, uint16_t mipLevel, uint16_t mipLevels,
+		ScopedFile TextureFile, void* const UploadBuffer, ID3D12Resource* const destResource, ID3D12GraphicsCommandList* const CopyCommandList, ID3D12Resource* uploadResource, uint64_t uploadResourceOffset)
 	{
 		size_t sourceSlicePitch, sourceRowPitch, numRows;
-		uint32_t subresouceWidth = textureWidth >> SubresourceIndex;
+		uint32_t subresouceWidth = (uint32_t)(textureWidth >> mipLevel);
 		if (subresouceWidth == 0u) subresouceWidth = 1u;
-		uint32_t subresourceHeight = textureHeight >> SubresourceIndex;
+		uint32_t subresourceHeight = textureHeight >> mipLevel;
 		if (subresourceHeight == 0u) subresourceHeight = 1u;
-		uint32_t subresourceDepth = textureDepth >> SubresourceIndex;
+		uint32_t subresourceDepth = textureDepth >> mipLevel;
 		if (subresourceHeight == 0u) subresourceHeight = 1u;
 		getSurfaceInfo(subresouceWidth, subresourceHeight, format, sourceSlicePitch, sourceRowPitch, numRows);
 		size_t destRowPitch = (sourceRowPitch + (size_t)D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - (size_t)1u) & ~((size_t)D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - (size_t)1u);//sourceRowPitch is 4 byte aligned but destRowPitch is D3D12_TEXTURE_DATA_PITCH_ALIGNMENT byte aligned
@@ -1106,7 +1245,7 @@ namespace DDSFileLoader
 		D3D12_TEXTURE_COPY_LOCATION destination;
 		destination.pResource = destResource;
 		destination.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
-		destination.SubresourceIndex = SubresourceIndex;
+		destination.SubresourceIndex = arrayIndex * mipLevels + mipLevel;
 		destination.PlacedFootprint.Offset = 0u;
 		destination.PlacedFootprint.Footprint.Depth = subresourceDepth;
 		destination.PlacedFootprint.Footprint.Format = format;
@@ -1118,9 +1257,12 @@ namespace DDSFileLoader
 		UploadBufferLocation.pResource = uploadResource;
 		UploadBufferLocation.SubresourceIndex = 0u;
 		UploadBufferLocation.Type = D3D12_TEXTURE_COPY_TYPE::D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
-
-		UploadBufferLocation.PlacedFootprint = destination.PlacedFootprint;
 		UploadBufferLocation.PlacedFootprint.Offset = uploadResourceOffset;
+		UploadBufferLocation.PlacedFootprint.Footprint.Depth = subresourceDepth;
+		UploadBufferLocation.PlacedFootprint.Footprint.Format = format;
+		UploadBufferLocation.PlacedFootprint.Footprint.Height = subresourceHeight;
+		UploadBufferLocation.PlacedFootprint.Footprint.Width = subresouceWidth;
+		UploadBufferLocation.PlacedFootprint.Footprint.RowPitch = static_cast<uint32_t>(destRowPitch);
 
 		CopyCommandList->CopyTextureRegion(&destination, 0u, 0u, 0u, &UploadBufferLocation, nullptr);
 	}

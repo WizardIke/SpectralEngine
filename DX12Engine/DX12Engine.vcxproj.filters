@@ -58,9 +58,6 @@
     <Filter Include="Math\Quaternion">
       <UniqueIdentifier>{6f88a44a-824c-4bf7-bb69-33246fe97002}</UniqueIdentifier>
     </Filter>
-    <Filter Include="MeshAllocator">
-      <UniqueIdentifier>{11be4145-c9ac-4f40-bbdc-a937510c6f0e}</UniqueIdentifier>
-    </Filter>
     <Filter Include="MeshManager">
       <UniqueIdentifier>{70f7c9e7-5c0b-417f-b69f-addc45c9ee76}</UniqueIdentifier>
     </Filter>
@@ -117,6 +114,9 @@
     </Filter>
     <Filter Include="Shaders\Vertex">
       <UniqueIdentifier>{e9159c27-8f8f-4c7f-8d08-3fd508348cbc}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="VirtualTextureManager">
+      <UniqueIdentifier>{77aead6d-49a8-4111-8626-864b5ee68e44}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -303,9 +303,6 @@
     <ClInclude Include="Mesh.h">
       <Filter>MeshManager</Filter>
     </ClInclude>
-    <ClInclude Include="MeshAllocator.h">
-      <Filter>MeshAllocator</Filter>
-    </ClInclude>
     <ClInclude Include="MainCamera.h">
       <Filter>Camera</Filter>
     </ClInclude>
@@ -372,6 +369,19 @@
     <ClInclude Include="D3DBlob.h">
       <Filter>D3D12</Filter>
     </ClInclude>
+    <ClInclude Include="D3D12RootSignature.h">
+      <Filter>D3D12</Filter>
+    </ClInclude>
+    <ClInclude Include="VirtualTextureManager.h">
+      <Filter>VirtualTextureManager</Filter>
+    </ClInclude>
+    <ClInclude Include="PageProvider.h">
+      <Filter>VirtualTextureManager</Filter>
+    </ClInclude>
+    <ClInclude Include="TextureResitency.h">
+      <Filter>VirtualTextureManager</Filter>
+    </ClInclude>
+    <ClInclude Include="FixedSizeAllocator.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="SharedResources.cpp">
@@ -425,9 +435,6 @@
     <ClCompile Include="MeshManager.cpp">
       <Filter>MeshManager</Filter>
     </ClCompile>
-    <ClCompile Include="MeshAllocator.cpp">
-      <Filter>MeshAllocator</Filter>
-    </ClCompile>
     <ClCompile Include="MainCamera.cpp">
       <Filter>Camera</Filter>
     </ClCompile>
@@ -437,6 +444,12 @@
     <ClCompile Include="AABBSweepTest.cpp" />
     <ClCompile Include="Camera.cpp">
       <Filter>Camera</Filter>
+    </ClCompile>
+    <ClCompile Include="VirtualTextureManager.cpp">
+      <Filter>VirtualTextureManager</Filter>
+    </ClCompile>
+    <ClCompile Include="PageProvider.cpp">
+      <Filter>VirtualTextureManager</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

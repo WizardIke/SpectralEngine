@@ -168,10 +168,12 @@
     <ClInclude Include="BaseZone.h" />
     <ClInclude Include="Camera.h" />
     <ClInclude Include="D3D12PipelineState.h" />
+    <ClInclude Include="D3D12RootSignature.h" />
     <ClInclude Include="D3DBlob.h" />
     <ClInclude Include="for_each.h" />
     <ClInclude Include="frameBufferCount.h" />
     <ClInclude Include="Iterable.h" />
+    <ClInclude Include="PageProvider.h" />
     <ClInclude Include="RenderSubPass.h" />
     <ClInclude Include="RenderPass.h" />
     <ClInclude Include="CriticalSection.h" />
@@ -190,7 +192,7 @@
     <ClInclude Include="EndOfFileException.h" />
     <ClInclude Include="EulerRotation.h" />
     <ClInclude Include="Mesh.h" />
-    <ClInclude Include="MeshAllocator.h" />
+    <ClInclude Include="FixedSizeAllocator.h" />
     <ClInclude Include="MeshManager.h" />
     <ClInclude Include="Shaders\CameraConstantBuffer.h" />
     <ClInclude Include="Shaders\FireMaterialPS.h" />
@@ -201,8 +203,10 @@
     <ClInclude Include="Shaders\WaterMaterialVS.h" />
     <ClInclude Include="StreamingManager.h" />
     <ClInclude Include="TemplateFloat.h" />
+    <ClInclude Include="TextureResitency.h" />
     <ClInclude Include="Vector2.h" />
     <ClInclude Include="Vector4.h" />
+    <ClInclude Include="VirtualTextureManager.h" />
     <ClInclude Include="Win32Event.h" />
     <ClInclude Include="Exception.h" />
     <ClInclude Include="FileNotFoundException.h" />
@@ -260,8 +264,8 @@
     <ClCompile Include="MainCamera.cpp" />
     <ClCompile Include="EulerRotation.cpp" />
     <ClCompile Include="Font.cpp" />
-    <ClCompile Include="MeshAllocator.cpp" />
     <ClCompile Include="MeshManager.cpp" />
+    <ClCompile Include="PageProvider.cpp" />
     <ClCompile Include="Quaternion.cpp" />
     <ClCompile Include="SharedResources.cpp" />
     <ClCompile Include="DDSFileLoader.cpp" />
@@ -272,6 +276,7 @@
     <ClCompile Include="StreamingManager.cpp" />
     <ClCompile Include="TextureManager.cpp" />
     <ClCompile Include="Timer.cpp" />
+    <ClCompile Include="VirtualTextureManager.cpp" />
     <ClCompile Include="VRamFreeingManager.cpp" />
     <ClCompile Include="Window.cpp" />
   </ItemGroup>

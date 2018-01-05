@@ -26,14 +26,9 @@ FontChar* Font::getChar(const wchar_t c)
 }
 
 void Font::create(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, uint8_t*& constantBufferCpuAddress, const wchar_t* const filename, const wchar_t* const textureFile,
-	unsigned int textureIndex, unsigned int windowWidth, unsigned int windowHeight)
+	unsigned int windowWidth, unsigned int windowHeight)
 {
-	constexpr std::size_t psPerObjectConstantBufferSize = (sizeof(PSPerObjectConstantBuffer) + D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull) & ~(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull);
-	PSPerObjectConstantBuffer* psPerObjectCBVCpuAddress = reinterpret_cast<PSPerObjectConstantBuffer*>(constantBufferCpuAddress);
 	constantBufferCpuAddress += psPerObjectConstantBufferSize;
-
-	psPerObjectCBVCpuAddress->texture = textureIndex;
-
 	psPerObjectCBVGpuAddress = constantBufferGpuAddress;
 	constantBufferGpuAddress += psPerObjectConstantBufferSize;
 

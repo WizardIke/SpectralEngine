@@ -8,33 +8,39 @@
 
 class BathModel2
 {
-public:
 	struct VSPerObjectConstantBuffer
 	{
 		DirectX::XMMATRIX worldMatrix;
 	};
 
-	D3D12_GPU_VIRTUAL_ADDRESS vsPerObjectCBVGpuAddress;
-	D3D12_GPU_VIRTUAL_ADDRESS psPerObjectCBVGpuAddress;
-	
-
-	constexpr static unsigned int meshIndex = 0u;
 	constexpr static float positionX = 64.0f, positionY = 2.0f, positionZ = 64.0f;
+	constexpr static size_t psBufferSize = (sizeof(DirectionalLightMaterialPS) + D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT) & ~(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull);
+	constexpr static size_t vsBufferSize = (sizeof(VSPerObjectConstantBuffer) + D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT) & ~(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull);
+
+	D3D12_GPU_VIRTUAL_ADDRESS gpuBuffer;
+public:
+	D3D12_GPU_VIRTUAL_ADDRESS vsBufferGpu()
+	{
+		return gpuBuffer;
+	}
+
+	D3D12_GPU_VIRTUAL_ADDRESS psBufferGpu()
+	{
+		return gpuBuffer + vsBufferSize;
+	}
+
+	Mesh* mesh;
 
 	BathModel2() {}
-
-	BathModel2(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, uint8_t*& constantBufferCpuAddress, unsigned int baseColorTextureIndex)
+	BathModel2(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, uint8_t*& constantBufferCpuAddress)
 	{
-		vsPerObjectCBVGpuAddress = constantBufferGpuAddress;
-		psPerObjectCBVGpuAddress = (constantBufferGpuAddress + sizeof(VSPerObjectConstantBuffer) + D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull) & ~(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull);
-		constantBufferGpuAddress = (psPerObjectCBVGpuAddress + sizeof(DirectionalLightMaterialPS) + D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull) & ~(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull);
+		gpuBuffer = constantBufferGpuAddress;
+		constantBufferGpuAddress += psBufferSize + vsBufferSize;
 	
 		VSPerObjectConstantBuffer* vsPerObjectCBVCpuAddress = reinterpret_cast<VSPerObjectConstantBuffer*>(constantBufferCpuAddress);
-		constantBufferCpuAddress = reinterpret_cast<uint8_t*>((reinterpret_cast<size_t>(constantBufferCpuAddress) + sizeof(VSPerObjectConstantBuffer) + D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull)
-			& ~(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull));
+		constantBufferCpuAddress += vsBufferSize;
 		DirectionalLightMaterialPS* psPerObjectCBVCpuAddress = reinterpret_cast<DirectionalLightMaterialPS*>(constantBufferCpuAddress);
-		constantBufferCpuAddress = reinterpret_cast<uint8_t*>((reinterpret_cast<size_t>(constantBufferCpuAddress) + sizeof(DirectionalLightMaterialPS) + D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull)
-			& ~(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull));
+		constantBufferCpuAddress += psBufferSize;
 
 		vsPerObjectCBVCpuAddress->worldMatrix = {	1.f, 0.f, 0.f, 0.f,
 													0.f, 1.f, 0.f, 0.f,
@@ -43,12 +49,17 @@ public:
 
 		psPerObjectCBVCpuAddress->specularColor = DirectX::XMFLOAT3{ 0.1f, 0.1f, 0.1f};
 		psPerObjectCBVCpuAddress->specularPower = 4.0f;
-		psPerObjectCBVCpuAddress->baseColorTexture = baseColorTextureIndex;
 	}
 	~BathModel2() {}
 
 	bool isInView(const Frustum& Frustum)
 	{
 		return Frustum.checkCuboid2(positionX + 5.f, positionY + 1.f, positionZ + 5.f, positionX - 5.f, positionY - 1.f, positionZ - 5.f);
+	}
+
+	void setDiffuseTexture(uint32_t diffuseTexture, uint8_t* cpuStartAddress, D3D12_GPU_VIRTUAL_ADDRESS gpuStartAddress)
+	{
+		auto buffer = reinterpret_cast<DirectionalLightMaterialPS*>(cpuStartAddress + (gpuBuffer - gpuStartAddress + vsBufferSize));
+		buffer->baseColorTexture = diffuseTexture;
 	}
 };

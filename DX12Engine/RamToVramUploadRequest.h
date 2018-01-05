@@ -6,25 +6,24 @@ class BaseExecutor;
 class RamToVramUploadRequest
 {
 public:
-	size_t uploadSizeInBytes;
-	uint32_t width, height, depth;
-	DXGI_FORMAT format;
-	unsigned int currentSubresourceIndex;
-	unsigned int numSubresources;
 	ScopedFile file;
 	void* requester;
 	void(*useSubresourcePointer)(RamToVramUploadRequest* const request, BaseExecutor* executor, void* const uploadBufferCpuAddressOfCurrentPos, ID3D12Resource* uploadResource, uint64_t uploadResourceOffset);
 	void(*resourceUploadedPointer)(void* const requester, BaseExecutor* const executor);
 
+	DXGI_FORMAT format;
+	D3D12_RESOURCE_DIMENSION dimension;
+	uint64_t width;
+	uint32_t height;
+	uint16_t depth;
+	uint16_t arraySize;
+	uint16_t mipLevels;
+	uint16_t currentArrayIndex;
+	uint16_t currentMipLevel;
+	uint16_t mostDetailedMip;
 
 	void useSubresource(BaseExecutor* executor, void* const uploadBufferCpuAddressOfCurrentPos, ID3D12Resource* uploadResource, uint64_t uploadResourceOffset)
 	{
 		useSubresourcePointer(this, executor, uploadBufferCpuAddressOfCurrentPos, uploadResource, uploadResourceOffset);
 	}
-
-	RamToVramUploadRequest() {}
-
-	RamToVramUploadRequest(void(*useSubresourcePointer)(RamToVramUploadRequest* const request, BaseExecutor* executor, void* const uploadBufferCpuAddressOfCurrentPos, ID3D12Resource* uploadResource, uint64_t uploadResourceOffset),
-		void(*resourceUploadedPointer)(void* const requester, BaseExecutor* const executor), void* const requester) : useSubresourcePointer(useSubresourcePointer),
-		resourceUploadedPointer(resourceUploadedPointer), requester(requester), currentSubresourceIndex(0u) {}
 };

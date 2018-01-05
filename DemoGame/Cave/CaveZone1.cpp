@@ -24,12 +24,11 @@ namespace Cave
 			const auto zone = reinterpret_cast<BaseZone* const>(requester);
 			BaseZone::componentUploaded<BaseZone::high, BaseZone::high>(zone, executor, ((HDResources*)zone->nextResources)->numComponentsLoaded, numComponents);
 		}
-	public:
+
 		std::atomic<unsigned char> numComponentsLoaded = 0u;
-
-		Mesh* meshes[numMeshes];
 		D3D12Resource perObjectConstantBuffers;
-
+		uint8_t* perObjectConstantBuffersCpuAddress;
+	public:
 		Light light;
 		LightConstantBuffer* pointLightConstantBufferCpuAddress;
 		D3D12_GPU_VIRTUAL_ADDRESS pointLightConstantBufferGpuAddress;
@@ -64,21 +63,34 @@ namespace Cave
 			return resourceDesc;
 		}(), D3D12_RESOURCE_STATE_GENERIC_READ, nullptr)
 		{
-			unsigned int stone02 = TextureManager::loadTexture(TextureNames::stone02, zone, executor, componentUploaded);
-
-			MeshManager::loadMeshWithPositionTextureNormal(MeshNames::squareWithNormals, zone, executor, componentUploaded, &meshes[0]);
-
-			uint8_t* perObjectConstantBuffersCpuAddress;
 			D3D12_RANGE readRange{ 0u, 0u };
 			HRESULT hr = perObjectConstantBuffers->Map(0u, &readRange, reinterpret_cast<void**>(&perObjectConstantBuffersCpuAddress));
 			if (FAILED(hr)) throw ID3D12ResourceMapFailedException();
 			auto PerObjectConstantBuffersGpuAddress = perObjectConstantBuffers->GetGPUVirtualAddress();
+			auto cpuConstantBuffer = perObjectConstantBuffersCpuAddress;
+
+			new(&caveModelPart1) CaveModelPart1(PerObjectConstantBuffersGpuAddress, cpuConstantBuffer);
+
+			TextureManager::loadTexture(executor, TextureNames::stone04, { zone, [](void* requester, BaseExecutor* executor, unsigned int textureID) {
+				const auto zone = reinterpret_cast<BaseZone*>(requester);
+				auto resources = ((HDResources*)zone->nextResources);
+				resources->caveModelPart1.setDiffuseTexture(textureID, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
+				componentUploaded(requester, executor);
+			} });
+
+			MeshManager::loadMeshWithPositionTextureNormal(MeshNames::squareWithNormals, zone, executor, [](void* requester, BaseExecutor* executor, Mesh* mesh)
+			{
+				const auto zone = reinterpret_cast<BaseZone* const>(requester);
+				const auto resources = ((HDResources*)zone->nextResources);
+				resources->caveModelPart1.mesh = mesh;
+				componentUploaded(requester, executor);
+			});
 
 			constexpr uint64_t pointLightConstantBufferAlignedSize = (sizeof(LightConstantBuffer) + (uint64_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (uint64_t)1u) &
 				~((uint64_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (uint64_t)1u);
 
-			pointLightConstantBufferCpuAddress = reinterpret_cast<LightConstantBuffer*>(perObjectConstantBuffersCpuAddress);
-			perObjectConstantBuffersCpuAddress += pointLightConstantBufferAlignedSize;
+			pointLightConstantBufferCpuAddress = reinterpret_cast<LightConstantBuffer*>(cpuConstantBuffer);
+			cpuConstantBuffer += pointLightConstantBufferAlignedSize;
 
 			pointLightConstantBufferGpuAddress = PerObjectConstantBuffersGpuAddress;
 			PerObjectConstantBuffersGpuAddress += pointLightConstantBufferAlignedSize;
@@ -95,8 +107,6 @@ namespace Cave
 			pointLightConstantBufferCpuAddress->lightDirection.y = 0.f;
 			pointLightConstantBufferCpuAddress->lightDirection.z = 1.f;
 			pointLightConstantBufferCpuAddress->pointLightCount = 0u;
-
-			new(&caveModelPart1) CaveModelPart1(PerObjectConstantBuffersGpuAddress, perObjectConstantBuffersCpuAddress, stone02);
 		}
 
 		~HDResources() {}
@@ -115,7 +125,7 @@ namespace Cave
 
 				commandList->SetGraphicsRootConstantBufferView(1u, pointLightConstantBufferGpuAddress);
 
-				caveModelPart1.render(commandList, meshes);
+				caveModelPart1.render(commandList);
 			}
 		}
 

@@ -27,11 +27,11 @@ public:
 	D3D12_GPU_VIRTUAL_ADDRESS vsAabbGpu() { return constantBufferGpu + vsConstantBufferSize + psConstantBufferSize; }
 	D3D12_GPU_VIRTUAL_ADDRESS psAabbGpu() { return constantBufferGpu + vsConstantBufferSize + psConstantBufferSize + vsConstantBufferSize; }
 
-	constexpr static unsigned int meshIndex = 4u;
+	Mesh* mesh;
 
 	IceModel2() {}
 
-	IceModel2(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, uint8_t*& constantBufferCpuAddress, unsigned int refractionTextureIndex, unsigned int diffuseTextureIndex, unsigned int normalTextureIndex)
+	IceModel2(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, uint8_t*& constantBufferCpuAddress, unsigned int refractionTextureIndex)
 	{
 		constantBufferGpu = constantBufferGpuAddress;
 		constantBufferGpuAddress += vsConstantBufferSize + vsConstantBufferSize + psConstantBufferSize;
@@ -42,8 +42,6 @@ public:
 		psBuffer->refractionScale = 0.4f;
 		psBuffer->opacity = 0.2f;
 		psBuffer->refractionTexture = refractionTextureIndex;
-		psBuffer->diffuseTexture = diffuseTextureIndex;
-		psBuffer->normalTexture = normalTextureIndex;
 		constantBufferCpuAddress += psConstantBufferSize;
 		auto aabbBuffer = reinterpret_cast<VSPerObjectConstantBuffer*>(constantBufferCpuAddress);
 		aabbBuffer->worldMatrix = DirectX::XMMatrixScaling(5.2f, 5.2f, 5.2f) * DirectX::XMMatrixTranslation(positionX, positionY, positionZ);
@@ -54,5 +52,17 @@ public:
 	bool IceModel2::isInView(const Frustum& Frustum)
 	{
 		return Frustum.checkCuboid2(positionX + 5.0f, positionY + 5.0f, positionZ + 5.0f, positionX - 5.0f, positionY - 5.0f, positionZ - 5.0f);
+	}
+
+	void setDiffuseTexture(uint32_t diffuseTexture, uint8_t* cpuStartAddress, D3D12_GPU_VIRTUAL_ADDRESS gpuStartAddress)
+	{
+		auto buffer = reinterpret_cast<GlassMaterialPS*>(cpuStartAddress + (constantBufferGpu - gpuStartAddress + vsConstantBufferSize));
+		buffer->diffuseTexture = diffuseTexture;
+	}
+
+	void setNormalTexture(uint32_t normalTexture, uint8_t* cpuStartAddress, D3D12_GPU_VIRTUAL_ADDRESS gpuStartAddress)
+	{
+		auto buffer = reinterpret_cast<GlassMaterialPS*>(cpuStartAddress + (constantBufferGpu - gpuStartAddress + vsConstantBufferSize));
+		buffer->normalTexture = normalTexture;
 	}
 };

@@ -19,7 +19,7 @@ class D3D12GraphicsEngine
 public:
 	//DXGIFactory dxgiFactory;
 	D3D12Device graphicsDevice;
-	D3D12CommandQueuePointer directCommandQueue;
+	D3D12CommandQueue directCommandQueue;
 
 	uint32_t frameIndex;
 	Array<D3D12FencePointer, frameBufferCount> directFences;

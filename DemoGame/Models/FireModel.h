@@ -24,15 +24,15 @@ public:
 
 	D3D12_GPU_VIRTUAL_ADDRESS psConstantBufferGPU() { return constantBufferGpu + frameBufferCount * VSPerObjectConstantBufferSize; };
 	
+	Mesh* mesh;
 
-	constexpr static unsigned int meshIndex = 5u;
 	constexpr static float positionX = X::value();
 	constexpr static float positionY = Y::value();
 	constexpr static float positionZ = Z::value();
 
 	FireModel() {}
 
-	FireModel(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, uint8_t*& constantBufferCpuAddress, unsigned int normalTextureIndex, unsigned int diffuseTextureIndex, unsigned int alphaTextureIndex)
+	FireModel(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, uint8_t*& constantBufferCpuAddress)
 	{
 		constantBufferCpu = constantBufferCpuAddress;
 		constantBufferGpu = constantBufferGpuAddress;
@@ -52,9 +52,6 @@ public:
 		psPerObjectCBVCpuAddress->distortion3 = DirectX::XMFLOAT2(0.1f, 0.1f);
 		psPerObjectCBVCpuAddress->distortionScale = 0.8f;
 		psPerObjectCBVCpuAddress->distortionBias = 0.4f;
-		psPerObjectCBVCpuAddress->noiseTexture = normalTextureIndex;
-		psPerObjectCBVCpuAddress->fireTexture = diffuseTextureIndex;
-		psPerObjectCBVCpuAddress->alphaTexture = alphaTextureIndex;
 	}
 	~FireModel() {}
 
@@ -74,5 +71,23 @@ public:
 		auto constantBuffer = reinterpret_cast<FireMaterialVS*>(constantBufferCpu + frameIndex * VSPerObjectConstantBufferSize);
 		constantBuffer->worldMatrix = DirectX::XMMatrixRotationY(rotation) * DirectX::XMMatrixTranslation(positionX, positionY, positionZ);
 		constantBuffer->flameTime = flameTime;
+	}
+
+	void setNormalTexture(uint32_t normalTexture, uint8_t* cpuStartAddress, D3D12_GPU_VIRTUAL_ADDRESS gpuStartAddress)
+	{
+		auto buffer = reinterpret_cast<FireMaterialPS*>(cpuStartAddress + (constantBufferGpu - gpuStartAddress + VSPerObjectConstantBufferSize * frameBufferCount));
+		buffer->noiseTexture = normalTexture;
+	}
+
+	void setDiffuseTexture(uint32_t diffuseTexture, uint8_t* cpuStartAddress, D3D12_GPU_VIRTUAL_ADDRESS gpuStartAddress)
+	{
+		auto buffer = reinterpret_cast<FireMaterialPS*>(cpuStartAddress + (constantBufferGpu - gpuStartAddress + VSPerObjectConstantBufferSize * frameBufferCount));
+		buffer->fireTexture = diffuseTexture;
+	}
+
+	void setAlphaTexture(uint32_t alphaTexture, uint8_t* cpuStartAddress, D3D12_GPU_VIRTUAL_ADDRESS gpuStartAddress)
+	{
+		auto buffer = reinterpret_cast<FireMaterialPS*>(cpuStartAddress + (constantBufferGpu - gpuStartAddress + VSPerObjectConstantBufferSize * frameBufferCount));
+		buffer->alphaTexture = alphaTexture;
 	}
 };

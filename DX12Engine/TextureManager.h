@@ -14,12 +14,6 @@ class D3D12GraphicsEngine;
 class TextureManager
 {
 private:
-	struct PendingLoadRequest
-	{
-		void* requester;
-		void(*resourceUploaded)(void* const requester, BaseExecutor* const executor);
-	};
-
 	/* Texture needs to store which mipmap levels are loaded, only some mipmap levels need loading*/
 	struct Texture
 	{
@@ -30,46 +24,55 @@ private:
 		bool loaded; //remove this bool
 	};
 
+	class Request
+	{
+		void* requester;
+		void(*job)(void*const requester, BaseExecutor* const executor, unsigned int textureDescriptorIndex);
+	public:
+		Request(void* const requester, void(*job)(void*const requester, BaseExecutor* const executor, unsigned int textureDescriptorIndex)) : requester(requester),
+			job(job) {}
+		Request() {}
+
+		void operator()(BaseExecutor* const executor, unsigned int textureIndex)
+		{
+			job(requester, executor, textureIndex);
+		}
+	};
+
 	std::mutex mutex;
-	std::unordered_multimap<const wchar_t * const, PendingLoadRequest, std::hash<const wchar_t *>> uploadRequests;
+	std::unordered_map<const wchar_t * const, std::vector<Request>, std::hash<const wchar_t *>> uploadRequests;
 	std::unordered_map<const wchar_t * const, Texture, std::hash<const wchar_t *>> textures;
 	
-	unsigned int loadTextureUncachedHelper(StreamingManagerThreadLocal& streamingManager, D3D12GraphicsEngine& graphicsEngine, const wchar_t * filename,
+	void loadTextureUncachedHelper(StreamingManagerThreadLocal& streamingManager, D3D12GraphicsEngine& graphicsEngine, const wchar_t * filename,
 		void(*textureUseSubresource)(RamToVramUploadRequest* const request, BaseExecutor* executor1, void* const uploadBufferCpuAddressOfCurrentPos, ID3D12Resource* uploadResource,
 			uint64_t uploadResourceOffset));
+
+	void textureUseSubresource(RamToVramUploadRequest& request, D3D12GraphicsEngine& graphicsEngine, void* const uploadBufferCpuAddressOfCurrentPos, ID3D12Resource* uploadResource,
+		uint64_t uploadResourceOffset, StreamingManagerThreadLocal& streamingManager);
 
 	template<class Executor>
 	static void textureUseSubresource(RamToVramUploadRequest* const request, BaseExecutor* executor1, void* const uploadBufferCpuAddressOfCurrentPos, ID3D12Resource* uploadResource,
 		uint64_t uploadResourceOffset)
 	{
 		auto executor = reinterpret_cast<Executor*>(executor1);
-		auto& textureManager = executor->sharedResources->textureManager;
-		ID3D12Resource* texture;
-		const wchar_t* filename = reinterpret_cast<wchar_t*>(request->requester);
-		{
-			std::lock_guard<decltype(textureManager.mutex)> lock(textureManager.mutex);
-			texture = textureManager.textures[filename].resource;
-		}
-
-		DDSFileLoader::LoadDDsSubresourceFromFile(executor->sharedResources->graphicsEngine.graphicsDevice, request->width, request->height, request->depth, request->format,
-			request->file, uploadBufferCpuAddressOfCurrentPos, texture, executor->streamingManager.currentCommandList, request->currentSubresourceIndex, uploadResource,
-			uploadResourceOffset);
+		auto sharedResources = executor->sharedResources;
+		auto& textureManager = sharedResources->textureManager;
+		textureManager.textureUseSubresource(*request, sharedResources->graphicsEngine, uploadBufferCpuAddressOfCurrentPos, uploadResource, uploadResourceOffset, executor->streamingManager);
 	}
 
 	static void textureUploaded(void* storedFilename, BaseExecutor* executor);
 
 	template<class Executor>
-	unsigned int TextureManager::loadTextureUncached(StreamingManagerThreadLocal& streamingManager, D3D12GraphicsEngine& graphicsEngine, const wchar_t * filename)
+	void TextureManager::loadTextureUncached(StreamingManagerThreadLocal& streamingManager, D3D12GraphicsEngine& graphicsEngine, const wchar_t * filename)
 	{
-		return loadTextureUncachedHelper(streamingManager, graphicsEngine, filename, textureUseSubresource<Executor>);
+		loadTextureUncachedHelper(streamingManager, graphicsEngine, filename, textureUseSubresource<Executor>);
 	}
 public:
 	TextureManager();
 	~TextureManager();
 
 	template<class Executor>
-	static unsigned int loadTexture(const wchar_t * filename, void* requester, Executor* const executor,
-		void(*resourceUploadedCallback)(void* const requester, BaseExecutor* const executor))
+	static void loadTexture(Executor* const executor, const wchar_t * filename, Request callback)
 	{
 		auto& textureManager = executor->sharedResources->textureManager;
 		auto& graphicsEngine = executor->sharedResources->graphicsEngine;
@@ -80,24 +83,23 @@ public:
 		texture.numUsers += 1u;
 		if (texture.numUsers == 1u)
 		{
-			textureManager.uploadRequests.insert({ filename, PendingLoadRequest{ requester, resourceUploadedCallback } });
+			textureManager.uploadRequests[filename].push_back(callback);
 			lock.unlock();
 
-			return textureManager.loadTextureUncached<Executor>(streamingManager, graphicsEngine, filename);
+			textureManager.loadTextureUncached<Executor>(streamingManager, graphicsEngine, filename);
+			return;
 		}
 		//the resource is loaded or loading
 		if (texture.loaded)
 		{
 			unsigned int textureIndex = texture.descriptorIndex;
 			lock.unlock();
-			resourceUploadedCallback(requester, executor);
-			return textureIndex;
+			callback(executor, textureIndex);
+			return;
 		}
-		else
-		{
-			textureManager.uploadRequests.insert({ filename, PendingLoadRequest{ requester, resourceUploadedCallback } });
-			return texture.descriptorIndex;
-		}
+
+		textureManager.uploadRequests[filename].push_back(callback);
+		return;
 	}
 
 	/*the texture must no longer be in use, including by the GPU*/

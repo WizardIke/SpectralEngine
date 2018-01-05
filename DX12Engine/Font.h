@@ -16,8 +16,10 @@ struct Font
 	};
 	struct PSPerObjectConstantBuffer
 	{
-		uint32_t texture;
+		uint32_t diffuseTexture;
 	};
+
+	constexpr static std::size_t psPerObjectConstantBufferSize = (sizeof(PSPerObjectConstantBuffer) + D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull) & ~(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull);
 
 	std::wstring name; // name of the font
 	int size; // size of font, lineheight and baseheight will be based on this as if this is a single unit (1.0)
@@ -47,18 +49,23 @@ struct Font
 
 	template<class Executor>
 	Font(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, uint8_t*& constantBufferCpuAddress, const wchar_t* const filename, const wchar_t* const textureFile, Executor* const executor, 
-		void* requester, void(*callback)(void* requester, BaseExecutor* const executor))
+		void* requester, void(*callback)(void* requester, BaseExecutor* const executor, unsigned int textureID))
 	{
-		uint32_t textureIndex = executor->sharedResources->textureManager.loadTexture(textureFile, requester, executor, callback);
+		executor->sharedResources->textureManager.loadTexture(executor, textureFile, { requester, callback });
 		auto windowWidth = executor->sharedResources->window.width();
 		auto windowHeight = executor->sharedResources->window.height();
-		create(constantBufferGpuAddress, constantBufferCpuAddress, filename, textureFile, textureIndex, windowWidth, windowHeight);
+		create(constantBufferGpuAddress, constantBufferCpuAddress, filename, textureFile, windowWidth, windowHeight);
 	}
 
 	void destruct(BaseExecutor* const executor, const wchar_t* const textureFile);
 	~Font() {}
 
+	void setDiffuseTexture(uint32_t diffuseTexture, uint8_t* cpuStartAddress, D3D12_GPU_VIRTUAL_ADDRESS gpuStartAddress)
+	{
+		auto buffer = reinterpret_cast<PSPerObjectConstantBuffer*>(cpuStartAddress + (psPerObjectCBVGpuAddress - gpuStartAddress));
+		buffer->diffuseTexture = diffuseTexture;
+	}
 private:
 	void create(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, uint8_t*& constantBufferCpuAddress, const wchar_t* const filename, const wchar_t* const textureFile,
-		unsigned int textureIndex, unsigned int windowWidth, unsigned int windowHeight);
+		unsigned int windowWidth, unsigned int windowHeight);
 };
