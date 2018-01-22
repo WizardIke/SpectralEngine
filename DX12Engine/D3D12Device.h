@@ -9,14 +9,14 @@ class D3D12Device
 public:
 	D3D12Device(IDXGIAdapter1* const adapter, const D3D_FEATURE_LEVEL featureLevel) : data(nullptr)
 	{
-		HRESULT hr = D3D12CreateDevice(adapter, D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&data));
+		HRESULT hr = D3D12CreateDevice(adapter, featureLevel, IID_PPV_ARGS(&data));
 		if (FAILED(hr)) throw D3D12CreateDeviceFailedException(hr);
 	}
 
 	D3D12Device(IDXGIFactory5* factory, HWND window, const D3D_FEATURE_LEVEL featureLevel) : data(nullptr)
 	{
 		DXGIAdapter tempAdapter(factory, window, featureLevel);
-		HRESULT hr = D3D12CreateDevice(tempAdapter, D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&data));
+		HRESULT hr = D3D12CreateDevice(tempAdapter, featureLevel, IID_PPV_ARGS(&data));
 		if (FAILED(hr)) throw D3D12CreateDeviceFailedException(hr);
 	}
 

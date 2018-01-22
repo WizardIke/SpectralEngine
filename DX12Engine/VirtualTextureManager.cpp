@@ -1,4 +1,5 @@
 #include "VirtualTextureManager.h"
+#include "SharedResources.h"
 
 void VirtualTextureManager::loadTextureUncachedHelper(StreamingManagerThreadLocal& streamingManager, D3D12GraphicsEngine& graphicsEngine, ID3D12CommandQueue* commandQueue, const wchar_t * filename,
 	void(*textureUseSubresource)(RamToVramUploadRequest* const request, BaseExecutor* executor1, void* const uploadBufferCpuAddressOfCurrentPos, ID3D12Resource* uploadResource,
@@ -112,7 +113,7 @@ static unsigned int createTextureDescriptor(D3D12GraphicsEngine& graphicsEngine,
 	return discriptorIndex;
 }
 
-void VirtualTextureManager::unloadTexture(const wchar_t * filename, D3D12GraphicsEngine& graphicsEngine, unsigned int slot)
+void VirtualTextureManager::unloadTextureHelper(const wchar_t * filename, D3D12GraphicsEngine& graphicsEngine, StreamingManager& streamingManager, unsigned int slot)
 {
 	unsigned int descriptorIndex = std::numeric_limits<unsigned int>::max();
 	unsigned int textureID;
@@ -132,47 +133,55 @@ void VirtualTextureManager::unloadTexture(const wchar_t * filename, D3D12Graphic
 		graphicsEngine.descriptorAllocator.deallocate(descriptorIndex);
 
 		auto& resitencyInfo = texturesByIDAndSlot[slot].data()[textureID];
-		
-		//deallocate pages in heap;
-		D3D12_TILED_RESOURCE_COORDINATE resourceTileCoords[128];
-		constexpr size_t resourceTileCoordsMax = sizeof(resourceTileCoords) / sizeof(resourceTileCoords[0u]);
-		unsigned int resourceTileCoordsIndex = 0u;
-		unsigned int index = 0u;
-		for (auto i = 0u; i < resitencyInfo.heightInPages; ++i)
-		{
-			for (auto j = 0u; j < resitencyInfo.widthInPages; ++j)
-			{
-				auto mipLevel = resitencyInfo.mostDetailedMips[index];
-				while(mipLevel < resitencyInfo.mostDetailedPackedMip)
-				{
-					//mip isn't packed
-					if (i % mipLevel == 0 && j % mipLevel == 0)
-					{
-						if (resourceTileCoordsIndex == resourceTileCoordsMax)
-						{
-							pageProvider.removePages(resourceTileCoords, resourceTileCoordsMax, resitencyInfo);
-							resourceTileCoordsIndex = 0u;
-						}
-						//add page at mip level to resourceTileCoords
-						++resourceTileCoordsIndex;
-					}
-					++mipLevel;
-				}
-				++index;
-			}
-		}
-		pageProvider.removePages(resourceTileCoords, resourceTileCoordsIndex, resitencyInfo);
-		resourceTileCoords[0].X = 0u;
-		resourceTileCoords[0].Y = 0u;
-		resourceTileCoords[0].Z = 0u;
-		resourceTileCoords[0].Subresource = resitencyInfo.mostDetailedPackedMip;
-		D3D12_TILE_REGION_SIZE tileRegion;
-		tileRegion.NumTiles = resitencyInfo.numTilesForPackedMips;
-		tileRegion.UseBox = FALSE;
-		pageProvider.removePackedPages(resourceTileCoords[0], tileRegion, resitencyInfo);
 
-		delete[] resitencyInfo.heapLocations;
-		delete[] resitencyInfo.mostDetailedMips;
+		D3D12_PACKED_MIP_INFO packedMipInfo;
+		graphicsEngine.graphicsDevice->GetResourceTiling(resitencyInfo.resource, nullptr, &packedMipInfo, nullptr, nullptr, 0u, nullptr);
+		if (packedMipInfo.NumPackedMips != 0u)
+		{
+			pageProvider.pageAllocator.removePinnedPages(resitencyInfo.pinnedHeapLocations, packedMipInfo.NumTilesForPackedMips);
+
+			D3D12_TILED_RESOURCE_COORDINATE resourceTileCoord;
+			resourceTileCoord.X = 0u;
+			resourceTileCoord.Y = 0u;
+			resourceTileCoord.Z = 0u;
+			resourceTileCoord.Subresource = resitencyInfo.lowestPinnedMip;
+
+			D3D12_TILE_REGION_SIZE tileRegion;
+			tileRegion.NumTiles = packedMipInfo.NumTilesForPackedMips;
+			tileRegion.UseBox = FALSE;
+
+			D3D12_TILE_RANGE_FLAGS rangeFlags = D3D12_TILE_RANGE_FLAG_NULL;
+			streamingManager.commandQueue()->UpdateTileMappings(resitencyInfo.resource, 1u, &resourceTileCoord, &tileRegion, nullptr, 1u, &rangeFlags, nullptr,
+				nullptr, D3D12_TILE_MAPPING_FLAG_NONE);
+		}
+		else
+		{
+			auto width = resitencyInfo.widthInPages >> resitencyInfo.lowestPinnedMip;
+			if (width == 0u) width = 1u;
+			auto height = resitencyInfo.heightInPages >> resitencyInfo.lowestPinnedMip;
+			if (height == 0u) height = 1u;
+			auto numPages = width * height;
+			pageProvider.pageAllocator.removePinnedPages(resitencyInfo.pinnedHeapLocations, numPages);
+
+			D3D12_TILED_RESOURCE_COORDINATE resourceTileCoord;
+			resourceTileCoord.X = 0u;
+			resourceTileCoord.Y = 0u;
+			resourceTileCoord.Z = 0u;
+			resourceTileCoord.Subresource = resitencyInfo.lowestPinnedMip;
+
+			D3D12_TILE_REGION_SIZE tileRegion;
+			tileRegion.NumTiles = numPages;
+			tileRegion.UseBox = TRUE;
+			tileRegion.Width = width;
+			tileRegion.Height = height;
+			tileRegion.Depth = 1u;
+
+			D3D12_TILE_RANGE_FLAGS rangeFlags = D3D12_TILE_RANGE_FLAG_NULL;
+			streamingManager.commandQueue()->UpdateTileMappings(resitencyInfo.resource, 1u, &resourceTileCoord, &tileRegion, nullptr, 1u, &rangeFlags, nullptr,
+				nullptr, D3D12_TILE_MAPPING_FLAG_NONE);
+		}
+		
+		delete[] resitencyInfo.pinnedHeapLocations;
 		resitencyInfo.resource->Release();
 		texturesByIDAndSlot[slot].deallocate(textureID);
 	}
@@ -184,77 +193,69 @@ void VirtualTextureManager::createTextureWithResitencyInfo(D3D12GraphicsEngine& 
 	D3D12_PACKED_MIP_INFO packedMipInfo;
 	D3D12_TILE_SHAPE tileShape;
 	D3D12_SUBRESOURCE_TILING subresourceTiling;
-	uint32_t totalTiles;
-	graphicsEngine.graphicsDevice->GetResourceTiling(resource, &totalTiles, &packedMipInfo, &tileShape, nullptr, 0u, &subresourceTiling);
+	graphicsEngine.graphicsDevice->GetResourceTiling(resource, nullptr, &packedMipInfo, &tileShape, nullptr, 0u, &subresourceTiling);
 	unsigned int textureDescriptorIndex = createTextureDescriptor(graphicsEngine, resource, vramRequest);
 
-	TextureResitency resitencyInfo;
+	VirtualTextureInfo resitencyInfo;
+	resitencyInfo.headerSize = vramRequest.file.getPosition();
+	resitencyInfo.fileName = filename;
 	resitencyInfo.widthInPages = subresourceTiling.WidthInTiles;
 	resitencyInfo.heightInPages = subresourceTiling.HeightInTiles;
 	resitencyInfo.widthInTexels = tileShape.WidthInTexels;
 	resitencyInfo.heightInTexels = tileShape.HeightInTexels;
 	resitencyInfo.numMipLevels = vramRequest.mipLevels;
 	resitencyInfo.resource = resource;
-	resitencyInfo.heapLocations = new HeapLocation[totalTiles];
-	unsigned int numPages = resitencyInfo.widthInPages * resitencyInfo.heightInPages;
-	resitencyInfo.mostDetailedMips = new unsigned char[numPages];
-	unsigned char startingMip;
+	resitencyInfo.format = vramRequest.format;
 	if (packedMipInfo.NumPackedMips == 0u)
 	{
-		startingMip = vramRequest.mipLevels - 1u;
-		resitencyInfo.mostDetailedPackedMip = vramRequest.mipLevels;
+		resitencyInfo.lowestPinnedMip = vramRequest.mipLevels - 1u;
 
 		D3D12_TILED_RESOURCE_COORDINATE resourceTileCoords[64];
 		constexpr size_t resourceTileCoordsMax = sizeof(resourceTileCoords) / sizeof(resourceTileCoords[0u]);
 		unsigned int resourceTileCoordsIndex = 0u;
 
-		auto width = resitencyInfo.widthInPages >> startingMip;
+		auto width = resitencyInfo.widthInPages >> resitencyInfo.lowestPinnedMip;
 		if (width == 0u) width = 1u;
-		auto height = resitencyInfo.heightInPages >> startingMip;
+		auto height = resitencyInfo.heightInPages >> resitencyInfo.lowestPinnedMip;
 		if (height == 0u) height = 1u;
+		resitencyInfo.pinnedHeapLocations = new HeapLocation[width * height];
 		for (auto y = 0u; y < width; ++y)
 		{
 			for (auto x = 0u; x < width; ++x)
 			{
 				if (resourceTileCoordsIndex == resourceTileCoordsMax)
 				{
-					pageProvider.addPages(resourceTileCoords, resourceTileCoordsMax, resitencyInfo, commandQueue, graphicsEngine.graphicsDevice);
+					pageProvider.pageAllocator.addPinnedPages(resourceTileCoords, resourceTileCoordsMax, resitencyInfo, commandQueue, graphicsEngine.graphicsDevice);
 				}
 				resourceTileCoords[resourceTileCoordsIndex].X = x;
 				resourceTileCoords[resourceTileCoordsIndex].Y = y;
 				resourceTileCoords[resourceTileCoordsIndex].Z = 1u;
-				resourceTileCoords[resourceTileCoordsIndex].Subresource = startingMip;
+				resourceTileCoords[resourceTileCoordsIndex].Subresource = resitencyInfo.lowestPinnedMip;
 			}
 		}
-		pageProvider.addPages(resourceTileCoords, resourceTileCoordsIndex, resitencyInfo, commandQueue, graphicsEngine.graphicsDevice);
+		pageProvider.pageAllocator.addPinnedPages(resourceTileCoords, resourceTileCoordsIndex, resitencyInfo, commandQueue, graphicsEngine.graphicsDevice);
 	}
 	else
 	{
-		unsigned char startingMip = vramRequest.mipLevels - packedMipInfo.NumPackedMips;
-		resitencyInfo.mostDetailedPackedMip = startingMip;
-
-		pageProvider.addPackedPages(resitencyInfo, commandQueue, graphicsEngine.graphicsDevice, &resitencyInfo.heapLocations[packedMipInfo.StartTileIndexInOverallResource]);
+		resitencyInfo.pinnedHeapLocations = new HeapLocation[packedMipInfo.NumPackedMips];
+		resitencyInfo.lowestPinnedMip = vramRequest.mipLevels - packedMipInfo.NumPackedMips;
+		pageProvider.pageAllocator.addPackedPages(resitencyInfo, packedMipInfo.NumTilesForPackedMips, commandQueue, graphicsEngine.graphicsDevice);
 	}
 
 	{
 		auto width = resitencyInfo.widthInTexels;
 		auto height = resitencyInfo.heightInTexels;
 		size_t totalSize = 0u;
-		for (auto i = 0u; i < startingMip; ++i)
+		for (auto i = 0u; i < resitencyInfo.lowestPinnedMip; ++i)
 		{
 			size_t numBytes, rowBytes, numRows;
 			DDSFileLoader::getSurfaceInfo(width, height, vramRequest.format, numBytes, rowBytes, numRows);
 			totalSize += numBytes;
 		}
-		LONG highBits = (LONG)((totalSize & ~(size_t)(0xffffffff)) >> 32);
-		SetFilePointer(vramRequest.file.file, totalSize & 0xffffffff, &highBits, FILE_CURRENT);
+		vramRequest.file.setPosition(totalSize, ScopedFile::Position::current);
 	}
 	
-	for (auto i = 0u; i < numPages; ++i)
-	{
-		resitencyInfo.mostDetailedMips[i] = startingMip;
-	}
-	vramRequest.mostDetailedMip = startingMip;
+	vramRequest.mostDetailedMip = resitencyInfo.lowestPinnedMip;
 		
 	std::lock_guard<decltype(mutex)> lock(mutex);
 	auto& textureInfo = textures[filename];
@@ -264,7 +265,7 @@ void VirtualTextureManager::createTextureWithResitencyInfo(D3D12GraphicsEngine& 
 	auto requests = uploadRequests.find(filename);
 	assert(requests != uploadRequests.end() && "A texture is loading with no requests for it");
 	auto& request = requests->second[0];
-	unsigned int slot = static_cast<unsigned int>(request.slot) - textureSlotsBaseBit;
+	unsigned int slot = static_cast<unsigned int>(request.slot);
 	unsigned int textureID = texturesByIDAndSlot[slot].allocate();
 	textureInfo.textureID = textureID;
 	texturesByIDAndSlot[slot].data()[textureID] = std::move(resitencyInfo);
@@ -314,7 +315,7 @@ void VirtualTextureManager::textureUploadedHelper(void* storedFilename, BaseExec
 	}
 }
 
-void VirtualTextureManager::TextureResitencyAllocator::resize()
+void VirtualTextureManager::TextureInfoAllocator::resize()
 {
 	if (freeListCapacity != 0u)
 	{
@@ -328,7 +329,7 @@ void VirtualTextureManager::TextureResitencyAllocator::resize()
 			freeList[start - oldFreeListCapacity] = start;
 		}
 
-		TextureResitency* tempData = new TextureResitency[newCap];
+		VirtualTextureInfo* tempData = new VirtualTextureInfo[newCap];
 		const auto end = mData + freeListCapacity;
 		for (auto newStart = tempData, start = mData; start != end; ++start, ++newStart)
 		{
@@ -346,6 +347,6 @@ void VirtualTextureManager::TextureResitencyAllocator::resize()
 		{
 			freeList[i] = i;
 		}
-		mData = new TextureResitency[newCap];
+		mData = new VirtualTextureInfo[newCap];
 	}
 }

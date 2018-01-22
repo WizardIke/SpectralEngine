@@ -10,7 +10,7 @@
 #include "D3D12GraphicsCommandList.h"
 #include "D3D12DescriptorHeap.h"
 #include "StreamingManager.h"
-#include "VRamFreeingManager.h"
+#include "GpuCompletionEventManager.h"
 #include "Job.h"
 #include "FixedSizeAllocator.h"
 #include <random>
@@ -40,7 +40,7 @@ protected:
 	virtual void update2(std::unique_lock<std::mutex>&& lock) = 0;
 public:
 	SharedResources* sharedResources;//shared
-	VRamFreeingManager vRamFreeingManager;
+	GpuCompletionEventManager gpuCompletionEventManager;
 	std::default_random_engine randomNumberGenerator;
 	FixedSizeAllocator<Mesh> meshAllocator;
 

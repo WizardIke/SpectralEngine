@@ -8,13 +8,12 @@ allocates and deallocates memory of a fixed size and alignment.
 memory allocated with this FixedSizeAllocator can by deallocated with another, but if the other FixedSizeAllocator goes out of scope use of memory allocated by this FixedSizeAllocator is undefined.
 when a FixedSizeAllocator goes out of scope all memory allocated by it is deallocated.
 */
-template<class T>
+template<class T, size_t slabSize = 32u>
 class FixedSizeAllocator
 {
 public:
 	using value_type = T;
 private:
-	constexpr static size_t slabSize = 32u;
 	union Element {
 		value_type mesh;
 		Element* nextFreeMesh;

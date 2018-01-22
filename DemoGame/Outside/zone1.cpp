@@ -16,7 +16,8 @@
 #include "../Executor.h"
 #include <array>
 #include <Vector4.h>
-#include <Camera.h>
+#include <ReflectionCamera.h>
+#include <Range.h>
 
 #include <Light.h>
 #include <PointLight.h>
@@ -60,7 +61,7 @@ namespace
 		D3D12_RESOURCE_STATES waterRenderTargetTextureState;
 		D3D12DescriptorHeap renderTargetTexturesDescriptorHeap;
 		unsigned int shaderResourceViews[numRenderTargetTextures];
-		std::array<Camera, numRenderTargetTextures> reflectionCameras;
+		std::array<ReflectionCamera, numRenderTargetTextures> reflectionCameras;
 		std::array<RenderPass1::RenderToTextureSubPass*, numRenderTargetTextures> renderTargetTextureSubPasses;
 		unsigned int reflectionCameraBackBuffers[numRenderTargetTextures];
 
@@ -207,8 +208,7 @@ namespace
 				sharedResources->graphicsEngine.graphicsDevice->CreateShaderResourceView(renderTargetTextures[i], &HDSHaderResourceViewDesc, shaderResourceViewCpuDescriptorHandle + srvSize * shaderResourceViews[i]);
 
 				sharedResources->graphicsEngine.graphicsDevice->CreateRenderTargetView(renderTargetTextures[i], &HDRenderTargetViewDesc, tempRenderTargetTexturesCpuDescriptorHandle);
-				Location location;
-				sharedResources->mainCamera.makeReflectionLocation(location, waterModel.reflectionHeight());
+				Transform transform = sharedResources->mainCamera.transform().reflection(waterModel.reflectionHeight());
 
 				reflectionCameraBackBuffers[i] = sharedResources->graphicsEngine.descriptorAllocator.allocate();
 				sharedResources->graphicsEngine.graphicsDevice->CreateShaderResourceView(renderTargetTextures[i], &backBufferSrvDesc,
@@ -219,9 +219,9 @@ namespace
 					backBuffers[j] = reflectionCameraBackBuffers[i];
 				}
 
-				new(&reflectionCameras[i]) Camera(sharedResources, renderTargetTextures[i], tempRenderTargetTexturesCpuDescriptorHandle, depthStencilHandle,
+				new(&reflectionCameras[i]) ReflectionCamera(sharedResources, renderTargetTextures[i], tempRenderTargetTexturesCpuDescriptorHandle, depthStencilHandle,
 					sharedResources->window.width(), sharedResources->window.height(), PerObjectConstantBuffersGpuAddress, cpuConstantBuffer, 0.25f * 3.141f,
-					location, backBuffers);
+					transform, backBuffers);
 
 				tempRenderTargetTexturesCpuDescriptorHandle.ptr += sharedResources->graphicsEngine.renderTargetViewDescriptorSize;
 			}
@@ -412,9 +412,7 @@ namespace
 			fireModel2.update(frameIndex, cameraPos, frameTime);
 			for (auto& camera : reflectionCameras)
 			{
-				Location location;
-				assets->mainCamera.makeReflectionLocation(location, waterModel.reflectionHeight());
-				camera.update(assets, Camera::locationToMatrix(location));
+				camera.update(assets, assets->mainCamera.transform().reflection(waterModel.reflectionHeight()).toMatrix());
 			}
 
 			auto rotationMatrix = DirectX::XMMatrixTranslation(-64.0f, -5.0f, -64.0f) * DirectX::XMMatrixRotationAxis(DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f), assets->timer.frameTime) * DirectX::XMMatrixTranslation(64.0f, 5.0f, 64.0f);
@@ -452,7 +450,7 @@ namespace
 				const auto& frustum = camera->frustum();
 				const auto commandList = executor->renderPass.renderToTextureSubPassGroup().subPasses().begin()->firstCommandList();
 				auto warpTextureCpuDescriptorHandle = assets->warpTextureCpuDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
-				auto backBufferRenderTargetCpuHandle = camera->getRenderTargetView();
+				auto backBufferRenderTargetCpuHandle = camera->getRenderTargetView(assets);
 
 				commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
@@ -530,7 +528,7 @@ namespace
 			const auto opaqueDirectCommandList = executor->renderPass.colorSubPass().opaqueCommandList();
 			const auto transparantCommandList = executor->renderPass.colorSubPass().transparentCommandList();
 			auto depthStencilHandle = assets->graphicsEngine.depthStencilDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
-			auto backBufferRenderTargetCpuHandle = assets->mainCamera.getRenderTargetView();
+			auto backBufferRenderTargetCpuHandle = assets->mainCamera.getRenderTargetView(assets);
 			auto warpTextureCpuDescriptorHandle = assets->warpTextureCpuDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
 
 			D3D12_RESOURCE_BARRIER copyStartBarriers[2u];

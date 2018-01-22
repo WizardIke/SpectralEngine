@@ -25,4 +25,5 @@ public:
 	RenderPass1::Local renderPass;
 
 	uint32_t frameIndex() { return sharedResources->graphicsEngine.frameIndex; }
+	Assets* getSharedResources() { return (Assets*)sharedResources; }
 };

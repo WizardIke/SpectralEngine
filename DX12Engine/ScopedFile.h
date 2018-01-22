@@ -6,11 +6,13 @@
 
 class ScopedFile
 {
-public:
 #ifdef _WIN32_WINNT
 	HANDLE file;
 #endif
-	enum accessRight : DWORD
+
+	ScopedFile(HANDLE file) : file(file) {}
+public:
+	enum accessRight : uint32_t
 	{
 		none = 0x00000000L,
 		genericAll = 0x10000000L,
@@ -25,14 +27,14 @@ public:
 		//this list is incomplete
 	};
 
-	enum shareMode : DWORD
+	enum shareMode : uint32_t
 	{
 		deleteMode = 0x00000004,
 		readMode = 0x00000001,
 		writeMode = 0x00000002,
 		noSharing = 0x00000000,
 	};
-	enum creationMode : DWORD
+	enum creationMode : uint32_t
 	{
 		createNew = 1,
 		overwriteOrCreate = 2,
@@ -41,12 +43,17 @@ public:
 		overwriteExisting = 5,
 	};
 	ScopedFile() : file(nullptr) {}
-	ScopedFile(LPCWSTR fileName, DWORD accessRight, DWORD shareMode, creationMode creationMode, PCREATEFILE2_EXTENDED_PARAMETERS extendedParameter)
+	ScopedFile(const wchar_t* fileName, DWORD accessRight, DWORD shareMode, creationMode creationMode, PCREATEFILE2_EXTENDED_PARAMETERS extendedParameter)
 	{
 		open(fileName, accessRight, shareMode, creationMode, extendedParameter);
 	}
 
-	void open(LPCWSTR fileName, DWORD accessRight, DWORD shareMode, creationMode creationMode, PCREATEFILE2_EXTENDED_PARAMETERS extendedParameter)
+	ScopedFile(const ScopedFile& other)
+	{
+		file = other.file;
+	}
+
+	void open(const wchar_t* fileName, DWORD accessRight, DWORD shareMode, creationMode creationMode, PCREATEFILE2_EXTENDED_PARAMETERS extendedParameter)
 	{
 #ifdef _WIN32_WINNT
 #if (_WIN32_WINNT >= _WIN32_WINNT_WIN8)
@@ -93,7 +100,7 @@ public:
 		return True;
 	}
 
-	NotEndOfFile read(void* const buffer, DWORD byteSize, LPOVERLAPPED overlapped)
+	NotEndOfFile read(void* const buffer, uint32_t byteSize, LPOVERLAPPED overlapped)
 	{
 		DWORD numBytesRead;
 		BOOL result = ReadFile(file, buffer, byteSize, &numBytesRead, overlapped);
@@ -105,7 +112,7 @@ public:
 		return True;
 	}
 
-	NotEndOfFile read(void* const buffer, DWORD byteSize)
+	NotEndOfFile read(void* const buffer, uint32_t byteSize)
 	{
 		DWORD numBytesRead;
 		BOOL result = ReadFile(file, buffer, byteSize, &numBytesRead, nullptr);
@@ -126,10 +133,20 @@ public:
 		}
 	}
 
-	ScopedFile& transfer()
+	enum Position : DWORD
 	{
-		ScopedFile* ret = this;
-		this->file = nullptr;
-		return *ret;
+		start = FILE_BEGIN,
+		current = FILE_CURRENT,
+		end = FILE_END,
+	};
+
+	void setPosition(signed long long offset, Position pos)
+	{
+		LONG highBits = (LONG)((offset & ~0xffffffff00000000) >> 32);
+		SetFilePointer(file, offset & 0xffffffff, &highBits, pos);
+	}
+	unsigned long getPosition()
+	{
+		return SetFilePointer(file, 0, nullptr, Position::current);
 	}
 };

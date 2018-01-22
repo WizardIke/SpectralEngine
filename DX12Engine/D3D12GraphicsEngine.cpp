@@ -14,7 +14,8 @@ D3D12GraphicsEngine::D3D12GraphicsEngine(Window& window, bool fullScreen, bool v
 {}
 
 D3D12GraphicsEngine::D3D12GraphicsEngine(Window& window, bool fullScreen, bool vSync, DXGIFactory factory) :
-	graphicsDevice(factory, window.windowHandle, D3D_FEATURE_LEVEL_11_0),
+	adapter(factory, window.windowHandle, D3D_FEATURE_LEVEL_11_0),
+	graphicsDevice(adapter, D3D_FEATURE_LEVEL_11_0),
 
 	directCommandQueue(graphicsDevice, []()
 {

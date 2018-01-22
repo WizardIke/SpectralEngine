@@ -55,4 +55,9 @@ public:
 	bool hasPendingUploads() { return uploadRequestBufferWritePos != uploadRequestBufferReadPos; }
 
 	ID3D12GraphicsCommandList* currentCommandList;
+
+	void addCopyCompletionEvent(void* requester, void(*event)(void* requester, BaseExecutor* executor))
+	{
+		currentHalfFinishedUploadRequestBuffer->push_back(HalfFinishedUploadRequest{ 0u, requester, event });
+	}
 };

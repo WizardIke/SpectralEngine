@@ -100,7 +100,7 @@ public:
 	DynamicArray<BackgroundExecutor> backgroundExecutors;
 	DynamicArray<PrimaryExecutor> primaryExecutors;
 
-	Iterable<ExecutorIterator, Executor*> executors()
+	Range<ExecutorIterator, Executor*> executors()
 	{
 		return { {this},  primaryExecutors.end()};
 	}

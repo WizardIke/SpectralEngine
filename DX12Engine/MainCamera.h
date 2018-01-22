@@ -1,18 +1,50 @@
 #pragma once
-#include "Camera.h"
 #include "D3D12DescriptorHeap.h"
+#include "Shaders/CameraConstantBuffer.h"
+#include "Transform.h"
+#include "Frustum.h"
+#include <DirectXMath.h>
+#include "frameBufferCount.h"
+class SharedResources;
+class BaseExecutor;
 
-class MainCamera : public Camera
+class MainCamera
 {
 	D3D12DescriptorHeap renderTargetViewDescriptorHeap;
 	uint32_t backBufferTextures[frameBufferCount];
+
+	constexpr static unsigned int bufferSizePS = (sizeof(CameraConstantBuffer) + (size_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (size_t)1u)
+		& ~((size_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (size_t)1u);
+
+
+	CameraConstantBuffer* constantBufferCpuAddress;
+	D3D12_GPU_VIRTUAL_ADDRESS constantBufferGpuAddress;
+	Transform mLocation;
+	Frustum mFrustum;
+	D3D12_CPU_DESCRIPTOR_HANDLE depthSencilView;
+	ID3D12Resource* mImage;
+	unsigned int width, height;
+	DirectX::XMMATRIX mProjectionMatrix;
 public:
+	constexpr static float screenDepth = 128.0f * 31.5f;
+	constexpr static float screenNear = 0.1f;
+
 	MainCamera() {}
 	MainCamera(SharedResources* sharedResources, unsigned int width, unsigned int height, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1,
-		uint8_t*& constantBufferCpuAddress1, float fieldOfView, const Location& target);
+		uint8_t*& constantBufferCpuAddress1, float fieldOfView, const Transform& target);
 
 	void destruct(SharedResources* sharedResources);
 	~MainCamera();
 
-	void update(SharedResources* const sharedResources, const Location& target);
+	void update(SharedResources* sharedResources, const Transform& target);
+	bool isInView(const BaseExecutor*) { return true; }
+	void bind(SharedResources* sharedResources, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end);
+	void bindFirstThread(SharedResources* sharedResources, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end);
+	ID3D12Resource* getImage() { return mImage; };
+	const ID3D12Resource* getImage() const { return mImage; }
+	DirectX::XMFLOAT3& position() { return mLocation.position; }
+	DirectX::XMMATRIX& projectionMatrix() { return mProjectionMatrix; }
+	Transform& transform() { return mLocation; }
+	const Frustum& frustum() const { return mFrustum; }
+	D3D12_CPU_DESCRIPTOR_HANDLE getRenderTargetView(SharedResources* sharedResources);
 };

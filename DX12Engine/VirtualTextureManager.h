@@ -9,15 +9,12 @@ class BaseExecutor;
 #include "DDSFileLoader.h"
 #include "D3D12GraphicsEngine.h"
 #include "TextureResitency.h"
-#include "PageProvider.h"
 #include "FixedSizeAllocator.h"
+#include "PageProvider.h"
 
 class VirtualTextureManager
 {
-	constexpr static unsigned int textureSlotsBaseBit = 10;
 public:
-	constexpr static unsigned int textureSlotsCount = 6;
-
 	class Request
 	{
 		friend class VirtualTextureManager;
@@ -45,18 +42,18 @@ private:
 		bool loaded;
 	};
 
-	class TextureResitencyAllocator
+	class TextureInfoAllocator
 	{
 		unsigned int* freeList;
 		unsigned int freeListEnd = 0u;
 		unsigned int freeListCapacity = 0u;
-		TextureResitency* mData;
+		VirtualTextureInfo* mData;
 
 		void resize();
 	public:
-		TextureResitencyAllocator() = default;
+		TextureInfoAllocator() = default;
 
-		~TextureResitencyAllocator()
+		~TextureInfoAllocator()
 		{
 			delete[] freeList;
 			delete[] mData;
@@ -78,14 +75,17 @@ private:
 			++freeListEnd;
 		}
 
-		TextureResitency* data() { return mData; }
+		VirtualTextureInfo* data() { return mData; }
+		const VirtualTextureInfo* data() const { return mData; }
 	};
 
 	std::mutex mutex;
 	std::unordered_map<const wchar_t * const, std::vector<Request>, std::hash<const wchar_t *>> uploadRequests;
 	std::unordered_map<const wchar_t * const, Texture, std::hash<const wchar_t *>> textures;
-	TextureResitencyAllocator texturesByIDAndSlot[textureSlotsCount];
+public:
+	TextureInfoAllocator texturesByIDAndSlot[textureLocation::maxTextureSlots];
 	PageProvider pageProvider;
+private:
 
 	template<class Executor>
 	static void textureUploaded(void* storedFilename, BaseExecutor* exe)
@@ -124,8 +124,10 @@ private:
 	}
 
 	void createTextureWithResitencyInfo(D3D12GraphicsEngine& graphicsEngine, ID3D12CommandQueue* commandQueue, RamToVramUploadRequest& vramRequest, const wchar_t* filename);
+
+	void unloadTextureHelper(const wchar_t * filename, D3D12GraphicsEngine& graphicsEngine, StreamingManager& streamingManager, unsigned int slot);
 public:
-	VirtualTextureManager(unsigned int textureTypesCount) {}
+	VirtualTextureManager(D3D12GraphicsEngine& graphicsEngine) : pageProvider(log2f(0.5f), graphicsEngine.adapter) {}
 	~VirtualTextureManager() {}
 
 	template<class Executor>
@@ -158,5 +160,9 @@ public:
 	}
 
 	/*the texture must no longer be in use, including by the GPU*/
-	void unloadTexture(const wchar_t * filename, D3D12GraphicsEngine& graphicsEngine, unsigned int slot);
+	template<class SharedResources>
+	void unloadTexture(const wchar_t * filename, SharedResources* sharedResources, unsigned int slot)
+	{
+		unloadTextureHelper(filename, sharedResources->graphicsEngine, sharedResources->streamingManager, slot);
+	}
 };

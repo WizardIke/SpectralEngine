@@ -20,6 +20,8 @@
 //#define USE_PER_OBJECT_THREE_COMPONENT_MINREFLECTANCE
 //#define USE_PER_OBJECT_ROUGHNESS_AS_MEAN_QUARED_SLOPE_OF_MICROFACETS
 
+//#define USE_VIRTUAL_TEXTURES
+
 #if defined(USE_SPECULAR_TEXTURE) || defined(USE_AMBIENT_TEXTURE) || defined(USE_BASE_COLOR_TEXTURE) || defined(USE_NORAML_TEXTURE) || defined(USE_EMMISIVE_TEXTURE)
 Texture2D<float4> textures[] : register(t0);
 SamplerState sampleType : register(s2);
@@ -154,12 +156,32 @@ float calulateCheapReflection(float3 viewDirection, float3 reflectionNormal, flo
 }
 #endif
 
+float4 sampleTexture(Texture2D<float4> texture, SamplerState samplerType, float2 texCoords)
+{
+    float4 value;
+#ifdef USE_VIRTUAL_TEXTURE
+	{
+        uint status;
+        value = texture.Sample(samplerType, texCoords, status);
+        float bias = 1.0;
+        while (CheckAccessFullyMapped(status))
+        {
+            value = texture.SampleBias(samplerType, texCoords, bias, status);
+            ++bias;
+        }
+    }
+#else
+    value = texture.Sample(samplerType, texCoords);
+#endif
+    return value;
+}
+
 float4 main(Input input) : SV_TARGET
 {
 #ifdef USE_PER_OBJECT_AMBIENT
     float4 refractedLight = ambientLight;
 #elif USE_AMBIENT_TEXTURE
-    float4 refractedLight = textures[ambientTexture].Sample(sampleType, input.tex);
+    float4 refractedLight = sampleTexture(textures[ambientTexture], sampleType, input.tex);
 #elif USE_DIRECTIONAL_LIGHT || USE_POINT_LIGHTS
     float4 refractedLight = float4(0.0f, 0.0f, 0.0f, 0.0f);
 #else
@@ -168,7 +190,7 @@ float4 main(Input input) : SV_TARGET
 
 #if defined(USE_DIRECTIONAL_LIGHT) || defined(USE_POINT_LIGHTS)
 #ifdef USE_NORAML_TEXTURE
-    float2 bumpMap = textures[normalTexture].Sample(sampleType, input.textureCoordinates).xy - 0.5f;
+	float2 bumpMap = sampleTexture(textures[normalTexture], sampleType, input.textureCoordinates).xy - 0.5f;
     float3 normal = normalize(input.normal) + bumpMap.x * normalize(input.tangent) + bumpMap.y * normalize(input.bitangent);
     normal = normalize(normal);
 #else
@@ -197,7 +219,7 @@ float4 main(Input input) : SV_TARGET
         refractedLight += lightIntensity * directionalLight;
         reflectedLight.rgb = specularColor * calulateCheapReflection(viewDirection, reflectionNormal, lightIntensity, normal, specularPower);
 #elif defined(USE_SPECULAR_TEXTURE)
-        float4 specularMaterial = textures[specularTexture].Sample(sampleType, input.textureCoordinates);
+		float4 specularMaterial = sampleTexture(textures[specularTexture], sampleType, input.textureCoordinates);
         float2 reflectRefract = calulateCheapReflectionAndRefraction(viewDirection, reflectionNormal, lightIntensity, normal, specularMaterial.a);
         refractedLight += directionalLight * reflectRefract.g;
         reflectedLight.rgb = specularMaterial.rgb * reflectRefract.r;
@@ -242,7 +264,7 @@ float4 main(Input input) : SV_TARGET
 #endif
 
 #elif defined(USE_BASE_COLOR_TEXTURE)
-    refractedLight *= textures[baseColorTexture].Sample(sampleType, input.textureCoordinates);
+	refractedLight *= sampleTexture(textures[baseColorTexture], sampleType, input.textureCoordinates);
 #if defined(USE_PER_OBJECT_SPECULAR) || defined(USE_SPECULAR_TEXTURE) || defined(USE_PER_OBJECT_MINREFLECTANCE) || defined(USE_PER_OBJECT_THREE_COMPONENT_MINREFLECTANCE)
     refractedLight.rgb += reflectedLight;
 #endif
@@ -252,7 +274,7 @@ float4 main(Input input) : SV_TARGET
     refractedLight += emmisiveColor;
 #endif
 #ifdef USE_EMMISIVE_TEXTURE
-    refractedLight += textures[emmisiveTexture].Sample(sampleType, input.textureCoordinates);
+	refractedLight += sampleTexture(textures[emmisiveTexture], sampleType, input.textureCoordinates);
 #endif
 
     return saturate(refractedLight);

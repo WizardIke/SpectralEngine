@@ -4,7 +4,7 @@
 
 class DXGIAdapter
 {
-	IDXGIAdapter1* data;
+	IDXGIAdapter3* data;
 public:
 	DXGIAdapter(IDXGIFactory5* factory, HWND window, D3D_FEATURE_LEVEL featureLevel) : data(nullptr)
 	{
@@ -14,12 +14,14 @@ public:
 		for (auto adapterIndex = 0u; factory->EnumAdapters1(adapterIndex, &adapter) != DXGI_ERROR_NOT_FOUND; ++adapterIndex) // we'll start looking for directx 12 compatible graphics devices starting at index 0
 		{
 			adapter->GetDesc1(&desc);
-
 			if (!(desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE) && SUCCEEDED(D3D12CreateDevice(adapter, featureLevel, _uuidof(ID3D12Device), nullptr))) //this adapter is good
 			{
-				data = adapter;
+
+				adapter->QueryInterface(IID_PPV_ARGS(&data));
+				adapter->Release();
 				return;
 			}
+			adapter->Release();
 		}
 		MessageBoxW(window, L"No DirectX 12 (D3D_FEATURE_LEVEL_11_0 or later) GPU found.", L"Error", MB_OK);
 		throw IDXGIAdapterNotFoundException();
@@ -52,7 +54,7 @@ public:
 		return data == nullptr;
 	}
 
-	operator IDXGIAdapter1*()
+	operator IDXGIAdapter3*()
 	{
 		return data;
 	}
@@ -62,7 +64,7 @@ public:
 		return data;
 	}
 
-	IDXGIAdapter1* operator->()
+	IDXGIAdapter3* operator->()
 	{
 		return data;
 	}

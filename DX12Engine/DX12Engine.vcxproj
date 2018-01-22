@@ -74,7 +74,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>C:\Program Files %28x86%29\Windows Kits\10\Include\10.0.14393.0\shared;C:\Program Files %28x86%29\Windows Kits\10\Include\10.0.14393.0\um;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir)/DX12Engine/3rd_party/robin-map-master/tsl;C:\Program Files %28x86%29\Windows Kits\10\Include\10.0.14393.0\shared;C:\Program Files %28x86%29\Windows Kits\10\Include\10.0.14393.0\um;$(IncludePath)</IncludePath>
     <LibraryPath>C:\Program Files %28x86%29\Windows Kits\10\Lib\10.0.14393.0\um\x64;$(LibraryPath)</LibraryPath>
     <CodeAnalysisRuleSet>C:\Program Files (x86)\Microsoft Visual Studio 14.0\Team Tools\Static Analysis Tools\Rule Sets\NativeRecommendedRules.ruleset</CodeAnalysisRuleSet>
     <RunCodeAnalysis>false</RunCodeAnalysis>
@@ -166,14 +166,19 @@
     <ClInclude Include="AudioFormatNotSupportedException.h" />
     <ClInclude Include="AudioPlaybackException.h" />
     <ClInclude Include="BaseZone.h" />
-    <ClInclude Include="Camera.h" />
+    <ClInclude Include="PageCache.h" />
+    <ClInclude Include="PageDeleter.h" />
+    <ClInclude Include="PageProvider.h" />
+    <ClInclude Include="ReflectionCamera.h" />
+    <ClInclude Include="CameraUtil.h" />
     <ClInclude Include="D3D12PipelineState.h" />
     <ClInclude Include="D3D12RootSignature.h" />
     <ClInclude Include="D3DBlob.h" />
+    <ClInclude Include="FeedbackAnalizer.h" />
     <ClInclude Include="for_each.h" />
     <ClInclude Include="frameBufferCount.h" />
-    <ClInclude Include="Iterable.h" />
-    <ClInclude Include="PageProvider.h" />
+    <ClInclude Include="Range.h" />
+    <ClInclude Include="PageAllocator.h" />
     <ClInclude Include="RenderSubPass.h" />
     <ClInclude Include="RenderPass.h" />
     <ClInclude Include="CriticalSection.h" />
@@ -199,6 +204,7 @@
     <ClInclude Include="Shaders\FireMaterialVS.h" />
     <ClInclude Include="Shaders\GlassMaterialPS.h" />
     <ClInclude Include="Shaders\StandardMaterialPS.h" />
+    <ClInclude Include="Shaders\VtFeedbackCameraMaterial.h" />
     <ClInclude Include="Shaders\WaterMaterialPS.h" />
     <ClInclude Include="Shaders\WaterMaterialVS.h" />
     <ClInclude Include="StreamingManager.h" />
@@ -206,7 +212,9 @@
     <ClInclude Include="TextureResitency.h" />
     <ClInclude Include="Vector2.h" />
     <ClInclude Include="Vector4.h" />
+    <ClInclude Include="VirtualPageCamera.h" />
     <ClInclude Include="VirtualTextureManager.h" />
+    <ClInclude Include="VtFeedbackMaterial.h" />
     <ClInclude Include="Win32Event.h" />
     <ClInclude Include="Exception.h" />
     <ClInclude Include="FileNotFoundException.h" />
@@ -220,7 +228,7 @@
     <ClInclude Include="IndexOutOfRangeException.h" />
     <ClInclude Include="InvalidHeaderInfoException.h" />
     <ClInclude Include="IOException.h" />
-    <ClInclude Include="Location.h" />
+    <ClInclude Include="Transform.h" />
     <ClInclude Include="Quaternion.h" />
     <ClInclude Include="RamToVramUploadRequest.h" />
     <ClInclude Include="ReadWriteLock.h" />
@@ -250,7 +258,7 @@
     <ClInclude Include="TextureManager.h" />
     <ClInclude Include="Timer.h" />
     <ClInclude Include="UnkownCpuFrequencyException.h" />
-    <ClInclude Include="VRamFreeingManager.h" />
+    <ClInclude Include="GpuCompletionEventManager.h" />
     <ClInclude Include="Window.h" />
     <ClInclude Include="WindowsFileCreationException.h" />
     <ClInclude Include="XAudio2SourceVoice.h" />
@@ -260,12 +268,17 @@
     <ClCompile Include="BaseExecutor.cpp" />
     <ClCompile Include="BaseSentence.cpp" />
     <ClCompile Include="BaseZone.cpp" />
-    <ClCompile Include="Camera.cpp" />
+    <ClCompile Include="CameraUtil.cpp" />
+    <ClCompile Include="FeedbackAnalizer.cpp" />
+    <ClCompile Include="PageCache.cpp" />
+    <ClCompile Include="PageDeleter.cpp" />
+    <ClCompile Include="PageProvider.cpp" />
+    <ClCompile Include="ReflectionCamera.cpp" />
     <ClCompile Include="MainCamera.cpp" />
     <ClCompile Include="EulerRotation.cpp" />
     <ClCompile Include="Font.cpp" />
     <ClCompile Include="MeshManager.cpp" />
-    <ClCompile Include="PageProvider.cpp" />
+    <ClCompile Include="PageAllocator.cpp" />
     <ClCompile Include="Quaternion.cpp" />
     <ClCompile Include="SharedResources.cpp" />
     <ClCompile Include="DDSFileLoader.cpp" />
@@ -276,8 +289,10 @@
     <ClCompile Include="StreamingManager.cpp" />
     <ClCompile Include="TextureManager.cpp" />
     <ClCompile Include="Timer.cpp" />
+    <ClCompile Include="Transform.cpp" />
+    <ClCompile Include="VirtualPageCamera.cpp" />
     <ClCompile Include="VirtualTextureManager.cpp" />
-    <ClCompile Include="VRamFreeingManager.cpp" />
+    <ClCompile Include="GpuCompletionEventManager.cpp" />
     <ClCompile Include="Window.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -340,17 +355,12 @@
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Vertex</ShaderType>
     </FxCompile>
     <FxCompile Include="Shaders\FireVs.hlsl" />
+    <FxCompile Include="Shaders\VtFeedbackPS.hlsl" />
     <FxCompile Include="Shaders\WaterVS.hlsl" />
     <FxCompile Include="Shaders\WaterPS.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Pixel</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Pixel</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
-    </FxCompile>
-    <FxCompile Include="VtFeedbackPS.hlsl">
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Pixel</ShaderType>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Pixel</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
     </FxCompile>
   </ItemGroup>

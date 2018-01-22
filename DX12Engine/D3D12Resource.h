@@ -8,7 +8,7 @@ class D3D12Resource
 	ID3D12Resource* data;
 public:
 	D3D12Resource(ID3D12Device* const device, const D3D12_HEAP_PROPERTIES& heapProperties, const D3D12_HEAP_FLAGS heapFlags, const D3D12_RESOURCE_DESC& resourceDesc,
-		const D3D12_RESOURCE_STATES initialResourceState, const D3D12_CLEAR_VALUE* const optimizedClearValue) : data(nullptr)
+		const D3D12_RESOURCE_STATES initialResourceState, const D3D12_CLEAR_VALUE* const optimizedClearValue)
 	{
 		auto hr = device->CreateCommittedResource(&heapProperties, heapFlags, &resourceDesc, initialResourceState, optimizedClearValue, IID_PPV_ARGS(&data));
 		if (FAILED(hr)) throw ID3D12ResourceCreationFailedException();

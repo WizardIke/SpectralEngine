@@ -18,6 +18,7 @@ class D3D12GraphicsEngine
 {
 public:
 	//DXGIFactory dxgiFactory;
+	DXGIAdapter adapter;
 	D3D12Device graphicsDevice;
 	D3D12CommandQueue directCommandQueue;
 

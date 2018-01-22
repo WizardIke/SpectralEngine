@@ -1,7 +1,7 @@
 #pragma once
 
 template<class Iterator1, class Iterator2 = Iterator1>
-class Iterable
+class Range
 {
 	Iterator1 mBegin;
 	Iterator2 mEnd;
@@ -39,15 +39,23 @@ class Iterable
 		}
 	};
 public:
-	Iterable(Iterator1 begin, Iterator2 end) : mBegin(std::move(begin)), mEnd(std::move(end)) {}
+	Range(Iterator1 begin, Iterator2 end) : mBegin(std::move(begin)), mEnd(std::move(end)) {}
 	template<class T>
-	Iterable(T& t) : mBegin(std::begin(t)), mEnd(std::end(t)) {}
+	Range(T& t) : mBegin(std::begin(t)), mEnd(std::end(t)) {}
 	Iterator1 begin() { return mBegin; }
 	Iterator2 end() { return mEnd; }
 
+	bool empty()
+	{
+		return mBegin == mEnd;
+	}
+
 	template<class NewType, NewType&(*f)(typename std::iterator_traits<Iterator1>::value_type& it)>
-	Iterable<Mapped<NewType, f>, Iterator2> map()
+	Range<Mapped<NewType, f>, Iterator2> map()
 	{
 		return { mBegin, mEnd };
 	}
 };
+
+template<class Iterator1, class Iterator2 = Iterator1>
+Range<Iterator1, Iterator2> range(Iterator1 begin, Iterator2 end) { return Range<Iterator1, Iterator2>(begin, end); }

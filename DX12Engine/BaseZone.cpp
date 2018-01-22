@@ -68,15 +68,15 @@ void BaseZone::unloadAll(BaseExecutor* const executor)
 
 void BaseZone::unloadHighDetail(BaseExecutor* executor)
 {
-	executor->vRamFreeingManager.addRequest(this, vTable->unloadHighDetail, executor->sharedResources->graphicsEngine.frameIndex);
+	executor->gpuCompletionEventManager.addRequest(this, vTable->unloadHighDetail, executor->sharedResources->graphicsEngine.frameIndex);
 }
 
 void BaseZone::unloadMediumDetail(BaseExecutor* executor)
 {
-	executor->vRamFreeingManager.addRequest(this, vTable->unloadMediumDetail, executor->sharedResources->graphicsEngine.frameIndex);
+	executor->gpuCompletionEventManager.addRequest(this, vTable->unloadMediumDetail, executor->sharedResources->graphicsEngine.frameIndex);
 }
 
 void BaseZone::unloadLowDetail(BaseExecutor* executor)
 {
-	executor->vRamFreeingManager.addRequest(this, vTable->unloadLowDetail, executor->sharedResources->graphicsEngine.frameIndex);
+	executor->gpuCompletionEventManager.addRequest(this, vTable->unloadLowDetail, executor->sharedResources->graphicsEngine.frameIndex);
 }

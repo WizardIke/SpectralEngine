@@ -2,15 +2,8 @@
 #define maxAniso 16
 #endif
 
-cbuffer Material : register(b1)
-{
-	float virtualTextureID;
-	float feedbackBias; // log2( feedbackWidth / windowWidth ) + dynamicLODbias
-	float textureWidthInPages;
-	float textureHeightInPages;
-	float usefulTextureWidth; //width of virtual texture not counting padding
-	float usefulTextureHeight;
-};
+#include "VtFeedbackCameraMaterial.h"
+#include "VtFeedbackMaterial.h"
 
 struct Input {
 	float4 position : VS_POSITION;

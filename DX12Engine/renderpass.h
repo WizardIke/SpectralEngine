@@ -481,46 +481,10 @@ public:
 			auto& subPass = std::get<start>(renderPass.subPasses);
 			if (subPass.isInView(executor))
 			{
-				update2LastThreadHelper<start>(renderPass, commandLists, numThreads);
+				auto& subPassLocal = std::get<start>(subPassesThreadLocal);
+				subPassLocal.update2LastThread(commandLists, numThreads, subPass);
 			}
 			update2LastThread<start + 1u, end>(executor, renderPass, commandLists, numThreads);
-		}
-
-		template<unsigned int index>
-		std::enable_if_t<!std::tuple_element_t<index, std::tuple<RenderSubPass_t...>>::isMainSubPass, void>
-			update2LastThreadHelper(RenderPass<RenderSubPass_t...>& renderPass, ID3D12CommandList**& commandLists, unsigned int numThreads)
-		{
-			const auto commandListsPerFrame = std::get<index>(renderPass.subPasses).commandListsPerFrame;
-			auto& subPassLocal = std::get<index>(subPassesThreadLocal);
-			subPassLocal.update2(commandLists, numThreads);
-		}
-
-		template<unsigned int index>
-		std::enable_if_t<std::tuple_element_t<index, std::tuple<RenderSubPass_t...>>::isMainSubPass, void>
-			update2LastThreadHelper(RenderPass<RenderSubPass_t...>& renderPass, ID3D12CommandList**& commandLists, unsigned int numThreads)
-		{
-			constexpr auto subPassCount = sizeof...(RenderSubPass_t);
-			auto cameras = std::get<index>(renderPass.subPasses).cameras();
-			auto camerasEnd = cameras.end();
-			uint32_t barrierCount = 0u;
-			D3D12_RESOURCE_BARRIER barriers[2];
-			for (auto cam = cameras.begin(); cam != camerasEnd; ++cam)
-			{
-				assert(barrierCount != 2);
-				auto camera = *cam;
-				barriers[barrierCount].Flags = D3D12_RESOURCE_BARRIER_FLAGS::D3D12_RESOURCE_BARRIER_FLAG_NONE;
-				barriers[barrierCount].Type = D3D12_RESOURCE_BARRIER_TYPE::D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-				barriers[barrierCount].Transition.pResource = camera->getImage();
-				barriers[barrierCount].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-				barriers[barrierCount].Transition.StateBefore = std::tuple_element_t<index, std::tuple<RenderSubPass_t...>>::state;
-				barriers[barrierCount].Transition.StateAfter = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_PRESENT;
-				++barrierCount;
-			}
-
-			auto& subPassLocal = std::get<index>(subPassesThreadLocal);
-			subPassLocal.lastCommandList()->ResourceBarrier(barrierCount, barriers);
-			const auto commandListsPerFrame = std::get<index>(renderPass.subPasses).commandListsPerFrame;
-			subPassLocal.update2(commandLists, numThreads);
 		}
 	};
 

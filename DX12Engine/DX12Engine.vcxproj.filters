@@ -34,9 +34,6 @@
     <Filter Include="Light">
       <UniqueIdentifier>{1da70e47-cc90-4d69-a53a-3e490b8c47e0}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Location">
-      <UniqueIdentifier>{c1f00c24-644d-4b56-a812-1788944f9806}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Locks">
       <UniqueIdentifier>{4e406b92-454b-49a1-85dd-2f4a29f8b8c0}</UniqueIdentifier>
     </Filter>
@@ -115,8 +112,11 @@
     <Filter Include="Shaders\Vertex">
       <UniqueIdentifier>{e9159c27-8f8f-4c7f-8d08-3fd508348cbc}</UniqueIdentifier>
     </Filter>
-    <Filter Include="VirtualTextureManager">
+    <Filter Include="VirtualTexturing">
       <UniqueIdentifier>{77aead6d-49a8-4111-8626-864b5ee68e44}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Transform">
+      <UniqueIdentifier>{c1f00c24-644d-4b56-a812-1788944f9806}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -237,9 +237,6 @@
     <ClInclude Include="D3D12Heap.h">
       <Filter>D3D12</Filter>
     </ClInclude>
-    <ClInclude Include="VRamFreeingManager.h">
-      <Filter>VRamFreeingManager</Filter>
-    </ClInclude>
     <ClInclude Include="Font.h">
       <Filter>Text Engine</Filter>
     </ClInclude>
@@ -257,9 +254,6 @@
     </ClInclude>
     <ClInclude Include="PlayerPosition.h">
       <Filter>PlayerPosition</Filter>
-    </ClInclude>
-    <ClInclude Include="Location.h">
-      <Filter>Location</Filter>
     </ClInclude>
     <ClInclude Include="SoundEngine.h">
       <Filter>Sound</Filter>
@@ -332,9 +326,6 @@
     <ClInclude Include="Vector4.h">
       <Filter>Math</Filter>
     </ClInclude>
-    <ClInclude Include="Camera.h">
-      <Filter>Camera</Filter>
-    </ClInclude>
     <ClInclude Include="D3D12Device.h">
       <Filter>D3D12</Filter>
     </ClInclude>
@@ -344,7 +335,6 @@
     <ClInclude Include="D3D12Fence.h">
       <Filter>D3D12</Filter>
     </ClInclude>
-    <ClInclude Include="Iterable.h" />
     <ClInclude Include="Shaders\WaterMaterialPS.h">
       <Filter>Shaders\Pixel</Filter>
     </ClInclude>
@@ -373,15 +363,49 @@
       <Filter>D3D12</Filter>
     </ClInclude>
     <ClInclude Include="VirtualTextureManager.h">
-      <Filter>VirtualTextureManager</Filter>
-    </ClInclude>
-    <ClInclude Include="PageProvider.h">
-      <Filter>VirtualTextureManager</Filter>
+      <Filter>VirtualTexturing</Filter>
     </ClInclude>
     <ClInclude Include="TextureResitency.h">
-      <Filter>VirtualTextureManager</Filter>
+      <Filter>VirtualTexturing</Filter>
     </ClInclude>
     <ClInclude Include="FixedSizeAllocator.h" />
+    <ClInclude Include="FeedbackAnalizer.h">
+      <Filter>VirtualTexturing</Filter>
+    </ClInclude>
+    <ClInclude Include="Transform.h">
+      <Filter>Transform</Filter>
+    </ClInclude>
+    <ClInclude Include="CameraUtil.h">
+      <Filter>Camera</Filter>
+    </ClInclude>
+    <ClInclude Include="ReflectionCamera.h">
+      <Filter>Camera</Filter>
+    </ClInclude>
+    <ClInclude Include="VirtualPageCamera.h">
+      <Filter>Camera</Filter>
+    </ClInclude>
+    <ClInclude Include="GpuCompletionEventManager.h">
+      <Filter>VRamFreeingManager</Filter>
+    </ClInclude>
+    <ClInclude Include="PageCache.h">
+      <Filter>VirtualTexturing</Filter>
+    </ClInclude>
+    <ClInclude Include="PageAllocator.h">
+      <Filter>VirtualTexturing</Filter>
+    </ClInclude>
+    <ClInclude Include="PageProvider.h">
+      <Filter>VirtualTexturing</Filter>
+    </ClInclude>
+    <ClInclude Include="Range.h" />
+    <ClInclude Include="VtFeedbackMaterial.h">
+      <Filter>Shaders\Pixel</Filter>
+    </ClInclude>
+    <ClInclude Include="Shaders\VtFeedbackCameraMaterial.h">
+      <Filter>Shaders\Pixel</Filter>
+    </ClInclude>
+    <ClInclude Include="PageDeleter.h">
+      <Filter>VirtualTexturing</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="SharedResources.cpp">
@@ -398,9 +422,6 @@
     </ClCompile>
     <ClCompile Include="Window.cpp">
       <Filter>Window</Filter>
-    </ClCompile>
-    <ClCompile Include="VRamFreeingManager.cpp">
-      <Filter>VRamFreeingManager</Filter>
     </ClCompile>
     <ClCompile Include="Font.cpp">
       <Filter>Text Engine</Filter>
@@ -442,14 +463,38 @@
       <Filter>StreamingManager</Filter>
     </ClCompile>
     <ClCompile Include="AABBSweepTest.cpp" />
-    <ClCompile Include="Camera.cpp">
+    <ClCompile Include="VirtualTextureManager.cpp">
+      <Filter>VirtualTexturing</Filter>
+    </ClCompile>
+    <ClCompile Include="Transform.cpp">
+      <Filter>Transform</Filter>
+    </ClCompile>
+    <ClCompile Include="ReflectionCamera.cpp">
       <Filter>Camera</Filter>
     </ClCompile>
-    <ClCompile Include="VirtualTextureManager.cpp">
-      <Filter>VirtualTextureManager</Filter>
+    <ClCompile Include="VirtualPageCamera.cpp">
+      <Filter>Camera</Filter>
+    </ClCompile>
+    <ClCompile Include="CameraUtil.cpp">
+      <Filter>Camera</Filter>
+    </ClCompile>
+    <ClCompile Include="GpuCompletionEventManager.cpp">
+      <Filter>VRamFreeingManager</Filter>
+    </ClCompile>
+    <ClCompile Include="PageAllocator.cpp">
+      <Filter>VirtualTexturing</Filter>
+    </ClCompile>
+    <ClCompile Include="FeedbackAnalizer.cpp">
+      <Filter>VirtualTexturing</Filter>
+    </ClCompile>
+    <ClCompile Include="PageCache.cpp">
+      <Filter>VirtualTexturing</Filter>
     </ClCompile>
     <ClCompile Include="PageProvider.cpp">
-      <Filter>VirtualTextureManager</Filter>
+      <Filter>VirtualTexturing</Filter>
+    </ClCompile>
+    <ClCompile Include="PageDeleter.cpp">
+      <Filter>VirtualTexturing</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -483,7 +528,7 @@
     <FxCompile Include="Shaders\ScreenSpaceCopyPS.hlsl">
       <Filter>Shaders\Pixel</Filter>
     </FxCompile>
-    <FxCompile Include="VtFeedbackPS.hlsl">
+    <FxCompile Include="Shaders\VtFeedbackPS.hlsl">
       <Filter>Shaders\Pixel</Filter>
     </FxCompile>
   </ItemGroup>
