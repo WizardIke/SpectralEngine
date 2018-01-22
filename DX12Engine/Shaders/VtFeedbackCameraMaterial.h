@@ -9,7 +9,7 @@ struct VtFeedbackCameraMaterial
 #else
 cbuffer Camera : register(b0)
 {
-	matrix4x4 viewProjectionMatrix;
+	matrix viewProjectionMatrix;
 	float feedbackBias; // log2( feedbackWidth / windowWidth ) + dynamicLODbias
 };
 #endif

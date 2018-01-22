@@ -355,7 +355,9 @@
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Vertex</ShaderType>
     </FxCompile>
     <FxCompile Include="Shaders\FireVs.hlsl" />
-    <FxCompile Include="Shaders\VtFeedbackPS.hlsl" />
+    <FxCompile Include="Shaders\VtFeedbackPS.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
+    </FxCompile>
     <FxCompile Include="Shaders\WaterVS.hlsl" />
     <FxCompile Include="Shaders\WaterPS.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Pixel</ShaderType>
