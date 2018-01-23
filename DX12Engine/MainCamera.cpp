@@ -16,7 +16,7 @@ MainCamera::MainCamera(SharedResources* sharedResources, unsigned int width, uns
 	width(width),
 	height(height),
 	mImage(sharedResources->window.getBuffer(sharedResources->graphicsEngine.frameIndex)),
-	depthSencilView(depthSencilView)
+	depthSencilView(sharedResources->graphicsEngine.depthStencilDescriptorHeap->GetCPUDescriptorHandleForHeapStart())
 {
 	D3D12_SHADER_RESOURCE_VIEW_DESC backBufferSrvDesc;
 	backBufferSrvDesc.Format = DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM;
