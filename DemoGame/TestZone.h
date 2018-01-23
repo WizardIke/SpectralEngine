@@ -39,7 +39,7 @@ class TestZoneFunctions
 
 
 		HDResources(Executor* const executor, void* zone) :
-			light(DirectX::XMFLOAT4(0.1f, 0.1f, 0.1f, 1.0f), DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f), DirectX::XMFLOAT3(0.0f, -0.894427191f, 0.447213595f)),
+			light(DirectX::XMFLOAT4(0.05f, 0.05f, 0.05f, 1.0f), DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f), DirectX::XMFLOAT3(0.0f, -0.894427191f, 0.447213595f)),
 			perObjectConstantBuffers(executor->sharedResources->graphicsEngine.graphicsDevice, []()
 		{
 			D3D12_HEAP_PROPERTIES heapProperties;

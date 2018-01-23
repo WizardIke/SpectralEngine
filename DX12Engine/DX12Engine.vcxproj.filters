@@ -496,6 +496,9 @@
     <ClCompile Include="PageDeleter.cpp">
       <Filter>VirtualTexturing</Filter>
     </ClCompile>
+    <ClCompile Include="ScopedFile.cpp">
+      <Filter>ScopedFile</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Shaders\WaterPS.hlsl">

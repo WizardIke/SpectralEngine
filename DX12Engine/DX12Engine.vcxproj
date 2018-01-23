@@ -280,6 +280,7 @@
     <ClCompile Include="MeshManager.cpp" />
     <ClCompile Include="PageAllocator.cpp" />
     <ClCompile Include="Quaternion.cpp" />
+    <ClCompile Include="ScopedFile.cpp" />
     <ClCompile Include="SharedResources.cpp" />
     <ClCompile Include="DDSFileLoader.cpp" />
     <ClCompile Include="InputManager.cpp" />
