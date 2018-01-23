@@ -4,10 +4,9 @@
 #include <vector>
 #include <unordered_map>
 #include <mutex>
+#include "FixedSizeAllocator.h"
 class BaseExecutor;
 class StreamingManagerThreadLocal;
-template<class T>
-class FixedSizeAllocator;
 
 class MeshManager
 {

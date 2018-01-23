@@ -25,8 +25,16 @@ class FeedbackAnalizerSubPass : public RenderSubPass<VirtualPageCamera, D3D12_RE
 	VirtualPageCamera camera;
 	unsigned long long memoryUsage;
 
+	struct TextureLocationHasher : std::hash<uint64_t>
+	{
+		size_t operator()(textureLocation location) const
+		{
+			return (*(std::hash<uint64_t>*)(this))(location.value);
+		}
+	};
+
 	//contains all unique valid pages needed
-	std::unordered_map<textureLocation, PageRequestData> uniqueRequests;
+	std::unordered_map<textureLocation, PageRequestData, TextureLocationHasher> uniqueRequests;
 
 	//unsigned int feadbackTextureGpuDescriptorIndex;
 	bool inView = true;

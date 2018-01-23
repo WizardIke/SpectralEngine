@@ -12,6 +12,8 @@ class VirtualTextureManager;
 class StreamingManager;
 struct IDXGIAdapter3;
 class BaseExecutor;
+#undef min
+#undef max
 
 class PageProvider
 {

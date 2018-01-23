@@ -3,6 +3,7 @@
 #include "RenderPass1.h"
 #include <array>
 class D3D12GraphicsEngine;
+class Assets;
 
 class Executor : public BaseExecutor
 {

@@ -24,6 +24,6 @@ void MainExecutor::update2(std::unique_lock<std::mutex>&& lock)
 	assets->conditionVariable.notify_all();
 
 	currentWorkStealingDeque = &workStealDeques[0u];
-	vRamFreeingManager.update(this);
+	gpuCompletionEventManager.update(this);
 	streamingManager.update(this);
 }

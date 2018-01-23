@@ -81,6 +81,11 @@ public:
 	{
 		value = (textureSlots << 10u) | (value & 0xffffffffffff03ff);
 	}
+
+	bool operator==(const textureLocation& other) const
+	{
+		return value == other.value;
+	}
 };
 
 struct PageAllocationInfo

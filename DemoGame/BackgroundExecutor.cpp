@@ -33,7 +33,7 @@ void BackgroundExecutor::update2(std::unique_lock<std::mutex>&& lock)
 		--(sharedResources->numPrimaryJobExeThreads);
 		lock.unlock();
 
-		vRamFreeingManager.update(this);
+		gpuCompletionEventManager.update(this);
 		streamingManager.update(this);
 
 		Executor::runBackgroundJobs(job);
@@ -43,7 +43,7 @@ void BackgroundExecutor::update2(std::unique_lock<std::mutex>&& lock)
 	{
 		lock.unlock();
 		currentWorkStealingDeque = &updateJobQueue();
-		vRamFreeingManager.update(this);
+		gpuCompletionEventManager.update(this);
 		streamingManager.update(this);
 	}
 }

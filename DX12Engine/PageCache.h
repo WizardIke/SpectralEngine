@@ -1,12 +1,14 @@
 #pragma once
 #include <cstdint>
+#undef min
+#undef max
 #include <robin_hash.h>
 #include "TextureResitency.h"
 #include "Range.h"
 #include <vector>
-#undef min;
-#undef max;
 class PageAllocator;
+#undef min
+#undef max
 
 class PageCache
 {
@@ -36,7 +38,7 @@ class PageCache
 
 	struct Hash : std::hash<uint64_t>
 	{
-		size_t operator()(textureLocation location)
+		size_t operator()(textureLocation location) const
 		{
 			return (*(std::hash<uint64_t>*)(this))(location.value);
 		}

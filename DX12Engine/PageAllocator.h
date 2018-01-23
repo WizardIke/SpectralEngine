@@ -3,7 +3,8 @@
 #include <vector>
 #include "TextureResitency.h"
 #include "PageCache.h"
-#include "VirtualTextureManager.h"
+#undef min
+#undef max
 
 /*
 Allocates and deallocates 64KB pages of gpu memory.
@@ -52,9 +53,66 @@ public:
 	void addPackedPages(const VirtualTextureInfo& textureInfo, unsigned int numPages, ID3D12CommandQueue* commandQueue, ID3D12Device* graphicsDevice);
 	void addPinnedPages(D3D12_TILED_RESOURCE_COORDINATE* locations, unsigned int pageCount, VirtualTextureInfo& textureInfo, ID3D12CommandQueue* commandQueue,
 		ID3D12Device* graphicsDevice);
-	void removePages(const PageAllocationInfo* locations, unsigned int pageCount);
+	void removePages(const PageAllocationInfo* locations, size_t pageCount);
 	void removePinnedPages(const HeapLocation* pinnedHeapLocations, unsigned int numPinnedPages);
-	void decreaseNonPinnedSize(size_t newSize, PageCache& pageCache, ID3D12CommandQueue* commandQueue,
-		const decltype(VirtualTextureManager::texturesByIDAndSlot)& texturesByIDAndSlot);
 	size_t pinnedPageCount() { return mPinnedPageCount; }
+
+	template<class TexturesByIDAndSlot>
+	void decreaseNonPinnedSize(size_t newSize, PageCache& pageCache, ID3D12CommandQueue* commandQueue,
+		const TexturesByIDAndSlot& texturesByIDAndSlot)
+	{
+		size_t newNumChunks = newSize / heapSizeInPages;
+		assert(chunks.size() > newNumChunks && "can't decrease size to a larger size");
+		const size_t heapIdsStart = newNumChunks - 1u;
+		const size_t heapIdEnd = chunks.size() - 1u;
+		std::unique_ptr<textureLocation[]> locations(new textureLocation[(heapIdEnd - heapIdsStart) * heapSizeInPages]);
+		textureLocation* locationsEnd = locations.get();
+		auto pages = pageCache.pages();
+
+
+		D3D12_TILED_RESOURCE_COORDINATE resourceTileCoords[64u];
+		size_t lastIndex = 0u;
+		D3D12_TILE_RANGE_FLAGS rangeFlags = D3D12_TILE_RANGE_FLAG_NULL;
+		ID3D12Resource* lastResource;
+		{
+			auto textureId = pages.begin()->textureLocation.textureId();
+			auto textureSlot = pages.begin()->textureLocation.textureSlots();
+			const VirtualTextureInfo& textureInfo = texturesByIDAndSlot[textureSlot].data()[textureId];
+			lastResource = textureInfo.resource;
+		}
+		size_t i = 0u;
+		const auto end = pages.end();
+		for (auto pagePtr = pages.begin(); pagePtr != end; ++pagePtr)
+		{
+			auto& page = *pagePtr;
+			if (page.heapLocations.heapIndex >= heapIdsStart && page.heapLocations.heapIndex <= heapIdEnd)
+			{
+				*locationsEnd = page.textureLocation;
+				++locationsEnd;
+
+				auto textureId = page.textureLocation.textureId();
+				auto textureSlot = page.textureLocation.textureSlots();
+				const VirtualTextureInfo& textureInfo = texturesByIDAndSlot[textureSlot].data()[textureId];
+				resourceTileCoords[i].X = (UINT)page.textureLocation.x();
+				resourceTileCoords[i].Y = (UINT)page.textureLocation.y();
+				resourceTileCoords[i].Z = 0u;
+				resourceTileCoords[i].Subresource = (UINT)page.textureLocation.mipLevel();
+				if (lastResource != textureInfo.resource || i == 63u)
+				{
+					commandQueue->UpdateTileMappings(lastResource, (UINT)(i - lastIndex), resourceTileCoords + lastIndex, nullptr, nullptr, 1u, &rangeFlags, nullptr,
+						nullptr, D3D12_TILE_MAPPING_FLAG_NONE);
+					lastIndex = i;
+					lastResource = textureInfo.resource;
+				}
+				++i;
+			}
+		}
+		commandQueue->UpdateTileMappings(lastResource, (UINT)(i - lastIndex), resourceTileCoords + lastIndex, nullptr, nullptr, 1u, &rangeFlags, nullptr,
+			nullptr, D3D12_TILE_MAPPING_FLAG_NONE);
+
+		for (auto i = locations.get(); i != locationsEnd; ++i)
+		{
+			pageCache.removePageWithoutDeleting(*i);
+		}
+	}
 };

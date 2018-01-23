@@ -586,18 +586,8 @@ namespace DDSFileLoader
 	TextureInfo getDDSTextureInfoFromFile(ScopedFile& textureFile)
 	{
 		TextureInfo textureInfo;
-		LARGE_INTEGER FileSize = { 0 };
-#if (_WIN32_WINNT >= _WIN32_WINNT_VISTA)
-		FILE_STANDARD_INFO fileInfo;
-		if (!GetFileInformationByHandleEx(textureFile.file, FileStandardInfo, &fileInfo, sizeof(fileInfo)))
-		{
-			throw HresultException(HRESULT_FROM_WIN32(GetLastError()));
-		}
-		FileSize = fileInfo.EndOfFile;
-#else
-		GetFileSizeEx(TextureFile.file, &FileSize);
-#endif
-		if (FileSize.QuadPart < (sizeof(DDS_HEADER)))
+		size_t fileSize = textureFile.size();
+		if (fileSize < (sizeof(DDS_HEADER)))
 		{
 			throw EndOfFileException();
 		}
@@ -618,7 +608,7 @@ namespace DDSFileLoader
 		if ((ddsHeader.ddspf.flags & DDS_FOURCC) && (MAKEFOURCC('D', 'X', '1', '0') == ddsHeader.ddspf.fourCC))
 		{
 			// Must be long enough for both headers
-			if (FileSize.QuadPart < (sizeof(DDS_HEADER) + sizeof(DDS_HEADER_DXT10)))
+			if (fileSize < (sizeof(DDS_HEADER) + sizeof(DDS_HEADER_DXT10)))
 			{
 				throw EndOfFileException();
 			}
@@ -733,18 +723,8 @@ namespace DDSFileLoader
 
 	void getDDSTextureInfoFromFile(D3D12_RESOURCE_DESC& textureDesc, ScopedFile& textureFile, D3D12_SHADER_RESOURCE_VIEW_DESC& textureView, bool forceSRGB)
 	{
-		LARGE_INTEGER FileSize = { 0 };
-#if (_WIN32_WINNT >= _WIN32_WINNT_VISTA)
-		FILE_STANDARD_INFO fileInfo;
-		if (!GetFileInformationByHandleEx(textureFile.file, FileStandardInfo, &fileInfo, sizeof(fileInfo)))
-		{
-			throw HresultException(HRESULT_FROM_WIN32(GetLastError()));
-		}
-		FileSize = fileInfo.EndOfFile;
-#else
-		GetFileSizeEx(TextureFile.file, &FileSize);
-#endif
-		if (FileSize.QuadPart < (sizeof(DDS_HEADER)))
+		size_t fileSize = textureFile.size();
+		if (fileSize < (sizeof(DDS_HEADER)))
 		{
 			throw EndOfFileException();
 		}
@@ -767,7 +747,7 @@ namespace DDSFileLoader
 		if ((ddsHeader.ddspf.flags & DDS_FOURCC) && (MAKEFOURCC('D', 'X', '1', '0') == ddsHeader.ddspf.fourCC))
 		{
 			// Must be long enough for both headers
-			if (FileSize.QuadPart < (sizeof(DDS_HEADER) + sizeof(DDS_HEADER_DXT10)))
+			if (fileSize < (sizeof(DDS_HEADER) + sizeof(DDS_HEADER_DXT10)))
 			{
 				throw EndOfFileException();
 			}

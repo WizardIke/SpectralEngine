@@ -36,18 +36,18 @@ void PageDeleter::finish()
 		auto textureId = deletedPages[i].textureLocation.textureId();
 		auto textureSlot = deletedPages[i].textureLocation.textureSlots();
 		const VirtualTextureInfo& textureInfo = texturesByIDAndSlot[textureSlot].data()[textureId];
-		resourceTileCoords[i].X = deletedPages[i].textureLocation.x();
-		resourceTileCoords[i].Y = deletedPages[i].textureLocation.y();
+		resourceTileCoords[i].X = (UINT)deletedPages[i].textureLocation.x();
+		resourceTileCoords[i].Y = (UINT)deletedPages[i].textureLocation.y();
 		resourceTileCoords[i].Z = 0u;
-		resourceTileCoords[i].Subresource = deletedPages[i].textureLocation.mipLevel();
+		resourceTileCoords[i].Subresource = (UINT)deletedPages[i].textureLocation.mipLevel();
 		if (lastResource != textureInfo.resource)
 		{
-			commandQueue->UpdateTileMappings(lastResource, i - lastIndex, resourceTileCoords + lastIndex, nullptr, nullptr, 1u, &rangeFlags, nullptr,
+			commandQueue->UpdateTileMappings(lastResource, (UINT)(i - lastIndex), resourceTileCoords + lastIndex, nullptr, nullptr, 1u, &rangeFlags, nullptr,
 				nullptr, D3D12_TILE_MAPPING_FLAG_NONE);
 			lastIndex = i;
 			lastResource = textureInfo.resource;
 		}
 	}
-	commandQueue->UpdateTileMappings(lastResource, deletedPageCount - lastIndex, resourceTileCoords + lastIndex, nullptr, nullptr, 1u, &rangeFlags, nullptr,
+	commandQueue->UpdateTileMappings(lastResource, (UINT)(deletedPageCount - lastIndex), resourceTileCoords + lastIndex, nullptr, nullptr, 1u, &rangeFlags, nullptr,
 		nullptr, D3D12_TILE_MAPPING_FLAG_NONE);
 }

@@ -11,6 +11,8 @@ class BaseExecutor;
 #include "TextureResitency.h"
 #include "FixedSizeAllocator.h"
 #include "PageProvider.h"
+#undef min
+#undef max
 
 class VirtualTextureManager
 {
@@ -127,7 +129,7 @@ private:
 
 	void unloadTextureHelper(const wchar_t * filename, D3D12GraphicsEngine& graphicsEngine, StreamingManager& streamingManager, unsigned int slot);
 public:
-	VirtualTextureManager(D3D12GraphicsEngine& graphicsEngine) : pageProvider(log2f(0.5f), graphicsEngine.adapter) {}
+	VirtualTextureManager(D3D12GraphicsEngine& graphicsEngine) : pageProvider(log2f(0.5f), graphicsEngine.adapter, graphicsEngine.graphicsDevice) {}
 	~VirtualTextureManager() {}
 
 	template<class Executor>

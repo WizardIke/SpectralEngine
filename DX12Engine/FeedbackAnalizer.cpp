@@ -27,7 +27,7 @@ void FeedbackAnalizerSubPass::readbackTextureReadyHelper(void* requester, Virtua
 				{
 					VirtualTextureInfo& textureInfo = virtualTextureManager.texturesByIDAndSlot[i].data()[textureId];
 
-					unsigned int nextMipLevel = feedbackData.mipLevel();
+					unsigned int nextMipLevel = (unsigned int)feedbackData.mipLevel();
 					if (nextMipLevel < textureInfo.lowestPinnedMip)
 					{
 						feedbackData.setTextureSlots(i);
@@ -107,9 +107,9 @@ void FeedbackAnalizerSubPass::createResources(BaseExecutor* executor, D3D12_GPU_
 	resourceDesc.SampleDesc.Quality = 0u;
 	size_t numRows, packedSize, packedRowPitch;
 	DDSFileLoader::getSurfaceInfo(width, height, resourceDesc.Format, packedSize, packedRowPitch, numRows);
-	this->packedRowPitch = packedRowPitch;
+	this->packedRowPitch = (unsigned long)packedRowPitch;
 	rowPitch = (packedRowPitch + (size_t)D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - (size_t)1u) & ~((size_t)D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - (size_t)1u);
-	unsigned long totalSize = rowPitch * (numRows - 1u) + packedRowPitch;
+	uint64_t totalSize = rowPitch * (numRows - 1u) + packedRowPitch;
 	resourceDesc.Width = totalSize;
 
 	D3D12_HEAP_PROPERTIES heapProperties;

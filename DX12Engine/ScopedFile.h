@@ -149,4 +149,27 @@ public:
 	{
 		return SetFilePointer(file, 0, nullptr, Position::current);
 	}
+
+	size_t size()
+	{
+		LARGE_INTEGER FileSize = { 0 };
+#if (_WIN32_WINNT >= _WIN32_WINNT_VISTA)
+		FILE_STANDARD_INFO fileInfo;
+		if (!GetFileInformationByHandleEx(file, FileStandardInfo, &fileInfo, sizeof(fileInfo)))
+		{
+			throw HresultException(HRESULT_FROM_WIN32(GetLastError()));
+		}
+		FileSize = fileInfo.EndOfFile;
+#else
+		GetFileSizeEx(TextureFile.file, &FileSize);
+#endif
+		constexpr size_t ltSize = sizeof(LARGE_INTEGER); //visual studio complains about sizeof(LARGE_INTEGER) not being a constant expression if written in the #if
+		constexpr size_t sSize = sizeof(size_t);
+#if (ltSize > sSize)
+		return (size_t)FileSize.LowPart;
+#else
+		return (size_t)FileSize.QuadPart;
+#endif
+		
+	}
 };
