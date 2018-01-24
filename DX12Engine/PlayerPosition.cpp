@@ -26,7 +26,7 @@ void PlayerPosition::mouseMoved(void * const position, float x, float y)
 	else if (ths->location.rotation.x < -0.5f * 3.14159265359f) ths->location.rotation.x = -0.5f * 3.14159265359f;
 }
 
-void PlayerPosition::update(BaseExecutor* const executor)
+void PlayerPosition::update(BaseExecutor* const executor, SharedResources& sharedResources)
 {
 	DirectX::XMVECTOR lookUpVector, lookAtVector;
 	DirectX::XMMATRIX rotationMatrix;
@@ -76,7 +76,7 @@ void PlayerPosition::update(BaseExecutor* const executor)
 		if (velocity.z > 0.0f) velocity.z = 0.0f;
 	}
 
-	auto& inputManager = executor->sharedResources->inputManager;
+	auto& inputManager = sharedResources.inputManager;
 
 	if (heightLocked)
 	{
@@ -189,7 +189,7 @@ void PlayerPosition::update(BaseExecutor* const executor)
 		}
 	}
 
-	auto frameTime = executor->sharedResources->timer.frameTime;
+	auto frameTime = sharedResources.timer.frameTime;
 	velocity.x += forceX * oneOverMass * frameTime;
 	velocity.y += forceY * oneOverMass * frameTime;
 	velocity.z += forceZ * oneOverMass * frameTime;

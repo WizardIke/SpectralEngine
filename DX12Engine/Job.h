@@ -1,18 +1,20 @@
 #pragma once
-
 class BaseExecutor;
+class SharedResources;
 
 class Job
 {
+	using Function = void(*)(void*const requester, BaseExecutor* const executor, SharedResources& sharedResources);
+
 	void* requester;
-	void(*job)(void*const requester, BaseExecutor* const executor);
+	Function job;
 public:
-	Job(void* const requester, void(*job)(void*const requester, BaseExecutor* const executor)) : requester(requester), job(job) {}
+	Job(void* const requester, Function job) : requester(requester), job(job) {}
 	Job() {}
 
-	void operator()(BaseExecutor* const executor)
+	void operator()(BaseExecutor* const executor, SharedResources& sharedResources)
 	{
-		job(requester, executor);
+		job(requester, executor, sharedResources);
 	}
 
 	void operator=(const Job& other)

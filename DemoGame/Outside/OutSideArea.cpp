@@ -21,7 +21,7 @@ OutSideArea::OutSideArea() :
 		TestZone<0u, 9u>(), TestZone<1u, 9u>(), TestZone<2u, 9u>(), TestZone<3u, 9u>(), TestZone<4u, 9u>(), TestZone<5u, 9u>(), TestZone<6u, 9u>(), TestZone<7u, 9u>(), TestZone<8u, 9u>(), TestZone<9u, 9u>()
 	} {}
 
-void OutSideArea::load(BaseExecutor* const executor, Vector2 position, float distance, Area::VisitedNode* loadedAreas)
+void OutSideArea::load(BaseExecutor* const executor, SharedResources& sharedResources, Vector2 position, float distance, Area::VisitedNode* loadedAreas)
 {
 	Area::VisitedNode thisArea;
 	thisArea.thisArea = this;
@@ -70,109 +70,109 @@ void OutSideArea::load(BaseExecutor* const executor, Vector2 position, float dis
 
 			if (distanceSquared < highDetailRadiusSquared)
 			{
-				zone.loadHighDetail(executor);
-				zone.loadConnectedAreas(executor, distanceSquared, &thisArea);
+				zone.loadHighDetail(executor, sharedResources);
+				zone.loadConnectedAreas(executor, sharedResources, distanceSquared, &thisArea);
 			}
 			else if (distanceSquared < mediumDetailRadiusSquared)
 			{
-				zone.loadMediumDetail(executor);
-				zone.loadConnectedAreas(executor, distanceSquared, &thisArea);
+				zone.loadMediumDetail(executor, sharedResources);
+				zone.loadConnectedAreas(executor, sharedResources, distanceSquared, &thisArea);
 			}
 			else if (distanceSquared < lowDetailRadiusSquared)
 			{
-				zone.loadLowDetail(executor);
+				zone.loadLowDetail(executor, sharedResources);
 			}
 			else
 			{
-				zone.unloadAll(executor);
+				zone.unloadAll(executor, sharedResources);
 			}
 		}
 	}
 }
 
-void OutSideArea::update(BaseExecutor* const executor)
+void OutSideArea::update(BaseExecutor* const executor, SharedResources& sharedResources)
 {
-	auto& position = executor->sharedResources->playerPosition.location.position;
+	auto& position = sharedResources.playerPosition.location.position;
 	Vector2 zonePosition{ currentZoneX * Area::zoneDiameter + 0.5f * Area::zoneDiameter, currentZoneZ * Area::zoneDiameter + 0.5f * Area::zoneDiameter };
 	if (position.x > zonePosition.x + 0.5f * Area::zoneDiameter)
 	{
 		++currentZoneX;
-		load(executor, Vector2{ zonePosition.x - 0.5f * Area::zoneDiameter, zonePosition.y - 0.5f * Area::zoneDiameter }, 0.0f, nullptr);
+		load(executor, sharedResources, Vector2{ zonePosition.x - 0.5f * Area::zoneDiameter, zonePosition.y - 0.5f * Area::zoneDiameter }, 0.0f, nullptr);
 	}
 	else if (position.x < zonePosition.x - 0.5f * Area::zoneDiameter)
 	{
 		--currentZoneX;
-		load(executor, Vector2{ zonePosition.x - 0.5f * Area::zoneDiameter, zonePosition.y - 0.5f * Area::zoneDiameter }, 0.0f, nullptr);
+		load(executor, sharedResources, Vector2{ zonePosition.x - 0.5f * Area::zoneDiameter, zonePosition.y - 0.5f * Area::zoneDiameter }, 0.0f, nullptr);
 	}
 	else if (position.z > zonePosition.y + 0.5f * Area::zoneDiameter)
 	{
 		++currentZoneZ;
-		load(executor, Vector2{ zonePosition.x - 0.5f * Area::zoneDiameter, zonePosition.y - 0.5f * Area::zoneDiameter }, 0.0f, nullptr);
+		load(executor, sharedResources, Vector2{ zonePosition.x - 0.5f * Area::zoneDiameter, zonePosition.y - 0.5f * Area::zoneDiameter }, 0.0f, nullptr);
 	}
 	else if (position.z < zonePosition.y - 0.5f * Area::zoneDiameter)
 	{
 		--currentZoneZ;
-		load(executor, Vector2{ zonePosition.x - 0.5f * Area::zoneDiameter, zonePosition.y - 0.5f * Area::zoneDiameter }, 0.0f, nullptr);
+		load(executor, sharedResources, Vector2{ zonePosition.x - 0.5f * Area::zoneDiameter, zonePosition.y - 0.5f * Area::zoneDiameter }, 0.0f, nullptr);
 	}
 	else if (oldPosX < zonePosition.x && position.x >= zonePosition.x ||
 		oldPosX >= zonePosition.x && position.x < zonePosition.x ||
 		oldPosZ < zonePosition.y && position.z >= zonePosition.y ||
 		oldPosZ >= zonePosition.y && position.z < zonePosition.y)
 	{
-		load(executor, Vector2{ zonePosition.x - 0.5f * Area::zoneDiameter, zonePosition.y - 0.5f * Area::zoneDiameter }, 0.0f, nullptr);
+		load(executor, sharedResources, Vector2{ zonePosition.x - 0.5f * Area::zoneDiameter, zonePosition.y - 0.5f * Area::zoneDiameter }, 0.0f, nullptr);
 	}
 
 	if (currentZoneX < zonesLengthX && currentZoneZ < zonesLengthZ && currentZoneX > 0u && currentZoneZ > 0u)
 	{
 		auto& currentZone = zones[currentZoneZ * zonesLengthX + currentZoneX];
-		if (currentZone.changeArea(executor)) { return; } //we have entered a new area
+		if (currentZone.changeArea(executor, sharedResources)) { return; } //we have entered a new area
 	}
 
 	oldPosX = position.x;
 	oldPosZ = position.z;
 
-	executor->renderJobQueue().push(Job(this, [](void*const requester, BaseExecutor*const executor)
+	executor->renderJobQueue().push(Job(this, [](void*const requester, BaseExecutor*const executor, SharedResources& sharedResources)
 	{
-		executor->updateJobQueue().push(Job(requester, [](void*const requester, BaseExecutor*const executor)
+		executor->updateJobQueue().push(Job(requester, [](void*const requester, BaseExecutor*const executor, SharedResources& sharedResources)
 		{
 			const auto ths = reinterpret_cast<OutSideArea* const>(requester);
-			ths->update(executor);
+			ths->update(executor, sharedResources);
 		}));
 	}));
 }
 
-void OutSideArea::setAsCurrentArea(BaseExecutor* const executor)
+void OutSideArea::setAsCurrentArea(BaseExecutor* const executor, SharedResources& sharedResources)
 {
-	auto& position = executor->sharedResources->playerPosition.location.position;
+	auto& position = sharedResources.playerPosition.location.position;
 	oldPosX = position.x;
 	oldPosZ = position.z;
 
 	currentZoneX = static_cast<int>(position.x / (Area::zoneDiameter / 2.0f));
 	currentZoneZ = static_cast<int>(position.z / (Area::zoneDiameter / 2.0f));
 
-	executor->renderJobQueue().push(Job(this, [](void*const requester, BaseExecutor*const executor)
+	executor->renderJobQueue().push(Job(this, [](void*const requester, BaseExecutor*const executor, SharedResources& sharedResources)
 	{
-		executor->updateJobQueue().push(Job(requester, [](void*const requester, BaseExecutor*const executor)
+		executor->updateJobQueue().push(Job(requester, [](void*const requester, BaseExecutor*const executor, SharedResources& sharedResources)
 		{
 			const auto ths = reinterpret_cast<OutSideArea* const>(requester);
-			ths->update(executor);
+			ths->update(executor, sharedResources);
 		}));
 	}));
 }
 
-void OutSideArea::start(BaseExecutor* const executor)
+void OutSideArea::start(BaseExecutor* const executor, SharedResources& sharedResources)
 {
 	Vector2 position{ currentZoneX * Area::zoneDiameter, currentZoneZ * Area::zoneDiameter };
 	
-	load(executor, position, 0.0f, nullptr);
+	load(executor, sharedResources, position, 0.0f, nullptr);
 
-	auto& playerPosition = executor->sharedResources->playerPosition.location.position;
+	auto& playerPosition = sharedResources.playerPosition.location.position;
 	oldPosX = playerPosition.x;
 	oldPosZ = playerPosition.z;
 
-	executor->updateJobQueue().push(Job(this, [](void*const requester, BaseExecutor*const executor)
+	executor->updateJobQueue().push(Job(this, [](void*const requester, BaseExecutor*const executor, SharedResources& sharedResources)
 	{
 		const auto ths = reinterpret_cast<OutSideArea* const>(requester);
-		ths->update(executor);
+		ths->update(executor, sharedResources);
 	}));
 }

@@ -19,11 +19,11 @@ class OutSideArea
 	int currentZoneX, currentZoneZ;
 	float oldPosX, oldPosZ;
 
-	void update(BaseExecutor* const executor);
+	void update(BaseExecutor* const executor, SharedResources& sharedResources);
 public:
 	OutSideArea();
 
-	void load(BaseExecutor* const executor, Vector2 position, float distance, Area::VisitedNode* loadedAreas);
-	void start(BaseExecutor* const executor);
-	void setAsCurrentArea(BaseExecutor* const executor);
+	void load(BaseExecutor* const executor, SharedResources& sharedResources, Vector2 position, float distance, Area::VisitedNode* loadedAreas);
+	void start(BaseExecutor* const executor, SharedResources& sharedResources);
+	void setAsCurrentArea(BaseExecutor* const executor, SharedResources& sharedResources);
 };

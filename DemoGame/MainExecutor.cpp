@@ -9,21 +9,21 @@ MainExecutor::MainExecutor(SharedResources* const sharedResources) :
 #endif // _DEBUG
 }
 
-void MainExecutor::update2(std::unique_lock<std::mutex>&& lock)
+void MainExecutor::update2(std::unique_lock<std::mutex>&& lock, SharedResources& sr)
 {
-	Assets* assets = (Assets*)sharedResources;
-	assets->conditionVariable.wait(lock, [assets = assets]() {return assets->numThreadsThatHaveFinished == assets->maxPrimaryThreads + assets->numPrimaryJobExeThreads; });
+	Assets& sharedResources = (Assets&)sr;
+	sharedResources.conditionVariable.wait(lock, [&assets = sharedResources]() {return assets.numThreadsThatHaveFinished == assets.maxPrimaryThreads + assets.numPrimaryJobExeThreads; });
 
-	assets->nextPhaseJob = update1NextPhaseJob;
-	renderPass.update2LastThread(this, assets->renderPass);
-	assets->currentWorkStealingQueues = &assets->workStealingQueues[0u];
-	assets->update(this);
-	assets->numThreadsThatHaveFinished = 0u;
-	++(assets->generation);
+	sharedResources.nextPhaseJob = update1NextPhaseJob;
+	renderPass.update2LastThread(this, sharedResources, sharedResources.renderPass);
+	sharedResources.currentWorkStealingQueues = &sharedResources.workStealingQueues[0u];
+	sharedResources.update(this);
+	sharedResources.numThreadsThatHaveFinished = 0u;
+	++(sharedResources.generation);
 	lock.unlock();
-	assets->conditionVariable.notify_all();
+	sharedResources.conditionVariable.notify_all();
 
 	currentWorkStealingDeque = &workStealDeques[0u];
-	gpuCompletionEventManager.update(this);
-	streamingManager.update(this);
+	gpuCompletionEventManager.update(this, sharedResources);
+	streamingManager.update(this, sharedResources);
 }

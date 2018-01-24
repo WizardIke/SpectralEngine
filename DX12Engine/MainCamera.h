@@ -23,7 +23,7 @@ class MainCamera
 	Frustum mFrustum;
 	D3D12_CPU_DESCRIPTOR_HANDLE depthSencilView;
 	ID3D12Resource* mImage;
-	unsigned int width, height;
+	unsigned int mWidth, mHeight;
 	DirectX::XMMATRIX mProjectionMatrix;
 public:
 	constexpr static float screenDepth = 128.0f * 31.5f;
@@ -37,9 +37,9 @@ public:
 	~MainCamera();
 
 	void update(SharedResources* sharedResources, const Transform& target);
-	bool isInView(const BaseExecutor*) { return true; }
-	void bind(SharedResources* sharedResources, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end);
-	void bindFirstThread(SharedResources* sharedResources, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end);
+	bool isInView(SharedResources& sharedResources) { return true; }
+	void bind(SharedResources& sharedResources, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end);
+	void bindFirstThread(SharedResources& sharedResources, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end);
 	ID3D12Resource* getImage() { return mImage; };
 	const ID3D12Resource* getImage() const { return mImage; }
 	DirectX::XMFLOAT3& position() { return mLocation.position; }
@@ -47,4 +47,6 @@ public:
 	Transform& transform() { return mLocation; }
 	const Frustum& frustum() const { return mFrustum; }
 	D3D12_CPU_DESCRIPTOR_HANDLE getRenderTargetView(SharedResources* sharedResources);
+	unsigned int width() { return mWidth; }
+	unsigned int height() { return mHeight; }
 };

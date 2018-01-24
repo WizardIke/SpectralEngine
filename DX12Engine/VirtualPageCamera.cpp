@@ -4,7 +4,7 @@
 
 VirtualPageCamera::VirtualPageCamera(SharedResources* sharedResources, ID3D12Resource* image, D3D12_CPU_DESCRIPTOR_HANDLE renderTargetView, D3D12_CPU_DESCRIPTOR_HANDLE depthSencilView,
 	unsigned int width, unsigned int height, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1, uint8_t*& constantBufferCpuAddress1, float fieldOfView,
-	Transform& target, float mipBias) :
+	Transform& target) :
 	width(width),
 	height(height),
 	mImage(image),
@@ -26,7 +26,7 @@ VirtualPageCamera::VirtualPageCamera(SharedResources* sharedResources, ID3D12Res
 	{
 		auto constantBuffer = reinterpret_cast<VtFeedbackCameraMaterial*>(reinterpret_cast<unsigned char*>(constantBufferCpuAddress) + i * bufferSizePS);
 		constantBuffer->viewProjectionMatrix = mViewMatrix * mProjectionMatrix;
-		constantBuffer->feedbackBias = mipBias;
+		constantBuffer->feedbackBias = 0u;
 	}
 }
 
@@ -40,14 +40,14 @@ void VirtualPageCamera::update(SharedResources* sharedResources, float mipBias)
 	constantBuffer->feedbackBias = mipBias;
 }
 
-void VirtualPageCamera::bind(SharedResources* sharedResources, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end)
+void VirtualPageCamera::bind(SharedResources& sharedResources, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end)
 {
-	auto frameIndex = sharedResources->graphicsEngine.frameIndex;
+	auto frameIndex = sharedResources.graphicsEngine.frameIndex;
 	auto constantBufferGPU = constantBufferGpuAddress + bufferSizePS * frameIndex;
 	CameraUtil::bind(first, end, CameraUtil::getViewPort(width, height), CameraUtil::getScissorRect(width, height), constantBufferGPU, &renderTargetView, &depthSencilView);
 }
 
-void VirtualPageCamera::bindFirstThread(SharedResources* sharedResources, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end)
+void VirtualPageCamera::bindFirstThread(SharedResources& sharedResources, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end)
 {
 	bind(sharedResources, first, end);
 	auto commandList = *first;

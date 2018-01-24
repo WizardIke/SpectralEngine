@@ -1,11 +1,12 @@
 #include "AmbientMusic.h"
 #include <experimental/filesystem>
+namespace filesystem = std::experimental::filesystem;
 #include <SharedResources.h>
 #include <SoundDecoder.h>
 #include <BaseExecutor.h>
 
-AmbientMusic::AmbientMusic(BaseExecutor* const executor) :
-	musicPlayer(executor->sharedResources->soundEngine.audioDevice, []()
+AmbientMusic::AmbientMusic(BaseExecutor* const executor, SharedResources& sharedResources) :
+	musicPlayer(sharedResources.soundEngine.audioDevice, []()
 {
 	WAVEFORMATEX waveFormat;
 	waveFormat.wFormatTag = WAVE_FORMAT_PCM;
@@ -21,7 +22,7 @@ AmbientMusic::AmbientMusic(BaseExecutor* const executor) :
 	bytesRemaining(0u),
 	previousTrack(std::numeric_limits<unsigned long long>::max())
 {
-	update(executor);
+	update(executor, sharedResources);
 	musicPlayer->Start(0u, 0u);
 }
 
@@ -30,10 +31,10 @@ void AmbientMusic::OnBufferEnd(void* pBufferContext)
 	SharedResources* sharedResources = reinterpret_cast<SharedResources* const>(pBufferContext);
 	PostMessage(sharedResources->window.native_handle(), 0x8000, (WPARAM)this, reinterpret_cast<LPARAM>(static_cast<void(*)(void* requester, BaseExecutor* executor)>([](void* requester, BaseExecutor* executor)
 	{
-		executor->updateJobQueue().push(Job(requester, [](void* requester, BaseExecutor* executor)
+		executor->updateJobQueue().push(Job(requester, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources)
 		{
 			const auto music = reinterpret_cast<AmbientMusic*>(requester);
-			music->update(executor);
+			music->update(executor, sharedResources);
 		}));
 	})));
 }
@@ -68,12 +69,12 @@ void AmbientMusic::OnVoiceProcessingPassStart(UINT32 BytesRequired)
 
 }
 
-void AmbientMusic::update(BaseExecutor* const executor)
+void AmbientMusic::update(BaseExecutor* const executor, SharedResources& sharedResources)
 {
 	if (!bytesRemaining)
 	{
-		std::experimental::filesystem::directory_iterator start{ L"../DemoGame/Music/Peaceful" };
-		unsigned long long numTracks = std::distance(std::experimental::filesystem::directory_iterator{ L"../DemoGame/Music/Peaceful" }, std::experimental::filesystem::directory_iterator{}); //start iterator is invalid after function
+		filesystem::directory_iterator start{ L"../DemoGame/Music/Peaceful" };
+		unsigned long long numTracks = std::distance(filesystem::directory_iterator{ L"../DemoGame/Music/Peaceful" }, filesystem::directory_iterator{}); //start iterator is invalid after function
 
 		std::uniform_int_distribution<unsigned long long> distribution(0, numTracks - 1u);
 		unsigned long long track = distribution(executor->randomNumberGenerator);
@@ -126,7 +127,7 @@ void AmbientMusic::update(BaseExecutor* const executor)
 		buffer.pAudioData = rawSoundData.get() + rawSoundDataBufferSize / 2u;
 		firstBuffer = true;
 	}
-	buffer.pContext = executor->sharedResources;
+	buffer.pContext = &sharedResources;
 	buffer.PlayBegin = 0u;
 	buffer.PlayLength = 0u;
 

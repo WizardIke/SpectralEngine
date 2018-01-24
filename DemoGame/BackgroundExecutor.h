@@ -8,9 +8,9 @@ class BackgroundExecutor : public Executor
 	constexpr static unsigned int halfFinishedUploadRequestBufferStartingCapasity = 25u;
 	std::thread thread;
 
-	virtual void update2(std::unique_lock<std::mutex>&& lock) override;
-	void getIntoCorrectStateAfterDoingBackgroundJob();
+	virtual void update2(std::unique_lock<std::mutex>&& lock, SharedResources& sharedResources) override;
+	void getIntoCorrectStateAfterDoingBackgroundJob(SharedResources& sharedResources);
 public:
-	BackgroundExecutor(SharedResources*const sharedResources);
-	void run();
+	BackgroundExecutor(SharedResources& sharedResources);
+	void run(SharedResources& sharedResources);
 };

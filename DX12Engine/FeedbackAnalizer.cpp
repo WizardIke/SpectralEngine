@@ -76,11 +76,9 @@ void FeedbackAnalizerSubPass::ThreadLocal::addBarrier(FeedbackAnalizerSubPass& r
 	lastCommandList->ResourceBarrier(barrierCount, barriers);
 }
 
-void FeedbackAnalizerSubPass::createResources(BaseExecutor* executor, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1, uint8_t*& constantBufferCpuAddress1, float fieldOfView,
-	float mipBias)
+void FeedbackAnalizerSubPass::createResources(SharedResources& sharedResources, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1, uint8_t*& constantBufferCpuAddress1, float fieldOfView)
 {
-	const auto sharedResources = executor->sharedResources;
-	auto& graphicsEngine = sharedResources->graphicsEngine;
+	auto& graphicsEngine = sharedResources.graphicsEngine;
 	ID3D12Device* graphicsDevice = graphicsEngine.graphicsDevice;
 
 	D3D12_DESCRIPTOR_HEAP_DESC descriptorHeapDesc;
@@ -99,14 +97,14 @@ void FeedbackAnalizerSubPass::createResources(BaseExecutor* executor, D3D12_GPU_
 	resourceDesc.DepthOrArraySize = 1u;
 	resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION::D3D12_RESOURCE_DIMENSION_BUFFER;
 	resourceDesc.Flags = D3D12_RESOURCE_FLAGS::D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE;
-	resourceDesc.Format = DXGI_FORMAT::DXGI_FORMAT_R16G16B16A16_UINT;
+	resourceDesc.Format = DXGI_FORMAT::DXGI_FORMAT_UNKNOWN;
 	resourceDesc.Height = 1u;
 	resourceDesc.Layout = D3D12_TEXTURE_LAYOUT::D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 	resourceDesc.MipLevels = 1u;
 	resourceDesc.SampleDesc.Count = 1u;
 	resourceDesc.SampleDesc.Quality = 0u;
 	size_t numRows, packedSize, packedRowPitch;
-	DDSFileLoader::getSurfaceInfo(width, height, resourceDesc.Format, packedSize, packedRowPitch, numRows);
+	DDSFileLoader::getSurfaceInfo(width, height, DXGI_FORMAT::DXGI_FORMAT_R16G16B16A16_UINT, packedSize, packedRowPitch, numRows);
 	this->packedRowPitch = (unsigned long)packedRowPitch;
 	rowPitch = (packedRowPitch + (size_t)D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - (size_t)1u) & ~((size_t)D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - (size_t)1u);
 	uint64_t totalSize = rowPitch * (numRows - 1u) + packedRowPitch;
@@ -124,6 +122,7 @@ void FeedbackAnalizerSubPass::createResources(BaseExecutor* executor, D3D12_GPU_
 	readbackTexture->Map(0u, &readRange, reinterpret_cast<void**>(&readbackTextureCpu));
 
 	resourceDesc.Flags = D3D12_RESOURCE_FLAGS::D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+	resourceDesc.Format = DXGI_FORMAT::DXGI_FORMAT_R16G16B16A16_UINT;
 	heapProperties.Type = D3D12_HEAP_TYPE::D3D12_HEAP_TYPE_DEFAULT;
 	resourceDesc.Layout = D3D12_TEXTURE_LAYOUT::D3D12_TEXTURE_LAYOUT_UNKNOWN;
 	resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION::D3D12_RESOURCE_DIMENSION_TEXTURE2D;
@@ -153,6 +152,6 @@ void FeedbackAnalizerSubPass::createResources(BaseExecutor* executor, D3D12_GPU_
 	auto depthDescriptor = depthStencilDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
 	graphicsDevice->CreateDepthStencilView(depthBuffer, &dsvDesc, depthDescriptor);
 
-	new(&camera) VirtualPageCamera(sharedResources, feadbackTextureGpu, rtvdescriptor, depthDescriptor, width, height, constantBufferGpuAddress1, constantBufferCpuAddress1, fieldOfView,
-		sharedResources->playerPosition.location, mipBias);
+	new(&camera) VirtualPageCamera(&sharedResources, feadbackTextureGpu, rtvdescriptor, depthDescriptor, width, height, constantBufferGpuAddress1, constantBufferCpuAddress1, fieldOfView,
+		sharedResources.playerPosition.location);
 }

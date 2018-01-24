@@ -115,7 +115,7 @@ public:
 			newPage.data = pageInfos[i];
 			newPage.next = mFront.next;
 			newPage.previous = &mFront;
-			mFront.next = &(pageLookUp.insert(newPage).first.value());
+			mFront.next = &(pageLookUp.insert(std::move(newPage)).first.value());
 			if (pageLookUp.size() == 1u) mBack.previous = mFront.next;
 		}
 	}
@@ -124,7 +124,6 @@ public:
 	void decreaseSize(std::size_t newMaxPages, PageDeleter& pageDeleter)
 	{
 		assert(newMaxPages < maxPages);
-		//pageList.decreaseSize(maxPages, newMaxPages);
 		if (pageLookUp.size() > newMaxPages)
 		{
 			size_t numPagesToDelete = maxPages - newMaxPages;

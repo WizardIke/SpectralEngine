@@ -1,7 +1,7 @@
 #include "Assets.h"
 #include "TextureNames.h"
 
-static void loadingResourceCallback(void* data, BaseExecutor* exe, unsigned int textureID)
+static void loadingResourceCallback(void* data, BaseExecutor* exe, SharedResources& sharedResources, unsigned int textureID)
 {
 	const auto assets = reinterpret_cast<Assets*>(data);
 	assets->arial.setDiffuseTexture(textureID, assets->constantBuffersCpuAddress, assets->sharedConstantBuffer->GetGPUVirtualAddress());
@@ -9,10 +9,11 @@ static void loadingResourceCallback(void* data, BaseExecutor* exe, unsigned int 
 }
 
 Assets::Assets() :
-	SharedResources(&mainExecutor, false, false, false, std::thread::hardware_concurrency()),
+	SharedResources(&mainExecutor, false, false, false, std::thread::hardware_concurrency(), SharedResources::windowCallback<WindowCallback>),
 	mainExecutor(this),
 	rootSignatures(graphicsEngine.graphicsDevice),
 	pipelineStateObjects(graphicsEngine.graphicsDevice, rootSignatures),
+	virtualTextureManager(graphicsEngine),
 	sharedConstantBuffer(graphicsEngine.graphicsDevice, []()
 {
 	D3D12_HEAP_PROPERTIES heapProperties;
@@ -38,10 +39,9 @@ Assets::Assets() :
 	resourceDesc.Width = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT; // size of the resource heap. Must be a multiple of 64KB for constant buffers
 	return resourceDesc;
 }(), D3D12_RESOURCE_STATE_GENERIC_READ, nullptr),
-	userInterface(&mainExecutor),
-	ambientMusic(&mainExecutor),
-	renderPass(&mainExecutor),
-	areas(&mainExecutor),
+	userInterface(*this),
+	ambientMusic(&mainExecutor, *this),
+	areas(&mainExecutor, *this),
 
 	warpTexture(graphicsEngine.graphicsDevice, []()
 {
@@ -66,11 +66,11 @@ Assets::Assets() :
 
 	backgroundExecutors(ArraySize(maxBackgroundThreads), [this](size_t i, BackgroundExecutor& element)
 	{
-		new(&element) BackgroundExecutor(this);
+		new(&element) BackgroundExecutor(*this);
 	}),
 	primaryExecutors(ArraySize(maxPrimaryThreads), [this](size_t i, PrimaryExecutor& element)
 	{
-		new(&element) PrimaryExecutor(this);
+		new(&element) PrimaryExecutor(*this);
 	})
 {
 	D3D12_RANGE readRange{ 0u, 0u };
@@ -79,10 +79,11 @@ Assets::Assets() :
 	uint8_t* cpuConstantBuffer = constantBuffersCpuAddress;
 	auto constantBuffersGpuAddress = sharedConstantBuffer->GetGPUVirtualAddress();
 
-	new(&arial) Font(constantBuffersGpuAddress, cpuConstantBuffer, L"Arial.fnt", TextureNames::Arial, &mainExecutor, this, loadingResourceCallback);
+	new(&arial) Font(constantBuffersGpuAddress, cpuConstantBuffer, L"Arial.fnt", TextureNames::Arial, &mainExecutor, *this, this, loadingResourceCallback);
 	new(&mainCamera) MainCamera(this, window.width(), window.height(), constantBuffersGpuAddress, cpuConstantBuffer, 0.25f * 3.141f, playerPosition.location);
+	new(&renderPass) RenderPass1(*this, mainCamera, constantBuffersGpuAddress, cpuConstantBuffer, 0.25f * 3.141f);
 
-	renderPass.colorSubPass().addCamera(&mainExecutor, renderPass, &mainCamera);
+	renderPass.colorSubPass().addCamera(*this, renderPass, &mainCamera);
 
 
 	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc;
@@ -109,8 +110,8 @@ Assets::Assets() :
 	warpTextureCpuDescriptorHeap->SetName(L"Warp texture descriptor heap");
 #endif
 
-	checkForWindowsMessages(&mainExecutor);
-	playerPosition.update(&mainExecutor);
+	checkForWindowsMessages();
+	playerPosition.update(&mainExecutor, *this);
 	mainCamera.update(this, playerPosition.location);
 
 	{
@@ -120,14 +121,14 @@ Assets::Assets() :
 
 	for (auto& executor : backgroundExecutors)
 	{
-		executor.run();
+		executor.run(*this);
 	}
 	for (auto& executor : primaryExecutors)
 	{
-		executor.run();
+		executor.run(*this);
 	}
 
-	mainExecutor.run();
+	mainExecutor.run(*this);
 }
 
 Assets::~Assets()
@@ -138,9 +139,9 @@ Assets::~Assets()
 
 void Assets::update(BaseExecutor* const executor)
 {
-	checkForWindowsMessages(executor);
+	checkForWindowsMessages();
 	timer.update();
-	playerPosition.update(executor);
+	playerPosition.update(executor, *this);
 	mainCamera.update(this, playerPosition.location);
 	//soundEngine.SetListenerPosition(playerPosition.location.position, DS3D_IMMEDIATE);
 }
@@ -148,6 +149,6 @@ void Assets::update(BaseExecutor* const executor)
 void Assets::start(BaseExecutor* executor)
 {
 	timer.start();
-	userInterface.start(&mainExecutor);
+	userInterface.start(&mainExecutor, *this);
 	//soundEngine.SetListenerPosition(playerPosition.location.position, DS3D_IMMEDIATE);
 }

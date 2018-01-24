@@ -8,23 +8,18 @@ class Assets;
 class Executor : public BaseExecutor
 {
 protected:
-	void update1(std::unique_lock<std::mutex>&& lock);
-	virtual void update2(std::unique_lock<std::mutex>&& lock) override;
-
-	static void finishInitializing(BaseExecutor* exe);
+	void update1(std::unique_lock<std::mutex>&& lock, SharedResources& sharedResources);
+	virtual void update2(std::unique_lock<std::mutex>&& lock, SharedResources& sharedResources) override;
 public:
 	Executor(SharedResources* const sharedResources, unsigned long uploadHeapStartingSize, unsigned int uploadRequestBufferStartingCapacity, unsigned int halfFinishedUploadRequestBufferStartingCapasity) : 
-		BaseExecutor(sharedResources), renderPass(this),
+		BaseExecutor(sharedResources), renderPass(*sharedResources),
 		streamingManager(sharedResources->graphicsEngine.graphicsDevice, uploadHeapStartingSize, uploadRequestBufferStartingCapacity, halfFinishedUploadRequestBufferStartingCapasity)
 	{}
 
-	static void update1NextPhaseJob(BaseExecutor* exe, std::unique_lock<std::mutex>&& lock);
-	static void update2NextPhaseJob(BaseExecutor* exe, std::unique_lock<std::mutex>&& lock) { reinterpret_cast<Executor*>(exe)->update2(std::move(lock)); }
-	static void initialize(BaseExecutor* exe, std::unique_lock<std::mutex>&& lock);
+	static void update1NextPhaseJob(BaseExecutor* exe, SharedResources& sharedResources, std::unique_lock<std::mutex>&& lock);
+	static void update2NextPhaseJob(BaseExecutor* exe, SharedResources& sharedResources, std::unique_lock<std::mutex>&& lock) { reinterpret_cast<Executor*>(exe)->update2(std::move(lock), sharedResources); }
+	static void initialize(BaseExecutor* exe, SharedResources& sharedResources, std::unique_lock<std::mutex>&& lock);
 
-	StreamingManagerThreadLocal streamingManager;//local
+	StreamingManagerThreadLocal streamingManager;
 	RenderPass1::Local renderPass;
-
-	uint32_t frameIndex() { return sharedResources->graphicsEngine.frameIndex; }
-	Assets* getSharedResources() { return (Assets*)sharedResources; }
 };

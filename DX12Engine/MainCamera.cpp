@@ -13,8 +13,8 @@ MainCamera::MainCamera(SharedResources* sharedResources, unsigned int width, uns
 	renderTargetViewHeapDesc.NodeMask = 0;
 	return renderTargetViewHeapDesc;
 }()),
-	width(width),
-	height(height),
+	mWidth(width),
+	mHeight(height),
 	mImage(sharedResources->window.getBuffer(sharedResources->graphicsEngine.frameIndex)),
 	depthSencilView(sharedResources->graphicsEngine.depthStencilDescriptorHeap->GetCPUDescriptorHandleForHeapStart())
 {
@@ -95,21 +95,21 @@ void MainCamera::update(SharedResources* const sharedResources, const Transform&
 	mFrustum.update(mProjectionMatrix, mViewMatrix, screenNear, screenDepth);
 }
 
-void MainCamera::bind(SharedResources* sharedResources, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end)
+void MainCamera::bind(SharedResources& sharedResources, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end)
 {
-	auto frameIndex = sharedResources->graphicsEngine.frameIndex;
+	auto frameIndex = sharedResources.graphicsEngine.frameIndex;
 	auto renderTargetViewHandle = renderTargetViewDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
-	renderTargetViewHandle.ptr += frameIndex * sharedResources->graphicsEngine.renderTargetViewDescriptorSize;
+	renderTargetViewHandle.ptr += frameIndex * sharedResources.graphicsEngine.renderTargetViewDescriptorSize;
 	auto constantBufferGPU = constantBufferGpuAddress + bufferSizePS * frameIndex;
-	CameraUtil::bind(first, end, CameraUtil::getViewPort(width, height), CameraUtil::getScissorRect(width, height), constantBufferGPU, &renderTargetViewHandle, &depthSencilView);
+	CameraUtil::bind(first, end, CameraUtil::getViewPort(mWidth, mHeight), CameraUtil::getScissorRect(mWidth, mHeight), constantBufferGPU, &renderTargetViewHandle, &depthSencilView);
 }
 
-void MainCamera::bindFirstThread(SharedResources* sharedResources, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end)
+void MainCamera::bindFirstThread(SharedResources& sharedResources, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end)
 {
 	bind(sharedResources, first, end);
-	auto frameIndex = sharedResources->graphicsEngine.frameIndex;
+	auto frameIndex = sharedResources.graphicsEngine.frameIndex;
 	auto renderTargetViewHandle = renderTargetViewDescriptorHeap->GetCPUDescriptorHandleForHeapStart() +
-		frameIndex * sharedResources->graphicsEngine.renderTargetViewDescriptorSize;
+		frameIndex * sharedResources.graphicsEngine.renderTargetViewDescriptorSize;
 	auto commandList = *first;
 	constexpr float clearColor[] = { 0.0f, 0.0f, 0.0f, 1.0f };
 	commandList->ClearRenderTargetView(renderTargetViewHandle, clearColor, 0u, nullptr);

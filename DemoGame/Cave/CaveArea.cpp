@@ -13,7 +13,7 @@ namespace Cave
 		}
 	{}
 
-	void CaveArea::load(BaseExecutor* const executor, Vector2 position, float distance, Area::VisitedNode* loadedAreas)
+	void CaveArea::load(BaseExecutor* const executor, SharedResources& sharedResources, Vector2 position, float distance, Area::VisitedNode* loadedAreas)
 	{
 		Area::VisitedNode thisArea;
 		thisArea.thisArea = this;
@@ -60,99 +60,99 @@ namespace Cave
 
 				if (distanceSquared < highDetailRadiusSquared)
 				{
-					zone.loadHighDetail(executor);
-					zone.loadConnectedAreas(executor, distanceSquared, &thisArea);
+					zone.loadHighDetail(executor, sharedResources);
+					zone.loadConnectedAreas(executor, sharedResources, distanceSquared, &thisArea);
 				}
 				else if (distanceSquared < mediumDetailRadiusSquared)
 				{
-					zone.loadMediumDetail(executor);
-					zone.loadConnectedAreas(executor, distanceSquared, &thisArea);
+					zone.loadMediumDetail(executor, sharedResources);
+					zone.loadConnectedAreas(executor, sharedResources, distanceSquared, &thisArea);
 				}
 				else
 				{
-					zone.unloadAll(executor);
+					zone.unloadAll(executor, sharedResources);
 				}
 			}
 		}
 	}
 
-	void CaveArea::update(BaseExecutor* const executor)
+	void CaveArea::update(BaseExecutor* const executor, SharedResources& sharedResources)
 	{
-		auto& position = executor->sharedResources->playerPosition.location.position;
+		auto& position = sharedResources.playerPosition.location.position;
 		Vector2 zonePosition{ currentZoneX * Area::zoneDiameter + 0.5f * Area::zoneDiameter, currentZoneZ * Area::zoneDiameter + 0.5f * Area::zoneDiameter };
 		if (position.x > zonePosition.x + 0.5f * Area::zoneDiameter)
 		{
 			++currentZoneX;
-			load(executor, Vector2{ zonePosition.x - 0.5f * Area::zoneDiameter, zonePosition.y - 0.5f * Area::zoneDiameter }, 0.0f, nullptr);
+			load(executor, sharedResources, Vector2{ zonePosition.x - 0.5f * Area::zoneDiameter, zonePosition.y - 0.5f * Area::zoneDiameter }, 0.0f, nullptr);
 		}
 		else if (position.x < zonePosition.x - 0.5f * Area::zoneDiameter)
 		{
 			--currentZoneX;
-			load(executor, Vector2{ zonePosition.x - 0.5f * Area::zoneDiameter, zonePosition.y - 0.5f * Area::zoneDiameter }, 0.0f, nullptr);
+			load(executor, sharedResources, Vector2{ zonePosition.x - 0.5f * Area::zoneDiameter, zonePosition.y - 0.5f * Area::zoneDiameter }, 0.0f, nullptr);
 		}
 		else if (position.z > zonePosition.y + 0.5f * Area::zoneDiameter)
 		{
 			++currentZoneZ;
-			load(executor, Vector2{ zonePosition.x - 0.5f * Area::zoneDiameter, zonePosition.y - 0.5f * Area::zoneDiameter }, 0.0f, nullptr);
+			load(executor, sharedResources, Vector2{ zonePosition.x - 0.5f * Area::zoneDiameter, zonePosition.y - 0.5f * Area::zoneDiameter }, 0.0f, nullptr);
 		}
 		else if (position.z < zonePosition.y - 0.5f * Area::zoneDiameter)
 		{
 			--currentZoneZ;
-			load(executor, Vector2{ zonePosition.x - 0.5f * Area::zoneDiameter, zonePosition.y - 0.5f * Area::zoneDiameter }, 0.0f, nullptr);
+			load(executor, sharedResources, Vector2{ zonePosition.x - 0.5f * Area::zoneDiameter, zonePosition.y - 0.5f * Area::zoneDiameter }, 0.0f, nullptr);
 		}
 		else if (oldPosX < zonePosition.x && position.x >= zonePosition.x ||
 			oldPosX >= zonePosition.x && position.x < zonePosition.x ||
 			oldPosZ < zonePosition.y && position.z >= zonePosition.y ||
 			oldPosZ >= zonePosition.y && position.z < zonePosition.y)
 		{
-			load(executor, Vector2{ zonePosition.x - 0.5f * Area::zoneDiameter, zonePosition.y - 0.5f * Area::zoneDiameter }, 0.0f, nullptr);
+			load(executor, sharedResources, Vector2{ zonePosition.x - 0.5f * Area::zoneDiameter, zonePosition.y - 0.5f * Area::zoneDiameter }, 0.0f, nullptr);
 		}
 
 		if (currentZoneX < zonesLengthX && currentZoneZ < zonesLengthZ && currentZoneX > 0u && currentZoneZ > 0u)
 		{
 			auto& currentZone = zones[currentZoneZ * zonesLengthX + currentZoneX];
-			if (currentZone.changeArea(executor)) { return; } //we have entered a new area
+			if (currentZone.changeArea(executor, sharedResources)) { return; } //we have entered a new area
 		}
 
 		oldPosX = position.x;
 		oldPosZ = position.z;
 
-		executor->updateJobQueue().push(Job(this, [](void*const requester, BaseExecutor*const executor)
+		executor->updateJobQueue().push(Job(this, [](void*const requester, BaseExecutor*const executor, SharedResources& sharedResources)
 		{
 			const auto ths = reinterpret_cast<CaveArea* const>(requester);
-			ths->update(executor);
+			ths->update(executor, sharedResources);
 		}));
 	}
 
-	void CaveArea::setAsCurrentArea(BaseExecutor* const executor)
+	void CaveArea::setAsCurrentArea(BaseExecutor* const executor, SharedResources& sharedResources)
 	{
-		auto& position = executor->sharedResources->playerPosition.location.position;
+		auto& position = sharedResources.playerPosition.location.position;
 		oldPosX = position.x;
 		oldPosZ = position.z;
 
 		currentZoneX = static_cast<int>((position.x - positionX) / (Area::zoneDiameter / 2.0f));
 		currentZoneZ = static_cast<int>((position.z - positionZ) / (Area::zoneDiameter / 2.0f));
 
-		executor->updateJobQueue().push(Job(this, [](void*const requester, BaseExecutor*const executor)
+		executor->updateJobQueue().push(Job(this, [](void*const requester, BaseExecutor*const executor, SharedResources& sharedResources)
 		{
 			const auto ths = reinterpret_cast<CaveArea* const>(requester);
-			ths->update(executor);
+			ths->update(executor, sharedResources);
 		}));
 	}
 
-	void CaveArea::start(BaseExecutor* const executor)
+	void CaveArea::start(BaseExecutor* const executor, SharedResources& sharedResources)
 	{
 		Vector2 position{ currentZoneX * Area::zoneDiameter, currentZoneZ * Area::zoneDiameter };
-		load(executor, position, 0.0f, nullptr);
+		load(executor, sharedResources, position, 0.0f, nullptr);
 
-		auto& playerPosition = executor->sharedResources->playerPosition.location.position;
+		auto& playerPosition = sharedResources.playerPosition.location.position;
 		oldPosX = playerPosition.x;
 		oldPosZ = playerPosition.z;
 
-		executor->updateJobQueue().push(Job(this, [](void*const requester, BaseExecutor*const executor)
+		executor->updateJobQueue().push(Job(this, [](void*const requester, BaseExecutor*const executor, SharedResources& sharedResources)
 		{
 			const auto ths = reinterpret_cast<CaveArea* const>(requester);
-			ths->update(executor);
+			ths->update(executor, sharedResources);
 		}));
 	}
 

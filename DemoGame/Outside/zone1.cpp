@@ -40,10 +40,10 @@ namespace
 		constexpr static unsigned int numPointLights = 4u;
 
 
-		static void componentUploaded(void* requester, BaseExecutor* executor)
+		static void componentUploaded(void* requester, BaseExecutor* executor, SharedResources& sharedResources)
 		{
 			const auto zone = reinterpret_cast<BaseZone* const>(requester);
-			BaseZone::componentUploaded<BaseZone::high, BaseZone::medium>(zone, executor, ((HDResources*)zone->nextResources)->numComponentsLoaded, numComponents);
+			BaseZone::componentUploaded<BaseZone::high, BaseZone::medium>(zone, executor, sharedResources, ((HDResources*)zone->nextResources)->numComponentsLoaded, numComponents);
 		}
 
 		std::atomic<unsigned char> numComponentsLoaded = 0u;
@@ -80,10 +80,10 @@ namespace
 
 		//AudioObject3dClass sound3D1;
 
-		HDResources(Executor* const executor, BaseZone* zone) :
+		HDResources(Executor* const executor, Assets& sharedResources, BaseZone* zone) :
 			light({ 0.1f, 0.1f, 0.1f, 1.0f }, { 1.0f, 1.0f, 1.0f, 1.0f }, { 0.0f, -0.894427191f, 0.447213595f }),
 
-			perObjectConstantBuffers(executor->sharedResources->graphicsEngine.graphicsDevice, []()
+			perObjectConstantBuffers(sharedResources.graphicsEngine.graphicsDevice, []()
 		{
 			D3D12_HEAP_PROPERTIES heapProperties;
 			heapProperties.Type = D3D12_HEAP_TYPE_UPLOAD;
@@ -108,7 +108,7 @@ namespace
 			return resourceDesc;
 		}(), D3D12_RESOURCE_STATE_GENERIC_READ, nullptr),
 
-			renderTargetTexturesDescriptorHeap(executor->sharedResources->graphicsEngine.graphicsDevice, []()
+			renderTargetTexturesDescriptorHeap(sharedResources.graphicsEngine.graphicsDevice, []()
 		{
 			D3D12_DESCRIPTOR_HEAP_DESC descriptorheapDesc;
 			descriptorheapDesc.NumDescriptors = numRenderTargetTextures;
@@ -127,8 +127,6 @@ namespace
 			pointLights[2u] = PointLight{ Vector4{ 2.0f, 2.0f, 20.0f, 1.0f },Vector4{ 52.0f, 5.0f, 52.0f, 1.f } };
 			pointLights[3u] = PointLight{ Vector4{ 20.0f, 20.0f, 20.0f, 1.0f }, Vector4{ 76.0f, 5.0f, 52.0f, 1.f } };
 
-			const auto sharedResources = (Assets*)executor->sharedResources;
-
 			D3D12_RANGE readRange{ 0u, 0u };
 			HRESULT hr = perObjectConstantBuffers->Map(0u, &readRange, reinterpret_cast<void**>(&perObjectConstantBuffersCpuAddress));
 			if (FAILED(hr)) throw HresultException(hr);
@@ -145,8 +143,8 @@ namespace
 			D3D12_RESOURCE_DESC resourcesDesc;
 			resourcesDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
 			resourcesDesc.Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
-			resourcesDesc.Width = sharedResources->window.width();
-			resourcesDesc.Height = sharedResources->window.height();
+			resourcesDesc.Width = sharedResources.window.width();
+			resourcesDesc.Height = sharedResources.window.height();
 			resourcesDesc.DepthOrArraySize = 1u;
 			resourcesDesc.MipLevels = 1u;
 			resourcesDesc.Format = DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM;
@@ -163,7 +161,7 @@ namespace
 
 			for (auto i = 0u; i < numRenderTargetTextures; ++i)
 			{
-				new(&renderTargetTextures[i]) D3D12Resource(sharedResources->graphicsEngine.graphicsDevice, heapProperties, D3D12_HEAP_FLAG_ALLOW_ALL_BUFFERS_AND_TEXTURES, resourcesDesc,
+				new(&renderTargetTextures[i]) D3D12Resource(sharedResources.graphicsEngine.graphicsDevice, heapProperties, D3D12_HEAP_FLAG_ALLOW_ALL_BUFFERS_AND_TEXTURES, resourcesDesc,
 					D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, &clearValue);
 
 #ifdef _DEBUG
@@ -188,10 +186,10 @@ namespace
 			HDSHaderResourceViewDesc.Texture2D.PlaneSlice = 0u;
 			HDSHaderResourceViewDesc.Texture2D.ResourceMinLODClamp = 0.0f;
 
-			auto shaderResourceViewCpuDescriptorHandle = sharedResources->graphicsEngine.mainDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
-			auto srvSize = sharedResources->graphicsEngine.constantBufferViewAndShaderResourceViewAndUnordedAccessViewDescriptorSize;
+			auto shaderResourceViewCpuDescriptorHandle = sharedResources.graphicsEngine.mainDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
+			auto srvSize = sharedResources.graphicsEngine.constantBufferViewAndShaderResourceViewAndUnordedAccessViewDescriptorSize;
 			auto tempRenderTargetTexturesCpuDescriptorHandle = renderTargetTexturesDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
-			auto depthStencilHandle = sharedResources->graphicsEngine.depthStencilDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
+			auto depthStencilHandle = sharedResources.graphicsEngine.depthStencilDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
 
 			D3D12_SHADER_RESOURCE_VIEW_DESC backBufferSrvDesc;
 			backBufferSrvDesc.Format = DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM;
@@ -204,26 +202,26 @@ namespace
 
 			for (auto i = 0u; i < numRenderTargetTextures; ++i)
 			{
-				shaderResourceViews[i] = sharedResources->graphicsEngine.descriptorAllocator.allocate();
-				sharedResources->graphicsEngine.graphicsDevice->CreateShaderResourceView(renderTargetTextures[i], &HDSHaderResourceViewDesc, shaderResourceViewCpuDescriptorHandle + srvSize * shaderResourceViews[i]);
+				shaderResourceViews[i] = sharedResources.graphicsEngine.descriptorAllocator.allocate();
+				sharedResources.graphicsEngine.graphicsDevice->CreateShaderResourceView(renderTargetTextures[i], &HDSHaderResourceViewDesc, shaderResourceViewCpuDescriptorHandle + srvSize * shaderResourceViews[i]);
 
-				sharedResources->graphicsEngine.graphicsDevice->CreateRenderTargetView(renderTargetTextures[i], &HDRenderTargetViewDesc, tempRenderTargetTexturesCpuDescriptorHandle);
-				Transform transform = sharedResources->mainCamera.transform().reflection(waterModel.reflectionHeight());
+				sharedResources.graphicsEngine.graphicsDevice->CreateRenderTargetView(renderTargetTextures[i], &HDRenderTargetViewDesc, tempRenderTargetTexturesCpuDescriptorHandle);
+				Transform transform = sharedResources.mainCamera.transform().reflection(waterModel.reflectionHeight());
 
-				reflectionCameraBackBuffers[i] = sharedResources->graphicsEngine.descriptorAllocator.allocate();
-				sharedResources->graphicsEngine.graphicsDevice->CreateShaderResourceView(renderTargetTextures[i], &backBufferSrvDesc,
-					shaderResourceViewCpuDescriptorHandle + reflectionCameraBackBuffers[i] * sharedResources->graphicsEngine.constantBufferViewAndShaderResourceViewAndUnordedAccessViewDescriptorSize);
+				reflectionCameraBackBuffers[i] = sharedResources.graphicsEngine.descriptorAllocator.allocate();
+				sharedResources.graphicsEngine.graphicsDevice->CreateShaderResourceView(renderTargetTextures[i], &backBufferSrvDesc,
+					shaderResourceViewCpuDescriptorHandle + reflectionCameraBackBuffers[i] * sharedResources.graphicsEngine.constantBufferViewAndShaderResourceViewAndUnordedAccessViewDescriptorSize);
 				uint32_t backBuffers[frameBufferCount];
 				for (auto j = 0u; j < frameBufferCount; ++j)
 				{
 					backBuffers[j] = reflectionCameraBackBuffers[i];
 				}
 
-				new(&reflectionCameras[i]) ReflectionCamera(sharedResources, renderTargetTextures[i], tempRenderTargetTexturesCpuDescriptorHandle, depthStencilHandle,
-					sharedResources->window.width(), sharedResources->window.height(), PerObjectConstantBuffersGpuAddress, cpuConstantBuffer, 0.25f * 3.141f,
+				new(&reflectionCameras[i]) ReflectionCamera(&sharedResources, renderTargetTextures[i], tempRenderTargetTexturesCpuDescriptorHandle, depthStencilHandle,
+					sharedResources.window.width(), sharedResources.window.height(), PerObjectConstantBuffersGpuAddress, cpuConstantBuffer, 0.25f * 3.141f,
 					transform, backBuffers);
 
-				tempRenderTargetTexturesCpuDescriptorHandle.ptr += sharedResources->graphicsEngine.renderTargetViewDescriptorSize;
+				tempRenderTargetTexturesCpuDescriptorHandle.ptr += sharedResources.graphicsEngine.renderTargetViewDescriptorSize;
 			}
 
 			new(&bathModel1) BathModel2(PerObjectConstantBuffersGpuAddress, cpuConstantBuffer);
@@ -233,9 +231,9 @@ namespace
 			new(&wallModel) WallModel2(PerObjectConstantBuffersGpuAddress, cpuConstantBuffer);
 
 			new(&waterModel) WaterModel2(PerObjectConstantBuffersGpuAddress, cpuConstantBuffer, shaderResourceViews[0],
-				sharedResources->warpTextureDescriptorIndex);
+				sharedResources.warpTextureDescriptorIndex);
 
-			new(&iceModel) IceModel2(PerObjectConstantBuffersGpuAddress, cpuConstantBuffer, sharedResources->warpTextureDescriptorIndex);
+			new(&iceModel) IceModel2(PerObjectConstantBuffersGpuAddress, cpuConstantBuffer, sharedResources.warpTextureDescriptorIndex);
 
 			new(&fireModel1) FireModel<templateFloat(55.0f), templateFloat(2.0f), templateFloat(64.0f)>(PerObjectConstantBuffersGpuAddress,
 				cpuConstantBuffer);
@@ -243,138 +241,138 @@ namespace
 			new(&fireModel2) FireModel<templateFloat(53.0f), templateFloat(2.0f), templateFloat(64.0f)>(PerObjectConstantBuffersGpuAddress,
 				cpuConstantBuffer);
 
-			TextureManager::loadTexture(executor, TextureNames::ground01, { zone, [](void* requester, BaseExecutor* executor, unsigned int textureID) {
+			TextureManager::loadTexture(executor, sharedResources, TextureNames::ground01, { zone, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources, unsigned int textureID) {
 				const auto zone = reinterpret_cast<BaseZone*>(requester);
 				auto resources = ((HDResources*)zone->nextResources);
 				resources->groundModel.setDiffuseTexture(textureID, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
-				componentUploaded(requester, executor);
+				componentUploaded(requester, executor, sharedResources);
 			} });
-			TextureManager::loadTexture(executor, TextureNames::wall01, { zone, [](void* requester, BaseExecutor* executor, unsigned int textureID) {
+			TextureManager::loadTexture(executor, sharedResources, TextureNames::wall01, { zone, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources, unsigned int textureID) {
 				const auto zone = reinterpret_cast<BaseZone*>(requester);
 				auto resources = ((HDResources*)zone->nextResources);
 				resources->wallModel.setDiffuseTexture(textureID, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
-				componentUploaded(requester, executor);
+				componentUploaded(requester, executor, sharedResources);
 			} });
-			TextureManager::loadTexture(executor, TextureNames::marble01, {zone, [](void* requester, BaseExecutor* executor, unsigned int textureID) {
+			TextureManager::loadTexture(executor, sharedResources, TextureNames::marble01, {zone, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources, unsigned int textureID) {
 				const auto zone = reinterpret_cast<BaseZone*>(requester);
 				auto resources = ((HDResources*)zone->nextResources);
 				resources->bathModel1.setDiffuseTexture(textureID, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
-					componentUploaded(requester, executor);
+					componentUploaded(requester, executor, sharedResources);
 			}});
 
-			TextureManager::loadTexture(executor, TextureNames::water01, { zone, [](void* requester, BaseExecutor* executor, unsigned int textureID) {
+			TextureManager::loadTexture(executor, sharedResources, TextureNames::water01, { zone, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources, unsigned int textureID) {
 				const auto zone = reinterpret_cast<BaseZone*>(requester);
 				auto resources = ((HDResources*)zone->nextResources);
 				resources->waterModel.setNormalTexture(textureID, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
-				componentUploaded(requester, executor);
+				componentUploaded(requester, executor, sharedResources);
 			} });
-			TextureManager::loadTexture(executor, TextureNames::ice01, { zone, [](void* requester, BaseExecutor* executor, unsigned int textureID) {
+			TextureManager::loadTexture(executor, sharedResources, TextureNames::ice01, { zone, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources, unsigned int textureID) {
 				const auto zone = reinterpret_cast<BaseZone*>(requester);
 				auto resources = ((HDResources*)zone->nextResources);
 				resources->iceModel.setDiffuseTexture(textureID, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
-				componentUploaded(requester, executor);
+				componentUploaded(requester, executor, sharedResources);
 			} });
-			TextureManager::loadTexture(executor, TextureNames::icebump01, { zone, [](void* requester, BaseExecutor* executor, unsigned int textureID) {
+			TextureManager::loadTexture(executor, sharedResources, TextureNames::icebump01, { zone, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources, unsigned int textureID) {
 				const auto zone = reinterpret_cast<BaseZone*>(requester);
 				auto resources = ((HDResources*)zone->nextResources);
 				resources->iceModel.setNormalTexture(textureID, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
-				componentUploaded(requester, executor);
+				componentUploaded(requester, executor, sharedResources);
 			} });
-			TextureManager::loadTexture(executor, TextureNames::firenoise01, { zone, [](void* requester, BaseExecutor* executor, unsigned int textureID) {
+			TextureManager::loadTexture(executor, sharedResources, TextureNames::firenoise01, { zone, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources, unsigned int textureID) {
 				const auto zone = reinterpret_cast<BaseZone*>(requester);
 				auto resources = ((HDResources*)zone->nextResources);
 				resources->fireModel1.setNormalTexture(textureID, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
 				resources->fireModel2.setNormalTexture(textureID, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
-				componentUploaded(requester, executor);
+				componentUploaded(requester, executor, sharedResources);
 			} });
-			TextureManager::loadTexture(executor, TextureNames::fire01, { zone, [](void* requester, BaseExecutor* executor, unsigned int textureID) {
+			TextureManager::loadTexture(executor, sharedResources, TextureNames::fire01, { zone, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources, unsigned int textureID) {
 				const auto zone = reinterpret_cast<BaseZone*>(requester);
 				auto resources = ((HDResources*)zone->nextResources);
 				resources->fireModel1.setDiffuseTexture(textureID, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
 				resources->fireModel2.setDiffuseTexture(textureID, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
-				componentUploaded(requester, executor);
+				componentUploaded(requester, executor, sharedResources);
 			} });
-			TextureManager::loadTexture(executor, TextureNames::firealpha01, { zone, [](void* requester, BaseExecutor* executor, unsigned int textureID) {
+			TextureManager::loadTexture(executor, sharedResources, TextureNames::firealpha01, { zone, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources, unsigned int textureID) {
 				const auto zone = reinterpret_cast<BaseZone*>(requester);
 				auto resources = ((HDResources*)zone->nextResources);
 				resources->fireModel1.setAlphaTexture(textureID, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
 				resources->fireModel2.setAlphaTexture(textureID, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
-				componentUploaded(requester, executor);
+				componentUploaded(requester, executor, sharedResources);
 			} });
 
-			MeshManager::loadMeshWithPositionTextureNormal(MeshNames::bath, zone, executor, [](void* requester, BaseExecutor* executor, Mesh* mesh)
+			MeshManager::loadMeshWithPositionTextureNormal(MeshNames::bath, zone, executor, sharedResources, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources, Mesh* mesh)
 			{
 				const auto zone = reinterpret_cast<BaseZone* const>(requester);
 				auto resources = ((HDResources*)zone->nextResources);
 				resources->bathModel1.mesh = mesh;
-				componentUploaded(requester, executor);
+				componentUploaded(requester, executor, sharedResources);
 			});
-			MeshManager::loadMeshWithPositionTextureNormal(MeshNames::plane1, zone, executor, [](void* requester, BaseExecutor* executor, Mesh* mesh)
+			MeshManager::loadMeshWithPositionTextureNormal(MeshNames::plane1, zone, executor, sharedResources, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources, Mesh* mesh)
 			{
 				const auto zone = reinterpret_cast<BaseZone* const>(requester);
 				auto resources = ((HDResources*)zone->nextResources);
 				resources->groundModel.mesh = mesh;
-				componentUploaded(requester, executor);
+				componentUploaded(requester, executor, sharedResources);
 			});
-			MeshManager::loadMeshWithPositionTextureNormal(MeshNames::wall, zone, executor, [](void* requester, BaseExecutor* executor, Mesh* mesh)
+			MeshManager::loadMeshWithPositionTextureNormal(MeshNames::wall, zone, executor, sharedResources, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources, Mesh* mesh)
 			{
 				const auto zone = reinterpret_cast<BaseZone* const>(requester);
 				auto resources = ((HDResources*)zone->nextResources);
 				resources->wallModel.mesh = mesh;
-				componentUploaded(requester, executor);
+				componentUploaded(requester, executor, sharedResources);
 			});
-			MeshManager::loadMeshWithPositionTexture(MeshNames::water, zone, executor, [](void* requester, BaseExecutor* executor, Mesh* mesh)
+			MeshManager::loadMeshWithPositionTexture(MeshNames::water, zone, executor, sharedResources, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources, Mesh* mesh)
 			{
 				const auto zone = reinterpret_cast<BaseZone* const>(requester);
 				auto resources = ((HDResources*)zone->nextResources);
 				resources->waterModel.mesh = mesh;
-				componentUploaded(requester, executor);
+				componentUploaded(requester, executor, sharedResources);
 			});
-			MeshManager::loadMeshWithPositionTexture(MeshNames::cube, zone, executor, [](void* requester, BaseExecutor* executor, Mesh* mesh)
+			MeshManager::loadMeshWithPositionTexture(MeshNames::cube, zone, executor, sharedResources, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources, Mesh* mesh)
 			{
 				const auto zone = reinterpret_cast<BaseZone* const>(requester);
 				auto resources = ((HDResources*)zone->nextResources);
 				resources->iceModel.mesh = mesh;
-				componentUploaded(requester, executor);
+				componentUploaded(requester, executor, sharedResources);
 			});
-			MeshManager::loadMeshWithPositionTexture(MeshNames::square, zone, executor, [](void* requester, BaseExecutor* executor, Mesh* mesh)
+			MeshManager::loadMeshWithPositionTexture(MeshNames::square, zone, executor, sharedResources, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources, Mesh* mesh)
 			{
 				const auto zone = reinterpret_cast<BaseZone* const>(requester);
 				auto resources = ((HDResources*)zone->nextResources);
 				resources->fireModel1.mesh = mesh;
 				resources->fireModel2.mesh = mesh;
-				componentUploaded(requester, executor);
+				componentUploaded(requester, executor, sharedResources);
 			});
-			MeshManager::loadMeshWithPosition(MeshNames::aabb, zone, executor, [](void* requester, BaseExecutor* executor, Mesh* mesh)
+			MeshManager::loadMeshWithPosition(MeshNames::aabb, zone, executor, sharedResources, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources, Mesh* mesh)
 			{
 				const auto zone = reinterpret_cast<BaseZone* const>(requester);
 				auto resources = ((HDResources*)zone->nextResources);
 				resources->cubeWithPos = mesh;
-				componentUploaded(requester, executor);
+				componentUploaded(requester, executor, sharedResources);
 			});
-			MeshManager::loadMeshWithPosition(MeshNames::squareWithPos, zone, executor, [](void* requester, BaseExecutor* executor, Mesh* mesh)
+			MeshManager::loadMeshWithPosition(MeshNames::squareWithPos, zone, executor, sharedResources, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources, Mesh* mesh)
 			{
 				const auto zone = reinterpret_cast<BaseZone* const>(requester);
 				auto resources = ((HDResources*)zone->nextResources);
 				resources->squareWithPos = mesh;
-				componentUploaded(requester, executor);
+				componentUploaded(requester, executor, sharedResources);
 			});
 			
-			executor->updateJobQueue().push(Job(zone, [](void* zone1, BaseExecutor* executor1)
+			executor->updateJobQueue().push(Job(zone, [](void* zone1, BaseExecutor* executor1, SharedResources& sharedResources)
 			{
 				const auto zone = reinterpret_cast<BaseZone*>(zone1);
 				const auto executor = reinterpret_cast<Executor*>(executor1);
-				const auto assets = reinterpret_cast<Assets*>(executor->sharedResources);
+				const auto assets = reinterpret_cast<Assets*>(&sharedResources);
 				const auto resource = reinterpret_cast<HDResources*>(zone->nextResources);
 
 				for (auto i = 0u; i < numRenderTargetTextures; ++i)
 				{
 					auto executors = assets->executors();
-					resource->renderTargetTextureSubPasses[i] = &assets->renderPass.renderToTextureSubPassGroup().addSubPass(executor, assets->renderPass,
+					resource->renderTargetTextureSubPasses[i] = &assets->renderPass.renderToTextureSubPassGroup().addSubPass(sharedResources, assets->renderPass,
 						executors.map<RenderPass1::Local::RenderToTextureSubPassGroup, getRenderToTextureSubPassGroup>());
-					resource->renderTargetTextureSubPasses[i]->addCamera(executor, assets->renderPass, &resource->reflectionCameras[i]);
+					resource->renderTargetTextureSubPasses[i]->addCamera(sharedResources, assets->renderPass, &resource->reflectionCameras[i]);
 				}
-				componentUploaded(zone, executor);
+				componentUploaded(zone, executor, sharedResources);
 			}));
 
 
@@ -390,24 +388,24 @@ namespace
 
 		~HDResources() {}
 
-		static void create(void*const zone1, BaseExecutor*const executor1)
+		static void create(void*const zone1, BaseExecutor*const executor1, SharedResources& sharedResources)
 		{
 			const auto zone = reinterpret_cast<BaseZone*const>(zone1);
 			const auto executor = reinterpret_cast<Executor*const >(executor1);
 			
 			zone->nextResources = malloc(sizeof(HDResources));
-			new(zone->nextResources) HDResources(executor, zone);
-			componentUploaded(zone, executor);
+			new(zone->nextResources) HDResources(executor, (Assets&)sharedResources, zone);
+			componentUploaded(zone, executor, sharedResources);
 		}
 
-		void update1(BaseExecutor* const executor1)
+		void update1(BaseExecutor* const executor1, SharedResources& sharedResources)
 		{
 			const auto executor = reinterpret_cast<Executor* const>(executor1);
-			const auto assets = reinterpret_cast<Assets*>(executor->sharedResources);
+			const auto assets = reinterpret_cast<Assets*>(&sharedResources);
 			const auto frameIndex = assets->graphicsEngine.frameIndex;
 			const auto& cameraPos = assets->mainCamera.position();
 			const auto frameTime = assets->timer.frameTime;
-			waterModel.update(executor);
+			waterModel.update(sharedResources);
 			fireModel1.update(frameIndex, cameraPos, frameTime);
 			fireModel2.update(frameIndex, cameraPos, frameTime);
 			for (auto& camera : reflectionCameras)
@@ -436,11 +434,11 @@ namespace
 			}
 		}
 
-		void renderToTexture(BaseExecutor* const executor1)
+		void renderToTexture(BaseExecutor* const executor1, SharedResources& sharedResources)
 		{
 			const auto executor = reinterpret_cast<Executor* const>(executor1);
-			const auto frameIndex = executor->sharedResources->graphicsEngine.frameIndex;
-			Assets* const assets = (Assets*)executor->sharedResources;
+			const auto frameIndex = sharedResources.graphicsEngine.frameIndex;
+			Assets* const assets = (Assets*)&sharedResources;
 
 			auto depthStencilHandle = assets->graphicsEngine.depthStencilDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
 			if (waterModel.isInView(assets->mainCamera.frustum()))
@@ -518,13 +516,13 @@ namespace
 			}
 		}
 
-		void update2(BaseExecutor* const executor1)
+		void update2(BaseExecutor* const executor1, SharedResources& sharedResources)
 		{
-			renderToTexture(executor1);
+			renderToTexture(executor1, sharedResources);
 
 			const auto executor = reinterpret_cast<Executor* const>(executor1);
-			Assets* const assets = (Assets*)executor->sharedResources;
-			const auto frameIndex = executor->sharedResources->graphicsEngine.frameIndex;
+			Assets* const assets = (Assets*)&sharedResources;
+			const auto frameIndex = sharedResources.graphicsEngine.frameIndex;
 			const auto opaqueDirectCommandList = executor->renderPass.colorSubPass().opaqueCommandList();
 			const auto transparantCommandList = executor->renderPass.colorSubPass().transparentCommandList();
 			auto depthStencilHandle = assets->graphicsEngine.depthStencilDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
@@ -662,23 +660,22 @@ namespace
 			}
 		}
 
-		void destruct(BaseExecutor*const executor)
+		void destruct(BaseExecutor*const executor, SharedResources& sharedResources)
 		{
-			const auto sharedResources = executor->sharedResources;
-			auto& textureManager = sharedResources->textureManager;
-			auto& meshManager = sharedResources->meshManager;
-			auto& graphicsEngine = sharedResources->graphicsEngine;
+			auto& textureManager = sharedResources.textureManager;
+			auto& meshManager = sharedResources.meshManager;
+			auto& graphicsEngine = sharedResources.graphicsEngine;
 			for (auto i = 0u; i < numRenderTargetTextures; ++i)
 			{
 				graphicsEngine.descriptorAllocator.deallocate(shaderResourceViews[i]);
 
-				executor->updateJobQueue().push(Job(renderTargetTextureSubPasses[i], [](void* subPass1, BaseExecutor* executor1)
+				executor->updateJobQueue().push(Job(renderTargetTextureSubPasses[i], [](void* subPass1, BaseExecutor* executor1, SharedResources& sharedResources)
 				{
 					const auto subPass = reinterpret_cast<RenderPass1::RenderToTextureSubPass*>(subPass1);
 					const auto executor = reinterpret_cast<Executor*>(executor1);
-					const auto assets = reinterpret_cast<Assets*>(executor->sharedResources);
+					const auto assets = reinterpret_cast<Assets*>(&sharedResources);
 					auto executors = assets->executors();
-					assets->renderPass.renderToTextureSubPassGroup().removeSubPass(executor, subPass, 
+					assets->renderPass.renderToTextureSubPassGroup().removeSubPass(sharedResources, subPass, 
 						executors.map<RenderPass1::Local::RenderToTextureSubPassGroup, getRenderToTextureSubPassGroup>());
 				}));
 
@@ -713,10 +710,10 @@ namespace
 		constexpr static unsigned int numTextures = 1u;
 
 
-		static void callback(void* requester, BaseExecutor* executor)
+		static void callback(void* requester, BaseExecutor* executor, SharedResources& sharedResources)
 		{
 			auto zone = reinterpret_cast<BaseZone* const>(requester);
-			BaseZone::componentUploaded<BaseZone::medium, BaseZone::medium>(zone, executor, ((MDResources*)zone->nextResources)->numComponentsLoaded, numComponents);
+			BaseZone::componentUploaded<BaseZone::medium, BaseZone::medium>(zone, executor, sharedResources, ((MDResources*)zone->nextResources)->numComponentsLoaded, numComponents);
 		}
 
 		std::atomic<unsigned char> numComponentsLoaded = 0u;
@@ -728,9 +725,9 @@ namespace
 		Light light;
 
 
-		MDResources(BaseExecutor* const exe, void* zone) :
+		MDResources(BaseExecutor* const exe, SharedResources& sharedResources, void* zone) :
 			light(DirectX::XMFLOAT4(0.1f, 0.1f, 0.1f, 1.0f), DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f), DirectX::XMFLOAT3(0.0f, -0.894427191f, 0.447213595f)),
-			perObjectConstantBuffers(exe->sharedResources->graphicsEngine.graphicsDevice, []()
+			perObjectConstantBuffers(sharedResources.graphicsEngine.graphicsDevice, []()
 		{
 			D3D12_HEAP_PROPERTIES heapProperties;
 			heapProperties.Type = D3D12_HEAP_TYPE_UPLOAD;
@@ -765,28 +762,27 @@ namespace
 
 			new(&bathModel) BathModel2(PerObjectConstantBuffersGpuAddress, cpuConstantBuffer);
 
-			TextureManager::loadTexture(executor, TextureNames::marble01, { zone, [](void* requester, BaseExecutor* executor, unsigned int textureID) {
+			TextureManager::loadTexture(executor, sharedResources, TextureNames::marble01, { zone, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources, unsigned int textureID) {
 				const auto zone = reinterpret_cast<BaseZone*>(requester);
 				auto resources = ((MDResources*)zone->nextResources);
 				resources->bathModel.setDiffuseTexture(textureID, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
-				callback(requester, executor);
+				callback(requester, executor, sharedResources);
 			} });
 
-			MeshManager::loadMeshWithPositionTextureNormal(MeshNames::bath, zone, executor, [](void* requester, BaseExecutor* executor, Mesh* mesh)
+			MeshManager::loadMeshWithPositionTextureNormal(MeshNames::bath, zone, executor, sharedResources, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources, Mesh* mesh)
 			{
 				const auto zone = reinterpret_cast<BaseZone* const>(requester);
 				const auto resources = ((MDResources*)zone->nextResources);
 				resources->bathModel.mesh = mesh;
-				callback(requester, executor);
+				callback(requester, executor, sharedResources);
 			});
 		}
 
-		void destruct(BaseExecutor*const executor)
+		void destruct(BaseExecutor*const executor, SharedResources& sharedResources)
 		{
-			const auto sharedResources = executor->sharedResources;
-			auto& textureManager = sharedResources->textureManager;
-			auto& meshManager = sharedResources->meshManager;
-			auto& graphicsEngine = sharedResources->graphicsEngine;
+			auto& textureManager = sharedResources.textureManager;
+			auto& meshManager = sharedResources.meshManager;
+			auto& graphicsEngine = sharedResources.graphicsEngine;
 
 			textureManager.unloadTexture(TextureNames::marble01, graphicsEngine);
 
@@ -797,12 +793,12 @@ namespace
 
 		~MDResources() {}
 
-		void update2(BaseExecutor* const executor1)
+		void update2(BaseExecutor* const executor1, SharedResources& sharedResources)
 		{
 			const auto executor = reinterpret_cast<Executor* const>(executor1);
-			uint32_t frameIndex = executor->sharedResources->graphicsEngine.frameIndex;
+			uint32_t frameIndex = sharedResources.graphicsEngine.frameIndex;
 			const auto commandList = executor->renderPass.colorSubPass().opaqueCommandList();
-			Assets* const assets = (Assets*)executor->sharedResources;
+			Assets* const assets = (Assets*)&sharedResources;
 
 			commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
@@ -818,50 +814,50 @@ namespace
 			}
 		}
 
-		void update1(BaseExecutor* const executor) {}
+		void update1(BaseExecutor* const executor, SharedResources& sharedResources) {}
 
-		static void create(void*const zone1, BaseExecutor*const executor)
+		static void create(void*const zone1, BaseExecutor*const executor, SharedResources& sharedResources)
 		{
 			const auto zone = reinterpret_cast<BaseZone*const>(zone1);
 			
 			zone->nextResources = malloc(sizeof(MDResources));
-			new(zone->nextResources) MDResources(executor, zone);
-			callback(zone, executor);
+			new(zone->nextResources) MDResources(executor, sharedResources, zone);
+			callback(zone, executor, sharedResources);
 		}
 	};
 
-	static void restart(BaseZone* const zone, BaseExecutor* const executor);
+	static void restart(BaseZone* const zone, BaseExecutor* const executor, SharedResources& sharedResources);
 	static void update1HighDetail(BaseZone* const zone, BaseExecutor* const executor)
 	{
-		executor->updateJobQueue().push(Job(zone, [](void*const zone1, BaseExecutor*const executor)
+		executor->updateJobQueue().push(Job(zone, [](void*const zone1, BaseExecutor*const executor, SharedResources& sharedResources)
 		{
 			const auto zone = reinterpret_cast<BaseZone* const>(zone1);
-			reinterpret_cast<HDResources*>(zone->currentResources)->update1(executor);
-			executor->renderJobQueue().push(Job(zone, [](void*const zone1, BaseExecutor*const executor)
+			reinterpret_cast<HDResources*>(zone->currentResources)->update1(executor, sharedResources);
+			executor->renderJobQueue().push(Job(zone, [](void*const zone1, BaseExecutor*const executor, SharedResources& sharedResources)
 			{
 				const auto zone = reinterpret_cast<BaseZone* const>(zone1);
-				reinterpret_cast<HDResources*>(zone->currentResources)->update2(executor);
-				restart(zone, executor);
+				reinterpret_cast<HDResources*>(zone->currentResources)->update2(executor, sharedResources);
+				restart(zone, executor, sharedResources);
 			}));
 		}));
 	}
 
 	static void update1MediumDetail(BaseZone* const zone, BaseExecutor* const executor)
 	{
-		executor->updateJobQueue().push(Job(zone, [](void*const zone1, BaseExecutor*const executor)
+		executor->updateJobQueue().push(Job(zone, [](void*const zone1, BaseExecutor*const executor, SharedResources& sharedResources)
 		{
 			const auto zone = reinterpret_cast<BaseZone* const>(zone1);
-			reinterpret_cast<MDResources*>(zone->currentResources)->update1(executor);
-			executor->renderJobQueue().push(Job(zone, [](void*const zone1, BaseExecutor*const executor)
+			reinterpret_cast<MDResources*>(zone->currentResources)->update1(executor, sharedResources);
+			executor->renderJobQueue().push(Job(zone, [](void*const zone1, BaseExecutor*const executor, SharedResources& sharedResources)
 			{
 				const auto zone = reinterpret_cast<BaseZone* const>(zone1);
-				reinterpret_cast<MDResources*>(zone->currentResources)->update2(executor);
-				restart(zone, executor);
+				reinterpret_cast<MDResources*>(zone->currentResources)->update2(executor, sharedResources);
+				restart(zone, executor, sharedResources);
 			}));
 		}));
 	}
 
-	static void restart(BaseZone* const zone, BaseExecutor* const executor)
+	static void restart(BaseZone* const zone, BaseExecutor* const executor, SharedResources& sharedResources)
 	{
 		auto oldLevelOfDetail = zone->levelOfDetail.load(std::memory_order::memory_order_acquire);
 		switch (oldLevelOfDetail)
@@ -874,124 +870,123 @@ namespace
 			break;
 		case BaseZone::transitionHighToMedium:
 		{
-			zone->transition<BaseZone::high, BaseZone::medium>(executor);
+			zone->transition<BaseZone::high, BaseZone::medium>(executor, sharedResources);
 			update1MediumDetail(zone, executor);
 			break;
 		}
 		case BaseZone::transitionHighToLow:
-			zone->transition<BaseZone::high, BaseZone::low>(executor);
+			zone->transition<BaseZone::high, BaseZone::low>(executor, sharedResources);
 			break;
 		case BaseZone::transitionHighToUnloaded:
-			zone->transition<BaseZone::high, BaseZone::unloaded>(executor);
+			zone->transition<BaseZone::high, BaseZone::unloaded>(executor, sharedResources);
 			break;
 		case BaseZone::transitionMediumToHigh:
-			zone->transition<BaseZone::medium, BaseZone::high>(executor);
+			zone->transition<BaseZone::medium, BaseZone::high>(executor, sharedResources);
 			update1HighDetail(zone, executor);
 			break;
 		case BaseZone::transitionMediumToLow:
-			zone->transition<BaseZone::medium, BaseZone::low>(executor);
+			zone->transition<BaseZone::medium, BaseZone::low>(executor, sharedResources);
 			break;
 		case BaseZone::transitionMediumToUnloaded:
-			zone->transition<BaseZone::medium, BaseZone::unloaded>(executor);
+			zone->transition<BaseZone::medium, BaseZone::unloaded>(executor, sharedResources);
 			break;
 		}
 	}
 
-	static void update1(BaseZone* const zone, BaseExecutor* const executor)
+	static void update1(BaseZone* const zone, BaseExecutor* const executor, SharedResources& sharedResources)
 	{
-		restart(zone, executor);
+		restart(zone, executor, sharedResources);
 	}
 
-	static void update2(BaseZone* const zone, BaseExecutor* const executor)
+	static void update2(BaseZone* const zone, BaseExecutor* const executor, SharedResources& sharedResources)
 	{
-		executor->renderJobQueue().push(Job(zone, [](void*const zone1, BaseExecutor*const executor)
+		executor->renderJobQueue().push(Job(zone, [](void*const zone1, BaseExecutor*const executor, SharedResources& sharedResources)
 		{
 			const auto zone = reinterpret_cast<BaseZone* const>(zone1);
-			restart(zone, executor);
+			restart(zone, executor, sharedResources);
 		}));
 	}
 
 	struct Zone1Functions
 	{
-		static void loadHighDetailJobs(BaseZone* zone, BaseExecutor* const executor)
+		static void loadHighDetailJobs(BaseZone* zone, BaseExecutor* const executor, SharedResources& sharedResources)
 		{
-			executor->sharedResources->backgroundQueue.push(Job(zone, &HDResources::create));
+			sharedResources.backgroundQueue.push(Job(zone, &HDResources::create));
 		}
-		static void loadMediumDetailJobs(BaseZone* zone, BaseExecutor* const executor)
+		static void loadMediumDetailJobs(BaseZone* zone, BaseExecutor* const executor, SharedResources& sharedResources)
 		{
-			executor->sharedResources->backgroundQueue.push(Job(zone, &MDResources::create));
+			sharedResources.backgroundQueue.push(Job(zone, &MDResources::create));
 		}
-		static void loadLowDetailJobs(BaseZone* zone, BaseExecutor* const executor)
+		static void loadLowDetailJobs(BaseZone* zone, BaseExecutor* const executor, SharedResources& sharedResources)
 		{
-			zone->lastComponentLoaded<BaseZone::low, BaseZone::medium>(executor);
+			zone->lastComponentLoaded<BaseZone::low, BaseZone::medium>(executor, sharedResources);
 		}
 
-		static void unloadHighDetailJobs(BaseZone* zone, BaseExecutor* const executor)
+		static void unloadHighDetailJobs(BaseZone* zone, BaseExecutor* const executor, SharedResources& sharedResources)
 		{
-			executor->sharedResources->backgroundQueue.push(Job(zone, [](void*const highDetailResource, BaseExecutor*const executor)
+			sharedResources.backgroundQueue.push(Job(zone, [](void*const highDetailResource, BaseExecutor*const executor, SharedResources& sharedResources)
 			{
 				const auto zone = reinterpret_cast<BaseZone*const>(highDetailResource);
 				auto resource = reinterpret_cast<HDResources*>(zone->nextResources);
-				resource->destruct(executor);
+				resource->destruct(executor, sharedResources);
 				resource->~HDResources();
 				free(zone->nextResources);
 				zone->nextResources = nullptr;
-				zone->lastComponentUnloaded<BaseZone::high>(executor);
+				zone->lastComponentUnloaded<BaseZone::high>(executor, sharedResources);
 			}));
 		}
-		static void unloadMediumDetailJobs(BaseZone* zone, BaseExecutor* const executor)
+		static void unloadMediumDetailJobs(BaseZone* zone, BaseExecutor* const executor, SharedResources& sharedResources)
 		{
-			executor->sharedResources->backgroundQueue.push(Job(zone, [](void*const zone1, BaseExecutor*const executor)
+			sharedResources.backgroundQueue.push(Job(zone, [](void*const zone1, BaseExecutor*const executor, SharedResources& sharedResources)
 			{
 				const auto zone = reinterpret_cast<BaseZone*const>(zone1);
 				auto resource = reinterpret_cast<MDResources*>(zone->nextResources);
-				resource->destruct(executor);
+				resource->destruct(executor, sharedResources);
 				resource->~MDResources();
 				free(zone->nextResources);
 				zone->nextResources = nullptr;
-				zone->lastComponentUnloaded<BaseZone::medium>(executor);
+				zone->lastComponentUnloaded<BaseZone::medium>(executor, sharedResources);
 			}));
 		}
-		static void unloadLowDetailJobs(BaseZone* zone, BaseExecutor* const executor)
+		static void unloadLowDetailJobs(BaseZone* zone, BaseExecutor* const executor, SharedResources& sharedResources)
 		{
-			executor->sharedResources->backgroundQueue.push(Job(zone, [](void*const zone1, BaseExecutor*const executor)
+			sharedResources.backgroundQueue.push(Job(zone, [](void*const zone1, BaseExecutor*const executor, SharedResources& sharedResources)
 			{
 				const auto zone = reinterpret_cast<BaseZone*const>(zone1);
-				zone->lastComponentUnloaded<BaseZone::low>(executor);
+				zone->lastComponentUnloaded<BaseZone::low>(executor, sharedResources);
 			}));
 		}
 
-		static void loadConnectedAreas(BaseZone* zone, BaseExecutor* const executor, float distanceSquared, Area::VisitedNode* loadedAreas)
+		static void loadConnectedAreas(BaseZone* zone, BaseExecutor* const executor, SharedResources& sharedResources, float distanceSquared, Area::VisitedNode* loadedAreas)
 		{
-			Assets* const assets = (Assets*)executor->sharedResources;
-			assets->areas.cave.load(executor, Vector2{ 0.0f, 91.0f }, std::sqrt(distanceSquared), loadedAreas);
+			Assets* const assets = (Assets*)&sharedResources;
+			assets->areas.cave.load(executor, sharedResources, Vector2{ 0.0f, 91.0f }, std::sqrt(distanceSquared), loadedAreas);
 		}
-		static bool changeArea(BaseZone* zone, BaseExecutor* const executor)
+		static bool changeArea(BaseZone* zone, BaseExecutor* const executor, SharedResources& sharedResources)
 		{
-			Assets* const assets = (Assets*)executor->sharedResources;
+			Assets* const assets = (Assets*)&sharedResources;
 			auto& playerPosition = assets->playerPosition.location.position;
 			if ((playerPosition.x - 74.0f) * (playerPosition.x - 74.0f) + (playerPosition.y + 30.0f) * (playerPosition.y + 30.0f) + (playerPosition.z - 51.0f) * (playerPosition.z - 51.0f) < 202.0f)
 			{
-				assets->areas.cave.setAsCurrentArea(executor);
+				assets->areas.cave.setAsCurrentArea(executor, sharedResources);
 				return true;
 			}
 
 			return false;
 		}
 
-		static void start(BaseZone* zone, BaseExecutor* const executor)
+		static void start(BaseZone* zone, BaseExecutor* const executor, SharedResources& sharedResources)
 		{
-			const auto sharedResources = executor->sharedResources;
-			sharedResources->syncMutex.lock();
-			if (sharedResources->nextPhaseJob == Executor::update1NextPhaseJob)
+			sharedResources.syncMutex.lock();
+			if (sharedResources.nextPhaseJob == Executor::update1NextPhaseJob)
 			{
-				sharedResources->syncMutex.unlock();
-				update2(zone, executor);
+				sharedResources.syncMutex.unlock();
+				update2(zone, executor, sharedResources);
 			}
 			else
 			{
-				sharedResources->syncMutex.unlock();
-				update1(zone, executor);
+				sharedResources.syncMutex.unlock();
+				update1(zone, executor, sharedResources);
 			}
 		}
 	};

@@ -28,13 +28,13 @@ public:
 	VirtualPageCamera() {}
 	VirtualPageCamera(SharedResources* sharedResources, ID3D12Resource* image, D3D12_CPU_DESCRIPTOR_HANDLE renderTargetView, D3D12_CPU_DESCRIPTOR_HANDLE depthSencilView,
 		unsigned int width, unsigned int height, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1, uint8_t*& constantBufferCpuAddress1, float fieldOfView,
-		Transform& target, float mipBias);
+		Transform& target);
 	~VirtualPageCamera();
 
 	void update(SharedResources* sharedResources, float mipBias);
-	bool isInView(const BaseExecutor*) { return true; }
-	void bind(SharedResources* sharedResources, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end);
-	void bindFirstThread(SharedResources* sharedResources, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end);
+	bool isInView(SharedResources& sharedResources) { return true; }
+	void bind(SharedResources& sharedResources, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end);
+	void bindFirstThread(SharedResources& sharedResources, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end);
 	D3D12_CPU_DESCRIPTOR_HANDLE getRenderTargetView() { return renderTargetView; }
 	ID3D12Resource* getImage() { return mImage; };
 	const ID3D12Resource* getImage() const { return mImage; }

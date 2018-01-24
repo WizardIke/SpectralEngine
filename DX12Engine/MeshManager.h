@@ -40,7 +40,7 @@ class MeshManager
 	struct Request
 	{
 		void* requester;
-		void(*resourceUploaded)(void* const requester, BaseExecutor* const executor, Mesh* mesh);
+		void(*resourceUploaded)(void* const requester, BaseExecutor* const executor, SharedResources& sharedResources, Mesh* mesh);
 	};
 
 	struct MeshInfo
@@ -62,61 +62,66 @@ class MeshManager
 	std::unordered_map<const wchar_t * const, std::vector<Request>, std::hash<const wchar_t *>> uploadRequests;
 	std::unordered_map<const wchar_t * const, MeshInfo, std::hash<const wchar_t *>> meshInfos;
 
-	static void loadMesh(const wchar_t * filename, void* requester, BaseExecutor* const executor, void(*resourceUploadedCallback)(void* const requester, BaseExecutor* const executor, Mesh* mesh),
-		void(*useSubresourceCallback)(RamToVramUploadRequest* request, BaseExecutor* executor, void* const uploadBufferCpuAddressOfCurrentPos, ID3D12Resource* uploadResource, uint64_t uploadResourceOffset),
+	static void loadMesh(const wchar_t * filename, void* requester, BaseExecutor* const executor, SharedResources& sharedResources,
+		void(*resourceUploadedCallback)(void* const requester, BaseExecutor* const executor, SharedResources& sharedResources, Mesh* mesh),
+		void(*useSubresourceCallback)(RamToVramUploadRequest* request, BaseExecutor* executor, SharedResources& sharedResources, void* const uploadBufferCpuAddressOfCurrentPos, ID3D12Resource* uploadResource, uint64_t uploadResourceOffset),
 		uint32_t vertexStrideInBytes, uint32_t vertexPackedSize, StreamingManagerThreadLocal& streamingManager);
 
-	void loadMeshUncached(StreamingManagerThreadLocal& streamingManager, const wchar_t * filename, void(*useSubresourceCallback)(RamToVramUploadRequest* request, BaseExecutor* executor,
+	void loadMeshUncached(StreamingManagerThreadLocal& streamingManager, const wchar_t * filename, void(*useSubresourceCallback)(RamToVramUploadRequest* request, BaseExecutor* executor, SharedResources& sharedResources,
 		void* const uploadBufferCpuAddressOfCurrentPos, ID3D12Resource* uploadResource, uint64_t uploadResourceOffset), uint32_t vertexStrideInBytes, uint32_t vertexPackedSize);
 
-	static void meshUploaded(void* storedFilename, BaseExecutor* executor);
+	static void meshUploaded(void* storedFilename, BaseExecutor* executor, SharedResources& sharedResources);
 
-	template<class Executor>
-	static void meshWithPositionTextureNormalTangentBitangentUseSubresource(RamToVramUploadRequest* request, BaseExecutor* exe,
+	template<class Executor, class SharedResources_t>
+	static void meshWithPositionTextureNormalTangentBitangentUseSubresource(RamToVramUploadRequest* request, BaseExecutor* exe, SharedResources& sr,
 		void* const uploadBufferCpuAddressOfCurrentPos, ID3D12Resource* uploadResource, uint64_t uploadResourceOffset)
 	{
 		const auto executor = reinterpret_cast<Executor*>(exe);
+		auto& sharedResources = reinterpret_cast<SharedResources_t&>(sr);
 		meshWithPositionTextureNormalTangentBitangentUseSubresourceHelper(request, uploadBufferCpuAddressOfCurrentPos, uploadResource, uploadResourceOffset, 
-			executor->streamingManager, executor->meshAllocator, executor->sharedResources->meshManager, executor->sharedResources->graphicsEngine.graphicsDevice);
+			executor->streamingManager, executor->meshAllocator, sharedResources.meshManager, sharedResources.graphicsEngine.graphicsDevice);
 	}
 
 	static void MeshManager::meshWithPositionTextureNormalTangentBitangentUseSubresourceHelper(RamToVramUploadRequest* request, void* const uploadBufferCpuAddressOfCurrentPos,
 		ID3D12Resource* uploadResource, uint64_t uploadResourceOffset, StreamingManagerThreadLocal& streamingManager, FixedSizeAllocator<Mesh>& meshAllocator, MeshManager& meshManager,
 		ID3D12Device* graphicsDevice);
 
-	template<class Executor>
-	static void meshWithPositionTextureNormalUseSubresource(RamToVramUploadRequest* request, BaseExecutor* exe,
+	template<class Executor, class SharedResources_t>
+	static void meshWithPositionTextureNormalUseSubresource(RamToVramUploadRequest* request, BaseExecutor* exe, SharedResources& sr,
 		void* const uploadBufferCpuAddressOfCurrentPos, ID3D12Resource* uploadResource, uint64_t uploadResourceOffset)
 	{
 		const auto executor = reinterpret_cast<Executor*>(exe);
+		auto& sharedResources = reinterpret_cast<SharedResources_t&>(sr);
 		meshWithPositionTextureNormalUseSubresourceHelper(request, uploadBufferCpuAddressOfCurrentPos, uploadResource, uploadResourceOffset,
-			executor->streamingManager, executor->meshAllocator, executor->sharedResources->meshManager, executor->sharedResources->graphicsEngine.graphicsDevice);
+			executor->streamingManager, executor->meshAllocator, sharedResources.meshManager, sharedResources.graphicsEngine.graphicsDevice);
 	}
 
 	static void meshWithPositionTextureNormalUseSubresourceHelper(RamToVramUploadRequest* request, void* const uploadBufferCpuAddressOfCurrentPos,
 		ID3D12Resource* uploadResource, uint64_t uploadResourceOffset, StreamingManagerThreadLocal& streamingManager, FixedSizeAllocator<Mesh>& meshAllocator, MeshManager& meshManager,
 		ID3D12Device* graphicsDevice);
 
-	template<class Executor>
-	static void meshWithPositionTextureUseSubresource(RamToVramUploadRequest* request, BaseExecutor* exe,
+	template<class Executor, class SharedResources_t>
+	static void meshWithPositionTextureUseSubresource(RamToVramUploadRequest* request, BaseExecutor* exe, SharedResources& sr,
 		void* const uploadBufferCpuAddressOfCurrentPos, ID3D12Resource* uploadResource, uint64_t uploadResourceOffset)
 	{
 		const auto executor = reinterpret_cast<Executor*>(exe);
+		auto& sharedResources = reinterpret_cast<SharedResources_t&>(sr);
 		meshWithPositionTextureUseSubresourceHelper(request, uploadBufferCpuAddressOfCurrentPos, uploadResource, uploadResourceOffset,
-			executor->streamingManager, executor->meshAllocator, executor->sharedResources->meshManager, executor->sharedResources->graphicsEngine.graphicsDevice);
+			executor->streamingManager, executor->meshAllocator, sharedResources.meshManager, sharedResources.graphicsEngine.graphicsDevice);
 	}
 
 	static void meshWithPositionTextureUseSubresourceHelper(RamToVramUploadRequest* request, void* const uploadBufferCpuAddressOfCurrentPos,
 		ID3D12Resource* uploadResource, uint64_t uploadResourceOffset, StreamingManagerThreadLocal& streamingManager, FixedSizeAllocator<Mesh>& meshAllocator, MeshManager& meshManager,
 		ID3D12Device* graphicsDevice);
 
-	template<class Executor>
-	static void meshWithPositionUseSubresource(RamToVramUploadRequest* request, BaseExecutor* exe,
+	template<class Executor, class SharedResources_t>
+	static void meshWithPositionUseSubresource(RamToVramUploadRequest* request, BaseExecutor* exe, SharedResources& sr,
 		void* const uploadBufferCpuAddressOfCurrentPos, ID3D12Resource* uploadResource, uint64_t uploadResourceOffset)
 	{
 		const auto executor = reinterpret_cast<Executor*>(exe);
+		auto& sharedResources = reinterpret_cast<SharedResources_t&>(sr);
 		meshWithPositionUseSubresourceHelper(request, uploadBufferCpuAddressOfCurrentPos, uploadResource, uploadResourceOffset,
-			executor->streamingManager, executor->meshAllocator, executor->sharedResources->meshManager, executor->sharedResources->graphicsEngine.graphicsDevice);
+			executor->streamingManager, executor->meshAllocator, sharedResources.meshManager, sharedResources.graphicsEngine.graphicsDevice);
 	}
 
 	static void meshWithPositionUseSubresourceHelper(RamToVramUploadRequest* request, void* const uploadBufferCpuAddressOfCurrentPos,
@@ -131,35 +136,35 @@ class MeshManager
 public:
 	MeshManager();
 	~MeshManager();
-	template<class Executor>
-	static void loadMeshWithPositionTextureNormalTangentBitangent(const wchar_t * filename, void* requester, Executor* const executor,
-		void(*resourceUploadedCallback)(void* const requester, BaseExecutor* const executor, Mesh* mesh))
+	template<class Executor, class SharedResources_t>
+	static void loadMeshWithPositionTextureNormalTangentBitangent(const wchar_t * filename, void* requester, Executor* const executor, SharedResources_t& sharedResources,
+		void(*resourceUploadedCallback)(void* const requester, BaseExecutor* const executor, SharedResources& sharedResources, Mesh* mesh))
 	{
-		loadMesh(filename, requester, executor, resourceUploadedCallback, meshWithPositionTextureNormalTangentBitangentUseSubresource<Executor>,
+		loadMesh(filename, requester, executor, sharedResources, resourceUploadedCallback, meshWithPositionTextureNormalTangentBitangentUseSubresource<Executor, SharedResources_t>,
 			sizeof(MeshWithPositionTextureNormalTangentBitangent), sizeof(MeshWithPositionTextureNormal), executor->streamingManager);
 	}
 
-	template<class Executor>
-	static void loadMeshWithPositionTextureNormal(const wchar_t * filename, void* requester, Executor* const executor,
-		void(*resourceUploadedCallback)(void* const requester, BaseExecutor* const executor, Mesh* mesh))
+	template<class Executor, class SharedResources_t>
+	static void loadMeshWithPositionTextureNormal(const wchar_t * filename, void* requester, Executor* const executor, SharedResources_t& sharedResources,
+		void(*resourceUploadedCallback)(void* const requester, BaseExecutor* const executor, SharedResources& sharedResources, Mesh* mesh))
 	{
-		loadMesh(filename, requester, executor, resourceUploadedCallback, meshWithPositionTextureNormalUseSubresource<Executor>,
+		loadMesh(filename, requester, executor, sharedResources, resourceUploadedCallback, meshWithPositionTextureNormalUseSubresource<Executor, SharedResources_t>,
 			sizeof(MeshWithPositionTextureNormal), sizeof(MeshWithPositionTextureNormal), executor->streamingManager);
 	}
 
-	template<class Executor>
-	static void loadMeshWithPositionTexture(const wchar_t * filename, void* requester, Executor* const executor,
-		void(*resourceUploadedCallback)(void* const requester, BaseExecutor* const executor, Mesh* mesh))
+	template<class Executor, class SharedResources_t>
+	static void loadMeshWithPositionTexture(const wchar_t * filename, void* requester, Executor* const executor, SharedResources_t& sharedResources,
+		void(*resourceUploadedCallback)(void* const requester, BaseExecutor* const executor, SharedResources& sharedResources, Mesh* mesh))
 	{
-		loadMesh(filename, requester, executor, resourceUploadedCallback, meshWithPositionTextureUseSubresource<Executor>,
+		loadMesh(filename, requester, executor, sharedResources, resourceUploadedCallback, meshWithPositionTextureUseSubresource<Executor, SharedResources_t>,
 			sizeof(MeshWithPositionTexture), sizeof(MeshWithPositionTexture), executor->streamingManager);
 	}
 
-	template<class Executor>
-	static void loadMeshWithPosition(const wchar_t * filename, void* requester, Executor* const executor,
-		void(*resourceUploadedCallback)(void* const requester, BaseExecutor* const executor, Mesh* mesh))
+	template<class Executor, class SharedResources_t>
+	static void loadMeshWithPosition(const wchar_t * filename, void* requester, Executor* const executor, SharedResources_t& sharedResources,
+		void(*resourceUploadedCallback)(void* const requester, BaseExecutor* const executor, SharedResources& sharedResources, Mesh* mesh))
 	{
-		loadMesh(filename, requester, executor, resourceUploadedCallback, meshWithPositionUseSubresource<Executor>,
+		loadMesh(filename, requester, executor, sharedResources, resourceUploadedCallback, meshWithPositionUseSubresource<Executor, SharedResources_t>,
 			sizeof(MeshWithPosition), sizeof(MeshWithPosition), executor->streamingManager);
 	}
 

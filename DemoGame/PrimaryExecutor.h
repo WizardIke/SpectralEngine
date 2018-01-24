@@ -8,7 +8,7 @@ class PrimaryExecutor : public Executor
 	constexpr static unsigned int halfFinishedUploadRequestBufferStartingCapasity = 25u;
 	std::thread thread;
 public:
-	PrimaryExecutor(SharedResources* const sharedResources);
+	PrimaryExecutor(SharedResources& sharedResources);
 	~PrimaryExecutor();
-	void run();
+	void run(SharedResources& sharedResources);
 };

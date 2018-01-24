@@ -30,9 +30,9 @@ public:
 	constexpr static bool isPresentSubPass = false;
 
 	RenderSubPass() noexcept {}
-	RenderSubPass(RenderSubPass<Camera_t, state1, Dependencies_t, DependencyStates_t, commandListsPerFrame1>&& other) noexcept : mCameras(std::move(other.mCameras)) {}
+	RenderSubPass(RenderSubPass<Camera_t, state1, Dependencies_t, DependencyStates_t, commandListsPerFrame1, stateAfter1>&& other) noexcept : mCameras(std::move(other.mCameras)) {}
 
-	void operator=(RenderSubPass<Camera_t, state1, Dependencies_t, DependencyStates_t, commandListsPerFrame1>&& other) noexcept
+	void operator=(RenderSubPass<Camera_t, state1, Dependencies_t, DependencyStates_t, commandListsPerFrame1, stateAfter1>&& other) noexcept
 	{
 		mCameras = std::move(other.mCameras);
 	}
@@ -53,26 +53,26 @@ public:
 	}
 
 	template<class RenderPass>
-	void addCamera(BaseExecutor* const executor, RenderPass& renderPass, Camera* const camera)
+	void addCamera(SharedResources& sharedResources, RenderPass& renderPass, Camera* const camera)
 	{
-		std::lock_guard<decltype(executor->sharedResources->syncMutex)> lock(executor->sharedResources->syncMutex);
+		std::lock_guard<decltype(sharedResources.syncMutex)> lock(sharedResources.syncMutex);
 		mCameras.push_back(camera);
 		renderPass.updateBarrierCount();
 	}
 
-	void removeCamera(BaseExecutor* const executor, Camera* const camera) noexcept
+	void removeCamera(SharedResources& sharedResources, Camera* const camera) noexcept
 	{
-		std::lock_guard<decltype(executor->sharedResources->syncMutex)> lock(executor->sharedResources->syncMutex);
+		std::lock_guard<decltype(sharedResources.syncMutex)> lock(sharedResources.syncMutex);
 		auto cam = std::find(mCameras.begin(), mCameras.end(), camera);
 		std::swap(*cam, *(mCameras.end() - 1u));
 		mCameras.pop_back();
 	}
 
-	bool isInView(const BaseExecutor* executor) const noexcept
+	bool isInView(SharedResources& sharedResources) const noexcept
 	{
 		for (auto& camera : mCameras)
 		{
-			if (camera->isInView(executor))
+			if (camera->isInView(sharedResources))
 			{
 				return true;
 			}
@@ -138,10 +138,9 @@ public:
 				}
 			}
 		}
-		ThreadLocal(BaseExecutor* const executor)
+		ThreadLocal(SharedResources& sharedResources)
 		{
-			auto sharedResources = executor->sharedResources;
-			auto frameIndex = executor->sharedResources->graphicsEngine.frameIndex;
+			auto frameIndex = sharedResources.graphicsEngine.frameIndex;
 			auto i = 0u;
 			for (auto& perFrameData : perFrameDatas)
 			{
@@ -149,8 +148,8 @@ public:
 				for (auto& allocator : perFrameData.commandAllocators)
 				{
 
-					new(&allocator) D3D12CommandAllocator(sharedResources->graphicsEngine.graphicsDevice, D3D12_COMMAND_LIST_TYPE_DIRECT);
-					new(commandList) D3D12GraphicsCommandList(sharedResources->graphicsEngine.graphicsDevice, 0u, D3D12_COMMAND_LIST_TYPE_DIRECT, allocator, nullptr);
+					new(&allocator) D3D12CommandAllocator(sharedResources.graphicsEngine.graphicsDevice, D3D12_COMMAND_LIST_TYPE_DIRECT);
+					new(commandList) D3D12GraphicsCommandList(sharedResources.graphicsEngine.graphicsDevice, 0u, D3D12_COMMAND_LIST_TYPE_DIRECT, allocator, nullptr);
 					(*commandList)->Close();
 
 #ifdef _DEBUG
@@ -175,54 +174,54 @@ public:
 			new(this) ThreadLocal(std::move(other));
 		}
 
-		void update1After(BaseExecutor* const executor, RenderSubPass<Camera, state1, Dependencies_t, DependencyStates_t, commandListsPerFrame, stateAfter1>& renderSubPass,
+		void update1After(SharedResources& sharedResources, RenderSubPass<Camera, state1, Dependencies_t, DependencyStates_t, commandListsPerFrame, stateAfter1>& renderSubPass,
 			ID3D12RootSignature* rootSignature)
 		{
-			auto frameIndex = executor->sharedResources->graphicsEngine.frameIndex;
+			auto frameIndex = sharedResources.graphicsEngine.frameIndex;
 			resetCommandLists(frameIndex);
-			bindRootArguments(rootSignature, executor->sharedResources->graphicsEngine.mainDescriptorHeap);
+			bindRootArguments(rootSignature, sharedResources.graphicsEngine.mainDescriptorHeap);
 			auto cameras = renderSubPass.cameras();
 			for (auto& camera : cameras)
 			{
-				if (camera->isInView(executor))
+				if (camera->isInView(sharedResources))
 				{
-					camera->bind(executor->sharedResources, &currentData->commandLists[0u].get(),
+					camera->bind(sharedResources, &currentData->commandLists[0u].get(),
 						&currentData->commandLists.data()[currentData->commandLists.size()].get());
 				}
 			}
 		}
 
-		void update1AfterFirstThread(BaseExecutor* const executor, RenderSubPass<Camera, state1, Dependencies_t, DependencyStates_t, commandListsPerFrame, stateAfter1>& renderSubPass,
+		void update1AfterFirstThread(SharedResources& sharedResources, RenderSubPass<Camera, state1, Dependencies_t, DependencyStates_t, commandListsPerFrame, stateAfter1>& renderSubPass,
 			ID3D12RootSignature* rootSignature, uint32_t barrierCount, const D3D12_RESOURCE_BARRIER* barriers)
 		{
-			auto frameIndex = executor->sharedResources->graphicsEngine.frameIndex;
+			auto frameIndex = sharedResources.graphicsEngine.frameIndex;
 			resetCommandLists(frameIndex);
-			bindRootArguments(rootSignature, executor->sharedResources->graphicsEngine.mainDescriptorHeap);
+			bindRootArguments(rootSignature, sharedResources.graphicsEngine.mainDescriptorHeap);
 
 			if(barrierCount != 0u) currentData->commandLists[0u]->ResourceBarrier(barrierCount, barriers);
 
 			for (auto& camera : renderSubPass.cameras())
 			{
-				if (camera->isInView(executor))
+				if (camera->isInView(sharedResources))
 				{
-					camera->bindFirstThread(executor->sharedResources, &currentData->commandLists[0u].get(),
+					camera->bindFirstThread(sharedResources, &currentData->commandLists[0u].get(),
 						&currentData->commandLists.data()[currentData->commandLists.size()].get());
 				}
 			}
 		}
 
-		void update1AfterFirstThread(BaseExecutor* const executor, RenderSubPass<Camera, state1, Dependencies_t, DependencyStates_t, commandListsPerFrame, stateAfter1>& renderSubPass,
+		void update1AfterFirstThread(SharedResources& sharedResources, RenderSubPass<Camera, state1, Dependencies_t, DependencyStates_t, commandListsPerFrame, stateAfter1>& renderSubPass,
 			ID3D12RootSignature* rootSignature)
 		{
-			auto frameIndex = executor->sharedResources->graphicsEngine.frameIndex;
+			auto frameIndex = sharedResources.graphicsEngine.frameIndex;
 			resetCommandLists(frameIndex);
-			bindRootArguments(rootSignature, executor->sharedResources->graphicsEngine.mainDescriptorHeap);
+			bindRootArguments(rootSignature, sharedResources.graphicsEngine.mainDescriptorHeap);
 
 			for (auto& camera : renderSubPass.cameras())
 			{
-				if (camera->isInView(executor))
+				if (camera->isInView(sharedResources))
 				{
-					camera->bindFirstThread(executor->sharedResources, &currentData->commandLists[0u].get(),
+					camera->bindFirstThread(sharedResources, &currentData->commandLists[0u].get(),
 						&currentData->commandLists.data()[currentData->commandLists.size()].get());
 				}
 			}
@@ -244,7 +243,8 @@ public:
 
 		}
 
-		void update2LastThread(ID3D12CommandList**& commandLists, unsigned int numThreads, RenderSubPass<Camera, state1, Dependencies_t, DependencyStates_t, commandListsPerFrame, stateAfter1>& renderSubPass)
+		void update2LastThread(ID3D12CommandList**& commandLists, unsigned int numThreads, RenderSubPass<Camera, state1, Dependencies_t, DependencyStates_t, commandListsPerFrame, stateAfter1>& renderSubPass,
+			BaseExecutor* executor, SharedResources& sharedResources)
 		{
 			update2(commandLists, numThreads);
 		}
@@ -270,8 +270,9 @@ public:
 	class ThreadLocal : public RenderSubPass<Camera_t, state1, Dependencies_t, DependencyStates_t, commandListsPerFrame1, stateAfter1>::ThreadLocal
 	{
 	public:
-		ThreadLocal(BaseExecutor* executor) : RenderSubPass<Camera_t, state1, Dependencies_t, DependencyStates_t, commandListsPerFrame1, stateAfter1>::ThreadLocal(executor) {}
-		void update2LastThread(ID3D12CommandList**& commandLists, unsigned int numThreads, RenderMainSubPass<Camera_t, state1, Dependencies_t, DependencyStates_t, commandListsPerFrame, stateAfter1>& renderSubPass)
+		ThreadLocal(SharedResources& sharedResources) : RenderSubPass<Camera_t, state1, Dependencies_t, DependencyStates_t, commandListsPerFrame1, stateAfter1>::ThreadLocal(sharedResources) {}
+		void update2LastThread(ID3D12CommandList**& commandLists, unsigned int numThreads, RenderMainSubPass<Camera_t, state1, Dependencies_t, DependencyStates_t, commandListsPerFrame, stateAfter1>& renderSubPass,
+			BaseExecutor* executor, SharedResources& sharedResources)
 		{
 			auto cameras = renderSubPass.cameras();
 			auto camerasEnd = cameras.end();
@@ -377,6 +378,9 @@ public:
 	using CameraIterator = Iterator<Camera, typename RenderSubPass_t::CameraIterator, typename SubPasses::iterator>;
 	using ConstCameraIterator = Iterator<const Camera, typename RenderSubPass_t::ConstCameraIterator, typename SubPasses::const_iterator>;
 
+	RenderSubPassGroup() = default;
+	RenderSubPassGroup(RenderSubPassGroup&&) = default;
+
 	Range<CameraIterator, typename SubPasses::iterator> cameras()
 	{
 		auto subPassBegin = mSubPasses.begin();
@@ -407,14 +411,14 @@ public:
 	}
 
 	template<class RenderPass, class SubPasses>
-	SubPass& addSubPass(BaseExecutor* const executor, RenderPass& renderPass, SubPasses subPasses)
+	SubPass& addSubPass(SharedResources& sharedResources, RenderPass& renderPass, SubPasses subPasses)
 	{
-		std::lock_guard<decltype(executor->sharedResources->syncMutex)> lock(executor->sharedResources->syncMutex);
+		std::lock_guard<decltype(sharedResources.syncMutex)> lock(sharedResources.syncMutex);
 		auto& subPass = mSubPasses.emplace_back();
 		auto end = subPasses.end();
 		for (auto start = subPasses.begin(); start != end; ++start)
 		{
-			start->addSubPass(executor);
+			start->addSubPass(sharedResources);
 		}
 		renderPass.updateBarrierCount();
 
@@ -423,10 +427,10 @@ public:
 	}
 
 	template<class SubPasses>
-	void removeSubPass(BaseExecutor* const executor, SubPass* subPass, SubPasses subPasses)
+	void removeSubPass(SharedResources& sharedResources, SubPass* subPass, SubPasses subPasses)
 	{
 		using std::swap; using std::find;
-		std::lock_guard<decltype(executor->sharedResources->syncMutex)> lock(executor->sharedResources->syncMutex);
+		std::lock_guard<decltype(sharedResources.syncMutex)> lock(sharedResources.syncMutex);
 		auto pos = find_if(mSubPasses.begin(), mSubPasses.end(), [subPass](const SubPass& sub) {return subPass == &sub; });
 		commandListsPerFrame -= pos->commandListsPerFrame;
 		auto index = std::distance(mSubPasses.begin(), pos);
@@ -438,15 +442,15 @@ public:
 		auto end = subPasses.end();
 		for (auto start = subPasses.begin(); start != end; ++start)
 		{
-			start->removeSubPass(executor, index);
+			start->removeSubPass(sharedResources, index);
 		}
 	}
 
-	bool isInView(const BaseExecutor* executor) const
+	bool isInView(SharedResources& sharedResources) const
 	{
 		for (auto& subPass : mSubPasses)
 		{
-			if (subPass.isInView(executor))
+			if (subPass.isInView(sharedResources))
 			{
 				return true;
 			}
@@ -458,7 +462,7 @@ public:
 	{
 		std::vector<typename RenderSubPass_t::ThreadLocal> mSubPasses;
 	public:
-		ThreadLocal(BaseExecutor* const executor) {}
+		ThreadLocal(SharedResources& sharedResources) {}
 
 		using SubPass = typename RenderSubPass_t::ThreadLocal;
 
@@ -467,29 +471,29 @@ public:
 			return { mSubPasses.begin(), mSubPasses.end() };
 		}
 
-		void update1After(BaseExecutor* const executor, RenderSubPassGroup<RenderSubPass_t>& renderSubPassGruop,
+		void update1After(SharedResources& sharedResources, RenderSubPassGroup<RenderSubPass_t>& renderSubPassGruop,
 			ID3D12RootSignature* rootSignature)
 		{
 			auto subPass = renderSubPassGruop.mSubPasses.begin();
 			for (auto& subPassLocal : mSubPasses)
 			{
-				subPassLocal.update1After(executor, *subPass, rootSignature);
+				subPassLocal.update1After(sharedResources, *subPass, rootSignature);
 				++subPass;
 			}
 		}
 
-		void update1AfterFirstThread(BaseExecutor* const executor, RenderSubPassGroup<RenderSubPass_t>& renderSubPassGroup,
+		void update1AfterFirstThread(SharedResources& sharedResources, RenderSubPassGroup<RenderSubPass_t>& renderSubPassGroup,
 			ID3D12RootSignature* rootSignature, uint32_t barrierCount, const D3D12_RESOURCE_BARRIER* barriers)
 		{
 			auto subPass = renderSubPassGroup.mSubPasses.begin();
 			auto subPassLocal = mSubPasses.begin();
-			subPassLocal->update1AfterFirstThread(executor, *subPass, rootSignature, barrierCount, barriers);
+			subPassLocal->update1AfterFirstThread(sharedResources, *subPass, rootSignature, barrierCount, barriers);
 			++subPassLocal;
 			++subPass;
 			auto end = mSubPasses.end();
 			for (; subPassLocal != end; ++subPassLocal)
 			{
-				subPassLocal->update1AfterFirstThread(executor, *subPass, rootSignature);
+				subPassLocal->update1AfterFirstThread(sharedResources, *subPass, rootSignature);
 				++subPass;
 			}
 		}
@@ -502,13 +506,15 @@ public:
 			}
 		}
 
-		void update2LastThread(ID3D12CommandList**& commandLists, unsigned int numThreads, RenderSubPassGroup<RenderSubPass_t>& renderSubPassGroup)
+		template<class Executor>
+		void update2LastThread(ID3D12CommandList**& commandLists, unsigned int numThreads, RenderSubPassGroup<RenderSubPass_t>& renderSubPassGroup,
+			Executor* executor, SharedResources& sharedResources)
 		{
 			const auto end = mSubPasses.end();
 			auto subPass = renderSubPassGroup.mSubPasses.begin();
 			for (auto& subPassLocal = mSubPasses.begin(); subPassLocal != end; ++subPassLocal, ++subPass)
 			{
-				subPassLocal->update2LastThread(commandLists, numThreads, *subPass);
+				subPassLocal->update2LastThread(commandLists, numThreads, *subPass, executor, sharedResources);
 			}
 		}
 
@@ -518,12 +524,13 @@ public:
 			return lastSubPass->lastCommandList();
 		}
 
-		void addSubPass(BaseExecutor* const executor)
+		void addSubPass(SharedResources& sharedResources)
 		{
-			mSubPasses.emplace_back(executor);
+			//might need a mutex
+			mSubPasses.emplace_back(sharedResources);
 		}
 
-		void removeSubPass(BaseExecutor* const executor, size_t index)
+		void removeSubPass(SharedResources& sharedResources, size_t index)
 		{
 			using std::swap;
 			swap(mSubPasses[index], *(mSubPasses.end() - 1));

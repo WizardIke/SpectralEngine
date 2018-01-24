@@ -44,11 +44,11 @@ class StreamingManagerThreadLocal
 	unsigned long uploadBufferWritePos = 0u;
 	unsigned long uploadBufferReadPos = 0u;
 
-	void addUploadToBuffer(BaseExecutor* const executor);
+	void addUploadToBuffer(BaseExecutor* const executor, SharedResources& sharedResources);
 public:
 	StreamingManagerThreadLocal(ID3D12Device* const graphicsDevice, unsigned long uploadHeapStartingSize, unsigned int uploadRequestBufferStartingCapacity, unsigned int halfFinishedUploadRequestBufferStartingCapasity);
 
-	void update(BaseExecutor* const executor);
+	void update(BaseExecutor* const executor, SharedResources& sharedResources);
 	RamToVramUploadRequest& getUploadRequest();
 
 
@@ -56,7 +56,7 @@ public:
 
 	ID3D12GraphicsCommandList* currentCommandList;
 
-	void addCopyCompletionEvent(void* requester, void(*event)(void* requester, BaseExecutor* executor))
+	void addCopyCompletionEvent(void* requester, void(*event)(void* requester, BaseExecutor* executor, SharedResources& sharedResources))
 	{
 		currentHalfFinishedUploadRequestBuffer->push_back(HalfFinishedUploadRequest{ 0u, requester, event });
 	}

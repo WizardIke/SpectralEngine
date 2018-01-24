@@ -2,55 +2,56 @@
 #include "Assets.h"
 #include <D3D12GraphicsEngine.h>
 
-BackgroundExecutor::BackgroundExecutor(SharedResources*const sharedResources) : Executor(sharedResources, uploadHeapStartingSize, uploadRequestBufferStartingCapacity, halfFinishedUploadRequestBufferStartingCapasity)
+BackgroundExecutor::BackgroundExecutor(SharedResources& sharedResources) : Executor(&sharedResources, uploadHeapStartingSize, uploadRequestBufferStartingCapacity, halfFinishedUploadRequestBufferStartingCapasity)
 {
 #ifndef NDEBUG
 	type = "BackgroundExecutor";
 #endif // NDEBUG
 }
 
-void BackgroundExecutor::run()
+void BackgroundExecutor::run(SharedResources& sharedResources)
 {
-	thread = std::thread([](Executor* exe) {exe->run(); }, static_cast<Executor*const>(this));
+	thread = std::thread([](std::pair<Executor*, SharedResources*> data) {data.first->run(*data.second); }, std::make_pair(static_cast<Executor*const>(this), &sharedResources));
 }
 
-void BackgroundExecutor::update2(std::unique_lock<std::mutex>&& lock)
+void BackgroundExecutor::update2(std::unique_lock<std::mutex>&& lock, SharedResources& sr)
 {
-	renderPass.update2(this, ((Assets*)sharedResources)->renderPass);
-	++(sharedResources->numThreadsThatHaveFinished);
+	Assets& sharedResources = reinterpret_cast<Assets&>(sr);
+	renderPass.update2(this, sharedResources, sharedResources.renderPass);
+	++(sharedResources.numThreadsThatHaveFinished);
 
-	if (sharedResources->numThreadsThatHaveFinished == sharedResources->maxPrimaryThreads + sharedResources->numPrimaryJobExeThreads)
+	if (sharedResources.numThreadsThatHaveFinished == sharedResources.maxPrimaryThreads + sharedResources.numPrimaryJobExeThreads)
 	{
-		sharedResources->conditionVariable.notify_all();
+		sharedResources.conditionVariable.notify_all();
 	}
 
-	sharedResources->conditionVariable.wait(lock, [&generation = sharedResources->generation, gen = sharedResources->generation]() {return gen != generation; });
+	sharedResources.conditionVariable.wait(lock, [&generation = sharedResources.generation, gen = sharedResources.generation]() {return gen != generation; });
 
 	Job job;
-	bool found = sharedResources->backgroundQueue.pop(job);
+	bool found = sharedResources.backgroundQueue.pop(job);
 	if (found)
 	{
-		--(sharedResources->numPrimaryJobExeThreads);
+		--(sharedResources.numPrimaryJobExeThreads);
 		lock.unlock();
 
-		gpuCompletionEventManager.update(this);
-		streamingManager.update(this);
+		gpuCompletionEventManager.update(this, sharedResources);
+		streamingManager.update(this, sharedResources);
 
-		Executor::runBackgroundJobs(job);
-		getIntoCorrectStateAfterDoingBackgroundJob();
+		Executor::runBackgroundJobs(job, sharedResources);
+		getIntoCorrectStateAfterDoingBackgroundJob(sharedResources);
 	}
 	else
 	{
 		lock.unlock();
 		currentWorkStealingDeque = &updateJobQueue();
-		gpuCompletionEventManager.update(this);
-		streamingManager.update(this);
+		gpuCompletionEventManager.update(this, sharedResources);
+		streamingManager.update(this, sharedResources);
 	}
 }
 
-void BackgroundExecutor::getIntoCorrectStateAfterDoingBackgroundJob()
+void BackgroundExecutor::getIntoCorrectStateAfterDoingBackgroundJob(SharedResources& sharedResources)
 {
-	const auto assets = reinterpret_cast<Assets*>(sharedResources);
+	const auto assets = reinterpret_cast<Assets*>(&sharedResources);
 	std::unique_lock<decltype(assets->syncMutex)> lock(assets->syncMutex);
 
 	if (assets->nextPhaseJob == update2NextPhaseJob)
@@ -71,7 +72,7 @@ void BackgroundExecutor::getIntoCorrectStateAfterDoingBackgroundJob()
 			currentWorkStealingDeque = &renderJobQueue();
 			lock.unlock();
 
-			renderPass.update1After(this, assets->renderPass, assets->rootSignatures.rootSignature, 1u);
+			renderPass.update1After(*assets, assets->renderPass, assets->rootSignatures.rootSignature, 1u);
 		}
 		
 	} 

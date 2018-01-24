@@ -3,6 +3,7 @@
 #include <memory>
 #include <stdio.h>
 class BaseExecutor;
+class SharedResources;
 
 class AmbientMusic : IXAudio2VoiceCallback
 {
@@ -23,8 +24,8 @@ class AmbientMusic : IXAudio2VoiceCallback
 	virtual void STDMETHODCALLTYPE OnVoiceProcessingPassEnd() override;
 	virtual void STDMETHODCALLTYPE OnVoiceProcessingPassStart(UINT32 BytesRequired) override;
 
-	void update(BaseExecutor* const executor);
+	void update(BaseExecutor* const executor, SharedResources& sharedResources);
 public:
-	AmbientMusic(BaseExecutor* const executor);
+	AmbientMusic(BaseExecutor* const executor, SharedResources& sharedResources);
 	~AmbientMusic() {}
 };

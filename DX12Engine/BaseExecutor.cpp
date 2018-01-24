@@ -3,7 +3,6 @@
 #include "SharedResources.h"
 
 BaseExecutor::BaseExecutor(SharedResources* const sharedResources) :
-	sharedResources(sharedResources),
 	currentWorkStealingDeque(&workStealDeques[1u])
 {
 	sharedResources->workStealingQueues[sharedResources->numThreadsThatHaveFinished] = workStealDeques[0u];
@@ -17,68 +16,67 @@ BaseExecutor::BaseExecutor(SharedResources* const sharedResources) :
 
 BaseExecutor::~BaseExecutor() {}
 
-void BaseExecutor::quit(BaseExecutor* exe, std::unique_lock<std::mutex>&& lock)
+void BaseExecutor::quit(BaseExecutor* exe, SharedResources& sharedResources, std::unique_lock<std::mutex>&& lock)
 {
-	const auto sharedResources = exe->sharedResources;
-	++sharedResources->numThreadsThatHaveFinished;
-	if (sharedResources->numThreadsThatHaveFinished == sharedResources->maxThreads)
+	++sharedResources.numThreadsThatHaveFinished;
+	if (sharedResources.numThreadsThatHaveFinished == sharedResources.maxThreads)
 	{
-		sharedResources->numThreadsThatHaveFinished = 0u;
-		++sharedResources->generation;
+		sharedResources.numThreadsThatHaveFinished = 0u;
+		++sharedResources.generation;
 	}
 	else
 	{
-		sharedResources->conditionVariable.wait(lock, [oldGen = sharedResources->generation, &gen = sharedResources->generation]() {return oldGen != gen; });
+		sharedResources.conditionVariable.wait(lock, [oldGen = sharedResources.generation, &gen = sharedResources.generation]() {return oldGen != gen; });
 	}
 	lock.unlock();
 	exe->mQuit = true;
 }
 
 
-void BaseExecutor::doPrimaryJob()
+void BaseExecutor::doPrimaryJob(SharedResources& sharedResources)
 {
 	Job job;
 	bool found = currentWorkStealingDeque->pop(job);
 	if (found)
 	{
-		job(this);
+		job(this, sharedResources);
 	}
 	else
 	{
 		for (auto i = 0u;; ++i)
 		{
 			//steal from other thread
-			found = sharedResources->currentWorkStealingQueues[i].steal(job);
+			found = sharedResources.currentWorkStealingQueues[i].steal(job);
 			if (found)
 			{
-				job(this);
+				job(this, sharedResources);
 				break;
 			}
-			else if (i == sharedResources->maxThreads - 1u)
+			else if (i == sharedResources.maxThreads - 1u)
 			{
-				std::unique_lock<std::mutex> lock(sharedResources->syncMutex);
-				sharedResources->nextPhaseJob(this, std::move(lock));
+				std::unique_lock<std::mutex> lock(sharedResources.syncMutex);
+				sharedResources.nextPhaseJob(this, sharedResources, std::move(lock));
 				break;
 			}
 		}
 	}
 }
 
-void BaseExecutor::run()
+void BaseExecutor::run(SharedResources& sharedResources)
 {
 	mQuit = false;
 	while (!mQuit)
 	{
-		doPrimaryJob();
+		doPrimaryJob(sharedResources);
 	}
 }
 
-void BaseExecutor::runBackgroundJobs(Job job)
+void BaseExecutor::runBackgroundJobs(Job job, SharedResources& sharedResources)
 {
 	bool found;
 	do
 	{
-		job(this);
-		found = sharedResources->backgroundQueue.pop(job);
+		job(this, sharedResources);
+		found = sharedResources.backgroundQueue.pop(job);
 	} while (found);
 }

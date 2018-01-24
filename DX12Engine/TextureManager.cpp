@@ -29,7 +29,7 @@ void TextureManager::unloadTexture(const wchar_t * filename, D3D12GraphicsEngine
 }
 
 void TextureManager::loadTextureUncachedHelper(StreamingManagerThreadLocal& streamingManager, D3D12GraphicsEngine& graphicsEngine, const wchar_t * filename,
-	void(*textureUseSubresource)(RamToVramUploadRequest* const request, BaseExecutor* executor1, void* const uploadBufferCpuAddressOfCurrentPos, ID3D12Resource* uploadResource,
+	void(*textureUseSubresource)(RamToVramUploadRequest* const request, BaseExecutor* executor1, SharedResources& sharedResources, void* const uploadBufferCpuAddressOfCurrentPos, ID3D12Resource* uploadResource,
 		uint64_t uploadResourceOffset))
 {
 	RamToVramUploadRequest& uploadRequest = streamingManager.getUploadRequest();
@@ -61,10 +61,10 @@ void TextureManager::loadTextureUncachedHelper(StreamingManagerThreadLocal& stre
 	}
 }
 
-void TextureManager::textureUploaded(void* storedFilename, BaseExecutor* executor)
+void TextureManager::textureUploaded(void* storedFilename, BaseExecutor* executor, SharedResources& sharedResources)
 {
 	const wchar_t* filename = reinterpret_cast<wchar_t*>(storedFilename);
-	auto& textureManager = executor->sharedResources->textureManager;
+	auto& textureManager = sharedResources.textureManager;
 
 	unsigned int descriptorIndex;
 	std::vector<Request> requests;
@@ -82,7 +82,7 @@ void TextureManager::textureUploaded(void* storedFilename, BaseExecutor* executo
 
 	for (auto& request : requests)
 	{
-		request(executor, descriptorIndex);
+		request(executor, sharedResources, descriptorIndex);
 	}
 }
 

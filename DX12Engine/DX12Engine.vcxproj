@@ -271,7 +271,6 @@
     <ClCompile Include="CameraUtil.cpp" />
     <ClCompile Include="FeedbackAnalizer.cpp" />
     <ClCompile Include="PageCache.cpp" />
-    <ClCompile Include="PageDeleter.cpp" />
     <ClCompile Include="PageProvider.cpp" />
     <ClCompile Include="ReflectionCamera.cpp" />
     <ClCompile Include="MainCamera.cpp" />

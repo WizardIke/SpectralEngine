@@ -97,9 +97,6 @@
     <Filter Include="Timer">
       <UniqueIdentifier>{4f7ffa57-20c5-4e7c-8732-485af5c1ea40}</UniqueIdentifier>
     </Filter>
-    <Filter Include="VRamFreeingManager">
-      <UniqueIdentifier>{e7651cd0-07b5-4966-804e-a2ff713025c3}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Window">
       <UniqueIdentifier>{2475bc54-16d6-4167-b495-51d28d5781a1}</UniqueIdentifier>
     </Filter>
@@ -117,6 +114,9 @@
     </Filter>
     <Filter Include="Transform">
       <UniqueIdentifier>{c1f00c24-644d-4b56-a812-1788944f9806}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="GpuCompletionEventManager">
+      <UniqueIdentifier>{e7651cd0-07b5-4966-804e-a2ff713025c3}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -385,7 +385,7 @@
       <Filter>Camera</Filter>
     </ClInclude>
     <ClInclude Include="GpuCompletionEventManager.h">
-      <Filter>VRamFreeingManager</Filter>
+      <Filter>GpuCompletionEventManager</Filter>
     </ClInclude>
     <ClInclude Include="PageCache.h">
       <Filter>VirtualTexturing</Filter>
@@ -479,7 +479,7 @@
       <Filter>Camera</Filter>
     </ClCompile>
     <ClCompile Include="GpuCompletionEventManager.cpp">
-      <Filter>VRamFreeingManager</Filter>
+      <Filter>GpuCompletionEventManager</Filter>
     </ClCompile>
     <ClCompile Include="PageAllocator.cpp">
       <Filter>VirtualTexturing</Filter>
@@ -491,9 +491,6 @@
       <Filter>VirtualTexturing</Filter>
     </ClCompile>
     <ClCompile Include="PageProvider.cpp">
-      <Filter>VirtualTexturing</Filter>
-    </ClCompile>
-    <ClCompile Include="PageDeleter.cpp">
       <Filter>VirtualTexturing</Filter>
     </ClCompile>
     <ClCompile Include="ScopedFile.cpp">

@@ -31,22 +31,22 @@ CPUUsageSentence::~CPUUsageSentence()
 	if(queryHandle) PdhCloseQuery(queryHandle);
 }
 
-void CPUUsageSentence::update(BaseExecutor* const executor)
+void CPUUsageSentence::update(SharedResources& sharedResources)
 {
-	PDH_FMT_COUNTERVALUE value;
-
-	timeSinceLastUpdate += executor->sharedResources->timer.frameTime;
+	auto frameTime = sharedResources.timer.frameTime;;
+	timeSinceLastUpdate += frameTime;
 	if (timeSinceLastUpdate > 1.0f)
 	{
 		timeSinceLastUpdate = 0.0f;
 
 		PdhCollectQueryData(queryHandle);
 
+		PDH_FMT_COUNTERVALUE value;
 		PdhGetFormattedCounterValue(counterHandle, PDH_FMT_LONG, nullptr, &value);
 
 		text = L"Cpu ";
 		text += std::to_wstring(value.longValue);
 		text += L"%";
 	}
-	BaseSentence::update(executor->sharedResources->graphicsEngine.frameIndex);
+	BaseSentence::update(sharedResources.graphicsEngine.frameIndex);
 }

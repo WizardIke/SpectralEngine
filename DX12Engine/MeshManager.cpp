@@ -3,11 +3,12 @@
 #include "BaseExecutor.h"
 #include "FixedSizeAllocator.h"
 
-void MeshManager::loadMesh(const wchar_t * filename, void* requester, BaseExecutor* const executor, void(*resourceUploadedCallback)(void* const requester, BaseExecutor* const executor, Mesh* mesh),
-	void(*useSubresourceCallback)(RamToVramUploadRequest* request, BaseExecutor* executor, void* const uploadBufferCpuAddressOfCurrentPos, ID3D12Resource* uploadResource, uint64_t uploadResourceOffset),
+void MeshManager::loadMesh(const wchar_t * filename, void* requester, BaseExecutor* const executor, SharedResources& sharedResources,
+	void(*resourceUploadedCallback)(void* const requester, BaseExecutor* const executor, SharedResources& sharedResources, Mesh* mesh),
+	void(*useSubresourceCallback)(RamToVramUploadRequest* request, BaseExecutor* executor, SharedResources& sharedResources, void* const uploadBufferCpuAddressOfCurrentPos, ID3D12Resource* uploadResource, uint64_t uploadResourceOffset),
 	uint32_t vertexStrideInBytes, uint32_t vertexPackedSize, StreamingManagerThreadLocal& streamingManager)
 {
-	MeshManager& meshManager = executor->sharedResources->meshManager;
+	MeshManager& meshManager = sharedResources.meshManager;
 	std::unique_lock<decltype(meshManager.mutex)> lock(meshManager.mutex);
 	MeshInfo& meshInfo = meshManager.meshInfos[filename];
 	meshInfo.numUsers += 1u;
@@ -22,7 +23,7 @@ void MeshManager::loadMesh(const wchar_t * filename, void* requester, BaseExecut
 	{
 		Mesh* mesh = meshInfo.mesh;
 		lock.unlock();
-		resourceUploadedCallback(requester, executor, mesh);
+		resourceUploadedCallback(requester, executor, sharedResources, mesh);
 	}
 	else
 	{
@@ -31,7 +32,7 @@ void MeshManager::loadMesh(const wchar_t * filename, void* requester, BaseExecut
 }
 
 void MeshManager::loadMeshUncached(StreamingManagerThreadLocal& streamingManager, const wchar_t * filename, void(*useSubresourceCallback)(RamToVramUploadRequest* request,
-	BaseExecutor* executor, void* const uploadBufferCpuAddressOfCurrentPos, ID3D12Resource* uploadResource, uint64_t uploadResourceOffset), uint32_t vertexStrideInBytes,
+	BaseExecutor* executor, SharedResources& sharedResources, void* const uploadBufferCpuAddressOfCurrentPos, ID3D12Resource* uploadResource, uint64_t uploadResourceOffset), uint32_t vertexStrideInBytes,
 	uint32_t vertexPackedSize)
 {
 	RamToVramUploadRequest& uploadRequest = streamingManager.getUploadRequest();
@@ -340,9 +341,9 @@ void MeshManager::meshWithPositionUseSubresourceHelper(RamToVramUploadRequest* r
 		uploadResourceOffset + vertexSizeBytes, indexSizeBytes, copyCommandList);
 }
 
-void MeshManager::meshUploaded(void* requester, BaseExecutor* executor)
+void MeshManager::meshUploaded(void* requester, BaseExecutor* executor, SharedResources& sharedResources)
 {
-	MeshManager& meshManager = executor->sharedResources->meshManager;
+	MeshManager& meshManager = sharedResources.meshManager;
 	const wchar_t* filename = reinterpret_cast<wchar_t*>(requester);
 	Mesh* mesh;
 	std::vector<Request> requests;
@@ -363,7 +364,7 @@ void MeshManager::meshUploaded(void* requester, BaseExecutor* executor)
 
 	for (auto& request : requests)
 	{
-		request.resourceUploaded(request.requester, executor, mesh);
+		request.resourceUploaded(request.requester, executor, sharedResources, mesh);
 	}
 }
 

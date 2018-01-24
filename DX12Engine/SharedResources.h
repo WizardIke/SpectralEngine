@@ -19,9 +19,25 @@ class SharedResources
 protected:
 	constexpr static unsigned int backgroundQueueStartingLength = 120u;
 
-	static void checkForWindowsMessages(BaseExecutor* const executor);
+	void checkForWindowsMessages();
+	using WindowCallback = LRESULT (CALLBACK *)(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
+
+	static LRESULT windowCallbackImpl(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam, SharedResources* sharedResources, BaseExecutor* executor);
 public:
-	SharedResources(BaseExecutor* mainExecutor, bool fullScreen, bool vSync, bool enableGpuDebugging, unsigned int numThreads);
+	template<BaseExecutor*(*getMainExecutor)(SharedResources& sharedResources)>
+	static LRESULT CALLBACK windowCallback(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
+	{
+		if (message == WM_NCCREATE)
+		{
+			CREATESTRUCT *create = reinterpret_cast<CREATESTRUCT*>(lParam);
+			auto state = create->lpCreateParams;
+			SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)state);
+		}
+		auto sharedResources = reinterpret_cast<SharedResources*>(GetWindowLongPtr(hwnd, GWLP_USERDATA));
+		return windowCallbackImpl(hwnd, message, wParam, lParam, sharedResources, getMainExecutor(*sharedResources));
+	}
+
+	SharedResources(BaseExecutor* mainExecutor, bool fullScreen, bool vSync, bool enableGpuDebugging, unsigned int numThreads, WindowCallback windowCallback);
 
 	const unsigned int maxBackgroundThreads;
 	const unsigned int maxPrimaryThreads;
@@ -40,7 +56,7 @@ public:
 	Queue<Job> backgroundQueue; //thread safe
 	WorkStealingStackReference<Job>* currentWorkStealingQueues;
 
-	void(*nextPhaseJob)(BaseExecutor* executor, std::unique_lock<std::mutex>&& lock);
+	void(*nextPhaseJob)(BaseExecutor* executor, SharedResources& sharedResources, std::unique_lock<std::mutex>&& lock);
 
 	StreamingManager streamingManager;
 	TextureManager textureManager; //thread safe

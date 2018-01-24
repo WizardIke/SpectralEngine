@@ -10,13 +10,13 @@ class UserInterface
 	CPUUsageSentence CPUUsageSentence;
 	FPSSentence FPSSentence;
 
-	void update1(Executor* const executor);
-	void update2(Executor* const executor);
+	void update1(SharedResources& sharedResources);
+	void update2(Executor* const executor, SharedResources& sharedResources);
 
 	void restart(Executor* const executor);
 public:
-	UserInterface(Executor* const executor);
+	UserInterface(SharedResources& sharedResources);
 	~UserInterface() {}
 
-	void start(Executor* const executor);
+	void start(Executor* const executor, SharedResources& sharedResources);
 };

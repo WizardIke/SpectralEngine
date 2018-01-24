@@ -2,8 +2,8 @@
 #include "SharedResources.h"
 
 void VirtualTextureManager::loadTextureUncachedHelper(StreamingManagerThreadLocal& streamingManager, D3D12GraphicsEngine& graphicsEngine, ID3D12CommandQueue* commandQueue, const wchar_t * filename,
-	void(*textureUseSubresource)(RamToVramUploadRequest* const request, BaseExecutor* executor1, void* const uploadBufferCpuAddressOfCurrentPos, ID3D12Resource* uploadResource,
-		uint64_t uploadResourceOffset), void(*textureUploaded)(void* storedFilename, BaseExecutor* exe))
+	void(*textureUseSubresource)(RamToVramUploadRequest* const request, BaseExecutor* executor1, SharedResources& sharedResources, void* const uploadBufferCpuAddressOfCurrentPos, ID3D12Resource* uploadResource,
+		uint64_t uploadResourceOffset), void(*textureUploaded)(void* storedFilename, BaseExecutor* exe, SharedResources& sharedResources))
 {
 	RamToVramUploadRequest& uploadRequest = streamingManager.getUploadRequest();
 	uploadRequest.useSubresourcePointer = textureUseSubresource;

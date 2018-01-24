@@ -39,20 +39,22 @@ class FeedbackAnalizerSubPass : public RenderSubPass<VirtualPageCamera, D3D12_RE
 	//unsigned int feadbackTextureGpuDescriptorIndex;
 	bool inView = true;
 
-	template<class Executor>
-	static void readbackTextureReady(void* requester, BaseExecutor* exe)
+	template<class Executor, class SharedResources_t>
+	static void readbackTextureReady(void* requester, BaseExecutor* exe, SharedResources& sr)
 	{
 		Executor* executor = reinterpret_cast<Executor*>(exe);
-		VirtualTextureManager& virtualTextureManager = executor->sharedResources->virtualTextureManager;
-		readbackTextureReadyHelper(requester, virtualTextureManager);
+		auto& sharedResources = reinterpret_cast<SharedResources_t&>(sr);
+		VirtualTextureManager& virtualTextureManager = sharedResources.virtualTextureManager;
+		readbackTextureReadyHelper(requester, virtualTextureManager, executor);
+
+		FeedbackAnalizerSubPass& analyser = *reinterpret_cast<FeedbackAnalizerSubPass*>(requester);
 
 		//find needed pages and start them loading from disk if they aren't in the cache
-		virtualTextureManager.pageProvider.processPageRequests(uniqueRequests, executor->sharedResources->graphicsEngine.adapter, virtualTextureManager,
-				executor);
-		uniqueRequests.clear();
+		virtualTextureManager.pageProvider.processPageRequests(analyser.uniqueRequests, virtualTextureManager, executor, sharedResources);
+		analyser.uniqueRequests.clear();
 
 		// we have finished with the readback resources so we can render again
-		executor->updateJobQueue().pop(Job(&subPass, [](void* requester, BaseExecutor* executor)
+		executor->updateJobQueue().pop(Job(&analyser, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources)
 		{
 			FeedbackAnalizerSubPass& subPass = *reinterpret_cast<FeedbackAnalizerSubPass*>(requester);
 			subPass.inView = true;
@@ -60,20 +62,20 @@ class FeedbackAnalizerSubPass : public RenderSubPass<VirtualPageCamera, D3D12_RE
 	}
 
 	static void readbackTextureReadyHelper(void* requester, VirtualTextureManager& virtualTextureManager, BaseExecutor* executor);
-	void createResources(BaseExecutor* executor, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1, uint8_t*& constantBufferCpuAddress1, float fieldOfView,
-		float mipBias);
+	void createResources(SharedResources& sharedResources, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1, uint8_t*& constantBufferCpuAddress1, float fieldOfView);
 public:
+	FeedbackAnalizerSubPass() {}
 	template<class RenderPass>
-	FeedbackAnalizerSubPass(BaseExecutor* executor, uint32_t width, uint32_t height, RenderPass& renderPass, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1,
-		uint8_t*& constantBufferCpuAddress1, float fieldOfView, float mipBias) : width(width), height(height)
+	FeedbackAnalizerSubPass(SharedResources& sharedResources, uint32_t width, uint32_t height, RenderPass& renderPass, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1,
+		uint8_t*& constantBufferCpuAddress1, float fieldOfView) : width(width), height(height)
 	{
-		createResources(executor, constantBufferGpuAddress1, constantBufferCpuAddress1, fieldOfView, mipBias);
-		addCamera(executor, renderPass, &camera);
+		createResources(sharedResources, constantBufferGpuAddress1, constantBufferCpuAddress1, fieldOfView);
+		addCamera(sharedResources, renderPass, &camera);
 	}
 
 	void destruct(SharedResources* sharedResources);
 
-	bool isInView(BaseExecutor* executor)
+	bool isInView(SharedResources& sharedResources)
 	{
 		return inView;
 	}
@@ -82,23 +84,26 @@ public:
 	{
 		using Base = RenderSubPass<Camera, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET, std::tuple<>, std::tuple<>, 1u, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_COMMON>::ThreadLocal;
 	public:
-		template<class Executor>
-		void update2LastThread(ID3D12CommandList**& commandLists, unsigned int numThreads, FeedbackAnalizerSubPass& renderSubPass, Executor* executor)
+		ThreadLocal(SharedResources& sharedResources) : Base(sharedResources) {}
+
+		template<class Executor, class SharedResources_t>
+		void update2LastThread(ID3D12CommandList**& commandLists, unsigned int numThreads, FeedbackAnalizerSubPass& renderSubPass, Executor* executor, SharedResources_t& sharedResources)
 		{
 			addBarrier(renderSubPass, lastCommandList());
-			executor->updateJobQueue().push(Job(&renderSubPass, [](void* requester, BaseExecutor* executor)
+			executor->updateJobQueue().push(Job(&renderSubPass, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources)
 			{
 				FeedbackAnalizerSubPass& renderSubPass = *reinterpret_cast<FeedbackAnalizerSubPass*>(requester);
 				renderSubPass.inView = false; // this must be delayed after update2 because a thread could still be using this value in update1 which might not have finished fully
 
-				executor->gpuCompletionEventManager.addRequest(&renderSubPass, [](void* requester, BaseExecutor* executor)
+				executor->gpuCompletionEventManager.addRequest(&renderSubPass, [](void* requester, BaseExecutor* exe, SharedResources& sharedResources)
 				{
 					// copy feadbackTextureGpu to readbackTexture
+					Executor* executor = reinterpret_cast<Executor*>(exe);
 					StreamingManagerThreadLocal& streamingManager = executor->streamingManager;
 					FeedbackAnalizerSubPass& renderSubPass = *reinterpret_cast<FeedbackAnalizerSubPass*>(requester);
 					streamingManager.currentCommandList->CopyResource(renderSubPass.readbackTexture, renderSubPass.feadbackTextureGpu);
-					streamingManager.addCopyCompletionEvent(requester, FeedbackAnalizerSubPass::readbackTextureReady<Executor>);
-				}, executor->sharedResources->graphicsEngine.frameIndex);
+					streamingManager.addCopyCompletionEvent(requester, FeedbackAnalizerSubPass::readbackTextureReady<Executor, SharedResources_t>);
+				}, sharedResources.graphicsEngine.frameIndex);
 			}));
 			
 			update2(commandLists, numThreads);

@@ -39,7 +39,7 @@ StreamingManager::StreamingManager(ID3D12Device* const graphicsDevice) :
 #endif // NDEBUG
 }
 
-void StreamingManagerThreadLocal::addUploadToBuffer(BaseExecutor* const executor)
+void StreamingManagerThreadLocal::addUploadToBuffer(BaseExecutor* const executor, SharedResources& sharedResources)
 {
 	auto readPos = uploadRequestBufferReadPos;
 	while (readPos != uploadRequestBufferWritePos)
@@ -83,7 +83,7 @@ void StreamingManagerThreadLocal::addUploadToBuffer(BaseExecutor* const executor
 					requiredWriteIndex = static_cast<unsigned long>(subresourceSize);
 				}
 
-				uploadRequest.useSubresource(executor, reinterpret_cast<void*>(uploadBufferCpuAddress + newUploadBufferWritePos), uploadBuffer, newUploadBufferWritePos);
+				uploadRequest.useSubresource(executor, reinterpret_cast<void*>(uploadBufferCpuAddress + newUploadBufferWritePos), uploadBuffer, sharedResources, newUploadBufferWritePos);
 				uploadBufferWritePos = requiredWriteIndex;
 
 				++(uploadRequest.currentMipLevel);
@@ -133,7 +133,7 @@ void StreamingManagerThreadLocal::addUploadToBuffer(BaseExecutor* const executor
 						uploadResouceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 						uploadResouceDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
 
-						uploadBuffer = D3D12Resource(executor->sharedResources->graphicsEngine.graphicsDevice, uploadHeapProperties, D3D12_HEAP_FLAG_NONE, uploadResouceDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr);
+						uploadBuffer = D3D12Resource(sharedResources.graphicsEngine.graphicsDevice, uploadHeapProperties, D3D12_HEAP_FLAG_NONE, uploadResouceDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr);
 
 						D3D12_RANGE readRange = { 0u, 0u };
 						uploadBuffer->Map(0u, &readRange, reinterpret_cast<void**>(&uploadBufferCpuAddress));
@@ -212,9 +212,9 @@ StreamingManagerThreadLocal::StreamingManagerThreadLocal(ID3D12Device* const gra
 	}
 }
 
-void StreamingManagerThreadLocal::update(BaseExecutor* const executor)
+void StreamingManagerThreadLocal::update(BaseExecutor* const executor, SharedResources& sharedResources)
 {
-	auto& manager = executor->sharedResources->streamingManager;
+	auto& manager = sharedResources.streamingManager;
 	if (copyFence->GetCompletedValue() >= fenceValue)
 	{
 		auto hr = currentCommandList->Close();
@@ -247,7 +247,7 @@ void StreamingManagerThreadLocal::update(BaseExecutor* const executor)
 		auto readPos = uploadBufferReadPos;
 		for (auto& halfFinishedUploadRequest : *currentHalfFinishedUploadRequestBuffer)
 		{
-			halfFinishedUploadRequest.subresourceUploaded(executor);
+			halfFinishedUploadRequest.subresourceUploaded(executor, sharedResources);
 			readPos += halfFinishedUploadRequest.numberOfBytesToFree; //free memory
 		}
 		uploadBufferReadPos = readPos;
@@ -255,7 +255,7 @@ void StreamingManagerThreadLocal::update(BaseExecutor* const executor)
 	}
 
 	//load resources into the upload buffer if there is enough space
-	addUploadToBuffer(executor);
+	addUploadToBuffer(executor, sharedResources);
 }
 
 RamToVramUploadRequest& StreamingManagerThreadLocal::getUploadRequest()

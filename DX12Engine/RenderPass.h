@@ -16,14 +16,15 @@ class RenderPass
 	unsigned int maxBarriers = 0u;
 	std::unique_ptr<D3D12_RESOURCE_BARRIER[]> barriers;//size = maxDependences * 2u * maxCameras * maxCommandListsPerFrame
 public:
-	RenderPass(BaseExecutor* const executor)
+	RenderPass() {}
+	RenderPass(SharedResources& sharedResources)
 	{
 		unsigned int commandListCount = 0u;
 		for_each(subPasses, [&commandListCount](auto& subPass)
 		{
 			commandListCount += subPass.commandListsPerFrame;
 		});
-		commandListCount += executor->sharedResources->maxThreads;
+		commandListCount += sharedResources.maxThreads;
 		commandLists.reset(new ID3D12CommandList*[commandListCount]);
 	}
 
@@ -95,7 +96,7 @@ public:
 		}
 
 		template<unsigned int previousSubPassIndex, unsigned int startIndex, unsigned int transitioningResourceIndex>
-		static void addBeginBarriersOneResource(BaseExecutor* executor, std::tuple<RenderSubPass_t...>& subPasses,
+		static void addBeginBarriersOneResource(SharedResources& sharedResources, std::tuple<RenderSubPass_t...>& subPasses,
 			D3D12_RESOURCE_BARRIER* barriers, unsigned int& barrierCount)
 		{
 			using SubPass = std::tuple_element_t<startIndex, std::tuple<RenderSubPass_t...>>;
@@ -103,20 +104,20 @@ public:
 			constexpr auto dependencyIndex = findDependency<transitioningResourceIndex, Dependencies>();
 			constexpr auto subPassCount = sizeof...(RenderSubPass_t);
 			constexpr auto dependencyCount = std::tuple_size<Dependencies>::value;
-			if (std::get<startIndex>(subPasses).isInView(executor) && (dependencyIndex != dependencyCount || transitioningResourceIndex == startIndex))
+			if (std::get<startIndex>(subPasses).isInView(sharedResources) && (dependencyIndex != dependencyCount || transitioningResourceIndex == startIndex))
 			{
-				addBeginBarriersOneResourceHelper<previousSubPassIndex, startIndex, transitioningResourceIndex, dependencyIndex, dependencyCount>(executor, subPasses,
+				addBeginBarriersOneResourceHelper<previousSubPassIndex, startIndex, transitioningResourceIndex, dependencyIndex, dependencyCount>(sharedResources, subPasses,
 					barriers, barrierCount);
 			}
 			else if (startIndex != previousSubPassIndex)
 			{
-				addBeginBarriersOneResource<previousSubPassIndex, startIndex == subPassCount - 1u ? 0u : startIndex + 1u, transitioningResourceIndex>(executor,
+				addBeginBarriersOneResource<previousSubPassIndex, startIndex == subPassCount - 1u ? 0u : startIndex + 1u, transitioningResourceIndex>(sharedResources,
 					subPasses, barriers, barrierCount);
 			}
 		}
 
 		template<unsigned int previousSubPassIndex, unsigned int startIndex, unsigned int transitioningResourceIndex, unsigned int dependencyIndex, unsigned int dependencyCount>
-		static std::enable_if_t<dependencyIndex != dependencyCount, void> addBeginBarriersOneResourceHelper(BaseExecutor* executor, std::tuple<RenderSubPass_t...>& subPasses,
+		static std::enable_if_t<dependencyIndex != dependencyCount, void> addBeginBarriersOneResourceHelper(SharedResources& sharedResources, std::tuple<RenderSubPass_t...>& subPasses,
 			D3D12_RESOURCE_BARRIER* barriers, unsigned int& barrierCount)
 		{
 			constexpr D3D12_RESOURCE_STATES stateBefore = getStateBeforeBarriers<transitioningResourceIndex, previousSubPassIndex>();
@@ -124,36 +125,36 @@ public:
 			if (stateBefore != stateAfter)
 			{
 				constexpr unsigned int subPassCount = sizeof...(RenderSubPass_t);
-				addBeginBarriersOneResourceHelper2<stateBefore, stateAfter, transitioningResourceIndex, startIndex, (previousSubPassIndex + 1u) % subPassCount>(executor,
+				addBeginBarriersOneResourceHelper2<stateBefore, stateAfter, transitioningResourceIndex, startIndex, (previousSubPassIndex + 1u) % subPassCount>(sharedResources,
 					subPasses, barriers, barrierCount);
 			}
 		}
 
 		template<D3D12_RESOURCE_STATES stateBefore, D3D12_RESOURCE_STATES stateAfter, unsigned int transitioningResourceIndex, unsigned int nextIndex, unsigned int previousIndex>
-		static std::enable_if_t<previousIndex != nextIndex, void> addBeginBarriersOneResourceHelper2(BaseExecutor* executor, std::tuple<RenderSubPass_t...>& subPasses,
+		static std::enable_if_t<previousIndex != nextIndex, void> addBeginBarriersOneResourceHelper2(SharedResources& sharedResources, std::tuple<RenderSubPass_t...>& subPasses,
 			D3D12_RESOURCE_BARRIER* barriers, unsigned int& barrierCount)
 		{
-			if (std::get<previousIndex>(subPasses).isInView(executor))
+			if (std::get<previousIndex>(subPasses).isInView(sharedResources))
 			{
-				addBarrier<stateBefore, stateAfter, D3D12_RESOURCE_BARRIER_FLAG_BEGIN_ONLY>(executor, std::get<transitioningResourceIndex>(subPasses), barriers, barrierCount);
+				addBarrier<stateBefore, stateAfter, D3D12_RESOURCE_BARRIER_FLAG_BEGIN_ONLY>(sharedResources, std::get<transitioningResourceIndex>(subPasses), barriers, barrierCount);
 			}
 			else
 			{
 				constexpr unsigned int subPassCount = sizeof...(RenderSubPass_t);
-				addBeginBarriersOneResourceHelper2<stateBefore, stateAfter, transitioningResourceIndex, nextIndex, (previousIndex + 1u) % subPassCount>(executor,
+				addBeginBarriersOneResourceHelper2<stateBefore, stateAfter, transitioningResourceIndex, nextIndex, (previousIndex + 1u) % subPassCount>(sharedResources,
 					subPasses, barriers, barrierCount);
 			}
 		}
 
 		template<D3D12_RESOURCE_STATES stateBefore, D3D12_RESOURCE_STATES stateAfter, unsigned int transitioningResourceIndex, unsigned int nextIndex, unsigned int previousIndex>
-		static std::enable_if_t<previousIndex == nextIndex, void> addBeginBarriersOneResourceHelper2(BaseExecutor* executor, std::tuple<RenderSubPass_t...>& subPasses,
+		static std::enable_if_t<previousIndex == nextIndex, void> addBeginBarriersOneResourceHelper2(SharedResources& sharedResources, std::tuple<RenderSubPass_t...>& subPasses,
 			D3D12_RESOURCE_BARRIER* barriers, unsigned int& barrierCount)
 		{
-			addBarrier<stateBefore, stateAfter, D3D12_RESOURCE_BARRIER_FLAG_NONE>(executor, std::get<transitioningResourceIndex>(subPasses), barriers, barrierCount);
+			addBarrier<stateBefore, stateAfter, D3D12_RESOURCE_BARRIER_FLAG_NONE>(sharedResources, std::get<transitioningResourceIndex>(subPasses), barriers, barrierCount);
 		}
 
 		template<unsigned int previousSubPassIndex, unsigned int startIndex, unsigned int transitioningResourceIndex, unsigned int dependencyIndex, unsigned int dependencyCount>
-		static std::enable_if_t<dependencyIndex == dependencyCount, void> addBeginBarriersOneResourceHelper(BaseExecutor* executor, std::tuple<RenderSubPass_t...>& subPasses,
+		static std::enable_if_t<dependencyIndex == dependencyCount, void> addBeginBarriersOneResourceHelper(SharedResources& sharedResources, std::tuple<RenderSubPass_t...>& subPasses,
 			D3D12_RESOURCE_BARRIER* barriers, unsigned int& barrierCount)
 		{
 			constexpr D3D12_RESOURCE_STATES stateBefore = getStateBeforeBarriers<transitioningResourceIndex, previousSubPassIndex>();
@@ -161,55 +162,55 @@ public:
 			if (stateBefore != stateAfter)
 			{
 				constexpr unsigned int subPassCount = sizeof...(RenderSubPass_t);
-				addBeginBarriersOneResourceHelper2<stateBefore, stateAfter, transitioningResourceIndex, startIndex, (previousSubPassIndex + 1u) % subPassCount>(executor,
+				addBeginBarriersOneResourceHelper2<stateBefore, stateAfter, transitioningResourceIndex, startIndex, (previousSubPassIndex + 1u) % subPassCount>(sharedResources,
 					subPasses, barriers, barrierCount);
 			}
 		}
 
 		template<unsigned int nextIndex>
-		static void addBeginBarriers(BaseExecutor* executor, std::tuple<RenderSubPass_t...>& subPasses,
+		static void addBeginBarriers(SharedResources& sharedResources, std::tuple<RenderSubPass_t...>& subPasses,
 			D3D12_RESOURCE_BARRIER* barriers, unsigned int& barrierCount)
 		{
 			constexpr unsigned int subPassCount = sizeof...(RenderSubPass_t);
 			constexpr unsigned int previousIndex = nextIndex == 0u ? (subPassCount - 1u) : nextIndex - 1u;
-			addBeginBarriersHelper1<previousIndex, nextIndex>(executor, subPasses, barriers, barrierCount);
+			addBeginBarriersHelper1<previousIndex, nextIndex>(sharedResources, subPasses, barriers, barrierCount);
 		}
 
 		template<unsigned int previousIndex, unsigned int nextIndex>
-		static void addBeginBarriersHelper1(BaseExecutor* executor, std::tuple<RenderSubPass_t...>& subPasses,
+		static void addBeginBarriersHelper1(SharedResources& sharedResources, std::tuple<RenderSubPass_t...>& subPasses,
 			D3D12_RESOURCE_BARRIER* barriers, unsigned int& barrierCount)
 		{
 			constexpr unsigned int subPassCount = sizeof...(RenderSubPass_t);
-			if (std::get<previousIndex>(subPasses).isInView(executor))
+			if (std::get<previousIndex>(subPasses).isInView(sharedResources))
 			{
 				using SubPass = std::tuple_element_t<previousIndex, std::tuple<RenderSubPass_t...>>;
 				using Dependencies = decltype(std::tuple_cat(std::declval<typename SubPass::Dependencies>(),
 					std::declval<std::tuple<std::integral_constant<unsigned int, previousIndex>>>()));
-				addBeginBarriersHelper2<previousIndex, 0u, std::tuple_size<Dependencies>::value, Dependencies>(executor, subPasses, barriers, barrierCount);
+				addBeginBarriersHelper2<previousIndex, 0u, std::tuple_size<Dependencies>::value, Dependencies>(sharedResources, subPasses, barriers, barrierCount);
 			}
 			else
 			{
-				addBeginBarriersHelper1<previousIndex == 0u ? (subPassCount - 1u) : previousIndex - 1u, nextIndex>(executor, subPasses, barriers, barrierCount);
+				addBeginBarriersHelper1<previousIndex == 0u ? (subPassCount - 1u) : previousIndex - 1u, nextIndex>(sharedResources, subPasses, barriers, barrierCount);
 			}
 		}
 
 		template<unsigned int previousIndex, unsigned int dependencyIndex, unsigned int dependencyIndexEnd, class Dependencies>
-		static std::enable_if_t<dependencyIndex != dependencyIndexEnd, void> addBeginBarriersHelper2(BaseExecutor* executor, std::tuple<RenderSubPass_t...>& subPasses,
+		static std::enable_if_t<dependencyIndex != dependencyIndexEnd, void> addBeginBarriersHelper2(SharedResources& sharedResources, std::tuple<RenderSubPass_t...>& subPasses,
 			D3D12_RESOURCE_BARRIER* barriers, unsigned int& barrierCount)
 		{
 			constexpr unsigned int subPassCount = sizeof...(RenderSubPass_t);
 			constexpr auto dependency = std::tuple_element_t<dependencyIndex, Dependencies>::value;
-			addBeginBarriersOneResource<previousIndex, (previousIndex + 1u) % subPassCount, dependency>(executor, subPasses, barriers, barrierCount);
-			addBeginBarriersHelper2<previousIndex, dependencyIndex + 1u, dependencyIndexEnd, Dependencies>(executor, subPasses, barriers, barrierCount);
+			addBeginBarriersOneResource<previousIndex, (previousIndex + 1u) % subPassCount, dependency>(sharedResources, subPasses, barriers, barrierCount);
+			addBeginBarriersHelper2<previousIndex, dependencyIndex + 1u, dependencyIndexEnd, Dependencies>(sharedResources, subPasses, barriers, barrierCount);
 		}
 
 		template<unsigned int nextSubPassIndex, unsigned int dependencyIndex, unsigned int dependencyIndexEnd, class Dependencies>
-		static std::enable_if_t<dependencyIndex == dependencyIndexEnd, void> addBeginBarriersHelper2(BaseExecutor* executor, std::tuple<RenderSubPass_t...>& subPasses,
+		static std::enable_if_t<dependencyIndex == dependencyIndexEnd, void> addBeginBarriersHelper2(SharedResources& sharedResources, std::tuple<RenderSubPass_t...>& subPasses,
 			D3D12_RESOURCE_BARRIER* barriers, unsigned int& barrierCount) {}
 
 
 		template<D3D12_RESOURCE_STATES stateBefore, D3D12_RESOURCE_STATES stateAfter, D3D12_RESOURCE_BARRIER_FLAGS flags, class CameraSubPass>
-		static void addBarrier(BaseExecutor* executor, CameraSubPass& cameraSubPass, D3D12_RESOURCE_BARRIER* barriers,
+		static void addBarrier(SharedResources& sharedResources, CameraSubPass& cameraSubPass, D3D12_RESOURCE_BARRIER* barriers,
 			unsigned int& barrierCount)
 		{
 			auto cameras = cameraSubPass.cameras();
@@ -217,7 +218,7 @@ public:
 			for (auto cam = cameras.begin(); cam != camerasEnd; ++cam)
 			{
 				auto camera = *cam;
-				if (camera->isInView(executor))
+				if (camera->isInView(sharedResources))
 				{
 					barriers[barrierCount].Flags = flags;
 					barriers[barrierCount].Type = D3D12_RESOURCE_BARRIER_TYPE::D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
@@ -231,11 +232,11 @@ public:
 		}
 
 		template<unsigned int nextIndex, unsigned int currentIndex, unsigned int endIndex, class ResourceIndices>
-		static std::enable_if_t<currentIndex == endIndex, void> addEndOnlyBarriers(BaseExecutor* executor,
+		static std::enable_if_t<currentIndex == endIndex, void> addEndOnlyBarriers(SharedResources& sharedResources,
 			std::tuple<RenderSubPass_t...>& subPasses, D3D12_RESOURCE_BARRIER* barriers, unsigned int& barrierCount) {}
 
 		template<unsigned int previousIndex, unsigned int nextIndex, unsigned int transitioningResourceIndex>
-		static void addEndOnlyBarriersOneResource(BaseExecutor* executor,
+		static void addEndOnlyBarriersOneResource(SharedResources& sharedResources,
 			std::tuple<RenderSubPass_t...>& subPasses, D3D12_RESOURCE_BARRIER* barriers, unsigned int& barrierCount)
 		{
 			using SubPasses = std::tuple<RenderSubPass_t...>;
@@ -244,7 +245,7 @@ public:
 			constexpr unsigned int subPassCount = sizeof...(RenderSubPass_t);
 			constexpr auto dependecyCount = std::tuple_size<typename PreviousSubPass::Dependencies>::value;
 			constexpr auto dependencyIndex = findDependency<transitioningResourceIndex, typename PreviousSubPass::Dependencies>();
-			if (std::get<previousIndex>(subPasses).isInView(executor) && (dependencyIndex != dependecyCount || previousIndex == transitioningResourceIndex)) //needs to check that next index after previousIndex Not count empty subPasses != nextIndex
+			if (std::get<previousIndex>(subPasses).isInView(sharedResources) && (dependencyIndex != dependecyCount || previousIndex == transitioningResourceIndex)) //needs to check that next index after previousIndex Not count empty subPasses != nextIndex
 			{
 				using SubPasses = std::tuple<RenderSubPass_t...>;
 				using NextSubPass = std::tuple_element_t<nextIndex, SubPasses>;
@@ -253,18 +254,18 @@ public:
 				constexpr D3D12_RESOURCE_STATES stateAfter = getStateAfterEndBarriars<transitioningResourceIndex, NextSubPass >();
 				if (stateBefore != stateAfter)
 				{
-					addBarrier<stateBefore, stateAfter, D3D12_RESOURCE_BARRIER_FLAGS::D3D12_RESOURCE_BARRIER_FLAG_END_ONLY>(executor, std::get<transitioningResourceIndex>(subPasses), barriers, barrierCount);
+					addBarrier<stateBefore, stateAfter, D3D12_RESOURCE_BARRIER_FLAGS::D3D12_RESOURCE_BARRIER_FLAG_END_ONLY>(sharedResources, std::get<transitioningResourceIndex>(subPasses), barriers, barrierCount);
 				}
 			}
 			else if (previousIndex != nextIndex)
 			{
-				addEndOnlyBarriersOneResource<previousIndex == 0u ? subPassCount - 1u : previousIndex - 1u, nextIndex, transitioningResourceIndex>(executor,
+				addEndOnlyBarriersOneResource<previousIndex == 0u ? subPassCount - 1u : previousIndex - 1u, nextIndex, transitioningResourceIndex>(sharedResources,
 					subPasses, barriers, barrierCount);
 			}
 		}
 
 		template<unsigned int nextIndex>
-		static void addEndOnlyBarriers(BaseExecutor* executor, std::tuple<RenderSubPass_t...>& subPasses, D3D12_RESOURCE_BARRIER* barriers,
+		static void addEndOnlyBarriers(SharedResources& sharedResources, std::tuple<RenderSubPass_t...>& subPasses, D3D12_RESOURCE_BARRIER* barriers,
 			unsigned int& barrierCount)
 		{
 			using SubPasses = std::tuple<RenderSubPass_t...>;
@@ -272,38 +273,38 @@ public:
 			using Dependencies = decltype(std::tuple_cat(std::declval<typename NextSubPass::Dependencies>(),
 				std::declval<std::tuple<std::integral_constant<unsigned int, nextIndex>>>()));
 
-			addEndOnlyBarriers<nextIndex, 0u, std::tuple_size<Dependencies>::value, Dependencies>(executor, subPasses, barriers, barrierCount);
+			addEndOnlyBarriers<nextIndex, 0u, std::tuple_size<Dependencies>::value, Dependencies>(sharedResources, subPasses, barriers, barrierCount);
 		}
 
 		template<unsigned int nextIndex, unsigned int currentResourceIndex, unsigned int endIndex, class ResourceIndices>
-		static std::enable_if_t<currentResourceIndex != endIndex, void> addEndOnlyBarriers(BaseExecutor* executor,
+		static std::enable_if_t<currentResourceIndex != endIndex, void> addEndOnlyBarriers(SharedResources& sharedResources,
 			std::tuple<RenderSubPass_t...>& subPasses, D3D12_RESOURCE_BARRIER* barriers, unsigned int& barrierCount)
 		{
 			constexpr unsigned int subPassCount = sizeof...(RenderSubPass_t);
 			constexpr unsigned int previousIndex = nextIndex == 0u ? subPassCount - 1u : nextIndex - 1u;
 			constexpr unsigned int transitioningResourceIndex = std::tuple_element_t<currentResourceIndex, ResourceIndices>::value;
-			addEndOnlyBarriersHelper<nextIndex, transitioningResourceIndex, previousIndex>(executor, subPasses, barriers, barrierCount);
-			addEndOnlyBarriers<nextIndex, currentResourceIndex + 1u, endIndex, ResourceIndices>(executor, subPasses, barriers, barrierCount);
+			addEndOnlyBarriersHelper<nextIndex, transitioningResourceIndex, previousIndex>(sharedResources, subPasses, barriers, barrierCount);
+			addEndOnlyBarriers<nextIndex, currentResourceIndex + 1u, endIndex, ResourceIndices>(sharedResources, subPasses, barriers, barrierCount);
 		}
 
 		template<unsigned int nextIndex, unsigned int transitioningResourceIndex, unsigned int previousIndex>
-		static std::enable_if_t<previousIndex != nextIndex, void> addEndOnlyBarriersHelper(BaseExecutor* executor,
+		static std::enable_if_t<previousIndex != nextIndex, void> addEndOnlyBarriersHelper(SharedResources& sharedResources,
 			std::tuple<RenderSubPass_t...>& subPasses, D3D12_RESOURCE_BARRIER* barriers, unsigned int& barrierCount)
 		{
 			constexpr unsigned int subPassCount = sizeof...(RenderSubPass_t);
 			constexpr unsigned int previouspreviousIndex = previousIndex == 0u ? subPassCount - 1u : previousIndex - 1u;
-			if (std::get<previousIndex>(subPasses).isInView(executor))
+			if (std::get<previousIndex>(subPasses).isInView(sharedResources))
 			{
-				addEndOnlyBarriersOneResource<previouspreviousIndex, nextIndex, transitioningResourceIndex>(executor, subPasses, barriers, barrierCount);
+				addEndOnlyBarriersOneResource<previouspreviousIndex, nextIndex, transitioningResourceIndex>(sharedResources, subPasses, barriers, barrierCount);
 			}
 			else
 			{
-				addEndOnlyBarriersHelper<nextIndex, transitioningResourceIndex, previouspreviousIndex>(executor, subPasses, barriers, barrierCount);
+				addEndOnlyBarriersHelper<nextIndex, transitioningResourceIndex, previouspreviousIndex>(sharedResources, subPasses, barriers, barrierCount);
 			}
 		}
 
 		template<unsigned int nextIndex, unsigned int transitioningResourceIndex, unsigned int previousIndex>
-		static std::enable_if_t<previousIndex == nextIndex, void> addEndOnlyBarriersHelper(BaseExecutor* executor,
+		static std::enable_if_t<previousIndex == nextIndex, void> addEndOnlyBarriersHelper(SharedResources& sharedResources,
 			std::tuple<RenderSubPass_t...>& subPasses, D3D12_RESOURCE_BARRIER* barriers, unsigned int& barrierCount) {}
 
 		template<unsigned int transitioningResourceIndex, unsigned int previousSubPassIndex>
@@ -337,13 +338,13 @@ public:
 			Adds all resource barriers for one subPass
 		*/
 		template<unsigned int nextIndex>
-		static void addBarriers(BaseExecutor* const executor, RenderPass<RenderSubPass_t...>& renderPass, unsigned int& barrierCount)
+		static void addBarriers(SharedResources& sharedResources, RenderPass<RenderSubPass_t...>& renderPass, unsigned int& barrierCount)
 		{
-			addBeginBarriers<nextIndex>(executor, renderPass.subPasses, renderPass.barriers.get(), barrierCount);
-			addEndOnlyBarriers<nextIndex>(executor, renderPass.subPasses, renderPass.barriers.get(), barrierCount);
+			addBeginBarriers<nextIndex>(sharedResources, renderPass.subPasses, renderPass.barriers.get(), barrierCount);
+			addEndOnlyBarriers<nextIndex>(sharedResources, renderPass.subPasses, renderPass.barriers.get(), barrierCount);
 		}
 	public:
-		ThreadLocal(BaseExecutor* const executor) : subPassesThreadLocal((sizeof(typename RenderSubPass_t::ThreadLocal), executor)...) {}
+		ThreadLocal(SharedResources& sharedResources) : subPassesThreadLocal((sizeof(typename RenderSubPass_t::ThreadLocal), sharedResources)...) {}
 
 		void update1(BaseExecutor* const executor, RenderPass<RenderSubPass_t...>& renderPass, unsigned int notFirstThread)
 		{
@@ -354,31 +355,32 @@ public:
 			}
 		}
 
-		void update1After(BaseExecutor* const executor, RenderPass<RenderSubPass_t...>& renderPass, ID3D12RootSignature* rootSignature, unsigned int notFirstThread)
+		void update1After(SharedResources& sharedResources, RenderPass<RenderSubPass_t...>& renderPass, ID3D12RootSignature* rootSignature, unsigned int notFirstThread)
 		{
 			if (notFirstThread == 0u)
 			{
-				update1After<0u, sizeof...(RenderSubPass_t), true>(executor, renderPass, rootSignature);
+				update1After<0u, sizeof...(RenderSubPass_t), true>(sharedResources, renderPass, rootSignature);
 			}
 			else
 			{
-				update1After<0u, sizeof...(RenderSubPass_t), false>(executor, renderPass, rootSignature);
+				update1After<0u, sizeof...(RenderSubPass_t), false>(sharedResources, renderPass, rootSignature);
 			}
 		}
 
-		void update2(BaseExecutor* const executor, RenderPass<RenderSubPass_t...>& renderPass)
+		template<class Executor, class SharedResources>
+		void update2(Executor* const executor, SharedResources& sharedResources, RenderPass<RenderSubPass_t...>& renderPass)
 		{
 			constexpr auto subPassCount = sizeof...(RenderSubPass_t);
-			const unsigned int threadCount = (1u + executor->sharedResources->maxPrimaryThreads + executor->sharedResources->numPrimaryJobExeThreads);
+			const unsigned int threadCount = (1u + sharedResources.maxPrimaryThreads + sharedResources.numPrimaryJobExeThreads);
 			if (executor == renderPass.firstExector)
 			{
 				if (threadCount == 1u)
 				{
-					update2LastThread<0u, subPassCount>(executor, renderPass, renderPass.commandLists.get(), threadCount);
+					update2LastThread<0u, subPassCount>(executor, sharedResources, renderPass, renderPass.commandLists.get(), threadCount);
 				}
 				else
 				{
-					update2<0u, subPassCount>(executor, renderPass, renderPass.commandLists.get(), threadCount);
+					update2<0u, subPassCount>(sharedResources, renderPass, renderPass.commandLists.get(), threadCount);
 				}
 			}
 			else
@@ -386,21 +388,22 @@ public:
 				++renderPass.commandListCount;
 				if (threadCount == 1u + renderPass.commandListCount)
 				{
-					update2LastThread<0u, subPassCount>(executor, renderPass, renderPass.commandLists.get() + renderPass.commandListCount, threadCount);
+					update2LastThread<0u, subPassCount>(executor, sharedResources, renderPass, renderPass.commandLists.get() + renderPass.commandListCount, threadCount);
 				}
 				else
 				{
-					update2<0u, subPassCount>(executor, renderPass, renderPass.commandLists.get() + renderPass.commandListCount, threadCount);
+					update2<0u, subPassCount>(sharedResources, renderPass, renderPass.commandLists.get() + renderPass.commandListCount, threadCount);
 				}
 			}
 		}
 
-		void update2LastThread(BaseExecutor* const executor, RenderPass<RenderSubPass_t...>& renderPass)
+		template<class Executor, class SharedResources>
+		void update2LastThread(Executor* const executor, SharedResources& sharedResources, RenderPass<RenderSubPass_t...>& renderPass)
 		{
-			update2(executor, renderPass);
+			update2(executor, sharedResources, renderPass);
 			unsigned int commandListCount = commandListPerThread(renderPass.subPasses) *
-				(1u + executor->sharedResources->maxPrimaryThreads + executor->sharedResources->numPrimaryJobExeThreads);
-			executor->sharedResources->graphicsEngine.present(executor->sharedResources->window, renderPass.commandLists.get(), commandListCount);
+				(1u + sharedResources.maxPrimaryThreads + sharedResources.numPrimaryJobExeThreads);
+			sharedResources.graphicsEngine.present(sharedResources.window, renderPass.commandLists.get(), commandListCount);
 		}
 	private:
 		unsigned int commandListPerThread(std::tuple<RenderSubPass_t...>& subPasses)
@@ -422,69 +425,69 @@ public:
 		}
 
 		template<unsigned int start, unsigned int end, bool firstThread>
-		std::enable_if_t<!(start != end), void> update1After(BaseExecutor* const executor, RenderPass<RenderSubPass_t...>& renderPass, ID3D12RootSignature* rootSignature) {}
+		std::enable_if_t<!(start != end), void> update1After(SharedResources& sharedResources, RenderPass<RenderSubPass_t...>& renderPass, ID3D12RootSignature* rootSignature) {}
 
 		template<unsigned int start, unsigned int end, bool firstThread>
 		std::enable_if_t<start != end, void>
-			update1After(BaseExecutor* const executor, RenderPass<RenderSubPass_t...>& renderPass, ID3D12RootSignature* rootSignature)
+			update1After(SharedResources& sharedResources, RenderPass<RenderSubPass_t...>& renderPass, ID3D12RootSignature* rootSignature)
 		{
 			auto& subPassLocal = std::get<start>(subPassesThreadLocal);
 			auto& subPass = std::get<start>(renderPass.subPasses);
-			if (subPass.isInView(executor))
+			if (subPass.isInView(sharedResources))
 			{
 				if (firstThread)
 				{
 					unsigned int barriarCount = 0u;
-					addBarriers<start>(executor, renderPass, barriarCount);
-					subPassLocal.update1AfterFirstThread(executor, subPass, rootSignature, barriarCount, renderPass.barriers.get());
+					addBarriers<start>(sharedResources, renderPass, barriarCount);
+					subPassLocal.update1AfterFirstThread(sharedResources, subPass, rootSignature, barriarCount, renderPass.barriers.get());
 				}
 				else
 				{
-					subPassLocal.update1After(executor, subPass, rootSignature);
+					subPassLocal.update1After(sharedResources, subPass, rootSignature);
 				}
 			}
-			update1After<start + 1u, end, firstThread>(executor, renderPass, rootSignature);
+			update1After<start + 1u, end, firstThread>(sharedResources, renderPass, rootSignature);
 		}
 	
 		template<unsigned int start, unsigned int end>
 		std::enable_if_t<start == end, void>
-			update2(BaseExecutor* const executor, RenderPass<RenderSubPass_t...>& renderPass, ID3D12CommandList** commandLists,
+			update2(SharedResources& sharedResources, RenderPass<RenderSubPass_t...>& renderPass, ID3D12CommandList** commandLists,
 				unsigned int numThreads) {}
 
 		template<unsigned int start, unsigned int end>
 		std::enable_if_t<start != end, void>
-			update2(BaseExecutor* const executor, RenderPass<RenderSubPass_t...>& renderPass, ID3D12CommandList** commandLists,
+			update2(SharedResources& sharedResources, RenderPass<RenderSubPass_t...>& renderPass, ID3D12CommandList** commandLists,
 				unsigned int numThreads)
 		{
 			const auto commandListsPerFrame = std::get<start>(renderPass.subPasses).commandListsPerFrame;
 			auto& subPassLocal = std::get<start>(subPassesThreadLocal);
 			auto& subPass = std::get<start>(renderPass.subPasses);
-			if (subPass.isInView(executor)) //currently first thread first list, second thread first list... end first thread second list etc. but should be all first list then all second lists etc.
+			if (subPass.isInView(sharedResources)) //currently first thread first list, second thread first list... end first thread second list etc. but should be all first list then all second lists etc.
 			{
 				subPassLocal.update2(commandLists, numThreads);
 			}
-			update2<start + 1u, end>(executor, renderPass, commandLists, numThreads);
+			update2<start + 1u, end>(sharedResources, renderPass, commandLists, numThreads);
 		}
 
 
-		template<unsigned int start, unsigned int end>
+		template<unsigned int start, unsigned int end, class Executor, class SharedResources>
 		std::enable_if_t<start == end, void>
-			update2LastThread(BaseExecutor* const executor, RenderPass<RenderSubPass_t...>& renderPass, ID3D12CommandList** commandLists,
+			update2LastThread(Executor* const executor, SharedResources& sharedResources, RenderPass<RenderSubPass_t...>& renderPass, ID3D12CommandList** commandLists,
 				unsigned int listsBefore) {}
 
-		template<unsigned int start, unsigned int end>
+		template<unsigned int start, unsigned int end, class Executor, class SharedResources>
 		std::enable_if_t<start != end, void>
-			update2LastThread(BaseExecutor* const executor, RenderPass<RenderSubPass_t...>& renderPass, ID3D12CommandList** commandLists,
+			update2LastThread(Executor* const executor, SharedResources& sharedResources, RenderPass<RenderSubPass_t...>& renderPass, ID3D12CommandList** commandLists,
 				unsigned int numThreads)
 		{
 			constexpr auto subPassCount = sizeof...(RenderSubPass_t);
 			auto& subPass = std::get<start>(renderPass.subPasses);
-			if (subPass.isInView(executor))
+			if (subPass.isInView(sharedResources))
 			{
 				auto& subPassLocal = std::get<start>(subPassesThreadLocal);
-				subPassLocal.update2LastThread(commandLists, numThreads, subPass);
+				subPassLocal.update2LastThread(commandLists, numThreads, subPass, executor, sharedResources);
 			}
-			update2LastThread<start + 1u, end>(executor, renderPass, commandLists, numThreads);
+			update2LastThread<start + 1u, end>(executor, sharedResources, renderPass, commandLists, numThreads);
 		}
 	};
 

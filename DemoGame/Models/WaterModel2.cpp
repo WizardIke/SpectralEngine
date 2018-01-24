@@ -45,10 +45,10 @@ bool WaterModel2::isInView(const Frustum& Frustum)
 	return Frustum.checkCuboid2(positionX + 4.0f, positionY, positionZ + 4.0f, positionX - 4.0f, positionY, positionZ - 4.0f);
 }
 
-void WaterModel2::update(Executor* const executor)
+void WaterModel2::update(SharedResources& sharedResources)
 {
-	auto frameIndex = executor->frameIndex();
-	const auto assets = reinterpret_cast<Assets*>(executor->sharedResources);
+	auto frameIndex = sharedResources.graphicsEngine.frameIndex;
+	const auto assets = reinterpret_cast<Assets*>(&sharedResources);
 
 	waterTranslation += 0.1f * assets->timer.frameTime;
 	if (waterTranslation > 1.0f)

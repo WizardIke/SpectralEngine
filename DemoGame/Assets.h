@@ -13,6 +13,7 @@
 #include "RenderPass.h"
 #include <D3D12Resource.h>
 #include <Range.h>
+#include <VirtualTextureManager.h>
 
 class Assets : public SharedResources
 {
@@ -77,6 +78,10 @@ class Assets : public SharedResources
 			return current;
 		}
 	};
+	static BaseExecutor* WindowCallback(SharedResources& sharedResources)
+	{
+		return &reinterpret_cast<Assets&>(sharedResources).mainExecutor;
+	}
 public:
 	Assets();
 	~Assets();
@@ -84,6 +89,7 @@ public:
 	MainExecutor mainExecutor;
 	RootSignatures rootSignatures;
 	PipelineStateObjects pipelineStateObjects; //Immutable
+	VirtualTextureManager virtualTextureManager;
 	D3D12Resource sharedConstantBuffer;
 	uint8_t* constantBuffersCpuAddress;
 	RenderPass1 renderPass;

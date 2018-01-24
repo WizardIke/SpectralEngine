@@ -4,7 +4,7 @@
 
 BaseZone::~BaseZone() {}
 
-void BaseZone::loadHighDetail(BaseExecutor* const executor)
+void BaseZone::loadHighDetail(BaseExecutor* const executor, SharedResources& sharedResources)
 {
 	loadingMutex.lock();
 	nextLevelOfDetail = high;
@@ -13,13 +13,13 @@ void BaseZone::loadHighDetail(BaseExecutor* const executor)
 	{
 		transitioning = true;
 		loadingMutex.unlock();
-		vTable->loadHighDetail(this, executor);
+		vTable->loadHighDetail(this, executor, sharedResources);
 		return;
 	}
 	loadingMutex.unlock();
 }
 
-void BaseZone::loadMediumDetail(BaseExecutor* const executor)
+void BaseZone::loadMediumDetail(BaseExecutor* const executor, SharedResources& sharedResources)
 {
 	loadingMutex.lock();
 	nextLevelOfDetail = medium;
@@ -28,13 +28,13 @@ void BaseZone::loadMediumDetail(BaseExecutor* const executor)
 	{
 		transitioning = true;
 		loadingMutex.unlock();
-		vTable->loadMediumDetail(this, executor);
+		vTable->loadMediumDetail(this, executor, sharedResources);
 		return;
 	}
 	loadingMutex.unlock();
 }
 
-void BaseZone::loadLowDetail(BaseExecutor* const executor)
+void BaseZone::loadLowDetail(BaseExecutor* const executor, SharedResources& sharedResources)
 {
 	loadingMutex.lock();
 	nextLevelOfDetail = low;
@@ -43,13 +43,13 @@ void BaseZone::loadLowDetail(BaseExecutor* const executor)
 	{
 		transitioning = true;
 		loadingMutex.unlock();
-		vTable->loadLowDetail(this, executor);
+		vTable->loadLowDetail(this, executor, sharedResources);
 		return;
 	}
 	loadingMutex.unlock();
 }
 
-void BaseZone::unloadAll(BaseExecutor* const executor)
+void BaseZone::unloadAll(BaseExecutor* const executor, SharedResources& sharedResources)
 {
 	loadingMutex.lock();
 	nextLevelOfDetail = unloaded;
@@ -58,25 +58,25 @@ void BaseZone::unloadAll(BaseExecutor* const executor)
 	{
 		transitioning = true;
 		loadingMutex.unlock();
-		if (oldLod == high) unloadHighDetail(executor);
-		else if (oldLod == medium) unloadMediumDetail(executor);
-		else unloadLowDetail(executor);
+		if (oldLod == high) unloadHighDetail(executor, sharedResources);
+		else if (oldLod == medium) unloadMediumDetail(executor, sharedResources);
+		else unloadLowDetail(executor, sharedResources);
 		return;
 	}
 	loadingMutex.unlock();
 }
 
-void BaseZone::unloadHighDetail(BaseExecutor* executor)
+void BaseZone::unloadHighDetail(BaseExecutor* executor, SharedResources& sharedResources)
 {
-	executor->gpuCompletionEventManager.addRequest(this, vTable->unloadHighDetail, executor->sharedResources->graphicsEngine.frameIndex);
+	executor->gpuCompletionEventManager.addRequest(this, vTable->unloadHighDetail, sharedResources.graphicsEngine.frameIndex);
 }
 
-void BaseZone::unloadMediumDetail(BaseExecutor* executor)
+void BaseZone::unloadMediumDetail(BaseExecutor* executor, SharedResources& sharedResources)
 {
-	executor->gpuCompletionEventManager.addRequest(this, vTable->unloadMediumDetail, executor->sharedResources->graphicsEngine.frameIndex);
+	executor->gpuCompletionEventManager.addRequest(this, vTable->unloadMediumDetail, sharedResources.graphicsEngine.frameIndex);
 }
 
-void BaseZone::unloadLowDetail(BaseExecutor* executor)
+void BaseZone::unloadLowDetail(BaseExecutor* executor, SharedResources& sharedResources)
 {
-	executor->gpuCompletionEventManager.addRequest(this, vTable->unloadLowDetail, executor->sharedResources->graphicsEngine.frameIndex);
+	executor->gpuCompletionEventManager.addRequest(this, vTable->unloadLowDetail, sharedResources.graphicsEngine.frameIndex);
 }

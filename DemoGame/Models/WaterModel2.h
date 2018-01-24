@@ -5,7 +5,6 @@
 #include <d3d12.h>
 #include <frameBufferCount.h>
 #include <cstdint>
-class Executor;
 struct WaterMaterialVS;
 class SharedResources;
 struct Mesh;
@@ -28,7 +27,7 @@ public:
 	~WaterModel2() {}
 
 	bool WaterModel2::isInView(const Frustum& Frustum);
-	void update(Executor* const executor);
+	void update(SharedResources& sharedResources);
 	float reflectionHeight() { return 2.75f; }
 	DirectX::XMFLOAT4 clipPlane() { return DirectX::XMFLOAT4(0.0f, -1.0f, 0.0f, positionY + 0.05f); }
 

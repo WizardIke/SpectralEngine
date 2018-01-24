@@ -3,9 +3,7 @@
 #include <Windowsx.h>
 #include "BaseExecutor.h"
 
-static LRESULT CALLBACK windowCallback(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
-
-SharedResources::SharedResources(BaseExecutor* mainExecutor, bool fullScreen, bool vSync, bool enableGpuDebugging, unsigned int numThreads) :
+SharedResources::SharedResources(BaseExecutor* mainExecutor, bool fullScreen, bool vSync, bool enableGpuDebugging, unsigned int numThreads, WindowCallback windowCallback) :
 	maxBackgroundThreads(unsigned int((float)numThreads / 4.0f + 0.5f) > 0u ? unsigned int((float)numThreads / 4.0f + 0.5f) : 1u),
 	numPrimaryJobExeThreads(maxBackgroundThreads),
 	maxPrimaryThreads(static_cast<int>(numThreads) - 1 - static_cast<int>(maxBackgroundThreads) < 0 ? 0u : (numThreads) - 1u - (maxBackgroundThreads)),
@@ -19,7 +17,7 @@ SharedResources::SharedResources(BaseExecutor* mainExecutor, bool fullScreen, bo
 	backgroundQueue(backgroundQueueStartingLength),
 	workStealingQueues(new WorkStealingStackReference<Job>[(maxThreads) * 2u]),
 	currentWorkStealingQueues(&workStealingQueues[maxThreads]),
-	nextPhaseJob([](BaseExecutor* executor, std::unique_lock<std::mutex>&& lock)
+	nextPhaseJob([](BaseExecutor* executor, SharedResources& sharedResources, std::unique_lock<std::mutex>&& lock)
 	{
 		lock.unlock();
 	}),
@@ -32,32 +30,24 @@ SharedResources::SharedResources(BaseExecutor* mainExecutor, bool fullScreen, bo
 	playerPosition(DirectX::XMFLOAT3(59.0f, 4.0f, 54.0f), DirectX::XMFLOAT3(0.0f, 0.2f, 0.0f))
 {}
 	
-void SharedResources::checkForWindowsMessages(BaseExecutor* const executor)
+void SharedResources::checkForWindowsMessages()
 {
 	MSG message;
 	BOOL error;
 	while (true)
 	{
 		error = (PeekMessage(&message, nullptr, 0, 0, PM_REMOVE));
-		if (error == 0) { break; }
-		else if (error < 0) 
+		if (error == 0) { break; } //no messages
+		else if (error < 0) //error reading message
 		{
-			executor->sharedResources->nextPhaseJob = BaseExecutor::quit;
+			nextPhaseJob = BaseExecutor::quit;
 		}
 		DispatchMessage(&message);
 	}
 }
 
-static LRESULT CALLBACK windowCallback(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
+LRESULT SharedResources::windowCallbackImpl(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam, SharedResources* sharedResources, BaseExecutor* executor)
 {
-	if (message == WM_NCCREATE)
-	{
-		CREATESTRUCT *create = reinterpret_cast<CREATESTRUCT*>(lParam);
-		auto state = create->lpCreateParams;
-		SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)state);
-	}
-	auto executor = reinterpret_cast<BaseExecutor*>(GetWindowLongPtr(hwnd, GWLP_USERDATA));
-	auto sharedResources = executor->sharedResources;
 	switch (message)
 	{
 	case WM_KEYDOWN:
@@ -103,7 +93,7 @@ static LRESULT CALLBACK windowCallback(HWND hwnd, UINT message, WPARAM wParam, L
 			sharedResources->inputManager.SpacePressed = true;
 			return 0;
 		case VK_ESCAPE:
-			executor->sharedResources->nextPhaseJob = BaseExecutor::quit;
+			sharedResources->nextPhaseJob = BaseExecutor::quit;
 			break;
 		default:
 			return 0;
@@ -177,7 +167,7 @@ static LRESULT CALLBACK windowCallback(HWND hwnd, UINT message, WPARAM wParam, L
 			return DefWindowProc(hwnd, message, wParam, lParam);
 		}
 	case 0x8000: //do a Job
-		Job((void*)wParam, (void(*)(void* requester, BaseExecutor* executor))lParam)(executor);
+		Job((void*)wParam, (void(*)(void* requester, BaseExecutor* executor, SharedResources& sharedResources))lParam)(executor, *sharedResources);
 		break;
 	case WM_DESTROY:
 		PostQuitMessage(0);

@@ -1,6 +1,6 @@
 #include "PrimaryExecutor.h"
 
-PrimaryExecutor::PrimaryExecutor(SharedResources* const sharedResources) : Executor(sharedResources, uploadHeapStartingSize, uploadRequestBufferStartingCapacity, halfFinishedUploadRequestBufferStartingCapasity)
+PrimaryExecutor::PrimaryExecutor(SharedResources& sharedResources) : Executor(&sharedResources, uploadHeapStartingSize, uploadRequestBufferStartingCapacity, halfFinishedUploadRequestBufferStartingCapasity)
 {
 #ifdef _DEBUG
 	type = "PrimaryExecutor";
@@ -9,7 +9,7 @@ PrimaryExecutor::PrimaryExecutor(SharedResources* const sharedResources) : Execu
 
 PrimaryExecutor::~PrimaryExecutor() {}
 
-void PrimaryExecutor::run()
+void PrimaryExecutor::run(SharedResources& sharedResources)
 {
-	thread = std::thread([](Executor*const executor) {executor->run(); }, static_cast<Executor*const>(this));
+	thread = std::thread([](std::pair<Executor*, SharedResources*> data) {data.first->run(*data.second); }, std::make_pair(static_cast<Executor*const>(this), &sharedResources));
 }

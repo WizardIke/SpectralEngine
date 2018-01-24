@@ -35,9 +35,9 @@ public:
 	~ReflectionCamera();
 
 	void update(SharedResources* sharedResources, const DirectX::XMMATRIX& mViewMatrix);
-	bool isInView(const BaseExecutor*) { return true; }
-	void bind(SharedResources* sharedResources, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end);
-	void bindFirstThread(SharedResources* sharedResources, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end);
+	bool isInView(SharedResources& sharedResources) { return true; }
+	void bind(SharedResources& sharedResources, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end);
+	void bindFirstThread(SharedResources& sharedResources, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end);
 	ID3D12Resource* getImage() { return mImage; };
 	const ID3D12Resource* getImage() const { return mImage;}
 	DirectX::XMFLOAT3& position() { return mLocation.position; }

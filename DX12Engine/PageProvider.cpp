@@ -32,6 +32,7 @@ PageProvider::PageProvider(float desiredMipBias, IDXGIAdapter3* adapter, ID3D12D
 	resourceDesc.SampleDesc.Count = 1u;
 	resourceDesc.SampleDesc.Quality = 0u;
 	resourceDesc.Width = 64 * 1024 * maxPagesLoading;
+	resourceDesc.Height = 1u;
 	uploadResource = D3D12Resource(graphicsDevice, resourceDesc, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_GENERIC_READ, nullptr);
 	D3D12_RANGE readRange{ 0u, 0u };
 	uploadResource->Map(0u, &readRange, reinterpret_cast<void**>(&uploadResourcePointer));

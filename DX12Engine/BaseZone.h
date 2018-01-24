@@ -8,6 +8,7 @@
 #include <limits>
 #include "Area.h"
 class BaseExecutor;
+class SharedResources;
 #undef max
 
 class BaseZone
@@ -15,25 +16,25 @@ class BaseZone
 	class VTable
 	{
 	public:
-		void (*loadHighDetail)(BaseZone* zone, BaseExecutor* const executor);
-		void (*loadMediumDetail)(BaseZone* zone, BaseExecutor* const executor);
-		void (*loadLowDetail)(BaseZone* zone, BaseExecutor* const executor);
+		void (*loadHighDetail)(BaseZone* zone, BaseExecutor* const executor, SharedResources& sharedResources);
+		void (*loadMediumDetail)(BaseZone* zone, BaseExecutor* const executor, SharedResources& sharedResources);
+		void (*loadLowDetail)(BaseZone* zone, BaseExecutor* const executor, SharedResources& sharedResources);
 
-		void (*unloadHighDetail)(void* zone, BaseExecutor* const executor);
-		void (*unloadMediumDetail)(void* zone, BaseExecutor* const executor);
-		void (*unloadLowDetail)(void* zone, BaseExecutor* const executor);
+		void (*unloadHighDetail)(void* zone, BaseExecutor* const executor, SharedResources& sharedResources);
+		void (*unloadMediumDetail)(void* zone, BaseExecutor* const executor, SharedResources& sharedResources);
+		void (*unloadLowDetail)(void* zone, BaseExecutor* const executor, SharedResources& sharedResources);
 
 
-		void(*loadConnectedAreas)(BaseZone* zone, BaseExecutor* const executor, float distanceSquared, Area::VisitedNode* loadedAreas);
-		bool(*changeArea)(BaseZone* zone, BaseExecutor* const executor);
+		void(*loadConnectedAreas)(BaseZone* zone, BaseExecutor* const executor, SharedResources& sharedResources, float distanceSquared, Area::VisitedNode* loadedAreas);
+		bool(*changeArea)(BaseZone* zone, BaseExecutor* const executor, SharedResources& sharedResources);
 
-		void (*start)(BaseZone* zone, BaseExecutor* const executor);
+		void (*start)(BaseZone* zone, BaseExecutor* const executor, SharedResources& sharedResources);
 	};
 	const VTable* const vTable;
 
-	void unloadHighDetail(BaseExecutor* executor);
-	void unloadMediumDetail(BaseExecutor* executor);
-	void unloadLowDetail(BaseExecutor* executor);
+	void unloadHighDetail(BaseExecutor* executor, SharedResources& sharedResources);
+	void unloadMediumDetail(BaseExecutor* executor, SharedResources& sharedResources);
+	void unloadLowDetail(BaseExecutor* executor, SharedResources& sharedResources);
 public:
 	BaseZone(const VTable* const vTable) : vTable(vTable) {}
 	BaseZone(BaseZone&& other) : vTable(other.vTable) {} // should be deleted when c++17 becomes common. Only used for factory methods
@@ -45,9 +46,9 @@ public:
 		{	
 			Zone::loadHighDetailJobs, Zone::loadMediumDetailJobs, Zone::loadLowDetailJobs,
 
-			[](void* zone, BaseExecutor* const executor) {Zone::unloadHighDetailJobs(reinterpret_cast<BaseZone*>(zone), executor); },
-			[](void* zone, BaseExecutor* const executor) {Zone::unloadMediumDetailJobs(reinterpret_cast<BaseZone*>(zone), executor); },
-			[](void* zone, BaseExecutor* const executor) {Zone::unloadLowDetailJobs(reinterpret_cast<BaseZone*>(zone), executor); },
+			[](void* zone, BaseExecutor* const executor, SharedResources& sharedResources) {Zone::unloadHighDetailJobs(reinterpret_cast<BaseZone*>(zone), executor, sharedResources); },
+			[](void* zone, BaseExecutor* const executor, SharedResources& sharedResources) {Zone::unloadMediumDetailJobs(reinterpret_cast<BaseZone*>(zone), executor, sharedResources); },
+			[](void* zone, BaseExecutor* const executor, SharedResources& sharedResources) {Zone::unloadLowDetailJobs(reinterpret_cast<BaseZone*>(zone), executor, sharedResources); },
 
 			Zone::loadConnectedAreas, Zone::changeArea, 
 			Zone::start 
@@ -82,7 +83,7 @@ public:
 
 
 	template<Lod nextLod, Lod lowestLod>
-	void lastComponentLoaded(BaseExecutor* const executor)
+	void lastComponentLoaded(BaseExecutor* const executor, SharedResources& sharedResources)
 	{
 		if (nextLod == high)
 		{
@@ -91,7 +92,7 @@ public:
 			if (oldLevelOfDetail == nextLevelOfDetail)
 			{
 				loadingMutex.unlock();
-				unloadHighDetail(executor);
+				unloadHighDetail(executor, sharedResources);
 			}
 			else if (oldLevelOfDetail == medium)
 			{
@@ -101,7 +102,7 @@ public:
 					std::swap(currentResources, nextResources);
 					transitioning = false;
 					loadingMutex.unlock();
-					start(executor);
+					start(executor, sharedResources);
 				}
 				else
 				{
@@ -117,7 +118,7 @@ public:
 					std::swap(currentResources, nextResources);
 					transitioning = false;
 					loadingMutex.unlock();
-					start(executor);
+					start(executor, sharedResources);
 				}
 				else
 				{
@@ -133,21 +134,21 @@ public:
 					transitioning = false;
 					std::swap(currentResources, nextResources);
 					loadingMutex.unlock();
-					start(executor);
+					start(executor, sharedResources);
 				}
 				else if (nextLevelOfDetail == medium)
 				{
 					std::swap(currentResources, nextResources);
 					loadingMutex.unlock();
-					start(executor);
-					vTable->loadMediumDetail(this, executor);
+					start(executor, sharedResources);
+					vTable->loadMediumDetail(this, executor, sharedResources);
 				}
 				else //else if (nextLevelOfDetail == low) //nextLevelOfDetail == none has already been handled
 				{
 					std::swap(currentResources, nextResources);
 					loadingMutex.unlock();
-					start(executor);
-					vTable->loadLowDetail(this, executor);
+					start(executor, sharedResources);
+					vTable->loadLowDetail(this, executor, sharedResources);
 				}
 			}
 		}
@@ -158,7 +159,7 @@ public:
 			if (oldLevelOfDetail == nextLevelOfDetail)
 			{
 				loadingMutex.unlock();
-				unloadMediumDetail(executor);
+				unloadMediumDetail(executor, sharedResources);
 			}
 			else if (oldLevelOfDetail == high)
 			{
@@ -173,7 +174,7 @@ public:
 					std::swap(currentResources, nextResources);
 					transitioning = false;
 					loadingMutex.unlock();
-					start(executor);
+					start(executor, sharedResources);
 				}
 				else
 				{
@@ -192,7 +193,7 @@ public:
 					loadingMutex.unlock();
 					if (lowestLod >= medium) // this zone supports more than just high lod
 					{
-						start(executor);
+						start(executor, sharedResources);
 					}
 				}
 				else if (nextLevelOfDetail == high)
@@ -201,9 +202,9 @@ public:
 					loadingMutex.unlock();
 					if (lowestLod >= medium) // this zone supports more than just high lod
 					{
-						start(executor);
+						start(executor, sharedResources);
 					}
-					vTable->loadHighDetail(this, executor);
+					vTable->loadHighDetail(this, executor, sharedResources);
 				}
 				else //else if (nextLevelOfDetail == low) //nextLevelOfDetail == none has already been handled
 				{
@@ -211,9 +212,9 @@ public:
 					loadingMutex.unlock();
 					if (lowestLod >= medium) // this zone supports more than just high lod
 					{
-						start(executor);
+						start(executor, sharedResources);
 					}
-					vTable->loadLowDetail(this, executor);
+					vTable->loadLowDetail(this, executor, sharedResources);
 				}
 			}
 		}
@@ -224,7 +225,7 @@ public:
 			if (oldLevelOfDetail == nextLevelOfDetail)
 			{
 				loadingMutex.unlock();
-				unloadLowDetail(executor);
+				unloadLowDetail(executor, sharedResources);
 			}
 			else if (oldLevelOfDetail == high)
 			{
@@ -255,7 +256,7 @@ public:
 					loadingMutex.unlock();
 					if (lowestLod >= low)
 					{
-						start(executor);
+						start(executor, sharedResources);
 					}
 				}
 				else if (nextLevelOfDetail == high)
@@ -264,9 +265,9 @@ public:
 					loadingMutex.unlock();
 					if (lowestLod >= low)
 					{
-						start(executor);
+						start(executor, sharedResources);
 					}
-					vTable->loadHighDetail(this, executor);
+					vTable->loadHighDetail(this, executor, sharedResources);
 				}
 				else //else if (nextLevelOfDetail == medium) //nextLevelOfDetail == unloaded has already been handled
 				{
@@ -274,16 +275,16 @@ public:
 					loadingMutex.unlock();
 					if (lowestLod >= low)
 					{
-						start(executor);
+						start(executor, sharedResources);
 					}
-					vTable->loadMediumDetail(this, executor);
+					vTable->loadMediumDetail(this, executor, sharedResources);
 				}
 			}
 		}
 	}
 
 	template<Lod previousLod, Lod nextLod>
-	void transition(BaseExecutor* executor)
+	void transition(BaseExecutor* executor, SharedResources& sharedResources)
 	{
 		{
 			std::lock_guard<decltype(loadingMutex)> lock(loadingMutex);
@@ -293,20 +294,20 @@ public:
 
 		if (previousLod == high)
 		{
-			unloadHighDetail(executor);
+			unloadHighDetail(executor, sharedResources);
 		}
 		else if (previousLod == medium)
 		{
-			unloadMediumDetail(executor);
+			unloadMediumDetail(executor, sharedResources);
 		}
 		else
 		{
-			unloadLowDetail(executor);
+			unloadLowDetail(executor, sharedResources);
 		}
 	}
 
 	template<Lod lowestLod>
-	void lastComponentUnloaded(BaseExecutor* const executor)
+	void lastComponentUnloaded(BaseExecutor* const executor, SharedResources& sharedResources)
 	{
 		loadingMutex.lock();
 		Lod currentLevelOfDetail = levelOfDetail.load(std::memory_order::memory_order_acquire);
@@ -320,12 +321,12 @@ public:
 			if (nextLevelOfDetail == medium)
 			{
 				loadingMutex.unlock();
-				vTable->loadMediumDetail(this, executor);
+				vTable->loadMediumDetail(this, executor, sharedResources);
 			}
 			else if (nextLevelOfDetail == low)
 			{
 				loadingMutex.unlock();
-				vTable->loadLowDetail(this, executor);
+				vTable->loadLowDetail(this, executor, sharedResources);
 			}
 			else
 			{
@@ -338,19 +339,19 @@ public:
 			if (nextLevelOfDetail == high)
 			{
 				loadingMutex.unlock();
-				vTable->loadHighDetail(this, executor);
+				vTable->loadHighDetail(this, executor, sharedResources);
 			}
 			else if (nextLevelOfDetail == low)
 			{
 				loadingMutex.unlock();
-				vTable->loadLowDetail(this, executor);
+				vTable->loadLowDetail(this, executor, sharedResources);
 			}
 			else
 			{
 				if (lowestLod < medium)
 				{
 					loadingMutex.unlock();
-					unloadMediumDetail(executor);
+					unloadMediumDetail(executor, sharedResources);
 				}
 				else
 				{
@@ -364,19 +365,19 @@ public:
 			if (nextLevelOfDetail == high)
 			{
 				loadingMutex.unlock();
-				vTable->loadHighDetail(this, executor);
+				vTable->loadHighDetail(this, executor, sharedResources);
 			}
 			else if (nextLevelOfDetail == medium)
 			{
 				loadingMutex.unlock();
-				vTable->loadMediumDetail(this, executor);
+				vTable->loadMediumDetail(this, executor, sharedResources);
 			}
 			else
 			{
 				if (lowestLod < low)
 				{
 					loadingMutex.unlock();
-					unloadMediumDetail(executor);
+					unloadMediumDetail(executor, sharedResources);
 				}
 				else
 				{
@@ -390,50 +391,50 @@ public:
 			if (nextLevelOfDetail == high)
 			{
 				loadingMutex.unlock();
-				vTable->loadHighDetail(this, executor);
+				vTable->loadHighDetail(this, executor, sharedResources);
 			}
 			else if (nextLevelOfDetail == medium)
 			{
 				loadingMutex.unlock();
-				vTable->loadMediumDetail(this, executor);
+				vTable->loadMediumDetail(this, executor, sharedResources);
 			}
 			else
 			{
 				loadingMutex.unlock();
-				vTable->loadLowDetail(this, executor);
+				vTable->loadLowDetail(this, executor, sharedResources);
 			}
 		}
 	}
 
 	template<Lod nextLod, Lod lowestLod>
-	static void componentUploaded(BaseZone* zone, BaseExecutor* const executor, std::atomic<unsigned char>& numComponentsLoaded, unsigned char numComponents)
+	static void componentUploaded(BaseZone* zone, BaseExecutor* const executor, SharedResources& sharedResources, std::atomic<unsigned char>& numComponentsLoaded, unsigned char numComponents)
 	{
 		//uses memory_order_acq_rel because it needs to see all loaded parts if it's the last load job and release it's load job otherwise
 		auto oldNumComponentsLoaded = numComponentsLoaded.fetch_add(1u, std::memory_order::memory_order_acq_rel); 
 		if (oldNumComponentsLoaded == numComponents - 1u)
 		{
-			zone->lastComponentLoaded<nextLod, lowestLod>(executor);
+			zone->lastComponentLoaded<nextLod, lowestLod>(executor, sharedResources);
 		}
 	}
 
 	operator bool() {return vTable != nullptr;}
 
-	void loadHighDetail(BaseExecutor* const executor);
-	void loadMediumDetail(BaseExecutor* const executor);
-	void loadLowDetail(BaseExecutor* const executor);
-	void unloadAll(BaseExecutor* executor);
+	void loadHighDetail(BaseExecutor* const executor, SharedResources& sharedResources);
+	void loadMediumDetail(BaseExecutor* const executor, SharedResources& sharedResources);
+	void loadLowDetail(BaseExecutor* const executor, SharedResources& sharedResources);
+	void unloadAll(BaseExecutor* executor, SharedResources& sharedResources);
 
-	void loadConnectedAreas(BaseExecutor* const executor, float distanceSquared, Area::VisitedNode* loadedAreas) 
+	void loadConnectedAreas(BaseExecutor* const executor, SharedResources& sharedResources, float distanceSquared, Area::VisitedNode* loadedAreas)
 	{
-		vTable->loadConnectedAreas(this, executor, distanceSquared, loadedAreas);
+		vTable->loadConnectedAreas(this, executor, sharedResources, distanceSquared, loadedAreas);
 	}
-	bool changeArea(BaseExecutor* const executor)
+	bool changeArea(BaseExecutor* const executor, SharedResources& sharedResources)
 	{
-		return vTable->changeArea(this, executor);
+		return vTable->changeArea(this, executor, sharedResources);
 	}
 
-	void start(BaseExecutor* const executor)
+	void start(BaseExecutor* const executor, SharedResources& sharedResources)
 	{
-		vTable->start(this, executor);
+		vTable->start(this, executor, sharedResources);
 	}
 };

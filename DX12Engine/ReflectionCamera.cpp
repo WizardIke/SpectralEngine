@@ -48,14 +48,14 @@ void ReflectionCamera::update(SharedResources* sharedResources, const DirectX::X
 	mFrustum.update(mProjectionMatrix, mViewMatrix, screenNear, screenDepth);
 }
 
-void ReflectionCamera::bind(SharedResources* sharedResources, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end)
+void ReflectionCamera::bind(SharedResources& sharedResources, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end)
 {
-	auto frameIndex = sharedResources->graphicsEngine.frameIndex;
+	auto frameIndex = sharedResources.graphicsEngine.frameIndex;
 	auto constantBufferGPU = constantBufferGpuAddress + bufferSizePS * frameIndex;
 	CameraUtil::bind(first, end, CameraUtil::getViewPort(width, height), CameraUtil::getScissorRect(width, height), constantBufferGPU, &renderTargetView, &depthSencilView);
 }
 
-void ReflectionCamera::bindFirstThread(SharedResources* sharedResources, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end)
+void ReflectionCamera::bindFirstThread(SharedResources& sharedResources, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end)
 {
 	bind(sharedResources, first, end);
 	auto commandList = *first;

@@ -101,8 +101,8 @@ private:
 	void textureUploadedHelper(void* storedFilename, BaseExecutor* executor);
 
 	void loadTextureUncachedHelper(StreamingManagerThreadLocal& streamingManager, D3D12GraphicsEngine& graphicsEngine, ID3D12CommandQueue* commandQueue, const wchar_t * filename,
-		void(*textureUseSubresource)(RamToVramUploadRequest* const request, BaseExecutor* executor1, void* const uploadBufferCpuAddressOfCurrentPos, ID3D12Resource* uploadResource,
-			uint64_t uploadResourceOffset), void(*textureUploaded)(void* storedFilename, BaseExecutor* exe));
+		void(*textureUseSubresource)(RamToVramUploadRequest* const request, BaseExecutor* executor1, SharedResources& sharedResources, void* const uploadBufferCpuAddressOfCurrentPos, ID3D12Resource* uploadResource,
+			uint64_t uploadResourceOffset), void(*textureUploaded)(void* storedFilename, BaseExecutor* exe, SharedResources& sharedResources));
 
 	void textureUseSubresourceHelper(RamToVramUploadRequest& request, D3D12GraphicsEngine& graphicsEngine, StreamingManagerThreadLocal& streamingManager, void* const uploadBufferCpuAddressOfCurrentPos,
 		ID3D12Resource* uploadResource, uint64_t uploadResourceOffset);

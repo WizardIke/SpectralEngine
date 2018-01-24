@@ -178,18 +178,18 @@ float4 sampleTexture(Texture2D<float4> t, SamplerState samplerType, float2 texCo
 
 float4 main(Input input) : SV_TARGET
 {
-#ifdef USE_PER_OBJECT_AMBIENT
+#if defined(USE_PER_OBJECT_AMBIENT)
     float4 refractedLight = ambientLight;
-#elif USE_AMBIENT_TEXTURE
+#elif defined(USE_AMBIENT_TEXTURE)
     float4 refractedLight = sampleTexture(textures[ambientTexture], sampleType, input.tex);
-#elif USE_DIRECTIONAL_LIGHT || USE_POINT_LIGHTS
+#elif defined(USE_DIRECTIONAL_LIGHT) || defined(USE_POINT_LIGHTS)
     float4 refractedLight = float4(0.0f, 0.0f, 0.0f, 0.0f);
 #else
     float4 refractedLight = float4(1.0f, 1.0f, 1.0f, 1.0f);
 #endif
 
 #if defined(USE_DIRECTIONAL_LIGHT) || defined(USE_POINT_LIGHTS)
-#ifdef USE_NORAML_TEXTURE
+#if defined(USE_NORAML_TEXTURE)
 	float2 bumpMap = sampleTexture(textures[normalTexture], sampleType, input.textureCoordinates).xy - 0.5f;
     float3 normal = normalize(input.normal) + bumpMap.x * normalize(input.tangent) + bumpMap.y * normalize(input.bitangent);
     normal = normalize(normal);
@@ -236,7 +236,7 @@ float4 main(Input input) : SV_TARGET
 #endif
 #endif
 
-#ifdef USE_POINT_LIGHTS
+#if defined(USE_POINT_LIGHTS)
     for (uint i = 0u; i < pointLightCount; ++i)
     {
         float3 dispacement = pointLights[i].position.xyz - input.worldPosition;
