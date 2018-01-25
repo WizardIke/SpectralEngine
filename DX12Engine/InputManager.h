@@ -8,10 +8,11 @@ class InputManager
 public:
 	class MouseMotionObverver
 	{
-		void(&obververMouseMoved)(void* obverver, float deltaX, float deltaY);
+		void(*obververMouseMoved)(void* obverver, float deltaX, float deltaY);
 		void* const obverver;
 	public:
-		MouseMotionObverver(void(&obververMouseMoved)(void* obverver, float deltaX, float deltaY), void* const obverver) : obververMouseMoved(obververMouseMoved), obverver(obverver) {}
+		MouseMotionObverver(void(*obververMouseMoved)(void* obverver, float deltaX, float deltaY), void* const obverver) : 
+			obververMouseMoved(obververMouseMoved), obverver(obverver) {}
 		void mouseMoved(float deltaX, float deltaY)
 		{
 			obververMouseMoved(obverver, deltaX, deltaY);

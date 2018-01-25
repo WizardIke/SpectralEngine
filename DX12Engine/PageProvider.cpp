@@ -21,6 +21,13 @@ PageProvider::PageProvider(float desiredMipBias, IDXGIAdapter3* adapter, ID3D12D
 	mipBias = desiredMipBias;
 	this->desiredMipBias = desiredMipBias;
 
+	D3D12_HEAP_PROPERTIES uploadHeapProperties;
+	uploadHeapProperties.Type = D3D12_HEAP_TYPE::D3D12_HEAP_TYPE_UPLOAD;
+	uploadHeapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+	uploadHeapProperties.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+	uploadHeapProperties.CreationNodeMask = 0u;
+	uploadHeapProperties.VisibleNodeMask = 0u;
+
 	D3D12_RESOURCE_DESC resourceDesc;
 	resourceDesc.Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
 	resourceDesc.DepthOrArraySize = 1u;
@@ -33,7 +40,8 @@ PageProvider::PageProvider(float desiredMipBias, IDXGIAdapter3* adapter, ID3D12D
 	resourceDesc.SampleDesc.Quality = 0u;
 	resourceDesc.Width = 64 * 1024 * maxPagesLoading;
 	resourceDesc.Height = 1u;
-	uploadResource = D3D12Resource(graphicsDevice, resourceDesc, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_GENERIC_READ, nullptr);
+
+	uploadResource = D3D12Resource(graphicsDevice, uploadHeapProperties, D3D12_HEAP_FLAGS::D3D12_HEAP_FLAG_NONE, resourceDesc, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_GENERIC_READ, nullptr);
 	D3D12_RANGE readRange{ 0u, 0u };
 	uploadResource->Map(0u, &readRange, reinterpret_cast<void**>(&uploadResourcePointer));
 

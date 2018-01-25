@@ -63,8 +63,8 @@ public:
 	MeshManager meshManager; //thread safe
 	SoundEngine soundEngine;
 	Timer timer;
-	InputManager inputManager;
 	PlayerPosition playerPosition;
+	InputManager inputManager;
 
 	bool isUpdate1()
 	{

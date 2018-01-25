@@ -1226,16 +1226,16 @@ namespace DDSFileLoader
 		destination.pResource = destResource;
 		destination.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
 		destination.SubresourceIndex = arrayIndex * mipLevels + mipLevel;
-		destination.PlacedFootprint.Offset = 0u;
-		destination.PlacedFootprint.Footprint.Depth = subresourceDepth;
-		destination.PlacedFootprint.Footprint.Format = format;
-		destination.PlacedFootprint.Footprint.Height = subresourceHeight;
-		destination.PlacedFootprint.Footprint.Width = subresouceWidth;
-		destination.PlacedFootprint.Footprint.RowPitch = static_cast<uint32_t>(destRowPitch);
+		//destination.PlacedFootprint.Offset = 0u;
+		//destination.PlacedFootprint.Footprint.Depth = subresourceDepth;
+		//destination.PlacedFootprint.Footprint.Format = format;
+		//destination.PlacedFootprint.Footprint.Height = subresourceHeight;
+		//destination.PlacedFootprint.Footprint.Width = subresouceWidth;
+		//destination.PlacedFootprint.Footprint.RowPitch = static_cast<uint32_t>(destRowPitch);
 
 		D3D12_TEXTURE_COPY_LOCATION UploadBufferLocation;
 		UploadBufferLocation.pResource = uploadResource;
-		UploadBufferLocation.SubresourceIndex = 0u;
+		//UploadBufferLocation.SubresourceIndex = 0u;
 		UploadBufferLocation.Type = D3D12_TEXTURE_COPY_TYPE::D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
 		UploadBufferLocation.PlacedFootprint.Offset = uploadResourceOffset;
 		UploadBufferLocation.PlacedFootprint.Footprint.Depth = subresourceDepth;

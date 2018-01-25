@@ -187,8 +187,6 @@ StreamingManagerThreadLocal::StreamingManagerThreadLocal(ID3D12Device* const gra
 		uploadHeapProperties.CreationNodeMask = 0u;
 		uploadHeapProperties.VisibleNodeMask = 0u;
 		
-		
-
 		D3D12_RESOURCE_DESC uploadResouceDesc;
 		uploadResouceDesc.Dimension = D3D12_RESOURCE_DIMENSION::D3D12_RESOURCE_DIMENSION_BUFFER;
 		uploadResouceDesc.Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;

@@ -152,7 +152,7 @@ void FeedbackAnalizerSubPass::createResources(SharedResources& sharedResources, 
 	clearValue.Color[1] = 0.0f;
 	clearValue.Color[2] = 65280.0f;
 	clearValue.Color[3] = 65535.0f;
-	new(&feadbackTextureGpu) D3D12Resource(graphicsDevice, heapProperties, D3D12_HEAP_FLAGS::D3D12_HEAP_FLAG_NONE, resourceDesc, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET, nullptr);
+	new(&feadbackTextureGpu) D3D12Resource(graphicsDevice, heapProperties, D3D12_HEAP_FLAGS::D3D12_HEAP_FLAG_NONE, resourceDesc, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_COMMON, &clearValue);
 
 	D3D12_RENDER_TARGET_VIEW_DESC rtvDesc;
 	rtvDesc.Format = DXGI_FORMAT::DXGI_FORMAT_R16G16B16A16_UINT;
@@ -165,7 +165,10 @@ void FeedbackAnalizerSubPass::createResources(SharedResources& sharedResources, 
 
 	resourceDesc.Format = DXGI_FORMAT::DXGI_FORMAT_D32_FLOAT;
 	resourceDesc.Flags = D3D12_RESOURCE_FLAGS::D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL | D3D12_RESOURCE_FLAGS::D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE;
-	new(&depthBuffer) D3D12Resource(graphicsDevice, heapProperties, D3D12_HEAP_FLAGS::D3D12_HEAP_FLAG_NONE, resourceDesc, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_DEPTH_WRITE, nullptr);
+	clearValue.Format = DXGI_FORMAT::DXGI_FORMAT_D32_FLOAT;
+	clearValue.DepthStencil.Depth = 1.0f;
+	clearValue.DepthStencil.Stencil = 0u;
+	new(&depthBuffer) D3D12Resource(graphicsDevice, heapProperties, D3D12_HEAP_FLAGS::D3D12_HEAP_FLAG_NONE, resourceDesc, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_DEPTH_WRITE, &clearValue);
 
 	D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc;
 	dsvDesc.Flags = D3D12_DSV_FLAGS::D3D12_DSV_FLAG_NONE;
@@ -178,4 +181,11 @@ void FeedbackAnalizerSubPass::createResources(SharedResources& sharedResources, 
 
 	new(&camera) VirtualPageCamera(&sharedResources, feadbackTextureGpu, rtvdescriptor, depthDescriptor, width, height, constantBufferGpuAddress1, constantBufferCpuAddress1, fieldOfView,
 		sharedResources.playerPosition.location);
+
+#ifndef NDEBUG
+	readbackTexture->SetName(L"Readback texture cpu");
+	feadbackTextureGpu->SetName(L"Feedback texture gpu");
+	depthBuffer->SetName(L"Feedback depth buffer");
+#endif // !NDEBUG
+
 }

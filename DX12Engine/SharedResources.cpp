@@ -26,8 +26,9 @@ SharedResources::SharedResources(BaseExecutor* mainExecutor, bool fullScreen, bo
 	timer(),
 	streamingManager(graphicsEngine.graphicsDevice),
 	soundEngine(),
-	inputManager(window, { PlayerPosition::mouseMoved, &playerPosition }),
-	playerPosition(DirectX::XMFLOAT3(59.0f, 4.0f, 54.0f), DirectX::XMFLOAT3(0.0f, 0.2f, 0.0f))
+	playerPosition(DirectX::XMFLOAT3(59.0f, 4.0f, 54.0f), DirectX::XMFLOAT3(0.0f, 0.2f, 0.0f)),
+	inputManager(window, { PlayerPosition::mouseMoved, &playerPosition })
+	
 {}
 	
 void SharedResources::checkForWindowsMessages()

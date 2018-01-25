@@ -98,8 +98,7 @@ void MainCamera::update(SharedResources* const sharedResources, const Transform&
 void MainCamera::bind(SharedResources& sharedResources, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end)
 {
 	auto frameIndex = sharedResources.graphicsEngine.frameIndex;
-	auto renderTargetViewHandle = renderTargetViewDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
-	renderTargetViewHandle.ptr += frameIndex * sharedResources.graphicsEngine.renderTargetViewDescriptorSize;
+	auto renderTargetViewHandle = renderTargetViewDescriptorHeap->GetCPUDescriptorHandleForHeapStart() + frameIndex * sharedResources.graphicsEngine.renderTargetViewDescriptorSize;
 	auto constantBufferGPU = constantBufferGpuAddress + bufferSizePS * frameIndex;
 	CameraUtil::bind(first, end, CameraUtil::getViewPort(mWidth, mHeight), CameraUtil::getScissorRect(mWidth, mHeight), constantBufferGPU, &renderTargetViewHandle, &depthSencilView);
 }

@@ -101,7 +101,23 @@ public:
 					Executor* executor = reinterpret_cast<Executor*>(exe);
 					StreamingManagerThreadLocal& streamingManager = executor->streamingManager;
 					FeedbackAnalizerSubPass& renderSubPass = *reinterpret_cast<FeedbackAnalizerSubPass*>(requester);
-					streamingManager.currentCommandList->CopyResource(renderSubPass.readbackTexture, renderSubPass.feadbackTextureGpu);
+
+					D3D12_TEXTURE_COPY_LOCATION UploadBufferLocation;
+					UploadBufferLocation.pResource = renderSubPass.feadbackTextureGpu;
+					UploadBufferLocation.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+					UploadBufferLocation.SubresourceIndex = 0u;
+
+					D3D12_TEXTURE_COPY_LOCATION destination;
+					destination.pResource = renderSubPass.readbackTexture;
+					destination.Type = D3D12_TEXTURE_COPY_TYPE::D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+					destination.PlacedFootprint.Offset = 0u;
+					destination.PlacedFootprint.Footprint.Depth = 1u;
+					destination.PlacedFootprint.Footprint.Format = DXGI_FORMAT::DXGI_FORMAT_R16G16B16A16_UINT;
+					destination.PlacedFootprint.Footprint.Height = 1u;
+					destination.PlacedFootprint.Footprint.Width = renderSubPass.rowPitch * (renderSubPass.height - 1u) + renderSubPass.packedRowPitch;
+					destination.PlacedFootprint.Footprint.RowPitch = static_cast<uint32_t>(renderSubPass.rowPitch);
+					streamingManager.currentCommandList->CopyTextureRegion(&destination, 0u, 0u, 0u, &UploadBufferLocation, nullptr);
+
 					streamingManager.addCopyCompletionEvent(requester, FeedbackAnalizerSubPass::readbackTextureReady<Executor, SharedResources_t>);
 				}, sharedResources.graphicsEngine.frameIndex);
 			}));
