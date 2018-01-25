@@ -26,7 +26,7 @@ float4 main(Input input) : SV_TARGET
 
 	float4 feedback;
     feedback.xy = input.texcoord0.xy * float2(textureWidthInPages, textureHeightInPages);
-	feedback.z = desiredLod;
-	feedback.w = virtualTextureID;
+    feedback.z = virtualTextureID1 + desiredLod;
+	feedback.w = virtualTextureID2And3;
 	return feedback;
 }

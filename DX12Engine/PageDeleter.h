@@ -2,19 +2,19 @@
 #include "PageAllocator.h"
 #include "TextureResitency.h"
 
-template<class TexturesByIDAndSlot>
+template<class TexturesByID>
 class PageDeleter
 {
 	constexpr static unsigned int maxPendingDeletedPages = 32u;
 	PageAllocator& pageAllocator;
 	PageAllocationInfo deletedPages[maxPendingDeletedPages];
 	size_t deletedPageCount = 0u;
-	const TexturesByIDAndSlot& texturesByIDAndSlot;
+	const TexturesByID& texturesByID;
 	ID3D12CommandQueue* commandQueue;
 public:
-	PageDeleter(PageAllocator& pageAllocator, const TexturesByIDAndSlot& texturesByIDAndSlot, ID3D12CommandQueue* commandQueue) :
+	PageDeleter(PageAllocator& pageAllocator, const TexturesByID& texturesByID, ID3D12CommandQueue* commandQueue) :
 		pageAllocator(pageAllocator),
-		texturesByIDAndSlot(texturesByIDAndSlot),
+		texturesByID(texturesByID),
 		commandQueue(commandQueue) {}
 
 	void operator()(PageAllocationInfo& allocationInfo)
@@ -38,16 +38,14 @@ public:
 		D3D12_TILE_RANGE_FLAGS rangeFlags = D3D12_TILE_RANGE_FLAG_NULL;
 		ID3D12Resource* lastResource;
 		{
-			auto textureId = deletedPages[0].textureLocation.textureId();
-			auto textureSlot = deletedPages[0].textureLocation.textureSlots();
-			const VirtualTextureInfo& textureInfo = texturesByIDAndSlot[textureSlot].data()[textureId];
+			auto textureId = deletedPages[0].textureLocation.textureId1();
+			const VirtualTextureInfo& textureInfo = texturesByID.data()[textureId];
 			lastResource = textureInfo.resource;
 		}
 		for (size_t i = 0u; i != deletedPageCount; ++i)
 		{
-			auto textureId = deletedPages[i].textureLocation.textureId();
-			auto textureSlot = deletedPages[i].textureLocation.textureSlots();
-			const VirtualTextureInfo& textureInfo = texturesByIDAndSlot[textureSlot].data()[textureId];
+			auto textureId = deletedPages[i].textureLocation.textureId1();
+			const VirtualTextureInfo& textureInfo = texturesByID.data()[textureId];
 			resourceTileCoords[i].X = (UINT)deletedPages[i].textureLocation.x();
 			resourceTileCoords[i].Y = (UINT)deletedPages[i].textureLocation.y();
 			resourceTileCoords[i].Z = 0u;

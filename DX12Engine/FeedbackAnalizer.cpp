@@ -1,5 +1,23 @@
 #include "FeedbackAnalizer.h"
 
+template<class HashMap>
+static inline void requestMipLevels(unsigned int mipLevel, const VirtualTextureInfo* textureInfo, textureLocation feedbackData, HashMap& uniqueRequests)
+{
+	if (mipLevel < textureInfo->lowestPinnedMip)
+	{
+		PageRequestData& pageRequest = uniqueRequests[feedbackData];
+		++pageRequest.count;
+		++mipLevel;
+		while (mipLevel != textureInfo->lowestPinnedMip)
+		{
+			feedbackData.setMipLevel(mipLevel);
+			PageRequestData& pageRequest = uniqueRequests[feedbackData];
+			++pageRequest.count;
+			++mipLevel;
+		}
+	}
+}
+
 void FeedbackAnalizerSubPass::readbackTextureReadyHelper(void* requester, VirtualTextureManager& virtualTextureManager, BaseExecutor* executor)
 {
 	FeedbackAnalizerSubPass& subPass = *reinterpret_cast<FeedbackAnalizerSubPass*>(requester);
@@ -19,30 +37,30 @@ void FeedbackAnalizerSubPass::readbackTextureReadyHelper(void* requester, Virtua
 			textureLocation feedbackData;
 			feedbackData.value = *reinterpret_cast<uint64_t*>(start);
 
-			auto textureId = feedbackData.textureId();
-			auto textureSlots = feedbackData.textureSlots();
-			for (auto i = 0u; i < textureLocation::maxTextureSlots; ++i)
-			{
-				if ((textureSlots >> i) & 1)
-				{
-					VirtualTextureInfo& textureInfo = virtualTextureManager.texturesByIDAndSlot[i].data()[textureId];
+			auto textureId = feedbackData.textureId1();
+			auto texture2d = feedbackData.textureId2();
+			auto texture3d = feedbackData.textureId3();
+			unsigned int nextMipLevel = (unsigned int)feedbackData.mipLevel();
+			feedbackData.setTextureId2(0);
+			feedbackData.setTextureId3(0);
 
-					unsigned int nextMipLevel = (unsigned int)feedbackData.mipLevel();
-					if (nextMipLevel < textureInfo.lowestPinnedMip)
-					{
-						feedbackData.setTextureSlots(i);
-						PageRequestData& pageRequest = uniqueRequests[feedbackData];
-						++pageRequest.count;
-						++nextMipLevel;
-						while (nextMipLevel != textureInfo.lowestPinnedMip)
-						{
-							feedbackData.setMipLevel(nextMipLevel);
-							PageRequestData& pageRequest = uniqueRequests[feedbackData];
-							++pageRequest.count;
-							++nextMipLevel;
-						}
-					}
-				}
+			VirtualTextureInfo* textureInfo;
+			if (textureId != 255u)
+			{
+				textureInfo = &virtualTextureManager.texturesByID.data()[textureId];
+				requestMipLevels(nextMipLevel, textureInfo, feedbackData, uniqueRequests);
+			}
+			if (textureId != 255u)
+			{
+				feedbackData.setTextureId1(texture2d);
+				textureInfo = &virtualTextureManager.texturesByID.data()[texture2d];
+				requestMipLevels(nextMipLevel, textureInfo, feedbackData, uniqueRequests);
+			}
+			if (textureId != 255u)
+			{
+				feedbackData.setTextureId1(texture3d);
+				textureInfo = &virtualTextureManager.texturesByID.data()[texture3d];
+				requestMipLevels(nextMipLevel, textureInfo, feedbackData, uniqueRequests);
 			}
 		}
 	}
@@ -128,6 +146,12 @@ void FeedbackAnalizerSubPass::createResources(SharedResources& sharedResources, 
 	resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION::D3D12_RESOURCE_DIMENSION_TEXTURE2D;
 	resourceDesc.Height = height;
 	resourceDesc.Width = width;
+	D3D12_CLEAR_VALUE clearValue;
+	clearValue.Format = DXGI_FORMAT::DXGI_FORMAT_R16G16B16A16_UINT;
+	clearValue.Color[0] = 0.0f;
+	clearValue.Color[1] = 0.0f;
+	clearValue.Color[2] = 65280.0f;
+	clearValue.Color[3] = 65535.0f;
 	new(&feadbackTextureGpu) D3D12Resource(graphicsDevice, heapProperties, D3D12_HEAP_FLAGS::D3D12_HEAP_FLAG_NONE, resourceDesc, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET, nullptr);
 
 	D3D12_RENDER_TARGET_VIEW_DESC rtvDesc;

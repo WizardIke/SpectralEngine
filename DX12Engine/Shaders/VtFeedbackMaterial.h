@@ -3,7 +3,8 @@
 #include <DirectXMath.h>
 struct VtFeedbackMaterial
 {
-	float virtualTextureID;
+	float virtualTextureID1;
+	float virtualTextureID2And3;
 	float textureWidthInPages;
 	float textureHeightInPages;
 	float usefulTextureWidth; //width of virtual texture not counting padding
@@ -12,7 +13,8 @@ struct VtFeedbackMaterial
 #else
 cbuffer Material : register(b1)
 {
-	float virtualTextureID;
+	float virtualTextureID1;
+	float virtualTextureID2And3;
 	float textureWidthInPages;
 	float textureHeightInPages;
 	float usefulTextureWidth; //width of virtual texture not counting padding

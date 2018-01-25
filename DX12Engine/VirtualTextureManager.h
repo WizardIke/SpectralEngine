@@ -20,12 +20,11 @@ public:
 	class Request
 	{
 		friend class VirtualTextureManager;
-		unsigned int slot;
 		void* requester;
 		void(*job)(void*const requester, BaseExecutor* const executor, unsigned int textureDescriptorIndex, unsigned int textureID);
 	public:
-		Request(void* const requester, void(*job)(void*const requester, BaseExecutor* const executor, unsigned int textureDescriptorIndex, unsigned int textureID), unsigned int slot) : requester(requester),
-			job(job), slot(slot) {}
+		Request(void* const requester, void(*job)(void*const requester, BaseExecutor* const executor, unsigned int textureDescriptorIndex, unsigned int textureID)) : 
+			requester(requester), job(job) {}
 		Request() {}
 
 		void operator()(BaseExecutor* const executor, unsigned int textureIndex, unsigned int textureID)
@@ -85,7 +84,7 @@ private:
 	std::unordered_map<const wchar_t * const, std::vector<Request>, std::hash<const wchar_t *>> uploadRequests;
 	std::unordered_map<const wchar_t * const, Texture, std::hash<const wchar_t *>> textures;
 public:
-	TextureInfoAllocator texturesByIDAndSlot[textureLocation::maxTextureSlots];
+	TextureInfoAllocator texturesByID;
 	PageProvider pageProvider;
 private:
 
@@ -127,7 +126,7 @@ private:
 
 	void createTextureWithResitencyInfo(D3D12GraphicsEngine& graphicsEngine, ID3D12CommandQueue* commandQueue, RamToVramUploadRequest& vramRequest, const wchar_t* filename);
 
-	void unloadTextureHelper(const wchar_t * filename, D3D12GraphicsEngine& graphicsEngine, StreamingManager& streamingManager, unsigned int slot);
+	void unloadTextureHelper(const wchar_t * filename, D3D12GraphicsEngine& graphicsEngine, StreamingManager& streamingManager);
 public:
 	VirtualTextureManager(D3D12GraphicsEngine& graphicsEngine) : pageProvider(log2f(0.5f), graphicsEngine.adapter, graphicsEngine.graphicsDevice) {}
 	~VirtualTextureManager() {}
@@ -147,7 +146,7 @@ public:
 			virtualTextureManager.uploadRequests[filename].push_back(callback);
 			lock.unlock();
 
-			virtualTextureManager.loadTextureUncached<Executor>(streamingManager, graphicsEngine, executor->sharedResources->StreamingManager.commandQueue(), filename, slot);
+			virtualTextureManager.loadTextureUncached<Executor>(streamingManager, graphicsEngine, executor->sharedResources->StreamingManager.commandQueue(), filename);
 			return;
 		}
 		if (texture.loaded) //the resource is loaded
@@ -163,8 +162,8 @@ public:
 
 	/*the texture must no longer be in use, including by the GPU*/
 	template<class SharedResources>
-	void unloadTexture(const wchar_t * filename, SharedResources* sharedResources, unsigned int slot)
+	void unloadTexture(const wchar_t * filename, SharedResources* sharedResources)
 	{
-		unloadTextureHelper(filename, sharedResources->graphicsEngine, sharedResources->streamingManager, slot);
+		unloadTextureHelper(filename, sharedResources->graphicsEngine, sharedResources->streamingManager);
 	}
 };

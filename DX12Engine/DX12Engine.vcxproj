@@ -205,6 +205,7 @@
     <ClInclude Include="Shaders\GlassMaterialPS.h" />
     <ClInclude Include="Shaders\StandardMaterialPS.h" />
     <ClInclude Include="Shaders\VtFeedbackCameraMaterial.h" />
+    <ClInclude Include="Shaders\VtFeedbackMaterial.h" />
     <ClInclude Include="Shaders\WaterMaterialPS.h" />
     <ClInclude Include="Shaders\WaterMaterialVS.h" />
     <ClInclude Include="StreamingManager.h" />
@@ -214,7 +215,6 @@
     <ClInclude Include="Vector4.h" />
     <ClInclude Include="VirtualPageCamera.h" />
     <ClInclude Include="VirtualTextureManager.h" />
-    <ClInclude Include="VtFeedbackMaterial.h" />
     <ClInclude Include="Win32Event.h" />
     <ClInclude Include="Exception.h" />
     <ClInclude Include="FileNotFoundException.h" />

@@ -113,7 +113,7 @@ static unsigned int createTextureDescriptor(D3D12GraphicsEngine& graphicsEngine,
 	return discriptorIndex;
 }
 
-void VirtualTextureManager::unloadTextureHelper(const wchar_t * filename, D3D12GraphicsEngine& graphicsEngine, StreamingManager& streamingManager, unsigned int slot)
+void VirtualTextureManager::unloadTextureHelper(const wchar_t * filename, D3D12GraphicsEngine& graphicsEngine, StreamingManager& streamingManager)
 {
 	unsigned int descriptorIndex = std::numeric_limits<unsigned int>::max();
 	unsigned int textureID;
@@ -132,7 +132,7 @@ void VirtualTextureManager::unloadTextureHelper(const wchar_t * filename, D3D12G
 	{
 		graphicsEngine.descriptorAllocator.deallocate(descriptorIndex);
 
-		auto& resitencyInfo = texturesByIDAndSlot[slot].data()[textureID];
+		auto& resitencyInfo = texturesByID.data()[textureID];
 
 		D3D12_PACKED_MIP_INFO packedMipInfo;
 		graphicsEngine.graphicsDevice->GetResourceTiling(resitencyInfo.resource, nullptr, &packedMipInfo, nullptr, nullptr, 0u, nullptr);
@@ -183,7 +183,7 @@ void VirtualTextureManager::unloadTextureHelper(const wchar_t * filename, D3D12G
 		
 		delete[] resitencyInfo.pinnedHeapLocations;
 		resitencyInfo.resource->Release();
-		texturesByIDAndSlot[slot].deallocate(textureID);
+		texturesByID.deallocate(textureID);
 	}
 }
 
@@ -265,10 +265,9 @@ void VirtualTextureManager::createTextureWithResitencyInfo(D3D12GraphicsEngine& 
 	auto requests = uploadRequests.find(filename);
 	assert(requests != uploadRequests.end() && "A texture is loading with no requests for it");
 	auto& request = requests->second[0];
-	unsigned int slot = static_cast<unsigned int>(request.slot);
-	unsigned int textureID = texturesByIDAndSlot[slot].allocate();
+	unsigned int textureID = texturesByID.allocate();
 	textureInfo.textureID = textureID;
-	texturesByIDAndSlot[slot].data()[textureID] = std::move(resitencyInfo);
+	texturesByID.data()[textureID] = std::move(resitencyInfo);
 }
 
 void VirtualTextureManager::textureUseSubresourceHelper(RamToVramUploadRequest& request, D3D12GraphicsEngine& graphicsEngine, StreamingManagerThreadLocal& streamingManager, void* const uploadBufferCpuAddressOfCurrentPos,

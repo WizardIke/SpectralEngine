@@ -181,14 +181,16 @@ StreamingManagerThreadLocal::StreamingManagerThreadLocal(ID3D12Device* const gra
 	if (uploadHeapStartingSize != 0u)
 	{
 		D3D12_HEAP_PROPERTIES uploadHeapProperties;
-		uploadHeapProperties.Type = D3D12_HEAP_TYPE_UPLOAD;
+		uploadHeapProperties.Type = D3D12_HEAP_TYPE::D3D12_HEAP_TYPE_UPLOAD;
 		uploadHeapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
 		uploadHeapProperties.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
-		uploadHeapProperties.CreationNodeMask = 1u;
-		uploadHeapProperties.VisibleNodeMask = 1u;
+		uploadHeapProperties.CreationNodeMask = 0u;
+		uploadHeapProperties.VisibleNodeMask = 0u;
+		
+		
 
 		D3D12_RESOURCE_DESC uploadResouceDesc;
-		uploadResouceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+		uploadResouceDesc.Dimension = D3D12_RESOURCE_DIMENSION::D3D12_RESOURCE_DIMENSION_BUFFER;
 		uploadResouceDesc.Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
 		uploadResouceDesc.Width = uploadHeapStartingSize;
 		uploadResouceDesc.Height = 1u;
@@ -197,10 +199,11 @@ StreamingManagerThreadLocal::StreamingManagerThreadLocal(ID3D12Device* const gra
 		uploadResouceDesc.Format = DXGI_FORMAT_UNKNOWN;
 		uploadResouceDesc.SampleDesc.Count = 1u;
 		uploadResouceDesc.SampleDesc.Quality = 0u;
-		uploadResouceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-		uploadResouceDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
+		uploadResouceDesc.Layout = D3D12_TEXTURE_LAYOUT::D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+		uploadResouceDesc.Flags = D3D12_RESOURCE_FLAGS::D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE;
 
-		new(&uploadBuffer) D3D12Resource(graphicsDevice, uploadHeapProperties, D3D12_HEAP_FLAG_NONE, uploadResouceDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr);
+		new(&uploadBuffer) D3D12Resource(graphicsDevice, uploadHeapProperties, D3D12_HEAP_FLAGS::D3D12_HEAP_FLAG_NONE, 
+			uploadResouceDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr);
 
 		D3D12_RANGE Range = { 0u, 0u };
 		uploadBuffer->Map(0u, &Range, reinterpret_cast<void**>(&uploadBufferCpuAddress));

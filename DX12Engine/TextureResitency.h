@@ -19,7 +19,6 @@ struct PageRequestData
 class textureLocation
 {
 public:
-	constexpr static unsigned int maxTextureSlots = 6;
 	uint64_t value;
 
 	uint64_t x() const
@@ -44,42 +43,47 @@ public:
 
 	uint64_t mipLevel() const
 	{
-		return (value & 0x00000000ffff0000) >> 16u;
+		return (value & 0x0000000000ff0000) >> 16u;
 	}
 
 	void setMipLevel(uint64_t mipLevel)
 	{
-		value = (mipLevel << 16u) | (value & 0xffffffff0000ffff);
+		value = (mipLevel << 16u) | (value & 0xffffffffff00ffff);
 	}
 
 	void decreaseMipLevel(uint64_t mipLevelDecr)
 	{
-		value += mipLevelDecr << 16u;
+		value -= mipLevelDecr << 16u;
 	}
 
-	uint64_t textureIdAndSlot() const
+	uint64_t textureId1() const
 	{
-		return value & 0x000000000000ffff;
+		return value & 0x00000000ff000000 >> 24u;
 	}
 
-	void setTextureIdAndSlot(uint64_t idAndSlot)
+	void setTextureId1(uint64_t idAndSlot)
 	{
-		value = idAndSlot | (value & 0xffffffffffff0000);
+		value = (idAndSlot << 24u) | (value & 0xffffffff00ffffff);
 	}
 
-	uint64_t textureId() const
+	uint64_t textureId2() const
 	{
-		return value & 0x03FF;
+		return (value & 0xff00) >> 8u;
 	}
 
-	uint64_t textureSlots() const
+	void setTextureId2(uint64_t idAndSlot)
 	{
-		return (value & 0xFC00) >> 10u;
+		value = (idAndSlot << 8u) | (value & 0xffffffffffff00ff);
 	}
 
-	void setTextureSlots(uint64_t textureSlots)
+	uint64_t textureId3() const
 	{
-		value = (textureSlots << 10u) | (value & 0xffffffffffff03ff);
+		return (value & 0xff);
+	}
+
+	void setTextureId3(uint64_t idAndSlot)
+	{
+		value = (idAndSlot ) | (value & 0xffffffffffffff00);
 	}
 
 	bool operator==(const textureLocation& other) const

@@ -46,8 +46,7 @@ PageProvider::PageProvider(float desiredMipBias, IDXGIAdapter3* adapter, ID3D12D
 
 void PageProvider::addPageLoadRequestHelper(PageLoadRequest& pageRequest, VirtualTextureManager& virtualTextureManager)
 {
-	VirtualTextureInfo& resourceInfo = virtualTextureManager.texturesByIDAndSlot[pageRequest.allocationInfo.textureLocation.textureId()]
-		.data()[pageRequest.allocationInfo.textureLocation.textureSlots()];
+	VirtualTextureInfo& resourceInfo = virtualTextureManager.texturesByID.data()[pageRequest.allocationInfo.textureLocation.textureId1()];
 
 	PageProvider& pageProvider = *pageRequest.pageProvider;
 	size_t pageRequestIndex = &pageRequest - pageProvider.pageLoadRequests;

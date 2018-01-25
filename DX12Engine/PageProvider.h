@@ -166,11 +166,10 @@ public:
 		{
 			textureLocation location;
 			location.value = request.first.value;
-			auto textureId = request.first.textureId();
-			auto textureSlot = request.first.textureSlots();
+			auto textureId = request.first.textureId1();
 			const unsigned int mipLevel = static_cast<unsigned int>(request.first.mipLevel()) + mipBiasIncrease;
 			location.setMipLevel(mipLevel);
-			const VirtualTextureInfo& textureInfo = virtualTextureManager.texturesByIDAndSlot[textureSlot].data()[textureId];
+			const VirtualTextureInfo& textureInfo = virtualTextureManager.texturesByID.data()[textureId];
 
 			if (pageCache.getPage(location) != nullptr)
 			{
@@ -183,7 +182,7 @@ public:
 				nextMipLocation.setX(location.x() >> 1u);
 				nextMipLocation.setY(location.y() >> 1u);
 				nextMipLocation.setMipLevel(nextMipLevel);
-				nextMipLocation.setTextureIdAndSlot(location.textureIdAndSlot());
+				nextMipLocation.setTextureId1(textureId);
 				if (nextMipLevel == textureInfo.lowestPinnedMip || pageCache.getPage(nextMipLocation) != nullptr)
 				{
 					bool pageAlreadyLoading = false;
@@ -311,7 +310,7 @@ public:
 			PageProvider& pageProvider = *reinterpret_cast<PageProvider*>(requester);
 			PageAllocator& pageAllocator = pageProvider.pageAllocator;
 			PageCache& pageCache = pageProvider.pageCache;
-			PageDeleter<decltype(virtualTextureManager.texturesByIDAndSlot)> pageDeleter(pageAllocator, virtualTextureManager.texturesByIDAndSlot, commandQueue);
+			PageDeleter<decltype(virtualTextureManager.texturesByID)> pageDeleter(pageAllocator, virtualTextureManager.texturesByID, commandQueue);
 			size_t newCacheSize = pageProvider.newCacheSize;
 			auto newPageCount = pageProvider.newPageCount;
 			PageAllocationInfo* newPages = pageProvider.newPages;
@@ -320,7 +319,7 @@ public:
 			{
 				pageCache.decreaseSize(newCacheSize, pageDeleter);
 				size_t newPageAllocatorSize = newCacheSize + newCacheSize % PageAllocator::heapSizeInPages;
-				pageAllocator.decreaseNonPinnedSize(newPageAllocatorSize, pageCache, commandQueue, virtualTextureManager.texturesByIDAndSlot);
+				pageAllocator.decreaseNonPinnedSize(newPageAllocatorSize, pageCache, commandQueue, virtualTextureManager.texturesByID);
 			}
 			//add all remaining new pages to the cache and drop old pages from the cache
 			if (newPageCount != 0u)
@@ -338,10 +337,10 @@ public:
 				newPageCoordinates[0].Y = (UINT)newPages[0u].textureLocation.y();
 				newPageCoordinates[0].Z = 0u;
 				newPageCoordinates[0].Subresource = (UINT)newPages[0u].textureLocation.mipLevel();
-				unsigned int previousResourceIdAndSlot = (unsigned int)newPages[0u].textureLocation.textureIdAndSlot();
+				unsigned int previousResourceId = (unsigned int)newPages[0u].textureLocation.textureId1();
 				unsigned int lastIndex = 0u;
 				{
-					VirtualTextureInfo& resourceInfo = virtualTextureManager.texturesByIDAndSlot[newPages[0].textureLocation.textureId()].data()[newPages[0].textureLocation.textureSlots()];
+					VirtualTextureInfo& resourceInfo = virtualTextureManager.texturesByID.data()[newPages[0].textureLocation.textureId1()];
 					commandList->CopyTiles(resourceInfo.resource, &newPageCoordinates[0u], &tileSize, pageProvider.uploadResource, newPagesOffsetInLoadRequests[0] * 64u * 1024u,
 						D3D12_TILE_COPY_FLAGS::D3D12_TILE_COPY_FLAG_LINEAR_BUFFER_TO_SWIZZLED_TILED_RESOURCE);
 				}
@@ -350,12 +349,13 @@ public:
 				{
 					for (; i != newPageCount; ++i)
 					{
-						unsigned int resourceIdAndSlot = (unsigned int)newPages[i].textureLocation.textureIdAndSlot();
-						VirtualTextureInfo& resourceInfo = virtualTextureManager.texturesByIDAndSlot[newPages[i].textureLocation.textureId()].data()[newPages[i].textureLocation.textureSlots()];
-						if (resourceIdAndSlot != previousResourceIdAndSlot)
+						unsigned int resourceId = (unsigned int)newPages[i].textureLocation.textureId1();
+						VirtualTextureInfo& resourceInfo = virtualTextureManager.texturesByID.data()[newPages[i].textureLocation.textureId1()];
+						if (resourceId != previousResourceId)
 						{
 							pageAllocator.addPages(newPageCoordinates + lastIndex, i - lastIndex, resourceInfo, commandQueue, graphicsDevice, newPages + lastIndex);
 							lastIndex = i;
+							previousResourceId = resourceId;
 						}
 						newPageCoordinates[i].X = (UINT)newPages[i].textureLocation.x();
 						newPageCoordinates[i].Y = (UINT)newPages[i].textureLocation.y();
@@ -366,7 +366,7 @@ public:
 							D3D12_TILE_COPY_FLAGS::D3D12_TILE_COPY_FLAG_LINEAR_BUFFER_TO_SWIZZLED_TILED_RESOURCE);
 					}
 				}
-				VirtualTextureInfo& resourceInfo = virtualTextureManager.texturesByIDAndSlot[newPages[i].textureLocation.textureId()].data()[newPages[i].textureLocation.textureSlots()];
+				VirtualTextureInfo& resourceInfo = virtualTextureManager.texturesByID.data()[newPages[i].textureLocation.textureId1()];
 				pageAllocator.addPages(newPageCoordinates + lastIndex, i - lastIndex, resourceInfo, commandQueue, graphicsDevice, newPages + lastIndex);
 
 				pageCache.addPages(newPages, newPageCount, pageDeleter);

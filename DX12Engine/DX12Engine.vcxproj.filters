@@ -397,14 +397,14 @@
       <Filter>VirtualTexturing</Filter>
     </ClInclude>
     <ClInclude Include="Range.h" />
-    <ClInclude Include="VtFeedbackMaterial.h">
-      <Filter>Shaders\Pixel</Filter>
-    </ClInclude>
     <ClInclude Include="Shaders\VtFeedbackCameraMaterial.h">
       <Filter>Shaders\Pixel</Filter>
     </ClInclude>
     <ClInclude Include="PageDeleter.h">
       <Filter>VirtualTexturing</Filter>
+    </ClInclude>
+    <ClInclude Include="Shaders\VtFeedbackMaterial.h">
+      <Filter>Shaders\Pixel</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

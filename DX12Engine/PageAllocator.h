@@ -57,9 +57,9 @@ public:
 	void removePinnedPages(const HeapLocation* pinnedHeapLocations, unsigned int numPinnedPages);
 	size_t pinnedPageCount() { return mPinnedPageCount; }
 
-	template<class TexturesByIDAndSlot>
+	template<class TexturesByID>
 	void decreaseNonPinnedSize(size_t newSize, PageCache& pageCache, ID3D12CommandQueue* commandQueue,
-		const TexturesByIDAndSlot& texturesByIDAndSlot)
+		const TexturesByID& texturesByID)
 	{
 		size_t newNumChunks = newSize / heapSizeInPages;
 		assert(chunks.size() > newNumChunks && "can't decrease size to a larger size");
@@ -75,9 +75,8 @@ public:
 		D3D12_TILE_RANGE_FLAGS rangeFlags = D3D12_TILE_RANGE_FLAG_NULL;
 		ID3D12Resource* lastResource;
 		{
-			auto textureId = pages.begin()->textureLocation.textureId();
-			auto textureSlot = pages.begin()->textureLocation.textureSlots();
-			const VirtualTextureInfo& textureInfo = texturesByIDAndSlot[textureSlot].data()[textureId];
+			auto textureId = pages.begin()->textureLocation.textureId1();
+			const VirtualTextureInfo& textureInfo = texturesByID.data()[textureId];
 			lastResource = textureInfo.resource;
 		}
 		size_t i = 0u;
@@ -90,9 +89,8 @@ public:
 				*locationsEnd = page.textureLocation;
 				++locationsEnd;
 
-				auto textureId = page.textureLocation.textureId();
-				auto textureSlot = page.textureLocation.textureSlots();
-				const VirtualTextureInfo& textureInfo = texturesByIDAndSlot[textureSlot].data()[textureId];
+				auto textureId = page.textureLocation.textureId1();
+				const VirtualTextureInfo& textureInfo = texturesByID.data()[textureId];
 				resourceTileCoords[i].X = (UINT)page.textureLocation.x();
 				resourceTileCoords[i].Y = (UINT)page.textureLocation.y();
 				resourceTileCoords[i].Z = 0u;
