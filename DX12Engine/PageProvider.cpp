@@ -14,7 +14,8 @@ PageProvider::PageProvider(float desiredMipBias, IDXGIAdapter3* adapter, ID3D12D
 	}
 
 	DXGI_QUERY_VIDEO_MEMORY_INFO videoMemoryInfo;
-	adapter->QueryVideoMemoryInfo(1u, DXGI_MEMORY_SEGMENT_GROUP::DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &videoMemoryInfo);
+	auto result = adapter->QueryVideoMemoryInfo(0u, DXGI_MEMORY_SEGMENT_GROUP::DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &videoMemoryInfo);
+	assert(result == S_OK);
 	maxPages = ((signed long long)videoMemoryInfo.Budget - (signed long long)videoMemoryInfo.CurrentUsage) / (64 * 1024);
 	memoryUsage = videoMemoryInfo.CurrentUsage;
 

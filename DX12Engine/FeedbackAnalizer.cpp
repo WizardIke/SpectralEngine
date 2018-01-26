@@ -22,7 +22,10 @@ void FeedbackAnalizerSubPass::readbackTextureReadyHelper(void* requester, Virtua
 {
 	FeedbackAnalizerSubPass& subPass = *reinterpret_cast<FeedbackAnalizerSubPass*>(requester);
 	auto& uniqueRequests = subPass.uniqueRequests;
-	uint8_t* feadBackBuffer = subPass.readbackTextureCpu;
+	uint8_t* feadBackBuffer;
+	D3D12_RANGE readRange{ 0u, subPass.rowPitch * (subPass.height - 1u) + subPass.packedRowPitch };
+	subPass.readbackTexture->Map(0u, &readRange, reinterpret_cast<void**>(&feadBackBuffer));
+
 	const auto packedRowPitch = subPass.packedRowPitch;
 	const auto width = subPass.width;
 	const auto height = subPass.height;
@@ -44,6 +47,7 @@ void FeedbackAnalizerSubPass::readbackTextureReadyHelper(void* requester, Virtua
 			feedbackData.setTextureId2(0);
 			feedbackData.setTextureId3(0);
 
+			/*
 			VirtualTextureInfo* textureInfo;
 			if (textureId != 255u)
 			{
@@ -62,8 +66,12 @@ void FeedbackAnalizerSubPass::readbackTextureReadyHelper(void* requester, Virtua
 				textureInfo = &virtualTextureManager.texturesByID.data()[texture3d];
 				requestMipLevels(nextMipLevel, textureInfo, feedbackData, uniqueRequests);
 			}
+			*/
 		}
 	}
+
+	D3D12_RANGE writtenRange{ 0u, 0u };
+	subPass.readbackTexture->Unmap(0u, &writtenRange);
 }
 
 void FeedbackAnalizerSubPass::destruct(SharedResources* sharedResources)
@@ -81,7 +89,7 @@ void FeedbackAnalizerSubPass::ThreadLocal::addBarrier(FeedbackAnalizerSubPass& r
 	D3D12_RESOURCE_BARRIER barriers[1];
 	for (auto cam = cameras.begin(); cam != camerasEnd; ++cam)
 	{
-		assert(barrierCount != 1);
+		assert(barrierCount != 1u);
 		auto camera = *cam;
 		barriers[barrierCount].Flags = D3D12_RESOURCE_BARRIER_FLAGS::D3D12_RESOURCE_BARRIER_FLAG_NONE;
 		barriers[barrierCount].Type = D3D12_RESOURCE_BARRIER_TYPE::D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
@@ -136,8 +144,8 @@ void FeedbackAnalizerSubPass::createResources(SharedResources& sharedResources, 
 	heapProperties.VisibleNodeMask = 1u;
 
 	new(&readbackTexture) D3D12Resource(graphicsDevice, heapProperties, D3D12_HEAP_FLAGS::D3D12_HEAP_FLAG_NONE, resourceDesc, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_COPY_DEST, nullptr);
-	D3D12_RANGE readRange{ 0u, totalSize };
-	readbackTexture->Map(0u, &readRange, reinterpret_cast<void**>(&readbackTextureCpu));
+	//D3D12_RANGE readRange{ 0u, totalSize };
+	//readbackTexture->Map(0u, &readRange, reinterpret_cast<void**>(&readbackTextureCpu));
 
 	resourceDesc.Flags = D3D12_RESOURCE_FLAGS::D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
 	resourceDesc.Format = DXGI_FORMAT::DXGI_FORMAT_R16G16B16A16_UINT;

@@ -77,7 +77,7 @@ public:
 		ID3D12Device* graphicsDevice = sharedResources.graphicsEngine.graphicsDevice;
 		//work out page budget
 		DXGI_QUERY_VIDEO_MEMORY_INFO videoMemoryInfo;
-		adapter->QueryVideoMemoryInfo(1u, DXGI_MEMORY_SEGMENT_GROUP::DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &videoMemoryInfo);
+		adapter->QueryVideoMemoryInfo(0u, DXGI_MEMORY_SEGMENT_GROUP::DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &videoMemoryInfo);
 		maxPages += ((signed long long)memoryUsage - (signed long long)videoMemoryInfo.CurrentUsage) / (64 * 1024);
 		size_t maxPagesMinZero = maxPages > 0 ? (size_t)maxPages : 0u;
 		memoryUsage = videoMemoryInfo.CurrentUsage;
@@ -257,8 +257,8 @@ public:
 					if (loadRequestsStart == loadRequestsEnd) break;
 				}
 			}
+			posableLoadRequests.clear();
 		}
-		posableLoadRequests.clear();
 
 		//work out which newly loaded pages have to be dropped based on the number of pages that can be dropped from the cache
 		size_t numDroppablePagesInCache = newCacheSize - numRequiredPagesInCache;

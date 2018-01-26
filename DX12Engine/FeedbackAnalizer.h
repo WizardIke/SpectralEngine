@@ -20,7 +20,7 @@ class FeedbackAnalizerSubPass : public RenderSubPass<VirtualPageCamera, D3D12_RE
 	D3D12DescriptorHeap depthStencilDescriptorHeap;
 	D3D12DescriptorHeap rtvDescriptorHeap;
 	D3D12Resource readbackTexture;
-	uint8_t* readbackTextureCpu;
+	//uint8_t* readbackTextureCpu;
 	unsigned long width, packedRowPitch, height, rowPitch;
 	VirtualPageCamera camera;
 	unsigned long long memoryUsage;
@@ -54,7 +54,7 @@ class FeedbackAnalizerSubPass : public RenderSubPass<VirtualPageCamera, D3D12_RE
 		analyser.uniqueRequests.clear();
 
 		// we have finished with the readback resources so we can render again
-		executor->updateJobQueue().pop(Job(&analyser, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources)
+		executor->updateJobQueue().push(Job(&analyser, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources)
 		{
 			FeedbackAnalizerSubPass& subPass = *reinterpret_cast<FeedbackAnalizerSubPass*>(requester);
 			subPass.inView = true;
@@ -103,6 +103,7 @@ public:
 					StreamingManagerThreadLocal& streamingManager = executor->streamingManager;
 					FeedbackAnalizerSubPass& renderSubPass = *reinterpret_cast<FeedbackAnalizerSubPass*>(requester);
 
+
 					D3D12_TEXTURE_COPY_LOCATION UploadBufferLocation;
 					UploadBufferLocation.pResource = renderSubPass.feadbackTextureGpu;
 					UploadBufferLocation.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
@@ -114,9 +115,10 @@ public:
 					destination.PlacedFootprint.Offset = 0u;
 					destination.PlacedFootprint.Footprint.Depth = 1u;
 					destination.PlacedFootprint.Footprint.Format = DXGI_FORMAT::DXGI_FORMAT_R16G16B16A16_UINT;
-					destination.PlacedFootprint.Footprint.Height = 1u;
-					destination.PlacedFootprint.Footprint.Width = renderSubPass.rowPitch * (renderSubPass.height - 1u) + renderSubPass.packedRowPitch;
+					destination.PlacedFootprint.Footprint.Height = renderSubPass.height;
+					destination.PlacedFootprint.Footprint.Width = renderSubPass.width;
 					destination.PlacedFootprint.Footprint.RowPitch = static_cast<uint32_t>(renderSubPass.rowPitch);
+
 					streamingManager.currentCommandList->CopyTextureRegion(&destination, 0u, 0u, 0u, &UploadBufferLocation, nullptr);
 
 					streamingManager.addCopyCompletionEvent(requester, FeedbackAnalizerSubPass::readbackTextureReady<Executor, SharedResources_t>);
