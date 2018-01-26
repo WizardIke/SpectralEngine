@@ -11,9 +11,9 @@ protected:
 	void update1(std::unique_lock<std::mutex>&& lock, SharedResources& sharedResources);
 	virtual void update2(std::unique_lock<std::mutex>&& lock, SharedResources& sharedResources) override;
 public:
-	Executor(SharedResources* const sharedResources, unsigned long uploadHeapStartingSize, unsigned int uploadRequestBufferStartingCapacity, unsigned int halfFinishedUploadRequestBufferStartingCapasity) : 
-		BaseExecutor(sharedResources), renderPass(*sharedResources),
-		streamingManager(sharedResources->graphicsEngine.graphicsDevice, uploadHeapStartingSize, uploadRequestBufferStartingCapacity, halfFinishedUploadRequestBufferStartingCapasity)
+	Executor(SharedResources& sharedResources, unsigned long uploadHeapStartingSize, unsigned int uploadRequestBufferStartingCapacity, unsigned int halfFinishedUploadRequestBufferStartingCapasity) : 
+		BaseExecutor(&sharedResources), renderPass(sharedResources),
+		streamingManager(sharedResources.graphicsEngine.graphicsDevice, uploadHeapStartingSize, uploadRequestBufferStartingCapacity, halfFinishedUploadRequestBufferStartingCapasity)
 	{}
 
 	static void update1NextPhaseJob(BaseExecutor* exe, SharedResources& sharedResources, std::unique_lock<std::mutex>&& lock);

@@ -2,7 +2,7 @@
 #include "Assets.h"
 #include <D3D12GraphicsEngine.h>
 
-BackgroundExecutor::BackgroundExecutor(SharedResources& sharedResources) : Executor(&sharedResources, uploadHeapStartingSize, uploadRequestBufferStartingCapacity, halfFinishedUploadRequestBufferStartingCapasity)
+BackgroundExecutor::BackgroundExecutor(SharedResources& sharedResources) : Executor(sharedResources, uploadHeapStartingSize, uploadRequestBufferStartingCapacity, halfFinishedUploadRequestBufferStartingCapasity)
 {
 #ifndef NDEBUG
 	type = "BackgroundExecutor";

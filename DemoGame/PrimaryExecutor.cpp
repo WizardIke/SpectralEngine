@@ -1,6 +1,6 @@
 #include "PrimaryExecutor.h"
 
-PrimaryExecutor::PrimaryExecutor(SharedResources& sharedResources) : Executor(&sharedResources, uploadHeapStartingSize, uploadRequestBufferStartingCapacity, halfFinishedUploadRequestBufferStartingCapasity)
+PrimaryExecutor::PrimaryExecutor(SharedResources& sharedResources) : Executor(sharedResources, uploadHeapStartingSize, uploadRequestBufferStartingCapacity, halfFinishedUploadRequestBufferStartingCapasity)
 {
 #ifdef _DEBUG
 	type = "PrimaryExecutor";

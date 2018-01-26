@@ -1,7 +1,7 @@
 #include "MainExecutor.h"
 #include "Assets.h"
 
-MainExecutor::MainExecutor(SharedResources* const sharedResources) :
+MainExecutor::MainExecutor(SharedResources& sharedResources) :
 	Executor(sharedResources, uploadHeapStartingSize, uploadRequestBufferStartingCapacity, halfFinishedUploadRequestBufferStartingCapasity)
 {
 #ifdef _DEBUG

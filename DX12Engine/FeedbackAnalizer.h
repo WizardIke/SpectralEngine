@@ -78,6 +78,7 @@ public:
 	bool isInView(SharedResources& sharedResources)
 	{
 		return inView;
+		//return false;
 	}
 
 	class ThreadLocal : public RenderSubPass<Camera, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET, std::tuple<>, std::tuple<>, 1u, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_COMMON>::ThreadLocal

@@ -12,7 +12,10 @@ public:
 		void* const obverver;
 	public:
 		MouseMotionObverver(void(*obververMouseMoved)(void* obverver, float deltaX, float deltaY), void* const obverver) : 
-			obververMouseMoved(obververMouseMoved), obverver(obverver) {}
+			obververMouseMoved(obververMouseMoved), obverver(obverver) 
+		{
+			assert(obververMouseMoved != nullptr);
+		}
 		void mouseMoved(float deltaX, float deltaY)
 		{
 			obververMouseMoved(obverver, deltaX, deltaY);

@@ -7,7 +7,7 @@ class MainExecutor : public Executor
 	constexpr static unsigned int uploadRequestBufferStartingCapacity = 25u;
 	constexpr static unsigned int halfFinishedUploadRequestBufferStartingCapasity = 25u;
 public:
-	MainExecutor(SharedResources* const sharedResources);
+	MainExecutor(SharedResources& sharedResources);
 
 	virtual void update2(std::unique_lock<std::mutex>&& lock, SharedResources& sharedResources) override;
 };

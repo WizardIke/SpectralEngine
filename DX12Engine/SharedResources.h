@@ -37,7 +37,7 @@ public:
 		return windowCallbackImpl(hwnd, message, wParam, lParam, sharedResources, getMainExecutor(*sharedResources));
 	}
 
-	SharedResources(BaseExecutor* mainExecutor, bool fullScreen, bool vSync, bool enableGpuDebugging, unsigned int numThreads, WindowCallback windowCallback);
+	SharedResources(bool fullScreen, bool vSync, bool enableGpuDebugging, unsigned int numThreads, WindowCallback windowCallback);
 
 	const unsigned int maxBackgroundThreads;
 	const unsigned int maxPrimaryThreads;

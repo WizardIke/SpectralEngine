@@ -420,9 +420,8 @@ public:
 		{
 			start->addSubPass(sharedResources);
 		}
-		renderPass.updateBarrierCount();
-
 		commandListsPerFrame += subPass.commandListsPerFrame;
+		renderPass.updateBarrierCount();
 		return *(mSubPasses.end() - 1u);
 	}
 
@@ -526,7 +525,6 @@ public:
 
 		void addSubPass(SharedResources& sharedResources)
 		{
-			//might need a mutex
 			mSubPasses.emplace_back(sharedResources);
 		}
 

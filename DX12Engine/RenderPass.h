@@ -401,25 +401,30 @@ public:
 		void update2LastThread(Executor* const executor, SharedResources& sharedResources, RenderPass<RenderSubPass_t...>& renderPass)
 		{
 			update2(executor, sharedResources, renderPass);
-			unsigned int commandListCount = commandListPerThread(renderPass.subPasses) *
+			unsigned int commandListCount = commandListPerThread(renderPass.subPasses, sharedResources) *
 				(1u + sharedResources.maxPrimaryThreads + sharedResources.numPrimaryJobExeThreads);
 			sharedResources.graphicsEngine.present(sharedResources.window, renderPass.commandLists.get(), commandListCount);
 		}
 	private:
-		unsigned int commandListPerThread(std::tuple<RenderSubPass_t...>& subPasses)
+		unsigned int commandListPerThread(std::tuple<RenderSubPass_t...>& subPasses, SharedResources& sharedResources)
 		{
 			constexpr auto subPassCount = sizeof...(RenderSubPass_t);
-			return commandListPerThread<0u, subPassCount>(subPasses);
+			return commandListPerThread<0u, subPassCount>(subPasses, sharedResources);
 		}
 
 		template<unsigned int start, unsigned int end>
-		std::enable_if_t<start != end, unsigned int> commandListPerThread(std::tuple<RenderSubPass_t...>& subPasses)
+		std::enable_if_t<start != end, unsigned int> commandListPerThread(std::tuple<RenderSubPass_t...>& subPasses, SharedResources& sharedResources)
 		{
-			return std::get<start>(subPasses).commandListsPerFrame + commandListPerThread<start + 1u, end>(subPasses);
+			auto& subPass = std::get<start>(subPasses);
+			if (subPass.isInView(sharedResources))
+			{
+				return subPass.commandListsPerFrame + commandListPerThread<start + 1u, end>(subPasses, sharedResources);
+			}
+			return commandListPerThread<start + 1u, end>(subPasses, sharedResources);
 		}
 
 		template<unsigned int start, unsigned int end>
-		std::enable_if_t<start == end, unsigned int> commandListPerThread(std::tuple<RenderSubPass_t...>& subPasses)
+		std::enable_if_t<start == end, unsigned int> commandListPerThread(std::tuple<RenderSubPass_t...>& subPasses, SharedResources& sharedResources)
 		{
 			return 0u;
 		}
