@@ -82,6 +82,7 @@ public:
 
 	class ThreadLocal
 	{
+	protected:
 		struct PerFrameData
 		{
 			std::array<D3D12CommandAllocator, commandListsPerFrame> commandAllocators;

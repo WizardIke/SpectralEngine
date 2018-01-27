@@ -10,18 +10,18 @@
 #include "PageProvider.h"
 
 class FeedbackAnalizerSubPass : public RenderSubPass<VirtualPageCamera, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET, std::tuple<>, std::tuple<>, 1u,
-	D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_COMMON>
+	D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET>
 {
 	friend class ThreadLocal;
 	using Base = RenderSubPass<VirtualPageCamera, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET, std::tuple<>, std::tuple<>, 1u,
-		D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_COMMON>;
+		D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET>;
 	D3D12Resource feadbackTextureGpu;
 	D3D12Resource depthBuffer;
 	D3D12DescriptorHeap depthStencilDescriptorHeap;
 	D3D12DescriptorHeap rtvDescriptorHeap;
 	D3D12Resource readbackTexture;
 	//uint8_t* readbackTextureCpu;
-	unsigned long width, packedRowPitch, height, rowPitch;
+	unsigned long width, height;
 	VirtualPageCamera camera;
 	unsigned long long memoryUsage;
 
@@ -62,14 +62,14 @@ class FeedbackAnalizerSubPass : public RenderSubPass<VirtualPageCamera, D3D12_RE
 	}
 
 	static void readbackTextureReadyHelper(void* requester, VirtualTextureManager& virtualTextureManager, BaseExecutor* executor);
-	void createResources(SharedResources& sharedResources, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1, uint8_t*& constantBufferCpuAddress1, float fieldOfView);
+	void createResources(SharedResources& sharedResources, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1, uint8_t*& constantBufferCpuAddress1, uint32_t width, uint32_t height, float fieldOfView);
 public:
 	FeedbackAnalizerSubPass() {}
 	template<class RenderPass>
 	FeedbackAnalizerSubPass(SharedResources& sharedResources, uint32_t width, uint32_t height, RenderPass& renderPass, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1,
-		uint8_t*& constantBufferCpuAddress1, float fieldOfView) : width(width), height(height)
+		uint8_t*& constantBufferCpuAddress1, float fieldOfView)
 	{
-		createResources(sharedResources, constantBufferGpuAddress1, constantBufferCpuAddress1, fieldOfView);
+		createResources(sharedResources, constantBufferGpuAddress1, constantBufferCpuAddress1, width, height, fieldOfView);
 		addCamera(sharedResources, renderPass, &camera);
 	}
 
@@ -81,16 +81,19 @@ public:
 		//return false;
 	}
 
-	class ThreadLocal : public RenderSubPass<Camera, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET, std::tuple<>, std::tuple<>, 1u, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_COMMON>::ThreadLocal
+	class ThreadLocal : public Base::ThreadLocal
 	{
-		using Base = RenderSubPass<Camera, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET, std::tuple<>, std::tuple<>, 1u, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_COMMON>::ThreadLocal;
+		using Base = Base::ThreadLocal;
 	public:
 		ThreadLocal(SharedResources& sharedResources) : Base(sharedResources) {}
+
+		void update1AfterFirstThread(SharedResources& sharedResources, FeedbackAnalizerSubPass& renderSubPass,
+			ID3D12RootSignature* rootSignature, uint32_t barrierCount, D3D12_RESOURCE_BARRIER* barriers);
 
 		template<class Executor, class SharedResources_t>
 		void update2LastThread(ID3D12CommandList**& commandLists, unsigned int numThreads, FeedbackAnalizerSubPass& renderSubPass, Executor* executor, SharedResources_t& sharedResources)
 		{
-			addBarrier(renderSubPass, lastCommandList());
+			addBarrier<state, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_COMMON>(renderSubPass, lastCommandList());
 			executor->updateJobQueue().push(Job(&renderSubPass, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources)
 			{
 				FeedbackAnalizerSubPass& renderSubPass = *reinterpret_cast<FeedbackAnalizerSubPass*>(requester);
@@ -117,7 +120,7 @@ public:
 					destination.PlacedFootprint.Footprint.Format = DXGI_FORMAT::DXGI_FORMAT_R16G16B16A16_UINT;
 					destination.PlacedFootprint.Footprint.Height = renderSubPass.height;
 					destination.PlacedFootprint.Footprint.Width = renderSubPass.width;
-					destination.PlacedFootprint.Footprint.RowPitch = static_cast<uint32_t>(renderSubPass.rowPitch);
+					destination.PlacedFootprint.Footprint.RowPitch = static_cast<uint32_t>(renderSubPass.width * 8u);
 
 					streamingManager.currentCommandList->CopyTextureRegion(&destination, 0u, 0u, 0u, &UploadBufferLocation, nullptr);
 
@@ -128,6 +131,26 @@ public:
 			update2(commandLists, numThreads);
 		}
 
-		static void addBarrier(FeedbackAnalizerSubPass& renderSubPass, ID3D12GraphicsCommandList* lastCommandList);
+		template<D3D12_RESOURCE_STATES stateBefore, D3D12_RESOURCE_STATES stateAfter>
+		static void addBarrier(FeedbackAnalizerSubPass& renderSubPass, ID3D12GraphicsCommandList* lastCommandList)
+		{
+			auto cameras = renderSubPass.cameras();
+			auto camerasEnd = cameras.end();
+			uint32_t barrierCount = 0u;
+			D3D12_RESOURCE_BARRIER barriers[1];
+			for (auto cam = cameras.begin(); cam != camerasEnd; ++cam)
+			{
+				assert(barrierCount != 1u);
+				auto camera = *cam;
+				barriers[barrierCount].Flags = D3D12_RESOURCE_BARRIER_FLAGS::D3D12_RESOURCE_BARRIER_FLAG_NONE;
+				barriers[barrierCount].Type = D3D12_RESOURCE_BARRIER_TYPE::D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+				barriers[barrierCount].Transition.pResource = camera->getImage();
+				barriers[barrierCount].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+				barriers[barrierCount].Transition.StateBefore = stateBefore;
+				barriers[barrierCount].Transition.StateAfter = stateAfter;
+				++barrierCount;
+			}
+			lastCommandList->ResourceBarrier(barrierCount, barriers);
+		}
 	};
 };

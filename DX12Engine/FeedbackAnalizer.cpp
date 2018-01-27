@@ -1,4 +1,15 @@
 #include "FeedbackAnalizer.h"
+#include <chrono>
+#include <Windows.h>
+#include <iostream>
+#include <sstream>
+
+#define DBOUT( s )            \
+{                             \
+   std::wostringstream os_;    \
+   os_ << s;                   \
+   OutputDebugStringW( os_.str().c_str() );  \
+}
 
 template<class HashMap>
 static inline void requestMipLevels(unsigned int mipLevel, const VirtualTextureInfo* textureInfo, textureLocation feedbackData, HashMap& uniqueRequests)
@@ -23,53 +34,51 @@ void FeedbackAnalizerSubPass::readbackTextureReadyHelper(void* requester, Virtua
 	FeedbackAnalizerSubPass& subPass = *reinterpret_cast<FeedbackAnalizerSubPass*>(requester);
 	auto& uniqueRequests = subPass.uniqueRequests;
 	uint8_t* feadBackBuffer;
-	D3D12_RANGE readRange{ 0u, subPass.rowPitch * (subPass.height - 1u) + subPass.packedRowPitch };
-	subPass.readbackTexture->Map(0u, &readRange, reinterpret_cast<void**>(&feadBackBuffer));
 
-	const auto packedRowPitch = subPass.packedRowPitch;
 	const auto width = subPass.width;
 	const auto height = subPass.height;
-	const auto rowPitch = subPass.rowPitch;
+	const auto totalSize = width * height * 8u;
+	D3D12_RANGE readRange{ 0u, totalSize };
+	subPass.readbackTexture->Map(0u, &readRange, reinterpret_cast<void**>(&feadBackBuffer));
 
-	for (unsigned long y = 0u; y < height; ++y)
+	auto start = std::chrono::high_resolution_clock::now();
+
+	const auto feadBackBufferEnd = feadBackBuffer + totalSize;
+	for (; feadBackBuffer != feadBackBufferEnd; feadBackBuffer += 8u)
 	{
-		for (unsigned long x = 0u; x < packedRowPitch; x += 8u)
+		textureLocation feedbackData{*reinterpret_cast<uint64_t*>(feadBackBuffer)};
+
+		auto textureId = feedbackData.textureId1();
+		unsigned int nextMipLevel = (unsigned int)feedbackData.mipLevel();
+		auto texture2d = feedbackData.textureId2();
+		auto texture3d = feedbackData.textureId3();
+
+		feedbackData.setTextureId2(0);
+		feedbackData.setTextureId3(0);
+
+		VirtualTextureInfo* textureInfo;
+		if (textureId != 255u)
 		{
-			unsigned long index = y * rowPitch + x;
-			auto start = feadBackBuffer + index;
-			textureLocation feedbackData;
-			feedbackData.value = *reinterpret_cast<uint64_t*>(start);
-
-			auto x1 = feedbackData.x();
-			auto y1 = feedbackData.y();
-			auto textureId = feedbackData.textureId1();
-			unsigned int nextMipLevel = (unsigned int)feedbackData.mipLevel();
-			auto texture2d = feedbackData.textureId2();
-			auto texture3d = feedbackData.textureId3();
-			
-			feedbackData.setTextureId2(0);
-			feedbackData.setTextureId3(0);
-
-			VirtualTextureInfo* textureInfo;
-			if (textureId != 255u)
-			{
-				textureInfo = &virtualTextureManager.texturesByID.data()[textureId];
-				requestMipLevels(nextMipLevel, textureInfo, feedbackData, uniqueRequests);
-			}
-			if (textureId != 255u)
-			{
-				feedbackData.setTextureId1(texture2d);
-				textureInfo = &virtualTextureManager.texturesByID.data()[texture2d];
-				requestMipLevels(nextMipLevel, textureInfo, feedbackData, uniqueRequests);
-			}
-			if (textureId != 255u)
-			{
-				feedbackData.setTextureId1(texture3d);
-				textureInfo = &virtualTextureManager.texturesByID.data()[texture3d];
-				requestMipLevels(nextMipLevel, textureInfo, feedbackData, uniqueRequests);
-			}
+			textureInfo = &virtualTextureManager.texturesByID.data()[textureId];
+			requestMipLevels(nextMipLevel, textureInfo, feedbackData, uniqueRequests);
+		}
+		if (textureId != 255u)
+		{
+			feedbackData.setTextureId1(texture2d);
+			textureInfo = &virtualTextureManager.texturesByID.data()[texture2d];
+			requestMipLevels(nextMipLevel, textureInfo, feedbackData, uniqueRequests);
+		}
+		if (textureId != 255u)
+		{
+			feedbackData.setTextureId1(texture3d);
+			textureInfo = &virtualTextureManager.texturesByID.data()[texture3d];
+			requestMipLevels(nextMipLevel, textureInfo, feedbackData, uniqueRequests);
 		}
 	}
+
+	auto end = std::chrono::high_resolution_clock::now();
+	std::chrono::duration<double> time = end - start;
+	DBOUT("\n" << time.count());
 
 	D3D12_RANGE writtenRange{ 0u, 0u };
 	subPass.readbackTexture->Unmap(0u, &writtenRange);
@@ -82,28 +91,7 @@ void FeedbackAnalizerSubPass::destruct(SharedResources* sharedResources)
 	readbackTexture->Unmap(0u, &writenRange);
 }
 
-void FeedbackAnalizerSubPass::ThreadLocal::addBarrier(FeedbackAnalizerSubPass& renderSubPass, ID3D12GraphicsCommandList* lastCommandList)
-{
-	auto cameras = renderSubPass.cameras();
-	auto camerasEnd = cameras.end();
-	uint32_t barrierCount = 0u;
-	D3D12_RESOURCE_BARRIER barriers[1];
-	for (auto cam = cameras.begin(); cam != camerasEnd; ++cam)
-	{
-		assert(barrierCount != 1u);
-		auto camera = *cam;
-		barriers[barrierCount].Flags = D3D12_RESOURCE_BARRIER_FLAGS::D3D12_RESOURCE_BARRIER_FLAG_NONE;
-		barriers[barrierCount].Type = D3D12_RESOURCE_BARRIER_TYPE::D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-		barriers[barrierCount].Transition.pResource = camera->getImage();
-		barriers[barrierCount].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-		barriers[barrierCount].Transition.StateBefore = state;
-		barriers[barrierCount].Transition.StateAfter = stateAfter;
-		++barrierCount;
-	}
-	lastCommandList->ResourceBarrier(barrierCount, barriers);
-}
-
-void FeedbackAnalizerSubPass::createResources(SharedResources& sharedResources, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1, uint8_t*& constantBufferCpuAddress1, float fieldOfView)
+void FeedbackAnalizerSubPass::createResources(SharedResources& sharedResources, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1, uint8_t*& constantBufferCpuAddress1, uint32_t width, uint32_t height, float fieldOfView)
 {
 	auto& graphicsEngine = sharedResources.graphicsEngine;
 	ID3D12Device* graphicsDevice = graphicsEngine.graphicsDevice;
@@ -118,7 +106,9 @@ void FeedbackAnalizerSubPass::createResources(SharedResources& sharedResources, 
 	descriptorHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE::D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
 	rtvDescriptorHeap = D3D12DescriptorHeap(graphicsDevice, descriptorHeapDesc);
 
-
+	uint32_t newWidth = (width + 31u) & ~31;
+	double widthMult = (double)newWidth / (double)width;
+	uint32_t newHeight = (uint32_t)(height * widthMult);
 	D3D12_RESOURCE_DESC resourceDesc;
 	resourceDesc.Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
 	resourceDesc.DepthOrArraySize = 1u;
@@ -130,12 +120,9 @@ void FeedbackAnalizerSubPass::createResources(SharedResources& sharedResources, 
 	resourceDesc.MipLevels = 1u;
 	resourceDesc.SampleDesc.Count = 1u;
 	resourceDesc.SampleDesc.Quality = 0u;
-	size_t numRows, packedSize, packedRowPitch;
-	DDSFileLoader::getSurfaceInfo(width, height, DXGI_FORMAT::DXGI_FORMAT_R16G16B16A16_UINT, packedSize, packedRowPitch, numRows);
-	this->packedRowPitch = (unsigned long)packedRowPitch;
-	rowPitch = (packedRowPitch + (size_t)D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - (size_t)1u) & ~((size_t)D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - (size_t)1u);
-	uint64_t totalSize = rowPitch * (numRows - 1u) + packedRowPitch;
-	resourceDesc.Width = totalSize;
+	this->width = newWidth;
+	this->height = newHeight;
+	resourceDesc.Width = newWidth * newHeight * 8u;
 
 	D3D12_HEAP_PROPERTIES heapProperties;
 	heapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY::D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
@@ -145,8 +132,6 @@ void FeedbackAnalizerSubPass::createResources(SharedResources& sharedResources, 
 	heapProperties.VisibleNodeMask = 1u;
 
 	new(&readbackTexture) D3D12Resource(graphicsDevice, heapProperties, D3D12_HEAP_FLAGS::D3D12_HEAP_FLAG_NONE, resourceDesc, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_COPY_DEST, nullptr);
-	//D3D12_RANGE readRange{ 0u, totalSize };
-	//readbackTexture->Map(0u, &readRange, reinterpret_cast<void**>(&readbackTextureCpu));
 
 	resourceDesc.Flags = D3D12_RESOURCE_FLAGS::D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
 	resourceDesc.Format = DXGI_FORMAT::DXGI_FORMAT_R16G16B16A16_UINT;
@@ -197,4 +182,37 @@ void FeedbackAnalizerSubPass::createResources(SharedResources& sharedResources, 
 	depthBuffer->SetName(L"Feedback depth buffer");
 #endif // !NDEBUG
 
+}
+
+void FeedbackAnalizerSubPass::ThreadLocal::update1AfterFirstThread(SharedResources& sharedResources, FeedbackAnalizerSubPass& renderSubPass,
+	ID3D12RootSignature* rootSignature, uint32_t barrierCount, D3D12_RESOURCE_BARRIER* barriers)
+{
+	auto frameIndex = sharedResources.graphicsEngine.frameIndex;
+	resetCommandLists(frameIndex);
+	bindRootArguments(rootSignature, sharedResources.graphicsEngine.mainDescriptorHeap);
+
+
+	auto cameras = renderSubPass.cameras();
+	auto camerasEnd = cameras.end();
+	for (auto cam = cameras.begin(); cam != camerasEnd; ++cam)
+	{
+		auto camera = *cam;
+		barriers[barrierCount].Flags = D3D12_RESOURCE_BARRIER_FLAGS::D3D12_RESOURCE_BARRIER_FLAG_NONE;
+		barriers[barrierCount].Type = D3D12_RESOURCE_BARRIER_TYPE::D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+		barriers[barrierCount].Transition.pResource = camera->getImage();
+		barriers[barrierCount].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+		barriers[barrierCount].Transition.StateBefore = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_COMMON;
+		barriers[barrierCount].Transition.StateAfter = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET;
+		++barrierCount;
+	}
+	currentData->commandLists[0u]->ResourceBarrier(barrierCount, barriers);
+
+	for (auto& camera : renderSubPass.cameras())
+	{
+		if (camera->isInView(sharedResources))
+		{
+			camera->bindFirstThread(sharedResources, &currentData->commandLists[0u].get(),
+				&currentData->commandLists.data()[currentData->commandLists.size()].get());
+		}
+	}
 }
