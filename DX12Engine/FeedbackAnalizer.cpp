@@ -33,21 +33,23 @@ void FeedbackAnalizerSubPass::readbackTextureReadyHelper(void* requester, Virtua
 
 	for (unsigned long y = 0u; y < height; ++y)
 	{
-		for (unsigned long x = 0u; x < packedRowPitch; x += 4)
+		for (unsigned long x = 0u; x < packedRowPitch; x += 8u)
 		{
 			unsigned long index = y * rowPitch + x;
 			auto start = feadBackBuffer + index;
 			textureLocation feedbackData;
 			feedbackData.value = *reinterpret_cast<uint64_t*>(start);
 
+			auto x1 = feedbackData.x();
+			auto y1 = feedbackData.y();
 			auto textureId = feedbackData.textureId1();
+			unsigned int nextMipLevel = (unsigned int)feedbackData.mipLevel();
 			auto texture2d = feedbackData.textureId2();
 			auto texture3d = feedbackData.textureId3();
-			unsigned int nextMipLevel = (unsigned int)feedbackData.mipLevel();
+			
 			feedbackData.setTextureId2(0);
 			feedbackData.setTextureId3(0);
 
-			/*
 			VirtualTextureInfo* textureInfo;
 			if (textureId != 255u)
 			{
@@ -66,7 +68,6 @@ void FeedbackAnalizerSubPass::readbackTextureReadyHelper(void* requester, Virtua
 				textureInfo = &virtualTextureManager.texturesByID.data()[texture3d];
 				requestMipLevels(nextMipLevel, textureInfo, feedbackData, uniqueRequests);
 			}
-			*/
 		}
 	}
 
@@ -156,10 +157,10 @@ void FeedbackAnalizerSubPass::createResources(SharedResources& sharedResources, 
 	resourceDesc.Width = width;
 	D3D12_CLEAR_VALUE clearValue;
 	clearValue.Format = DXGI_FORMAT::DXGI_FORMAT_R16G16B16A16_UINT;
-	clearValue.Color[0] = 0.0f;
-	clearValue.Color[1] = 0.0f;
-	clearValue.Color[2] = 65280.0f;
-	clearValue.Color[3] = 65535.0f;
+	clearValue.Color[0] = 65535.0f;
+	clearValue.Color[1] = 65280.0f;
+	clearValue.Color[2] = 0.0f;
+	clearValue.Color[3] = 0.0f;
 	new(&feadbackTextureGpu) D3D12Resource(graphicsDevice, heapProperties, D3D12_HEAP_FLAGS::D3D12_HEAP_FLAG_NONE, resourceDesc, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_COMMON, &clearValue);
 
 	D3D12_RENDER_TARGET_VIEW_DESC rtvDesc;
