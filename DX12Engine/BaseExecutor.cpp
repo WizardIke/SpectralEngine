@@ -1,11 +1,12 @@
 #include "BaseExecutor.h"
 #include "HresultException.h"
 #include "SharedResources.h"
+#include <chrono>
 
 BaseExecutor::BaseExecutor(SharedResources* const sharedResources) :
 	currentWorkStealingDeque(&workStealDeques[1u]),
 	gpuCompletionEventManager(),
-	randomNumberGenerator(),
+	randomNumberGenerator(std::chrono::high_resolution_clock::now().time_since_epoch().count()),
 	meshAllocator()
 {
 	sharedResources->workStealingQueues[sharedResources->numThreadsThatHaveFinished] = workStealDeques[0u];

@@ -8,11 +8,17 @@ class SharedResources;
 
 class PlayerPosition
 {
+	void updateImpl(BaseExecutor* const executor, SharedResources& sharedResources, bool moveleft, bool moveRight, bool moveForwards, bool moveBackwards, bool moveUp);
 public:
 	PlayerPosition(const DirectX::XMFLOAT3 position, const DirectX::XMFLOAT3 rotation);
 	~PlayerPosition() {}
 
-	void update(BaseExecutor* const executor, SharedResources& sharedResources);
+	template<class SharedResources_t>
+	void update(BaseExecutor* const executor, SharedResources_t& sharedResources)
+	{
+		auto& inputHandler = sharedResources.inputHandler;
+		updateImpl(executor, sharedResources, inputHandler.aDown, inputHandler.dDown, inputHandler.wDown, inputHandler.sDown, inputHandler.spaceDown);
+	}
 
 	float oneOverMass;
 	float friction;

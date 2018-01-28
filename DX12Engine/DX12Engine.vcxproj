@@ -283,7 +283,6 @@
     <ClCompile Include="ScopedFile.cpp" />
     <ClCompile Include="SharedResources.cpp" />
     <ClCompile Include="DDSFileLoader.cpp" />
-    <ClCompile Include="InputManager.cpp" />
     <ClCompile Include="D3D12GraphicsEngine.cpp" />
     <ClCompile Include="Frustum.cpp" />
     <ClCompile Include="PlayerPosition.cpp" />

@@ -22,9 +22,50 @@ protected:
 	void checkForWindowsMessages();
 	using WindowCallback = LRESULT (CALLBACK *)(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
 
-	static LRESULT windowCallbackImpl(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam, SharedResources* sharedResources, BaseExecutor* executor);
+	template<class InputHandler>
+	static LRESULT SharedResources::windowCallbackImpl(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam, SharedResources* sharedResources, BaseExecutor* executor, InputHandler& inputHandler)
+	{
+		switch (message)
+		{
+		case WM_INPUT:
+			sharedResources->inputManager.handleRawInput(lParam, inputHandler, *sharedResources);
+			return 0;
+		case WM_SYSCOMMAND:
+			if ((wParam & 0xFFF0) == SC_MINIMIZE)
+			{
+				DefWindowProc(hwnd, message, wParam, lParam);
+				while (true)
+				{
+					MSG msg;
+					GetMessage(&msg, nullptr, 0, 0);
+					hwnd = msg.hwnd;
+					message = msg.message;
+					wParam = msg.wParam;
+					lParam = msg.lParam;
+					if (message == WM_CLOSE || message == WM_DESTROY || (message == WM_SYSCOMMAND && ((wParam & 0xFFF0) == SC_MAXIMIZE)))
+					{
+						break;
+					}
+					DefWindowProc(hwnd, message, wParam, lParam);
+				}
+				return DefWindowProc(hwnd, message, wParam, lParam);
+			}
+		case 0x8000: //do a Job
+			Job((void*)wParam, (void(*)(void* requester, BaseExecutor* executor, SharedResources& sharedResources))lParam)(executor, *sharedResources);
+			break;
+		case WM_DESTROY:
+			PostQuitMessage(0);
+			return 0;
+		case WM_CLOSE:
+			PostQuitMessage(0);
+			return 0;
+		default:
+			return DefWindowProc(hwnd, message, wParam, lParam);
+		}
+		return 0;
+	}
 public:
-	template<BaseExecutor*(*getMainExecutor)(SharedResources& sharedResources)>
+	template<class SharedResources_t>
 	static LRESULT CALLBACK windowCallback(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 	{
 		if (message == WM_NCCREATE)
@@ -33,8 +74,8 @@ public:
 			auto state = create->lpCreateParams;
 			SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)state);
 		}
-		auto sharedResources = reinterpret_cast<SharedResources*>(GetWindowLongPtr(hwnd, GWLP_USERDATA));
-		return windowCallbackImpl(hwnd, message, wParam, lParam, sharedResources, getMainExecutor(*sharedResources));
+		auto sharedResources = reinterpret_cast<SharedResources_t*>(GetWindowLongPtr(hwnd, GWLP_USERDATA));
+		return windowCallbackImpl(hwnd, message, wParam, lParam, sharedResources, &sharedResources->mainExecutor, sharedResources->inputHandler);
 	}
 
 	SharedResources(bool fullScreen, bool vSync, bool enableGpuDebugging, unsigned int numThreads, WindowCallback windowCallback);

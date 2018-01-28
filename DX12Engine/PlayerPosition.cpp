@@ -26,7 +26,7 @@ void PlayerPosition::mouseMoved(void * const position, float x, float y)
 	else if (ths->location.rotation.x < -0.5f * 3.14159265359f) ths->location.rotation.x = -0.5f * 3.14159265359f;
 }
 
-void PlayerPosition::update(BaseExecutor* const executor, SharedResources& sharedResources)
+void PlayerPosition::updateImpl(BaseExecutor* const executor, SharedResources& sharedResources, bool moveleft, bool moveRight, bool moveForwards, bool moveBackwards, bool moveUp)
 {
 	DirectX::XMVECTOR lookUpVector, lookAtVector;
 	DirectX::XMMATRIX rotationMatrix;
@@ -76,55 +76,53 @@ void PlayerPosition::update(BaseExecutor* const executor, SharedResources& share
 		if (velocity.z > 0.0f) velocity.z = 0.0f;
 	}
 
-	auto& inputManager = sharedResources.inputManager;
-
 	if (heightLocked)
 	{
 		float AtLength = sqrt(LookAt.x * LookAt.x + LookAt.z * LookAt.z);
 		float RightLength = sqrt(LookAt.x * LookAt.x + LookAt.z * LookAt.z);
-		if (inputManager.WPressed && inputManager.APressed)
+		if (moveForwards && moveleft)
 		{
 			forceX = (LookAt.x * power / (velocity.x + 0.01f) / AtLength - LookRight.x * power / (velocity.x + 0.01f) / RightLength) * 0.707106781186547f;
 			forceY = (LookAt.y * power / (velocity.y + 0.01f) / AtLength - LookRight.y * power / (velocity.y + 0.01f) / RightLength) * 0.707106781186547f;
 			forceZ = (LookAt.z * power / (velocity.z + 0.01f) / AtLength - LookRight.z * power / (velocity.z + 0.01f) / RightLength) * 0.707106781186547f;
 		}
-		else if (inputManager.WPressed && inputManager.DPressed)
+		else if (moveForwards && moveRight)
 		{
 			forceX = (LookAt.x * power / (velocity.x + 0.01f) / AtLength + LookRight.x * power / (velocity.x + 0.01f) / RightLength) * 0.707106781186547f;
 			forceY = (LookAt.y * power / (velocity.y + 0.01f) / AtLength + LookRight.y * power / (velocity.y + 0.01f) / RightLength) * 0.707106781186547f;
 			forceZ = (LookAt.z * power / (velocity.z + 0.01f) / AtLength + LookRight.z * power / (velocity.z + 0.01f) / RightLength) * 0.707106781186547f;
 		}
-		else if (inputManager.SPressed && inputManager.APressed)
+		else if (moveBackwards && moveleft)
 		{
 			forceX = (-LookAt.x * power / (velocity.x + 0.01f) / AtLength - LookRight.x * power / (velocity.x + 0.01f) / RightLength) * 0.707106781186547f;
 			forceY = (-LookAt.y * power / (velocity.y + 0.01f) / AtLength - LookRight.y * power / (velocity.y + 0.01f) / RightLength) * 0.707106781186547f;
 			forceZ = (-LookAt.z * power / (velocity.z + 0.01f) / AtLength - LookRight.z * power / (velocity.z + 0.01f) / RightLength) * 0.707106781186547f;
 		}
-		else if (inputManager.SPressed && inputManager.DPressed)
+		else if (moveBackwards && moveRight)
 		{
 			forceX = (-LookAt.x * power / (velocity.x + 0.01f) / AtLength + LookRight.x * power / (velocity.x + 0.01f) / RightLength) * 0.707106781186547f;
 			forceY = (-LookAt.y * power / (velocity.y + 0.01f) / AtLength + LookRight.y * power / (velocity.y + 0.01f) / RightLength) * 0.707106781186547f;
 			forceZ = (-LookAt.z * power / (velocity.z + 0.01f) / AtLength + LookRight.z * power / (velocity.z + 0.01f) / RightLength) * 0.707106781186547f;
 		}
-		if (inputManager.WPressed)
+		if (moveForwards)
 		{
 			forceX = LookAt.x * power / (velocity.x + 0.01f) / AtLength;
 			forceY = LookAt.y * power / (velocity.y + 0.01f) / AtLength;
 			forceZ = LookAt.z * power / (velocity.z + 0.01f) / AtLength;
 		}
-		if (inputManager.SPressed)
+		if (moveBackwards)
 		{
 			forceX = -LookAt.x * power / (velocity.x + 0.01f) / AtLength;
 			forceY = -LookAt.y * power / (velocity.y + 0.01f) / AtLength;
 			forceZ = -LookAt.z * power / (velocity.z + 0.01f) / AtLength;
 		}
-		if (inputManager.DPressed)
+		if (moveRight)
 		{
 			forceX = LookRight.x * power / (velocity.x + 0.01f) / AtLength;
 			forceY = LookRight.y * power / (velocity.y + 0.01f) / AtLength;
 			forceZ = LookRight.z * power / (velocity.z + 0.01f) / AtLength;
 		}
-		if (inputManager.APressed)
+		if (moveleft)
 		{
 			forceX = -LookRight.x * power / (velocity.x + 0.01f) / AtLength;
 			forceY = -LookRight.y * power / (velocity.y + 0.01f) / AtLength;
@@ -133,55 +131,55 @@ void PlayerPosition::update(BaseExecutor* const executor, SharedResources& share
 	}
 	else
 	{
-		if (inputManager.WPressed && inputManager.APressed)
+		if (moveForwards && moveleft)
 		{
 			forceX = (LookAt.x * power / (velocity.x + 0.01f) - LookRight.x * power / (velocity.x + 0.01f)) * 0.707106781186547f;
 			forceY = (LookAt.y * power / (velocity.y + 0.01f) - LookRight.y * power / (velocity.y + 0.01f)) * 0.707106781186547f;
 			forceZ = (LookAt.z * power / (velocity.z + 0.01f) - LookRight.z * power / (velocity.z + 0.01f)) * 0.707106781186547f;
 		}
-		else if (inputManager.WPressed && inputManager.DPressed)
+		else if (moveForwards && moveRight)
 		{
 			forceX = (LookAt.x * power / (velocity.x + 0.01f) + LookRight.x * power / (velocity.x + 0.01f)) * 0.707106781186547f;
 			forceY = (LookAt.y * power / (velocity.y + 0.01f) + LookRight.y * power / (velocity.y + 0.01f)) * 0.707106781186547f;
 			forceZ = (LookAt.z * power / (velocity.z + 0.01f) + LookRight.z * power / (velocity.z + 0.01f)) * 0.707106781186547f;
 		}
-		else if (inputManager.SPressed && inputManager.DPressed)
+		else if (moveBackwards && moveRight)
 		{
 			forceX = (-LookAt.x * power / (velocity.x + 0.01f) + LookRight.x * power / (velocity.x + 0.01f)) * 0.707106781186547f;
 			forceY = (-LookAt.y * power / (velocity.y + 0.01f) + LookRight.y * power / (velocity.y + 0.01f)) * 0.707106781186547f;
 			forceZ = (-LookAt.z * power / (velocity.z + 0.01f) + LookRight.z * power / (velocity.z + 0.01f)) * 0.707106781186547f;
 		}
-		else if (inputManager.SPressed && inputManager.APressed)
+		else if (moveBackwards && moveleft)
 		{
 			forceX = (-LookAt.x * power / (velocity.x + 0.01f) - LookRight.x * power / (velocity.x + 0.01f)) * 0.707106781186547f;
 			forceY = (-LookAt.y * power / (velocity.y + 0.01f) - LookRight.y * power / (velocity.y + 0.01f)) * 0.707106781186547f;
 			forceZ = (-LookAt.z * power / (velocity.z + 0.01f) - LookRight.z * power / (velocity.z + 0.01f)) * 0.707106781186547f;
 		}
-		else if (inputManager.WPressed)
+		else if (moveForwards)
 		{
 			forceX = LookAt.x * power / (velocity.x + 0.01f);
 			forceY = LookAt.y * power / (velocity.y + 0.01f);
 			forceZ = LookAt.z * power / (velocity.z + 0.01f);
 		}
-		else if (inputManager.SPressed)
+		else if (moveBackwards)
 		{
 			forceX = -LookAt.x * power / (velocity.x + 0.01f);
 			forceY = -LookAt.y * power / (velocity.y + 0.01f);
 			forceZ = -LookAt.z * power / (velocity.z + 0.01f);
 		}
-		else if (inputManager.APressed)
+		else if (moveleft)
 		{
 			forceX = -LookRight.x * power / (velocity.x + 0.01f);
 			forceY = -LookRight.y * power / (velocity.y + 0.01f);
 			forceZ = -LookRight.z * power / (velocity.z + 0.01f);
 		}
-		else if (inputManager.DPressed)
+		else if (moveRight)
 		{
 			forceX = LookRight.x * power / (velocity.x + 0.01f);
 			forceY = LookRight.y * power / (velocity.y + 0.01f);
 			forceZ = LookRight.z * power / (velocity.z + 0.01f);
 		}
-		else if (inputManager.SpacePressed)
+		else if (moveUp)
 		{
 			forceX = LookUp.x * power / (velocity.x + 0.01f);
 			forceY = LookUp.y * power / (velocity.y + 0.01f);

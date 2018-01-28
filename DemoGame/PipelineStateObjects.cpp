@@ -278,33 +278,46 @@ PipelineStateObjects::PipelineStateObjects(ID3D12Device* const device, RootSigna
 	new(&basic) D3D12PipelineState(device, PSODesc);
 
 
-	D3DBlob copyVS;
+
+	D3DBlob vtFeedbackPS;
+	hr = D3DReadFileToBlob(L"../DemoGame/CompiledShaders/VtFeedbackPS.cso", &vtFeedbackPS.get());
+	if (FAILED(hr)) throw false;
+
+	PSODesc.PS.pShaderBytecode = vtFeedbackPS->GetBufferPointer();
+	PSODesc.PS.BytecodeLength = vtFeedbackPS->GetBufferSize();
+
+	new(&vtFeedback) D3D12PipelineState(device, PSODesc);
+#ifndef NDEBUG
+	vtFeedback->SetName(L"Virtual texture feedback");
+#endif
+
+
+	D3DBlob positionOnlyVS;
 	D3DBlob copyPS;
 
-	hr = D3DReadFileToBlob(L"../DemoGame/CompiledShaders/CopyVS.cso", &copyVS.get());
+	hr = D3DReadFileToBlob(L"../DemoGame/CompiledShaders/PositionOnlyVS.cso", &positionOnlyVS.get());
 	if (FAILED(hr)) throw false;
 	hr = D3DReadFileToBlob(L"../DemoGame/CompiledShaders/CopyPS.cso", &copyPS.get());
 	if (FAILED(hr)) throw false;
 
-	PSODesc.VS.pShaderBytecode = copyVS->GetBufferPointer();
-	PSODesc.VS.BytecodeLength = copyVS->GetBufferSize();
+	PSODesc.VS.pShaderBytecode = positionOnlyVS->GetBufferPointer();
+	PSODesc.VS.BytecodeLength = positionOnlyVS->GetBufferSize();
 	PSODesc.PS.pShaderBytecode = copyPS->GetBufferPointer();
 	PSODesc.PS.BytecodeLength = copyPS->GetBufferSize();
 
-	D3D12_INPUT_ELEMENT_DESC copyInputLayout[] =
+	D3D12_INPUT_ELEMENT_DESC positionInputLayout[] =
 	{
 		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
 	};
 
-	PSODesc.InputLayout.NumElements = sizeof(copyInputLayout) / sizeof(D3D12_INPUT_ELEMENT_DESC);
-	PSODesc.InputLayout.pInputElementDescs = copyInputLayout;
+	PSODesc.InputLayout.NumElements = sizeof(positionInputLayout) / sizeof(D3D12_INPUT_ELEMENT_DESC);
+	PSODesc.InputLayout.pInputElementDescs = positionInputLayout;
 	PSODesc.DepthStencilState.DepthEnable = FALSE;
-	PSODesc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK::D3D12_DEPTH_WRITE_MASK_ZERO;
 
 	new(&copy) D3D12PipelineState(device, PSODesc);
 
 #ifndef NDEBUG
-	copy->SetName(L"Copy pipeline state");
+	copy->SetName(L"Copy");
 #endif
 
 
@@ -323,7 +336,7 @@ PipelineStateObjects::PipelineStateObjects(ID3D12Device* const device, RootSigna
 
 	PSODesc.InputLayout.NumElements = sizeof(texturedInputLayout) / sizeof(D3D12_INPUT_ELEMENT_DESC);
 	PSODesc.InputLayout.pInputElementDescs = texturedInputLayout;
-	PSODesc.DepthStencilState.DepthEnable = TRUE;
+	PSODesc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK::D3D12_DEPTH_WRITE_MASK_ZERO;
 	PSODesc.BlendState.RenderTarget[0].BlendEnable = TRUE;
 	PSODesc.BlendState.RenderTarget[0].BlendOp = D3D12_BLEND_OP::D3D12_BLEND_OP_ADD;
 

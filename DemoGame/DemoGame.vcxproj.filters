@@ -152,6 +152,7 @@
     <ClCompile Include="MeshNames.cpp">
       <Filter>Meshes</Filter>
     </ClCompile>
+    <ClCompile Include="InputHandler.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Cave\CaveArea.h">
@@ -249,6 +250,7 @@
     <ClInclude Include="DirectionalLightMaterialPS.h">
       <Filter>Shaders\Pixel</Filter>
     </ClInclude>
+    <ClInclude Include="InputHander.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Meshes\bath.mesh">
@@ -413,9 +415,6 @@
     <FxCompile Include="Shaders\CopyPS.hlsl">
       <Filter>Shaders\Pixel</Filter>
     </FxCompile>
-    <FxCompile Include="Shaders\CopyVS.hlsl">
-      <Filter>Shaders\Vertex</Filter>
-    </FxCompile>
     <FxCompile Include="Shaders\PointLightPS.hlsl">
       <Filter>Shaders\Pixel</Filter>
     </FxCompile>
@@ -424,6 +423,9 @@
     </FxCompile>
     <FxCompile Include="Shaders\PositionOnlyVS.hlsl">
       <Filter>Shaders\Vertex</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\VtFeedbackPS.hlsl">
+      <Filter>Shaders\Pixel</Filter>
     </FxCompile>
   </ItemGroup>
 </Project>

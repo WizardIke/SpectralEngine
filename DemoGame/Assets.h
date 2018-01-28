@@ -14,6 +14,7 @@
 #include <D3D12Resource.h>
 #include <Range.h>
 #include <VirtualTextureManager.h>
+#include "InputHander.h"
 
 class Assets : public SharedResources
 {
@@ -78,15 +79,12 @@ class Assets : public SharedResources
 			return current;
 		}
 	};
-	static BaseExecutor* WindowCallback(SharedResources& sharedResources)
-	{
-		return &reinterpret_cast<Assets&>(sharedResources).mainExecutor;
-	}
 public:
 	Assets();
 	~Assets();
 
 	MainExecutor mainExecutor;
+	InputHandler inputHandler;
 	RootSignatures rootSignatures;
 	PipelineStateObjects pipelineStateObjects; //Immutable
 	VirtualTextureManager virtualTextureManager;
