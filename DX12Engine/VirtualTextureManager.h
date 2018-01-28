@@ -128,7 +128,7 @@ private:
 
 	void unloadTextureHelper(const wchar_t * filename, D3D12GraphicsEngine& graphicsEngine, StreamingManager& streamingManager);
 public:
-	VirtualTextureManager(D3D12GraphicsEngine& graphicsEngine) : pageProvider(log2f(0.5f), graphicsEngine.adapter, graphicsEngine.graphicsDevice) {}
+	VirtualTextureManager(D3D12GraphicsEngine& graphicsEngine) : pageProvider(-3.0f, graphicsEngine.adapter, graphicsEngine.graphicsDevice) {}
 	~VirtualTextureManager() {}
 
 	template<class Executor>

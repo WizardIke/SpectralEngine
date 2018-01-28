@@ -2,21 +2,20 @@
 
 #include <d3d12.h>
 #include "frameBufferCount.h"
-#include "Frustum.h"
 #include "../WorkStealingQueue/WorkStealingQueue.h"
-#include "../LocklessQueue/LocklessQueue.h"
-#include "../Array/Array.h"
-#include "D3D12CommandAllocator.h"
-#include "D3D12GraphicsCommandList.h"
-#include "D3D12DescriptorHeap.h"
 #include "StreamingManager.h"
 #include "GpuCompletionEventManager.h"
 #include "Job.h"
 #include "FixedSizeAllocator.h"
+#undef min
+#undef max
+#include <pcg_random.hpp>
 #include <random>
 #include <memory>
 #include <mutex>
 class SharedResources;
+#undef min
+#undef max
 
 class BaseExecutor
 {
@@ -40,7 +39,7 @@ protected:
 	virtual void update2(std::unique_lock<std::mutex>&& lock, SharedResources& sharedResources) = 0;
 public:
 	GpuCompletionEventManager gpuCompletionEventManager;
-	std::default_random_engine randomNumberGenerator;
+	pcg32 randomNumberGenerator;
 	FixedSizeAllocator<Mesh> meshAllocator;
 
 	void run(SharedResources& sharedResources);

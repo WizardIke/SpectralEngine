@@ -1,5 +1,6 @@
 #include "FeedbackAnalizer.h"
 #include <chrono>
+/*
 #include <Windows.h>
 #include <iostream>
 #include <sstream>
@@ -10,6 +11,7 @@
    os_ << s;                   \
    OutputDebugStringW( os_.str().c_str() );  \
 }
+*/
 
 template<class HashMap>
 static inline void requestMipLevels(unsigned int mipLevel, const VirtualTextureInfo* textureInfo, textureLocation feedbackData, HashMap& uniqueRequests)
@@ -41,7 +43,7 @@ void FeedbackAnalizerSubPass::readbackTextureReadyHelper(void* requester, Virtua
 	D3D12_RANGE readRange{ 0u, totalSize };
 	subPass.readbackTexture->Map(0u, &readRange, reinterpret_cast<void**>(&feadBackBuffer));
 
-	auto start = std::chrono::high_resolution_clock::now();
+	//auto start = std::chrono::high_resolution_clock::now();
 
 	const auto feadBackBufferEnd = feadBackBuffer + totalSize;
 	for (; feadBackBuffer != feadBackBufferEnd; feadBackBuffer += 8u)
@@ -76,9 +78,9 @@ void FeedbackAnalizerSubPass::readbackTextureReadyHelper(void* requester, Virtua
 		}
 	}
 
-	auto end = std::chrono::high_resolution_clock::now();
-	std::chrono::duration<double> time = end - start;
-	DBOUT("\n" << time.count());
+	//auto end = std::chrono::high_resolution_clock::now();
+	//std::chrono::duration<double> time = end - start;
+	//DBOUT("\n" << time.count());
 
 	D3D12_RANGE writtenRange{ 0u, 0u };
 	subPass.readbackTexture->Unmap(0u, &writtenRange);
@@ -138,8 +140,8 @@ void FeedbackAnalizerSubPass::createResources(SharedResources& sharedResources, 
 	heapProperties.Type = D3D12_HEAP_TYPE::D3D12_HEAP_TYPE_DEFAULT;
 	resourceDesc.Layout = D3D12_TEXTURE_LAYOUT::D3D12_TEXTURE_LAYOUT_UNKNOWN;
 	resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION::D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-	resourceDesc.Height = height;
-	resourceDesc.Width = width;
+	resourceDesc.Height = newHeight;
+	resourceDesc.Width = newWidth;
 	D3D12_CLEAR_VALUE clearValue;
 	clearValue.Format = DXGI_FORMAT::DXGI_FORMAT_R16G16B16A16_UINT;
 	clearValue.Color[0] = 65535.0f;
@@ -173,7 +175,7 @@ void FeedbackAnalizerSubPass::createResources(SharedResources& sharedResources, 
 	auto depthDescriptor = depthStencilDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
 	graphicsDevice->CreateDepthStencilView(depthBuffer, &dsvDesc, depthDescriptor);
 
-	new(&camera) VirtualPageCamera(&sharedResources, feadbackTextureGpu, rtvdescriptor, depthDescriptor, width, height, constantBufferGpuAddress1, constantBufferCpuAddress1, fieldOfView,
+	new(&camera) VirtualPageCamera(&sharedResources, feadbackTextureGpu, rtvdescriptor, depthDescriptor, newWidth, newHeight, constantBufferGpuAddress1, constantBufferCpuAddress1, fieldOfView,
 		sharedResources.playerPosition.location);
 
 #ifndef NDEBUG

@@ -27,7 +27,7 @@ public:
 	RenderPass1() {}
 	RenderPass1(SharedResources& sharedResources, MainCamera& mainCamera, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpu, uint8_t* constantBufferCpu, float feedbackFieldOfView) : data(sharedResources)
 	{
-		new(&std::get<virtualTextureFeedbackSubPassIndex>(data.subPasses)) FeedbackAnalizerSubPass{ sharedResources, mainCamera.width() / 2u, mainCamera.height() / 2u, this->data,
+		new(&std::get<virtualTextureFeedbackSubPassIndex>(data.subPasses)) FeedbackAnalizerSubPass{ sharedResources, mainCamera.width() / 4u, mainCamera.height() / 4u, this->data,
 			constantBufferGpu, constantBufferCpu, feedbackFieldOfView };
 	}
 

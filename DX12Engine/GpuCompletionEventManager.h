@@ -2,12 +2,14 @@
 #include <vector>
 #include "frameBufferCount.h"
 #include "Job.h"
+#include <cassert>
+#include <array>
 class BaseExecutor;
 class SharedResources;
 
 class GpuCompletionEventManager
 {
-	std::vector<Job> requests[frameBufferCount];
+	std::array<std::vector<Job>, frameBufferCount> requests;
 public:
 	void update(BaseExecutor* const executor, SharedResources& sharedResources);
 	void addRequest(void* requester, void(*unloadCallback)(void* const requester, BaseExecutor* const executor, SharedResources& sharedResources), uint32_t frameIndex);

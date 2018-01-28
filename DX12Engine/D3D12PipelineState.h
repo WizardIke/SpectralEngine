@@ -6,7 +6,7 @@ class D3D12PipelineState
 {
 	ID3D12PipelineState* data;
 public:
-	D3D12PipelineState(ID3D12Device* device, D3D12_GRAPHICS_PIPELINE_STATE_DESC& desc)
+	D3D12PipelineState(ID3D12Device* device, const D3D12_GRAPHICS_PIPELINE_STATE_DESC& desc)
 	{
 		auto hr = device->CreateGraphicsPipelineState(&desc, IID_PPV_ARGS(&data));
 		if (FAILED(hr)) throw HresultException(hr);

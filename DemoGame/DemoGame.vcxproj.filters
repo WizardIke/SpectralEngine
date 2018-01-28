@@ -422,5 +422,8 @@
     <FxCompile Include="GlassVS.hlsl">
       <Filter>Shaders\Vertex</Filter>
     </FxCompile>
+    <FxCompile Include="Shaders\PositionOnlyVS.hlsl">
+      <Filter>Shaders\Vertex</Filter>
+    </FxCompile>
   </ItemGroup>
 </Project>

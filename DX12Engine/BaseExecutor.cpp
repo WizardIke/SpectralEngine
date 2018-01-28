@@ -3,7 +3,10 @@
 #include "SharedResources.h"
 
 BaseExecutor::BaseExecutor(SharedResources* const sharedResources) :
-	currentWorkStealingDeque(&workStealDeques[1u])
+	currentWorkStealingDeque(&workStealDeques[1u]),
+	gpuCompletionEventManager(),
+	randomNumberGenerator(),
+	meshAllocator()
 {
 	sharedResources->workStealingQueues[sharedResources->numThreadsThatHaveFinished] = workStealDeques[0u];
 	sharedResources->workStealingQueues[sharedResources->numThreadsThatHaveFinished + sharedResources->maxThreads] = workStealDeques[1u];
