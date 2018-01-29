@@ -125,7 +125,10 @@ void OutSideArea::update(BaseExecutor* const executor, SharedResources& sharedRe
 	if (currentZoneX < zonesLengthX && currentZoneZ < zonesLengthZ && currentZoneX > 0u && currentZoneZ > 0u)
 	{
 		auto& currentZone = zones[currentZoneZ * zonesLengthX + currentZoneX];
-		if (currentZone.changeArea(executor, sharedResources)) { return; } //we have entered a new area
+		if (currentZone.changeArea(executor, sharedResources)) 
+		{ 
+			return;
+		} //we have entered a new area
 	}
 
 	oldPosX = position.x;

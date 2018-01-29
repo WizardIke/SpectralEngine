@@ -5,8 +5,8 @@
 VirtualPageCamera::VirtualPageCamera(SharedResources* sharedResources, ID3D12Resource* image, D3D12_CPU_DESCRIPTOR_HANDLE renderTargetView, D3D12_CPU_DESCRIPTOR_HANDLE depthSencilView,
 	unsigned int width, unsigned int height, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1, uint8_t*& constantBufferCpuAddress1, float fieldOfView,
 	Transform& target) :
-	width(width),
-	height(height),
+	mWidth(width),
+	mHeight(height),
 	mImage(image),
 	renderTargetView(renderTargetView),
 	depthSencilView(depthSencilView)
@@ -44,7 +44,7 @@ void VirtualPageCamera::bind(SharedResources& sharedResources, ID3D12GraphicsCom
 {
 	auto frameIndex = sharedResources.graphicsEngine.frameIndex;
 	auto constantBufferGPU = constantBufferGpuAddress + bufferSizePS * frameIndex;
-	CameraUtil::bind(first, end, CameraUtil::getViewPort(width, height), CameraUtil::getScissorRect(width, height), constantBufferGPU, &renderTargetView, &depthSencilView);
+	CameraUtil::bind(first, end, CameraUtil::getViewPort(mWidth, mHeight), CameraUtil::getScissorRect(mWidth, mHeight), constantBufferGPU, &renderTargetView, &depthSencilView);
 }
 
 void VirtualPageCamera::bindFirstThread(SharedResources& sharedResources, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end)

@@ -28,9 +28,6 @@
     <Filter Include="Frustum">
       <UniqueIdentifier>{b98b5144-73ec-4c00-9718-d7bf2b5fde1e}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Input">
-      <UniqueIdentifier>{d230eaba-3648-42e5-9a08-b3ff901ef815}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Light">
       <UniqueIdentifier>{1da70e47-cc90-4d69-a53a-3e490b8c47e0}</UniqueIdentifier>
     </Filter>
@@ -249,9 +246,6 @@
     <ClInclude Include="PointLight.h">
       <Filter>PointLight</Filter>
     </ClInclude>
-    <ClInclude Include="InputManager.h">
-      <Filter>Input</Filter>
-    </ClInclude>
     <ClInclude Include="PlayerPosition.h">
       <Filter>PlayerPosition</Filter>
     </ClInclude>
@@ -406,6 +400,10 @@
     <ClInclude Include="Shaders\VtFeedbackMaterial.h">
       <Filter>Shaders\Pixel</Filter>
     </ClInclude>
+    <ClInclude Include="Shaders\Quad2dMaterialVS.h">
+      <Filter>Shaders\Vertex</Filter>
+    </ClInclude>
+    <ClInclude Include="InputManager.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="SharedResources.cpp">
@@ -507,9 +505,6 @@
     <FxCompile Include="Shaders\GlassPS.hlsl">
       <Filter>Shaders\Pixel</Filter>
     </FxCompile>
-    <FxCompile Include="Shaders\Quad2DVS.hlsl">
-      <Filter>Shaders\Vertex</Filter>
-    </FxCompile>
     <FxCompile Include="Shaders\StandardPS.hlsl">
       <Filter>Shaders\Pixel</Filter>
     </FxCompile>
@@ -527,6 +522,12 @@
     </FxCompile>
     <FxCompile Include="Shaders\VtFeedbackPS.hlsl">
       <Filter>Shaders\Pixel</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\Quad2DInstancedVS.hlsl">
+      <Filter>Shaders\Vertex</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\Quad2dVS.hlsl">
+      <Filter>Shaders\Vertex</Filter>
     </FxCompile>
   </ItemGroup>
 </Project>

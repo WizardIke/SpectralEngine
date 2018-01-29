@@ -20,7 +20,7 @@ class ReflectionCamera
 	D3D12_CPU_DESCRIPTOR_HANDLE renderTargetView;
 	D3D12_CPU_DESCRIPTOR_HANDLE depthSencilView;
 	ID3D12Resource* mImage;
-	unsigned int width, height;
+	unsigned int mWidth, mHeight;
 	DirectX::XMMATRIX mProjectionMatrix;
 
 	ReflectionCamera(const ReflectionCamera&) = delete;
@@ -45,4 +45,6 @@ public:
 	Transform& transform() { return mLocation; }
 	const Frustum& frustum() const { return mFrustum; }
 	D3D12_CPU_DESCRIPTOR_HANDLE getRenderTargetView(SharedResources* sharedResources) { return renderTargetView; }
+	unsigned int width() { return mWidth; }
+	unsigned int height() { return mHeight; }
 };

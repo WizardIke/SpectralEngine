@@ -92,7 +92,8 @@ public:
 	uint8_t* constantBuffersCpuAddress;
 	RenderPass1 renderPass;
 	Font arial; //Immutable
-	UserInterface userInterface;
+	std::aligned_storage_t<sizeof(UserInterface), alignof(UserInterface)> mUserInterface;
+	UserInterface& userInterface() { return *(UserInterface*)&mUserInterface; }
 	Areas areas;
 	AmbientMusic ambientMusic;
 	MainCamera mainCamera;

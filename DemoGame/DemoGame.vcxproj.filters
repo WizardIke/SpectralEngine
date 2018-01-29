@@ -158,9 +158,6 @@
     <ClInclude Include="Cave\CaveArea.h">
       <Filter>Areas\Cave</Filter>
     </ClInclude>
-    <ClInclude Include="Cave\CaveModelPart1.h">
-      <Filter>Areas\Cave\Models</Filter>
-    </ClInclude>
     <ClInclude Include="Cave\CaveZone1.h">
       <Filter>Areas\Cave\Zones</Filter>
     </ClInclude>
@@ -247,10 +244,19 @@
     <ClInclude Include="Models\FireModel.h">
       <Filter>Models</Filter>
     </ClInclude>
-    <ClInclude Include="DirectionalLightMaterialPS.h">
+    <ClInclude Include="InputHander.h" />
+    <ClInclude Include="Shaders\BasicMaterialPS.h">
       <Filter>Shaders\Pixel</Filter>
     </ClInclude>
-    <ClInclude Include="InputHander.h" />
+    <ClInclude Include="Shaders\TexturedQuadMaterialVS.h">
+      <Filter>Shaders\Vertex</Filter>
+    </ClInclude>
+    <ClInclude Include="Shaders\DirectionalLightMaterialPS.h">
+      <Filter>Shaders\Pixel</Filter>
+    </ClInclude>
+    <ClInclude Include="Cave\CaveModelPart1.h">
+      <Filter>Areas\Cave\Models</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="Meshes\bath.mesh">
@@ -426,6 +432,9 @@
     </FxCompile>
     <FxCompile Include="Shaders\VtFeedbackPS.hlsl">
       <Filter>Shaders\Pixel</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\TexturedQuadVS.hlsl">
+      <Filter>Shaders\Vertex</Filter>
     </FxCompile>
   </ItemGroup>
 </Project>

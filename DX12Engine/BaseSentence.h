@@ -23,7 +23,7 @@ class BaseSentence
 
 	TextVertex* textVBGPUAddress[frameBufferCount];
 public:
-	BaseSentence(const unsigned int MaxLength, ID3D12Device* const Device, Font* const Font, const std::wstring Text, const DirectX::XMFLOAT2 Size, const DirectX::XMFLOAT2 Padding, const DirectX::XMFLOAT4 color);
+	BaseSentence(const unsigned int MaxLength, ID3D12Device* const Device, Font* const Font, const wchar_t* Text, const DirectX::XMFLOAT2 Size, const DirectX::XMFLOAT2 Padding, const DirectX::XMFLOAT4 color);
 	
 	~BaseSentence();
 

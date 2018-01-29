@@ -99,9 +99,9 @@ namespace Cave
 			pointLightConstantBufferCpuAddress->ambientLight.y = 0.2f;
 			pointLightConstantBufferCpuAddress->ambientLight.z = 0.2f;
 			pointLightConstantBufferCpuAddress->ambientLight.w = 1.0f;
-			pointLightConstantBufferCpuAddress->directionalLight.x = 0.2f;
-			pointLightConstantBufferCpuAddress->directionalLight.y = 0.2f;
-			pointLightConstantBufferCpuAddress->directionalLight.z = 0.2f;
+			pointLightConstantBufferCpuAddress->directionalLight.x = 1.0f;
+			pointLightConstantBufferCpuAddress->directionalLight.y = 1.0f;
+			pointLightConstantBufferCpuAddress->directionalLight.z = 1.0f;
 			pointLightConstantBufferCpuAddress->directionalLight.w = 1.0f;
 			pointLightConstantBufferCpuAddress->lightDirection.x = 0.f;
 			pointLightConstantBufferCpuAddress->lightDirection.y = 0.f;
@@ -240,10 +240,10 @@ namespace Cave
 			zone->lastComponentUnloaded<BaseZone::high>(executor, sharedResources);
 		}
 
-		static void loadConnectedAreas(BaseZone* const zone, BaseExecutor* const executor, SharedResources& sharedResources, float distanceSquared, Area::VisitedNode* loadedAreas)
+		static void loadConnectedAreas(BaseZone* const zone, BaseExecutor* const executor, SharedResources& sharedResources, float distance, Area::VisitedNode* loadedAreas)
 		{
 			Assets* const assets = (Assets*)&sharedResources;
-			assets->areas.outside.load(executor, sharedResources, Vector2{ 0.0f, 91.0f }, std::sqrt(distanceSquared), loadedAreas);
+			assets->areas.outside.load(executor, sharedResources, Vector2{ 0.0f, 91.0f }, distance, loadedAreas);
 		}
 		static bool changeArea(BaseZone* const zone, BaseExecutor* const executor, SharedResources& sharedResources)
 		{

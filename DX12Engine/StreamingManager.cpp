@@ -198,7 +198,11 @@ StreamingManagerThreadLocal::StreamingManagerThreadLocal(ID3D12Device* const gra
 		uploadResouceDesc.SampleDesc.Count = 1u;
 		uploadResouceDesc.SampleDesc.Quality = 0u;
 		uploadResouceDesc.Layout = D3D12_TEXTURE_LAYOUT::D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+#ifndef NDEBUG
+		uploadResouceDesc.Flags = D3D12_RESOURCE_FLAGS::D3D12_RESOURCE_FLAG_NONE; //graphics debugger can't handle D3D12_RESOURCE_FLAGS::D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE
+#else
 		uploadResouceDesc.Flags = D3D12_RESOURCE_FLAGS::D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE;
+#endif
 
 		new(&uploadBuffer) D3D12Resource(graphicsDevice, uploadHeapProperties, D3D12_HEAP_FLAGS::D3D12_HEAP_FLAG_NONE, 
 			uploadResouceDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr);

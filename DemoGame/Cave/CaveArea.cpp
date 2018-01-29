@@ -40,7 +40,7 @@ namespace Cave
 		maxZ = currentZoneZ + numZonesRadius < zonesLengthZ - 1u ? currentZoneZ + numZonesRadius : zonesLengthZ - 1u;
 
 		float highDetailRadiusSquared = highDetailRadius - distance;
-		if (highDetailRadiusSquared >= 0.0f) return;
+		if (highDetailRadiusSquared <= 0.0f) return;
 		highDetailRadiusSquared *= highDetailRadiusSquared;
 
 		float mediumDetailRadiusSquared = mediumDetailRadius - distance;
@@ -61,12 +61,12 @@ namespace Cave
 				if (distanceSquared < highDetailRadiusSquared)
 				{
 					zone.loadHighDetail(executor, sharedResources);
-					zone.loadConnectedAreas(executor, sharedResources, distanceSquared, &thisArea);
+					zone.loadConnectedAreas(executor, sharedResources, std::sqrt(distanceSquared) + distance, &thisArea);
 				}
 				else if (distanceSquared < mediumDetailRadiusSquared)
 				{
 					zone.loadMediumDetail(executor, sharedResources);
-					zone.loadConnectedAreas(executor, sharedResources, distanceSquared, &thisArea);
+					zone.loadConnectedAreas(executor, sharedResources, std::sqrt(distanceSquared) + distance, &thisArea);
 				}
 				else
 				{

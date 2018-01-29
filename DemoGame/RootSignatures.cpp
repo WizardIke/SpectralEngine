@@ -47,7 +47,7 @@ RootSignatures::RootSignatures(ID3D12Device* const device)
 	staticSampleDescs[0].AddressU = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
 	staticSampleDescs[0].AddressV = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
 	staticSampleDescs[0].AddressW = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
-	staticSampleDescs[0].MipLODBias = 0;
+	staticSampleDescs[0].MipLODBias = 0.0f;
 	staticSampleDescs[0].MaxAnisotropy = 0;
 	staticSampleDescs[0].ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
 	staticSampleDescs[0].BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;
@@ -61,8 +61,8 @@ RootSignatures::RootSignatures(ID3D12Device* const device)
 	staticSampleDescs[1].AddressU = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
 	staticSampleDescs[1].AddressV = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
 	staticSampleDescs[1].AddressW = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
-	staticSampleDescs[1].MipLODBias = 0;
-	staticSampleDescs[1].MaxAnisotropy = 0;
+	staticSampleDescs[1].MipLODBias = 0.0f;
+	staticSampleDescs[1].MaxAnisotropy = 8;
 	staticSampleDescs[1].ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
 	staticSampleDescs[1].BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;
 	staticSampleDescs[1].MinLOD = 0.0f;
@@ -75,8 +75,8 @@ RootSignatures::RootSignatures(ID3D12Device* const device)
 	staticSampleDescs[2].AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
 	staticSampleDescs[2].AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
 	staticSampleDescs[2].AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-	staticSampleDescs[2].MipLODBias = 0;
-	staticSampleDescs[2].MaxAnisotropy = 0;
+	staticSampleDescs[2].MipLODBias = 0.0f;
+	staticSampleDescs[2].MaxAnisotropy = 16;
 	staticSampleDescs[2].ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
 	staticSampleDescs[2].BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;
 	staticSampleDescs[2].MinLOD = 0.0f;

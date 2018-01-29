@@ -19,4 +19,5 @@ public:
 	D3D12PipelineState fire;
 	D3D12PipelineState copy;
 	D3D12PipelineState vtFeedback;
+	D3D12PipelineState texturedQuad;
 };

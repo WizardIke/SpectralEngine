@@ -1,7 +1,7 @@
 #include "AmbientMusic.h"
 #include <experimental/filesystem>
 namespace filesystem = std::experimental::filesystem;
-#include <SharedResources.h>
+#include "Assets.h"
 #include <SoundDecoder.h>
 #include <BaseExecutor.h>
 
@@ -29,7 +29,8 @@ AmbientMusic::AmbientMusic(BaseExecutor* const executor, SharedResources& shared
 void AmbientMusic::OnBufferEnd(void* pBufferContext)
 {
 	SharedResources* sharedResources = reinterpret_cast<SharedResources* const>(pBufferContext);
-	PostMessage(sharedResources->window.native_handle(), 0x8000, (WPARAM)this, reinterpret_cast<LPARAM>(static_cast<void(*)(void* requester, BaseExecutor* executor)>([](void* requester, BaseExecutor* executor)
+	PostMessage(sharedResources->window.native_handle(), 0x8000, (WPARAM)this, reinterpret_cast<LPARAM>(static_cast<void(*)(void* requester, BaseExecutor* executor, SharedResources& sharedResources)>([](void* requester, BaseExecutor* executor,
+		SharedResources& sharedResources)
 	{
 		executor->updateJobQueue().push(Job(requester, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources)
 		{

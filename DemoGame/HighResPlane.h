@@ -2,7 +2,7 @@
 #include <DirectXMath.h>
 #include <Frustum.h>
 #include <d3d12.h>
-#include "DirectionalLightMaterialPS.h"
+#include "Shaders/DirectionalLightMaterialPS.h"
 
 template<unsigned int x, unsigned int z>
 class HighResPlane

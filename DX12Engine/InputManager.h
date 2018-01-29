@@ -25,6 +25,8 @@ struct BaseInputHandler
 	void pageDownPressed(SharedResources& sharedResources) {}
 	void spacePressed(SharedResources& sharedResources) {}
 	void escapePressed(SharedResources& sharedResources) {}
+	void f1Pressed(SharedResources& sharedResources) {}
+
 	void leftReleased(SharedResources& sharedResources) {}
 	void rightReleased(SharedResources& sharedResources) {}
 	void upReleased(SharedResources& sharedResources) {}
@@ -39,6 +41,7 @@ struct BaseInputHandler
 	void pageDownReleased(SharedResources& sharedResources) {}
 	void spaceReleased(SharedResources& sharedResources) {}
 	void escapeReleased(SharedResources& sharedResources) {}
+	void f1Released(SharedResources& sr) {}
 };
 
 class InputManager
@@ -143,6 +146,9 @@ public:
 				case VK_ESCAPE:
 					inputHandler.escapePressed(sharedResources);
 					break;
+				case VK_F1:
+					inputHandler.f1Pressed(sharedResources);
+					break;
 				default:
 					break;
 				}
@@ -192,6 +198,9 @@ public:
 					break;
 				case VK_ESCAPE:
 					inputHandler.escapeReleased(sharedResources);
+					break;
+				case VK_F1:
+					inputHandler.f1Released(sharedResources);
 					break;
 				default:
 					break;

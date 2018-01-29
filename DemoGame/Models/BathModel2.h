@@ -4,7 +4,7 @@
 #include <Frustum.h>
 #include <d3d12.h>
 #include <Light.h>
-#include "../DirectionalLightMaterialPS.h"
+#include "../Shaders/DirectionalLightMaterialPS.h"
 
 class BathModel2
 {

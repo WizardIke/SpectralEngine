@@ -292,6 +292,22 @@ PipelineStateObjects::PipelineStateObjects(ID3D12Device* const device, RootSigna
 #endif
 
 
+
+	D3DBlob TexturedQuadVS;
+	hr = D3DReadFileToBlob(L"../DemoGame/CompiledShaders/TexturedQuadVS.cso", &TexturedQuadVS.get());
+	if (FAILED(hr)) throw false;
+	PSODesc.VS.pShaderBytecode = TexturedQuadVS->GetBufferPointer();
+	PSODesc.VS.BytecodeLength = TexturedQuadVS->GetBufferSize();
+	PSODesc.PS.pShaderBytecode = basicPS->GetBufferPointer();
+	PSODesc.PS.BytecodeLength = basicPS->GetBufferSize();
+	PSODesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC::D3D12_COMPARISON_FUNC_ALWAYS;
+	new(&texturedQuad) D3D12PipelineState(device, PSODesc);
+#ifndef NDEBUG
+	texturedQuad->SetName(L"Textured Quad");
+#endif
+
+
+
 	D3DBlob positionOnlyVS;
 	D3DBlob copyPS;
 
@@ -336,7 +352,9 @@ PipelineStateObjects::PipelineStateObjects(ID3D12Device* const device, RootSigna
 
 	PSODesc.InputLayout.NumElements = sizeof(texturedInputLayout) / sizeof(D3D12_INPUT_ELEMENT_DESC);
 	PSODesc.InputLayout.pInputElementDescs = texturedInputLayout;
+	PSODesc.DepthStencilState.DepthEnable = TRUE;
 	PSODesc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK::D3D12_DEPTH_WRITE_MASK_ZERO;
+	PSODesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC::D3D12_COMPARISON_FUNC_LESS;
 	PSODesc.BlendState.RenderTarget[0].BlendEnable = TRUE;
 	PSODesc.BlendState.RenderTarget[0].BlendOp = D3D12_BLEND_OP::D3D12_BLEND_OP_ADD;
 

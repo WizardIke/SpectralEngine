@@ -13,9 +13,9 @@ constexpr inline float setPositionY(const float pos)
 }
 
 
-BaseSentence::BaseSentence(const unsigned int MaxLength, ID3D12Device* const Device, Font* const Font, const std::wstring Text, const DirectX::XMFLOAT2 Position, const DirectX::XMFLOAT2 Size, const DirectX::XMFLOAT4 color) :
+BaseSentence::BaseSentence(const unsigned int MaxLength, ID3D12Device* const Device, Font* const Font, const wchar_t* Text, const DirectX::XMFLOAT2 Position, const DirectX::XMFLOAT2 Size, const DirectX::XMFLOAT4 color) :
 	font(Font),
-	text(std::move(Text)),
+	text(Text),
 	size(Size),
 	maxLength(MaxLength),
 	color(color),
@@ -27,7 +27,7 @@ BaseSentence::BaseSentence(const unsigned int MaxLength, ID3D12Device* const Dev
 })
 {
 	HRESULT hr;
-#ifdef _DEBUG
+#ifndef NDEBUG
 	for (auto i = 0u; i < frameBufferCount; ++i)
 	{
 		wchar_t name[45] = L"Text Vertex Buffer Upload Resource ";
@@ -36,7 +36,7 @@ BaseSentence::BaseSentence(const unsigned int MaxLength, ID3D12Device* const Dev
 		wcscat_s(name, number);
 		textVertexBuffer[i]->SetName(name);
 	}
-#endif // _DEBUG
+#endif
 
 	D3D12_RANGE readRange = { 0u, 0u }; 
 	for (auto i = 0u; i < frameBufferCount; ++i)

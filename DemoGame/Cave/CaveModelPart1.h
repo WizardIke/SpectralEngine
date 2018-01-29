@@ -1,6 +1,7 @@
 #pragma once
 #include <d3d12.h>
 #include <DirectXMath.h>
+#include "../Shaders/DirectionalLightMaterialPS.h"
 class Frustum;
 struct Mesh;
 
@@ -12,15 +13,8 @@ class CaveModelPart1
 		DirectX::XMMATRIX worldMatrix;
 	};
 
-	struct PSPerObjectConstantBuffer
-	{
-		float specularColor[4];
-		float specularPower;
-		uint32_t baseColorTexture;
-	};
-
 	constexpr static size_t vSPerObjectConstantBufferAlignedSize = (sizeof(VSPerObjectConstantBuffer) + (size_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (size_t)1u) & ~((size_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (size_t)1u);
-	constexpr static size_t pSPerObjectConstantBufferAlignedSize = (sizeof(PSPerObjectConstantBuffer) + (size_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (size_t)1u) & ~((size_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (size_t)1u);
+	constexpr static size_t pSPerObjectConstantBufferAlignedSize = (sizeof(DirectionalLightMaterialPS) + (size_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (size_t)1u) & ~((size_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (size_t)1u);
 
 	D3D12_GPU_VIRTUAL_ADDRESS gpuBuffer;
 public:
@@ -51,7 +45,7 @@ public:
 
 	void setDiffuseTexture(uint32_t diffuseTexture, uint8_t* cpuStartAddress, D3D12_GPU_VIRTUAL_ADDRESS gpuStartAddress)
 	{
-		auto buffer = reinterpret_cast<PSPerObjectConstantBuffer*>(cpuStartAddress + (gpuBuffer - gpuStartAddress + vSPerObjectConstantBufferAlignedSize * numSquares));
+		auto buffer = reinterpret_cast<DirectionalLightMaterialPS*>(cpuStartAddress + (gpuBuffer - gpuStartAddress + vSPerObjectConstantBufferAlignedSize * numSquares));
 		buffer->baseColorTexture = diffuseTexture;
 	}
 };

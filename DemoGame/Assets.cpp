@@ -3,9 +3,9 @@
 
 static void loadingResourceCallback(void* data, BaseExecutor* exe, SharedResources& sharedResources, unsigned int textureID)
 {
-	const auto assets = reinterpret_cast<Assets*>(data);
-	assets->arial.setDiffuseTexture(textureID, assets->constantBuffersCpuAddress, assets->sharedConstantBuffer->GetGPUVirtualAddress());
-	assets->start(exe);
+	auto& assets = reinterpret_cast<Assets&>(sharedResources);
+	assets.arial.setDiffuseTexture(textureID, assets.constantBuffersCpuAddress, assets.sharedConstantBuffer->GetGPUVirtualAddress());
+	assets.start(exe);
 }
 
 Assets::Assets() :
@@ -40,7 +40,6 @@ Assets::Assets() :
 	resourceDesc.Width = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT; // size of the resource heap. Must be a multiple of 64KB for constant buffers
 	return resourceDesc;
 }(), D3D12_RESOURCE_STATE_GENERIC_READ, nullptr),
-	userInterface(*this),
 	ambientMusic(&mainExecutor, *this),
 	areas(&mainExecutor, *this),
 
@@ -80,9 +79,10 @@ Assets::Assets() :
 	uint8_t* cpuConstantBuffer = constantBuffersCpuAddress;
 	auto constantBuffersGpuAddress = sharedConstantBuffer->GetGPUVirtualAddress();
 
-	new(&arial) Font(constantBuffersGpuAddress, cpuConstantBuffer, L"Arial.fnt", TextureNames::Arial, &mainExecutor, *this, this, loadingResourceCallback);
 	new(&mainCamera) MainCamera(this, window.width(), window.height(), constantBuffersGpuAddress, cpuConstantBuffer, 0.25f * 3.141f, playerPosition.location);
 	new(&renderPass) RenderPass1(*this, mainCamera, constantBuffersGpuAddress, cpuConstantBuffer, 0.25f * 3.141f);
+	new(&mUserInterface) UserInterface(*this, constantBuffersGpuAddress, cpuConstantBuffer);
+	new(&arial) Font(constantBuffersGpuAddress, cpuConstantBuffer, L"Arial.fnt", TextureNames::Arial, &mainExecutor, *this, this, loadingResourceCallback);
 
 	renderPass.colorSubPass().addCamera(*this, renderPass, &mainCamera);
 
@@ -128,7 +128,7 @@ Assets::Assets() :
 	{
 		executor.run(*this);
 	}
-
+	auto& us = userInterface();
 	mainExecutor.run(*this);
 }
 
@@ -136,6 +136,7 @@ Assets::~Assets()
 {
 	graphicsEngine.descriptorAllocator.deallocate(warpTextureDescriptorIndex);
 	mainCamera.destruct(this);
+	userInterface().~UserInterface();
 }
 
 void Assets::update(BaseExecutor* const executor)
@@ -150,6 +151,6 @@ void Assets::update(BaseExecutor* const executor)
 void Assets::start(BaseExecutor* executor)
 {
 	timer.start();
-	userInterface.start(&mainExecutor, *this);
+	userInterface().start(&mainExecutor, *this);
 	//soundEngine.SetListenerPosition(playerPosition.location.position, DS3D_IMMEDIATE);
 }

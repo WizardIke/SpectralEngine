@@ -957,10 +957,10 @@ namespace
 			}));
 		}
 
-		static void loadConnectedAreas(BaseZone* zone, BaseExecutor* const executor, SharedResources& sharedResources, float distanceSquared, Area::VisitedNode* loadedAreas)
+		static void loadConnectedAreas(BaseZone* zone, BaseExecutor* const executor, SharedResources& sharedResources, float distance, Area::VisitedNode* loadedAreas)
 		{
 			Assets* const assets = (Assets*)&sharedResources;
-			assets->areas.cave.load(executor, sharedResources, Vector2{ 0.0f, 91.0f }, std::sqrt(distanceSquared), loadedAreas);
+			assets->areas.cave.load(executor, sharedResources, Vector2{ 0.0f, 91.0f }, distance, loadedAreas);
 		}
 		static bool changeArea(BaseZone* zone, BaseExecutor* const executor, SharedResources& sharedResources)
 		{

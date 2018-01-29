@@ -1,5 +1,5 @@
 #include "InputHander.h"
-#include <SharedResources.h>
+#include "Assets.h"
 #include "Executor.h"
 
 
@@ -12,3 +12,31 @@ void InputHandler::mouseMoved(long x, long y)
 }
 
 void InputHandler::escapePressed(SharedResources& sharedResources) { sharedResources.nextPhaseJob = Executor::quit; }
+
+void InputHandler::f1Pressed(SharedResources& sr)
+{
+	if (!f1Down)
+	{
+		f1Down = true;
+		if (f1Toggled)
+		{
+			f1Toggled = false;
+			Assets& sharedResources = reinterpret_cast<Assets&>(sr);
+			sharedResources.userInterface().setDisplayVirtualFeedbackTexture(false);
+		}
+		else
+		{
+			f1Toggled = true;
+			Assets& sharedResources = reinterpret_cast<Assets&>(sr);
+			sharedResources.userInterface().setDisplayVirtualFeedbackTexture(true);
+		}
+	}
+}
+
+void InputHandler::f1Released(SharedResources& sr)
+{
+	if (f1Down)
+	{
+		f1Down = false;
+	}
+}

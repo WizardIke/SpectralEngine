@@ -19,7 +19,7 @@ class VirtualPageCamera
 	D3D12_CPU_DESCRIPTOR_HANDLE depthSencilView;
 	Transform* mTransform;
 	ID3D12Resource* mImage;
-	unsigned int width, height;
+	unsigned int mWidth, mHeight;
 	DirectX::XMMATRIX mProjectionMatrix;
 public:
 	constexpr static float screenDepth = 128.0f * 31.5f;
@@ -40,4 +40,6 @@ public:
 	const ID3D12Resource* getImage() const { return mImage; }
 	DirectX::XMMATRIX& projectionMatrix() { return mProjectionMatrix; }
 	D3D12_CPU_DESCRIPTOR_HANDLE getRenderTargetView(SharedResources* sharedResources) { return renderTargetView; }
+	unsigned int width() { return mWidth; }
+	unsigned int height() { return mHeight; }
 };

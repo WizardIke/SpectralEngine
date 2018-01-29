@@ -1195,7 +1195,7 @@ namespace DDSFileLoader
 		uint32_t subresourceHeight = textureHeight >> mipLevel;
 		if (subresourceHeight == 0u) subresourceHeight = 1u;
 		uint32_t subresourceDepth = textureDepth >> mipLevel;
-		if (subresourceHeight == 0u) subresourceHeight = 1u;
+		if (subresourceDepth == 0u) subresourceDepth = 1u;
 		getSurfaceInfo(subresouceWidth, subresourceHeight, format, sourceSlicePitch, sourceRowPitch, numRows);
 		size_t destRowPitch = (sourceRowPitch + (size_t)D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - (size_t)1u) & ~((size_t)D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - (size_t)1u);//sourceRowPitch is 4 byte aligned but destRowPitch is D3D12_TEXTURE_DATA_PITCH_ALIGNMENT byte aligned
 

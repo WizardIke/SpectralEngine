@@ -12,7 +12,7 @@ CaveModelPart1::CaveModelPart1(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddre
 
 	VSPerObjectConstantBuffer* vsPerObjectCBVCpuAddress = reinterpret_cast<VSPerObjectConstantBuffer*>(constantBufferCpuAddress);
 	constantBufferCpuAddress += vSPerObjectConstantBufferAlignedSize * numSquares;
-	PSPerObjectConstantBuffer* psPerObjectCBVCpuAddress = reinterpret_cast<PSPerObjectConstantBuffer*>(constantBufferCpuAddress);
+	DirectionalLightMaterialPS* psPerObjectCBVCpuAddress = reinterpret_cast<DirectionalLightMaterialPS*>(constantBufferCpuAddress);
 	constantBufferCpuAddress += pSPerObjectConstantBufferAlignedSize;
 
 	auto vsWorldMatrix = vsPerObjectCBVCpuAddress;
@@ -81,10 +81,7 @@ CaveModelPart1::CaveModelPart1(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddre
 
 	vsWorldMatrix = reinterpret_cast<VSPerObjectConstantBuffer*>(reinterpret_cast<unsigned char*>(vsWorldMatrix) + vSPerObjectConstantBufferAlignedSize);
 
-	psPerObjectCBVCpuAddress->specularColor[0] = 0.5f;
-	psPerObjectCBVCpuAddress->specularColor[1] = 0.5f;
-	psPerObjectCBVCpuAddress->specularColor[2] = 0.5f;
-	psPerObjectCBVCpuAddress->specularColor[3] = 1.0f;
+	psPerObjectCBVCpuAddress->specularColor = { 0.5f , 0.5f , 0.5f };
 	psPerObjectCBVCpuAddress->specularPower = 4.0f;
 }
 

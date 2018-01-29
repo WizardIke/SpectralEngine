@@ -140,7 +140,7 @@ Mesh* MeshManager::createMesh(FixedSizeAllocator<Mesh>& meshAllocator, const wch
 void MeshManager::unloadMesh(const wchar_t * const filename, BaseExecutor* const executor)
 {
 	unsigned int oldUserCount;
-	Mesh* mesh;
+	Mesh* mesh = nullptr;
 	{
 		std::lock_guard<decltype(mutex)> lock(mutex);
 		auto& meshInfo = meshInfos[filename];
