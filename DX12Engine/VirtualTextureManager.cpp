@@ -228,6 +228,7 @@ void VirtualTextureManager::createTextureWithResitencyInfo(D3D12GraphicsEngine& 
 				if (resourceTileCoordsIndex == resourceTileCoordsMax)
 				{
 					pageProvider.pageAllocator.addPinnedPages(resourceTileCoords, resourceTileCoordsMax, resitencyInfo, commandQueue, graphicsEngine.graphicsDevice);
+					resourceTileCoordsIndex = 0u;
 				}
 				resourceTileCoords[resourceTileCoordsIndex].X = x;
 				resourceTileCoords[resourceTileCoordsIndex].Y = y;
@@ -254,6 +255,10 @@ void VirtualTextureManager::createTextureWithResitencyInfo(D3D12GraphicsEngine& 
 			size_t numBytes, rowBytes, numRows;
 			DDSFileLoader::getSurfaceInfo(width, height, vramRequest.format, numBytes, rowBytes, numRows);
 			totalSize += numBytes;
+			width >>= 1;
+			if (width == 0u) width = 1u;
+			height >>= 1;
+			if (height == 0u) height = 1u;
 		}
 		vramRequest.file.setPosition(totalSize, ScopedFile::Position::current);
 	}
