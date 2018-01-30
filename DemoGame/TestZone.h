@@ -10,7 +10,10 @@
 #include "PipelineStateObjects.h"
 #include <ID3D12ResourceMapFailedException.h>
 #include <TextureManager.h>
+#include <VirtualTextureManager.h>
 #include <MeshManager.h>
+
+#include "Shaders/VtFeedbackMaterialPS.h"
 
 template<unsigned int x, unsigned int z>
 class TestZoneFunctions
@@ -34,13 +37,14 @@ class TestZoneFunctions
 		Light light;
 		LightConstantBuffer* pointLightConstantBufferCpuAddress;
 		D3D12_GPU_VIRTUAL_ADDRESS pointLightConstantBufferGpuAddress;
+		D3D12_GPU_VIRTUAL_ADDRESS stone4FeedbackBufferPs;
 
 		HighResPlane<x, z> highResPlaneModel;
 
 
-		HDResources(Executor* const executor, SharedResources& sharedResources, void* zone) :
+		HDResources(Executor* const executor, SharedResources& sr, void* zone) :
 			light(DirectX::XMFLOAT4(0.05f, 0.05f, 0.05f, 1.0f), DirectX::XMFLOAT4(0.5f, 0.5f, 0.5f, 1.0f), DirectX::XMFLOAT3(0.0f, -0.894427191f, 0.447213595f)),
-			perObjectConstantBuffers(sharedResources.graphicsEngine.graphicsDevice, []()
+			perObjectConstantBuffers(sr.graphicsEngine.graphicsDevice, []()
 		{
 			D3D12_HEAP_PROPERTIES heapProperties;
 			heapProperties.Type = D3D12_HEAP_TYPE_UPLOAD;
@@ -65,6 +69,8 @@ class TestZoneFunctions
 			return resourceDesc;
 		}(), D3D12_RESOURCE_STATE_GENERIC_READ, nullptr)
 		{
+			auto& sharedResources = reinterpret_cast<Assets&>(sr);
+
 			D3D12_RANGE readRange{ 0u, 0u };
 			HRESULT hr = perObjectConstantBuffers->Map(0u, &readRange, reinterpret_cast<void**>(&perObjectConstantBuffersCpuAddress));
 			if (FAILED(hr)) throw ID3D12ResourceMapFailedException();
@@ -73,10 +79,32 @@ class TestZoneFunctions
 
 			new(&highResPlaneModel) HighResPlane<x, z>(PerObjectConstantBuffersGpuAddress, cpuConstantBuffer);
 
-			TextureManager::loadTexture(executor, sharedResources, TextureNames::stone04, { zone, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources, unsigned int textureID) {
+			pointLightConstantBufferCpuAddress = reinterpret_cast<LightConstantBuffer*>(cpuConstantBuffer);
+			cpuConstantBuffer += vtFeedbackMaterialPsSize;
+
+			stone4FeedbackBufferPs = PerObjectConstantBuffersGpuAddress;
+			PerObjectConstantBuffersGpuAddress += vtFeedbackMaterialPsSize;
+
+			VirtualTextureManager::loadTexture(executor, sharedResources, TextureNames::stone04, { zone , [](void* requester, BaseExecutor* executor,
+				SharedResources& sr, const VirtualTextureManager::Texture& texture)
+			{
+				auto& sharedResources = reinterpret_cast<Assets&>(sr);
 				const auto zone = reinterpret_cast<BaseZone*>(requester);
 				auto resources = ((HDResources*)zone->nextResources);
-				resources->highResPlaneModel.setDiffuseTexture(textureID, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
+				const auto cpuStartAddress = resources->perObjectConstantBuffersCpuAddress;
+				const auto gpuStartAddress = resources->perObjectConstantBuffers->GetGPUVirtualAddress();
+				resources->highResPlaneModel.setDiffuseTexture(texture.descriptorIndex, cpuStartAddress, gpuStartAddress);
+
+				//stone4FeedbackBufferPs = create virtual feedback materialPS
+				auto& textureInfo = sharedResources.virtualTextureManager.texturesByID.data()[texture.textureID];
+				auto stone4FeedbackBufferPsCpu = reinterpret_cast<VtFeedbackMaterialPS*>(cpuStartAddress + (resources->stone4FeedbackBufferPs - gpuStartAddress));
+				stone4FeedbackBufferPsCpu->virtualTextureID1 = (float)(texture.textureID << 8u);
+				stone4FeedbackBufferPsCpu->virtualTextureID2And3 = (float)0xffff;
+				stone4FeedbackBufferPsCpu->textureHeightInPages = (float)textureInfo.heightInPages;
+				stone4FeedbackBufferPsCpu->textureWidthInPages = (float)textureInfo.widthInPages;
+				stone4FeedbackBufferPsCpu->usefulTextureHeight = (float)textureInfo.heightInTexels;
+				stone4FeedbackBufferPsCpu->usefulTextureWidth = (float)textureInfo.widthInTexels;
+
 				componentUploaded(requester, executor, sharedResources);
 			} });
 
@@ -100,9 +128,9 @@ class TestZoneFunctions
 			pointLightConstantBufferCpuAddress->ambientLight.y = 0.2f;
 			pointLightConstantBufferCpuAddress->ambientLight.z = 0.2f;
 			pointLightConstantBufferCpuAddress->ambientLight.w = 1.0f;
-			pointLightConstantBufferCpuAddress->directionalLight.x = 2.0f;
-			pointLightConstantBufferCpuAddress->directionalLight.y = 2.0f;
-			pointLightConstantBufferCpuAddress->directionalLight.z = 2.0f;
+			pointLightConstantBufferCpuAddress->directionalLight.x = 1.0f;
+			pointLightConstantBufferCpuAddress->directionalLight.y = 1.0f;
+			pointLightConstantBufferCpuAddress->directionalLight.z = 1.0f;
 			pointLightConstantBufferCpuAddress->directionalLight.w = 1.0f;
 			pointLightConstantBufferCpuAddress->lightDirection.x = 0.f;
 			pointLightConstantBufferCpuAddress->lightDirection.y = -0.7f;
@@ -117,24 +145,35 @@ class TestZoneFunctions
 
 		void update1(BaseExecutor* const executor, SharedResources& sharedResources) {}
 
-		void update2(BaseExecutor* const executor1, SharedResources& sharedResources)
+		void update2(BaseExecutor* const executor1, SharedResources& sr)
 		{
+			auto& sharedResources = reinterpret_cast<Assets&>(sr);
 			const auto executor = reinterpret_cast<Executor* const>(executor1);
 			const auto frameIndex = sharedResources.graphicsEngine.frameIndex;
 			const auto commandList = executor->renderPass.colorSubPass().opaqueCommandList();
+			const auto vtFeedbackCommandList = executor->renderPass.virtualTextureFeedbackSubPass().firstCommandList();
 			Assets* const assets = (Assets*)&sharedResources;
 
 			commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
 			if (highResPlaneModel.isInView(assets->mainCamera.frustum()))
 			{
-				commandList->SetPipelineState(assets->pipelineStateObjects.directionalLight);
+				if (sharedResources.renderPass.virtualTextureFeedbackSubPass().isInView(sharedResources))
+				{
+					vtFeedbackCommandList->SetPipelineState(assets->pipelineStateObjects.vtFeedbackWithNormals);
+					vtFeedbackCommandList->IASetVertexBuffers(0u, 1u, &highResPlaneModel.mesh->vertexBufferView);
+					vtFeedbackCommandList->IASetIndexBuffer(&highResPlaneModel.mesh->indexBufferView);
+					vtFeedbackCommandList->SetGraphicsRootConstantBufferView(2u, highResPlaneModel.vsBufferGpu());
+					vtFeedbackCommandList->SetGraphicsRootConstantBufferView(3u, stone4FeedbackBufferPs);
+					vtFeedbackCommandList->DrawIndexedInstanced(highResPlaneModel.mesh->indexCount, 1u, 0u, 0, 0u);
+				}
 
 				commandList->SetGraphicsRootConstantBufferView(1u, pointLightConstantBufferGpuAddress);
-				commandList->SetGraphicsRootConstantBufferView(2u, highResPlaneModel.vsBufferGpu());
-				commandList->SetGraphicsRootConstantBufferView(3u, highResPlaneModel.psBufferGpu());
+				commandList->SetPipelineState(assets->pipelineStateObjects.directionalLightVt);
 				commandList->IASetVertexBuffers(0u, 1u, &highResPlaneModel.mesh->vertexBufferView);
 				commandList->IASetIndexBuffer(&highResPlaneModel.mesh->indexBufferView);
+				commandList->SetGraphicsRootConstantBufferView(2u, highResPlaneModel.vsBufferGpu());
+				commandList->SetGraphicsRootConstantBufferView(3u, highResPlaneModel.psBufferGpu());
 				commandList->DrawIndexedInstanced(highResPlaneModel.mesh->indexCount, 1u, 0u, 0, 0u);
 			}
 		}
@@ -148,12 +187,13 @@ class TestZoneFunctions
 			componentUploaded(zone, executor, sharedResources);
 		}
 
-		void destruct(BaseExecutor*const executor, SharedResources& sharedResources)
+		void destruct(BaseExecutor*const executor, SharedResources& sr)
 		{
-			auto& textureManager = sharedResources.textureManager;
+			auto& sharedResources = reinterpret_cast<Assets&>(sr);
 			auto& meshManager = sharedResources.meshManager;
 
-			textureManager.unloadTexture(TextureNames::stone04, executor);
+			//textureManager.unloadTexture(TextureNames::stone04, executor);
+			VirtualTextureManager::unloadTexture(TextureNames::stone04, sharedResources);
 
 			meshManager.unloadMesh(MeshNames::HighResMesh1, executor);
 		}

@@ -7,13 +7,14 @@ class SharedResources;
 
 class AmbientMusic : IXAudio2VoiceCallback
 {
-	constexpr static size_t rawSoundDataBufferSize = 17640u; //100 ms of data
+	//The total size of front plus back buffer
+	constexpr static size_t rawSoundDataBufferSize = 35280u; //200 ms of data
 
 	XAudio2SourceVoice musicPlayer;
 	unsigned long long previousTrack;
 	FILE* currentFile;
 	size_t bytesRemaining;
-	std::unique_ptr<uint8_t[]> rawSoundData;
+	uint8_t rawSoundData[rawSoundDataBufferSize];
 	bool firstBuffer = true;
 
 	virtual void STDMETHODCALLTYPE OnBufferEnd(void* pBufferContext) override;

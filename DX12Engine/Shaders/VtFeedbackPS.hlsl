@@ -3,7 +3,7 @@
 #endif
 
 #include "VtFeedbackCameraMaterial.h"
-#include "VtFeedbackMaterial.h"
+#include "VtFeedbackMaterialPS.h"
 
 struct Input 
 {

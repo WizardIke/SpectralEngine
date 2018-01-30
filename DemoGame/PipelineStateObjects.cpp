@@ -200,6 +200,19 @@ PipelineStateObjects::PipelineStateObjects(ID3D12Device* const device, RootSigna
 	new(&directionalLight) D3D12PipelineState(device, PSODesc);
 
 
+
+	D3DBlob directionalLightVtPS;
+
+	hr = D3DReadFileToBlob(L"../DemoGame/CompiledShaders/DirectionalLightVtPS.cso", &directionalLightVtPS.get());
+	if (FAILED(hr)) throw false;
+
+	PSODesc.PS.pShaderBytecode = directionalLightVtPS->GetBufferPointer();
+	PSODesc.PS.BytecodeLength = directionalLightVtPS->GetBufferSize();
+
+	new(&directionalLightVt) D3D12PipelineState(device, PSODesc);
+
+
+
 	D3DBlob pointLightPS;
 
 	hr = D3DReadFileToBlob(L"../DemoGame/CompiledShaders/PointLightPS.cso", &pointLightPS.get());
@@ -292,6 +305,19 @@ PipelineStateObjects::PipelineStateObjects(ID3D12Device* const device, RootSigna
 #endif
 
 
+
+	PSODesc.InputLayout.NumElements = sizeof(LightInputLayout) / sizeof(D3D12_INPUT_ELEMENT_DESC);
+	PSODesc.InputLayout.pInputElementDescs = LightInputLayout;
+
+	new(&vtFeedbackWithNormals) D3D12PipelineState(device, PSODesc);
+#ifndef NDEBUG
+	vtFeedbackWithNormals->SetName(L"Virtual texture feedback with normals");
+#endif
+
+
+
+	PSODesc.InputLayout.NumElements = sizeof(texturedInputLayout) / sizeof(D3D12_INPUT_ELEMENT_DESC);
+	PSODesc.InputLayout.pInputElementDescs = texturedInputLayout;
 
 	D3DBlob TexturedQuadVS;
 	hr = D3DReadFileToBlob(L"../DemoGame/CompiledShaders/TexturedQuadVS.cso", &TexturedQuadVS.get());

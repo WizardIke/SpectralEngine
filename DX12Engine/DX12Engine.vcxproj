@@ -223,7 +223,7 @@
     <ClInclude Include="Shaders\Quad2dMaterialVS.h" />
     <ClInclude Include="Shaders\StandardMaterialPS.h" />
     <ClInclude Include="Shaders\VtFeedbackCameraMaterial.h" />
-    <ClInclude Include="Shaders\VtFeedbackMaterial.h" />
+    <ClInclude Include="Shaders\VtFeedbackMaterialPS.h" />
     <ClInclude Include="Shaders\WaterMaterialPS.h" />
     <ClInclude Include="Shaders\WaterMaterialVS.h" />
     <ClInclude Include="StreamingManager.h" />

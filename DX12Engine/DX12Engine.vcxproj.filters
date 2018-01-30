@@ -397,13 +397,13 @@
     <ClInclude Include="PageDeleter.h">
       <Filter>VirtualTexturing</Filter>
     </ClInclude>
-    <ClInclude Include="Shaders\VtFeedbackMaterial.h">
-      <Filter>Shaders\Pixel</Filter>
-    </ClInclude>
     <ClInclude Include="Shaders\Quad2dMaterialVS.h">
       <Filter>Shaders\Vertex</Filter>
     </ClInclude>
     <ClInclude Include="InputManager.h" />
+    <ClInclude Include="Shaders\VtFeedbackMaterialPS.h">
+      <Filter>Shaders\Pixel</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="SharedResources.cpp">

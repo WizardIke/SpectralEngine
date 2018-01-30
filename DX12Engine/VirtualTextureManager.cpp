@@ -89,6 +89,7 @@ static unsigned int createTextureDescriptor(D3D12GraphicsEngine& graphicsEngine,
 			srv.Texture2D.ResourceMinLODClamp = 0u;
 			srv.Texture2D.PlaneSlice = 0u;
 		}
+		break;
 	case D3D12_RESOURCE_DIMENSION::D3D12_RESOURCE_DIMENSION_TEXTURE1D:
 		if (request.arraySize > 1u)
 		{
@@ -219,7 +220,7 @@ void VirtualTextureManager::createTextureWithResitencyInfo(D3D12GraphicsEngine& 
 		auto height = resitencyInfo.heightInPages >> resitencyInfo.lowestPinnedMip;
 		if (height == 0u) height = 1u;
 		resitencyInfo.pinnedHeapLocations = new HeapLocation[width * height];
-		for (auto y = 0u; y < width; ++y)
+		for (auto y = 0u; y < height; ++y)
 		{
 			for (auto x = 0u; x < width; ++x)
 			{
@@ -286,21 +287,15 @@ void VirtualTextureManager::textureUseSubresourceHelper(RamToVramUploadRequest& 
 		uploadBufferCpuAddressOfCurrentPos, texture, streamingManager.currentCommandList, uploadResource, uploadResourceOffset);
 }
 
-void VirtualTextureManager::textureUploadedHelper(void* storedFilename, BaseExecutor* executor)
+void VirtualTextureManager::textureUploadedHelper(void* storedFilename, BaseExecutor* executor, SharedResources& sharedResources)
 {
 	const wchar_t* filename = reinterpret_cast<wchar_t*>(storedFilename);
-	unsigned int descriptorIndex;
-	ID3D12Resource* resource;
-	unsigned int textureID;
+	Texture* texture;
 	std::vector<Request> requests;
 	{
 		std::lock_guard<decltype(mutex)> lock(mutex);
-		auto& texture = textures[filename];
-		texture.loaded = true;
-
-		resource = texture.resource;
-		textureID = texture.textureID;
-		descriptorIndex = texture.descriptorIndex;
+		texture = &textures[filename];
+		texture->loaded = true;
 
 		auto request = uploadRequests.find(filename);
 		assert(request != uploadRequests.end() && "A texture is loading with no requests for it");
@@ -310,7 +305,7 @@ void VirtualTextureManager::textureUploadedHelper(void* storedFilename, BaseExec
 
 	for (auto& request : requests)
 	{
-		request(executor, descriptorIndex, textureID);
+		request(executor, sharedResources, *texture);
 	}
 }
 

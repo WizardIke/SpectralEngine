@@ -257,6 +257,9 @@
     <ClInclude Include="Cave\CaveModelPart1.h">
       <Filter>Areas\Cave\Models</Filter>
     </ClInclude>
+    <ClInclude Include="Shaders\VtFeedbackMaterialPS.h">
+      <Filter>Shaders\Pixel</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="Meshes\bath.mesh">
@@ -435,6 +438,9 @@
     </FxCompile>
     <FxCompile Include="Shaders\TexturedQuadVS.hlsl">
       <Filter>Shaders\Vertex</Filter>
+    </FxCompile>
+    <FxCompile Include="DirectionalLightVtPS.hlsl">
+      <Filter>Shaders\Pixel</Filter>
     </FxCompile>
   </ItemGroup>
 </Project>

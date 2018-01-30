@@ -17,22 +17,6 @@ class BaseExecutor;
 class VirtualTextureManager
 {
 public:
-	class Request
-	{
-		friend class VirtualTextureManager;
-		void* requester;
-		void(*job)(void*const requester, BaseExecutor* const executor, unsigned int textureDescriptorIndex, unsigned int textureID);
-	public:
-		Request(void* const requester, void(*job)(void*const requester, BaseExecutor* const executor, unsigned int textureDescriptorIndex, unsigned int textureID)) : 
-			requester(requester), job(job) {}
-		Request() {}
-
-		void operator()(BaseExecutor* const executor, unsigned int textureIndex, unsigned int textureID)
-		{
-			job(requester, executor, textureIndex, textureID);
-		}
-	};
-private:
 	struct Texture
 	{
 		Texture() : resource(), numUsers(0u), loaded(false) {}
@@ -42,7 +26,22 @@ private:
 		unsigned int numUsers;
 		bool loaded;
 	};
+	class Request
+	{
+		friend class VirtualTextureManager;
+		void* requester;
+		void(*job)(void*const requester, BaseExecutor* const executor, SharedResources& sharedResources, const Texture& texture);
+	public:
+		Request(void* const requester, void(*job)(void*const requester, BaseExecutor* const executor, SharedResources& sharedResources, const Texture& texture)) :
+			requester(requester), job(job) {}
+		Request() {}
 
+		void operator()(BaseExecutor* const executor, SharedResources& sharedResources, const Texture& texture)
+		{
+			job(requester, executor, sharedResources, texture);
+		}
+	};
+private:
 	class TextureInfoAllocator
 	{
 		unsigned int* freeList;
@@ -88,16 +87,16 @@ public:
 	PageProvider pageProvider;
 private:
 
-	template<class Executor>
-	static void textureUploaded(void* storedFilename, BaseExecutor* exe)
+	template<class SharedResources_t>
+	static void textureUploaded(void* storedFilename, BaseExecutor* exe, SharedResources& sr)
 	{
-		const auto executor = reinterpret_cast<Executor*>(exe);
-		auto& virtualTextureManager = executor->sharedResources->virtualTextureManager;
+		auto& sharedResources = reinterpret_cast<SharedResources_t&>(sr);
+		auto& virtualTextureManager = sharedResources.virtualTextureManager;
 
-		virtualTextureManager.textureUploadedHelper(storedFilename, exe);
+		virtualTextureManager.textureUploadedHelper(storedFilename, exe, sharedResources);
 	}
 
-	void textureUploadedHelper(void* storedFilename, BaseExecutor* executor);
+	void textureUploadedHelper(void* storedFilename, BaseExecutor* executor, SharedResources& sharedResources);
 
 	void loadTextureUncachedHelper(StreamingManagerThreadLocal& streamingManager, D3D12GraphicsEngine& graphicsEngine, ID3D12CommandQueue* commandQueue, const wchar_t * filename,
 		void(*textureUseSubresource)(RamToVramUploadRequest* const request, BaseExecutor* executor1, SharedResources& sharedResources, void* const uploadBufferCpuAddressOfCurrentPos, ID3D12Resource* uploadResource,
@@ -106,22 +105,24 @@ private:
 	void textureUseSubresourceHelper(RamToVramUploadRequest& request, D3D12GraphicsEngine& graphicsEngine, StreamingManagerThreadLocal& streamingManager, void* const uploadBufferCpuAddressOfCurrentPos,
 		ID3D12Resource* uploadResource, uint64_t uploadResourceOffset);
 
-	template<class Executor>
-	static void textureUseSubresource(RamToVramUploadRequest* const request, BaseExecutor* executor1, void* const uploadBufferCpuAddressOfCurrentPos, ID3D12Resource* uploadResource,
-		uint64_t uploadResourceOffset)
+	template<class Executor, class SharedResources_t>
+	static void textureUseSubresource(RamToVramUploadRequest* const request, BaseExecutor* executor1, SharedResources& sr,
+		void* const uploadBufferCpuAddressOfCurrentPos, ID3D12Resource* uploadResource, uint64_t uploadResourceOffset)
 	{
 		auto executor = reinterpret_cast<Executor*>(executor1);
-		auto& virtualTextureManager = executor->sharedResources->virtualTextureManager;
-		auto& graphicsEngine = executor->sharedResources->graphicsEngine;
+		auto& sharedResources = reinterpret_cast<SharedResources_t&>(sr);
+		auto& virtualTextureManager = sharedResources.virtualTextureManager;
+		auto& graphicsEngine = sharedResources.graphicsEngine;
 		auto& streamingManager = executor->streamingManager;
 
 		virtualTextureManager.textureUseSubresourceHelper(*request, graphicsEngine, streamingManager, uploadBufferCpuAddressOfCurrentPos, uploadResource, uploadResourceOffset);
 	}
 
-	template<class Executor>
+	template<class Executor, class SharedResources_t>
 	void loadTextureUncached(StreamingManagerThreadLocal& streamingManager, D3D12GraphicsEngine& graphicsEngine, ID3D12CommandQueue* commandQueue, const wchar_t * filename)
 	{
-		loadTextureUncachedHelper(streamingManager, graphicsEngine, commandQueue, filename, textureUseSubresource<Executor>, textureUploaded<Executor>);
+		loadTextureUncachedHelper(streamingManager, graphicsEngine, commandQueue, filename, textureUseSubresource<Executor, SharedResources_t>,
+			textureUploaded<SharedResources_t>);
 	}
 
 	void createTextureWithResitencyInfo(D3D12GraphicsEngine& graphicsEngine, ID3D12CommandQueue* commandQueue, RamToVramUploadRequest& vramRequest, const wchar_t* filename);
@@ -131,11 +132,11 @@ public:
 	VirtualTextureManager(D3D12GraphicsEngine& graphicsEngine) : pageProvider(-3.0f, graphicsEngine.adapter, graphicsEngine.graphicsDevice) {}
 	~VirtualTextureManager() {}
 
-	template<class Executor>
-	static void loadTexture(Executor* const executor, const wchar_t * filename, Request callback)
+	template<class Executor, class SharedResources_t>
+	static void loadTexture(Executor* const executor, SharedResources_t& sharedResources, const wchar_t * filename, Request callback)
 	{
-		auto& virtualTextureManager = executor->sharedResources->virtualTextureManager;
-		auto& graphicsEngine = executor->sharedResources->graphicsEngine;
+		auto& virtualTextureManager = sharedResources.virtualTextureManager;
+		auto& graphicsEngine = sharedResources.graphicsEngine;
 		auto& streamingManager = executor->streamingManager;
 
 		std::unique_lock<decltype(virtualTextureManager.mutex)> lock(virtualTextureManager.mutex);
@@ -146,14 +147,14 @@ public:
 			virtualTextureManager.uploadRequests[filename].push_back(callback);
 			lock.unlock();
 
-			virtualTextureManager.loadTextureUncached<Executor>(streamingManager, graphicsEngine, executor->sharedResources->StreamingManager.commandQueue(), filename);
+			virtualTextureManager.loadTextureUncached<Executor, SharedResources_t>(streamingManager, graphicsEngine,
+				sharedResources.streamingManager.commandQueue(), filename);
 			return;
 		}
 		if (texture.loaded) //the resource is loaded
 		{
-			unsigned int textureIndex = texture.descriptorIndex;
 			lock.unlock();
-			callback(executor, textureIndex);
+			callback(executor, sharedResources, texture);
 			return;
 		}
 		//the resourse is loading
@@ -161,9 +162,9 @@ public:
 	}
 
 	/*the texture must no longer be in use, including by the GPU*/
-	template<class SharedResources>
-	void unloadTexture(const wchar_t * filename, SharedResources* sharedResources)
+	template<class SharedResources_t>
+	void unloadTexture(const wchar_t * filename, SharedResources_t& sharedResources)
 	{
-		unloadTextureHelper(filename, sharedResources->graphicsEngine, sharedResources->streamingManager);
+		unloadTextureHelper(filename, sharedResources.graphicsEngine, sharedResources.streamingManager);
 	}
 };

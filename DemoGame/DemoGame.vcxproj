@@ -232,6 +232,7 @@
     <ClInclude Include="Shaders\BasicMaterialPS.h" />
     <ClInclude Include="Shaders\DirectionalLightMaterialPS.h" />
     <ClInclude Include="Shaders\TexturedQuadMaterialVS.h" />
+    <ClInclude Include="Shaders\VtFeedbackMaterialPS.h" />
     <ClInclude Include="TestZone.h" />
     <ClInclude Include="TextureNames.h" />
     <ClInclude Include="UserInterface\Sentences\CPUUsageSentence.h" />
@@ -285,6 +286,12 @@
     <Media Include="sound02.wav" />
   </ItemGroup>
   <ItemGroup>
+    <FxCompile Include="DirectionalLightVtPS.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
+    </FxCompile>
     <FxCompile Include="GlassVS.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Vertex</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Vertex</ShaderType>

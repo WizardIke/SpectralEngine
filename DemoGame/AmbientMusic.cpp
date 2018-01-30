@@ -18,7 +18,6 @@ AmbientMusic::AmbientMusic(BaseExecutor* const executor, SharedResources& shared
 	waveFormat.cbSize = 0u;
 	return waveFormat;
 }(), 0u, 1.0f, this),
-	rawSoundData(new uint8_t[rawSoundDataBufferSize]),
 	bytesRemaining(0u),
 	previousTrack(std::numeric_limits<unsigned long long>::max())
 {
@@ -118,14 +117,14 @@ void AmbientMusic::update(BaseExecutor* const executor, SharedResources& sharedR
 	buffer.LoopLength = 0u;
 	if (firstBuffer)
 	{
-		SoundDecoder::loadWaveFileChunk(currentFile, rawSoundData.get(), buffer.AudioBytes);
-		buffer.pAudioData = rawSoundData.get();
+		SoundDecoder::loadWaveFileChunk(currentFile, rawSoundData, buffer.AudioBytes);
+		buffer.pAudioData = rawSoundData;
 		firstBuffer = false;
 	}
 	else
 	{
-		SoundDecoder::loadWaveFileChunk(currentFile, rawSoundData.get() + rawSoundDataBufferSize / 2u, buffer.AudioBytes);
-		buffer.pAudioData = rawSoundData.get() + rawSoundDataBufferSize / 2u;
+		SoundDecoder::loadWaveFileChunk(currentFile, rawSoundData + rawSoundDataBufferSize / 2u, buffer.AudioBytes);
+		buffer.pAudioData = rawSoundData + rawSoundDataBufferSize / 2u;
 		firstBuffer = true;
 	}
 	buffer.pContext = &sharedResources;

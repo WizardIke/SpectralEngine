@@ -43,7 +43,7 @@ RootSignatures::RootSignatures(ID3D12Device* const device)
 
 	D3D12_STATIC_SAMPLER_DESC staticSampleDescs[3];
 
-	staticSampleDescs[0].Filter = D3D12_FILTER_MIN_MAG_MIP_POINT;
+	staticSampleDescs[0].Filter = D3D12_FILTER::D3D12_FILTER_MIN_MAG_MIP_POINT;
 	staticSampleDescs[0].AddressU = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
 	staticSampleDescs[0].AddressV = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
 	staticSampleDescs[0].AddressW = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
@@ -57,12 +57,12 @@ RootSignatures::RootSignatures(ID3D12Device* const device)
 	staticSampleDescs[0].RegisterSpace = 0;
 	staticSampleDescs[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
-	staticSampleDescs[1].Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
+	staticSampleDescs[1].Filter = D3D12_FILTER::D3D12_FILTER_ANISOTROPIC;
 	staticSampleDescs[1].AddressU = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
 	staticSampleDescs[1].AddressV = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
 	staticSampleDescs[1].AddressW = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
 	staticSampleDescs[1].MipLODBias = 0.0f;
-	staticSampleDescs[1].MaxAnisotropy = 8;
+	staticSampleDescs[1].MaxAnisotropy = 16;
 	staticSampleDescs[1].ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
 	staticSampleDescs[1].BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;
 	staticSampleDescs[1].MinLOD = 0.0f;
@@ -71,7 +71,7 @@ RootSignatures::RootSignatures(ID3D12Device* const device)
 	staticSampleDescs[1].RegisterSpace = 0;
 	staticSampleDescs[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
-	staticSampleDescs[2].Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
+	staticSampleDescs[2].Filter = D3D12_FILTER::D3D12_FILTER_ANISOTROPIC;
 	staticSampleDescs[2].AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
 	staticSampleDescs[2].AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
 	staticSampleDescs[2].AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
