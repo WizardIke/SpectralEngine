@@ -16,7 +16,10 @@ void ScopedFile::open(const wchar_t* fileName, DWORD accessRight, DWORD shareMod
 #ifdef _WIN32_WINNT
 #if (_WIN32_WINNT >= _WIN32_WINNT_WIN8)
 	file = CreateFile2(fileName, accessRight, shareMode, creationMode, extendedParameter);
-	if (file == INVALID_HANDLE_VALUE) throw WindowsFileCreationException(HRESULT_FROM_WIN32(GetLastError()));
+	if (file == INVALID_HANDLE_VALUE)
+	{
+		throw WindowsFileCreationException(HRESULT_FROM_WIN32(GetLastError()));
+	}
 #else
 	file = CreateFileW(fileName, accessRight, shareMode, nullptr, creationMode, FILE_ATTRIBUTE_NORMAL, extendedParameter);
 	if (file == INVALID_HANDLE_VALUE) throw FileNotFoundException();

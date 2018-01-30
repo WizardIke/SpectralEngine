@@ -299,6 +299,8 @@ PipelineStateObjects::PipelineStateObjects(ID3D12Device* const device, RootSigna
 	PSODesc.PS.pShaderBytecode = vtFeedbackPS->GetBufferPointer();
 	PSODesc.PS.BytecodeLength = vtFeedbackPS->GetBufferSize();
 
+	PSODesc.RTVFormats[0] = DXGI_FORMAT::DXGI_FORMAT_R16G16B16A16_UINT;
+
 	new(&vtFeedback) D3D12PipelineState(device, PSODesc);
 #ifndef NDEBUG
 	vtFeedback->SetName(L"Virtual texture feedback");
@@ -320,16 +322,24 @@ PipelineStateObjects::PipelineStateObjects(ID3D12Device* const device, RootSigna
 	PSODesc.InputLayout.pInputElementDescs = texturedInputLayout;
 
 	D3DBlob TexturedQuadVS;
+	D3DBlob vtDebugDrawPS;
+
 	hr = D3DReadFileToBlob(L"../DemoGame/CompiledShaders/TexturedQuadVS.cso", &TexturedQuadVS.get());
 	if (FAILED(hr)) throw false;
+	hr = D3DReadFileToBlob(L"../DemoGame/CompiledShaders/VtDebugDrawPs.cso", &vtDebugDrawPS.get());
+	if (FAILED(hr)) throw false;
+
 	PSODesc.VS.pShaderBytecode = TexturedQuadVS->GetBufferPointer();
 	PSODesc.VS.BytecodeLength = TexturedQuadVS->GetBufferSize();
-	PSODesc.PS.pShaderBytecode = basicPS->GetBufferPointer();
-	PSODesc.PS.BytecodeLength = basicPS->GetBufferSize();
+	PSODesc.PS.pShaderBytecode = vtDebugDrawPS->GetBufferPointer();
+	PSODesc.PS.BytecodeLength = vtDebugDrawPS->GetBufferSize();
+
+	PSODesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
 	PSODesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC::D3D12_COMPARISON_FUNC_ALWAYS;
-	new(&texturedQuad) D3D12PipelineState(device, PSODesc);
+
+	new(&vtDebugDraw) D3D12PipelineState(device, PSODesc);
 #ifndef NDEBUG
-	texturedQuad->SetName(L"Textured Quad");
+	vtDebugDraw->SetName(L"virtual texture feedback debug draw");
 #endif
 
 

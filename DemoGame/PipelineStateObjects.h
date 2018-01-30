@@ -21,5 +21,5 @@ public:
 	D3D12PipelineState copy;
 	D3D12PipelineState vtFeedback;
 	D3D12PipelineState vtFeedbackWithNormals;
-	D3D12PipelineState texturedQuad;
+	D3D12PipelineState vtDebugDraw;
 };

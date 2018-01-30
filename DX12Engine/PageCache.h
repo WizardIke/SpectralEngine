@@ -89,7 +89,7 @@ class PageCache
 	void moveNodeToFront(Node* node);
 	static const PageAllocationInfo& getDataFromNode(const Node& node) { return node.data; }
 public:
-	PageCache() : pageLookUp(HashMap::DEFAULT_INIT_BUCKETS_SIZE, Hash(), KeyEqual(), std::allocator<Node>(), HashMap::DEFAULT_MAX_LOAD_FACTOR) {}
+	PageCache();
 	PageAllocationInfo* getPage(const textureLocation& location);
 	size_t capacity() { return maxPages; }
 	void increaseSize(std::size_t newMaxPages);
@@ -101,22 +101,32 @@ public:
 	template<class PageDeleter>
 	void addPages(PageAllocationInfo* pageInfos, size_t pageCount, PageDeleter& pageDeleter)
 	{
+#ifndef NDEBUG
+		if (maxPages == 0u)
+		{
+			throw false;
+		}
+#endif // !NDEBUG
+
 		for (auto i = 0u; i < pageCount; ++i)
 		{
-			if (pageLookUp.size() == maxPages)
+			const auto size = pageLookUp.size();
+			if (size == maxPages)
 			{
-				Node* back = mBack.previous;
-				mBack.previous = back->previous;
-				pageDeleter(back->data);
-				pageLookUp.erase(back->data.textureLocation);
+				Node* backPrev = mBack.previous;
+				mBack.previous = backPrev->previous;
+				mBack.previous->next = &mBack;
+				pageDeleter(backPrev->data);
+				pageLookUp.erase(backPrev->data.textureLocation);
 			}
-			assert(pageLookUp.size() <= maxPages);
+			assert(size <= maxPages);
 			Node newPage;
 			newPage.data = pageInfos[i];
 			newPage.next = mFront.next;
+			mFront.next->previous = &newPage;
 			newPage.previous = &mFront;
-			mFront.next = &(pageLookUp.insert(std::move(newPage)).first.value());
-			if (pageLookUp.size() == 1u) mBack.previous = mFront.next;
+			mFront.next = &newPage;
+			pageLookUp.insert(std::move(newPage));
 		}
 	}
 
@@ -126,7 +136,7 @@ public:
 		assert(newMaxPages < maxPages);
 		if (pageLookUp.size() > newMaxPages)
 		{
-			size_t numPagesToDelete = maxPages - newMaxPages;
+			size_t numPagesToDelete = pageLookUp.size() - newMaxPages;
 			for (auto i = 0u; i != numPagesToDelete; ++i)
 			{
 				pageDeleter(mBack.previous->data);

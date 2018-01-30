@@ -1206,7 +1206,7 @@ namespace DDSFileLoader
 		else
 		{
 			//something is wrong here, textures with less than D3D12_TEXTURE_DATA_PITCH_ALIGNMENT width and/or height loot bad
-			throw "textures with miplevel width and/or height less than D3D12_TEXTURE_DATA_PITCH_ALIGNMENT don't currently work";
+			//throw "textures with miplevel width and/or height less than D3D12_TEXTURE_DATA_PITCH_ALIGNMENT don't currently work";
 			std::unique_ptr<unsigned char[]> buffer(new unsigned char[sourceSlicePitch * subresourceDepth]);
 			TextureFile.read(buffer.get(), static_cast<DWORD>(sourceSlicePitch * subresourceDepth));
 			

@@ -24,11 +24,11 @@ class PageProvider
 	constexpr static size_t maxPagesLoading = 32u;
 public:
 	PageAllocator pageAllocator;
+	float mipBias;
 private:
 	PageCache pageCache;
 	unsigned long long memoryUsage;
 	signed long long maxPages; //total number of pages that can be used for non-pinned virtual texture pages. Can be negative when too much memory is being used for other things
-	float mipBias;
 	float desiredMipBias;
 
 	struct PageLoadRequest
@@ -94,9 +94,8 @@ public:
 			if (mipBias > desiredMipBias)
 			{
 				//cache size needs increasing
-				size_t newSize = static_cast<size_t>(maxPagesMinZero * ((memoryFullLowerBound + memoryFullUpperBound) / 2u));
-				newSize -= newSize % PageAllocator::heapSizeInPages;
-				pageCache.increaseSize(newSize);
+				newCacheSize = static_cast<size_t>(maxPagesMinZero * ((memoryFullLowerBound + memoryFullUpperBound) / 2u));
+				pageCache.increaseSize(newCacheSize);
 				if (totalPagesNeeded * 4 < pageCache.capacity())
 				{
 					// mipBias needs decreasing
@@ -108,17 +107,16 @@ public:
 				if (totalPagesNeeded * maxPageCountMultiplierLowerBound > pageCache.capacity())
 				{
 					//cache size needs increasing
-					size_t newSize = std::min(size_t(maxPagesMinZero * ((memoryFullLowerBound + memoryFullUpperBound) / 2u)),
+					size_t maxPagesUsable = size_t(maxPagesMinZero * ((memoryFullLowerBound + memoryFullUpperBound) / 2u));
+					maxPagesUsable -= maxPagesUsable % PageAllocator::heapSizeInPages;
+					newCacheSize = std::min(maxPagesUsable,
 						totalPagesNeeded * ((maxPageCountMultiplierLowerBound + maxPageCountMultiplierUpperBound) / 2u));
-					newSize -= newSize % PageAllocator::heapSizeInPages;
-					pageCache.increaseSize(newSize);
+					pageCache.increaseSize(newCacheSize);
 				}
 				else if (totalPagesNeeded * maxPageCountMultiplierUpperBound < pageCache.capacity())
 				{
 					//we have more memory than we need, decrease cache size
-					size_t newSize = totalPagesNeeded * ((maxPageCountMultiplierLowerBound + maxPageCountMultiplierUpperBound) / 2u);
-					newSize -= newSize % PageAllocator::heapSizeInPages;
-					newCacheSize = newSize;
+					newCacheSize = totalPagesNeeded * ((maxPageCountMultiplierLowerBound + maxPageCountMultiplierUpperBound) / 2u);
 				}
 			}
 		}
@@ -136,9 +134,8 @@ public:
 					totalPagesNeeded /= 4u; //mgiht not reduce by exactly the right amount but should be close enough
 				}
 				//reduce cache size
-				size_t newSize = size_t(maxPagesMinZero * ((memoryFullLowerBound + memoryFullUpperBound) / 2u));
-				newSize -= newSize % PageAllocator::heapSizeInPages;
-				newCacheSize = newSize;
+				newCacheSize = size_t(maxPagesMinZero * ((memoryFullLowerBound + memoryFullUpperBound) / 2u));
+				newCacheSize -= newCacheSize % PageAllocator::heapSizeInPages;
 			}
 			else
 			{
@@ -146,14 +143,11 @@ public:
 				if (totalPagesNeeded * maxPageCountMultiplierUpperBound < pageCache.capacity())
 				{
 					//we have more memory than we need, decrease cache size
-					size_t newSize = totalPagesNeeded * ((maxPageCountMultiplierLowerBound + maxPageCountMultiplierUpperBound) / 2u);
-					newSize -= newSize % PageAllocator::heapSizeInPages;
-					newCacheSize = newSize;
+					newCacheSize = totalPagesNeeded * ((maxPageCountMultiplierLowerBound + maxPageCountMultiplierUpperBound) / 2u);
 				}
 				else if (totalPagesNeeded > pageCache.capacity())
 				{
 					//need to increase mipBias
-					++mipBias;
 					++mipBias;
 					totalPagesNeeded /= 4u; //mgiht not reduce by exactly the right amount but should be close enough
 				}
@@ -169,6 +163,10 @@ public:
 			auto textureId = request.first.textureId1();
 			const unsigned int mipLevel = static_cast<unsigned int>(request.first.mipLevel()) + mipBiasIncrease;
 			location.setMipLevel(mipLevel);
+			auto newX = location.x() >> mipBiasIncrease;
+			auto newY = location.y() >> mipBiasIncrease;
+			location.setX(newX);
+			location.setY(newY);
 			const VirtualTextureInfo& textureInfo = virtualTextureManager.texturesByID.data()[textureId];
 
 			if (pageCache.getPage(location) != nullptr)
@@ -191,7 +189,7 @@ public:
 						auto state = pageRequest.state.load(std::memory_order::memory_order_acquire);
 						if (state != PageLoadRequest::State::unused)
 						{
-							if (pageRequest.allocationInfo.textureLocation.value == location.value)
+							if (pageRequest.allocationInfo.textureLocation == location)
 							{
 								pageAlreadyLoading = true;
 								break;
@@ -265,38 +263,42 @@ public:
 		if (numDroppablePagesInCache < newPageCount)
 		{
 			size_t numPagesToDrop = newPageCount - numDroppablePagesInCache;
-			auto i = newPageCount;
-			while (true)
+			if (mipBiasIncrease != 0u)
 			{
-				textureLocation newPageTextureLocation = newPages[i].textureLocation;
-				newPageTextureLocation.decreaseMipLevel(mipBiasIncrease);
-				auto pos = pageRequests.find(newPageTextureLocation);
-				if (pos == pageRequests.end())
+				//very hard to tell if a page needs loading when mip level has decreased. Could check if all four lower mips are requested
+				newPageCount -= (unsigned int)numPagesToDrop;
+			}
+			else
+			{
+				auto i = newPageCount;
+				while (true)
 				{
-					//this page isn't needed
-					--newPageCount;
-				}
-				else
-				{
-					--i;
-					while (true)
+					auto pos = pageRequests.find(newPages[i].textureLocation);
+					if (pos == pageRequests.end())
 					{
-						textureLocation newPageTextureLocation = newPages[i].textureLocation;
-						newPageTextureLocation.decreaseMipLevel(mipBiasIncrease);
-						auto pos = pageRequests.find(newPageTextureLocation);
-						if (pos == pageRequests.end())
-						{
-							//this page isn't needed
-							--newPageCount;
-							std::swap(newPages[i], newPages[newPageCount]);
-						}
-						if (i == 0u) break;
-						--i;
+						//this page isn't needed
+						--newPageCount;
 					}
-					break;
+					else
+					{
+						--i;
+						while (true)
+						{
+							auto pos = pageRequests.find(newPages[i].textureLocation);
+							if (pos == pageRequests.end())
+							{
+								//this page isn't needed
+								--newPageCount;
+								std::swap(newPages[i], newPages[newPageCount]);
+							}
+							if (i == 0u) break;
+							--i;
+						}
+						break;
+					}
+					if (i == 0u) break;
+					--i;
 				}
-				if (i == 0u) break;
-				--i;
 			}
 		}
 
@@ -337,7 +339,7 @@ public:
 				newPageCoordinates[0].Y = (UINT)newPages[0u].textureLocation.y();
 				newPageCoordinates[0].Z = 0u;
 				newPageCoordinates[0].Subresource = (UINT)newPages[0u].textureLocation.mipLevel();
-				unsigned int previousResourceId = (unsigned int)newPages[0u].textureLocation.textureId1();
+				VirtualTextureInfo* previousResourceInfo = &virtualTextureManager.texturesByID.data()[newPages[0u].textureLocation.textureId1()];
 				unsigned int lastIndex = 0u;
 				{
 					VirtualTextureInfo& resourceInfo = virtualTextureManager.texturesByID.data()[newPages[0].textureLocation.textureId1()];
@@ -349,25 +351,23 @@ public:
 				{
 					for (; i != newPageCount; ++i)
 					{
-						unsigned int resourceId = (unsigned int)newPages[i].textureLocation.textureId1();
-						VirtualTextureInfo& resourceInfo = virtualTextureManager.texturesByID.data()[newPages[i].textureLocation.textureId1()];
-						if (resourceId != previousResourceId)
+						VirtualTextureInfo* resourceInfo = &virtualTextureManager.texturesByID.data()[newPages[i].textureLocation.textureId1()];
+						if (resourceInfo != previousResourceInfo)
 						{
-							pageAllocator.addPages(newPageCoordinates + lastIndex, i - lastIndex, resourceInfo, commandQueue, graphicsDevice, newPages + lastIndex);
+							pageAllocator.addPages(newPageCoordinates + lastIndex, i - lastIndex, *resourceInfo, commandQueue, graphicsDevice, newPages + lastIndex);
 							lastIndex = i;
-							previousResourceId = resourceId;
+							previousResourceInfo = resourceInfo;
 						}
 						newPageCoordinates[i].X = (UINT)newPages[i].textureLocation.x();
 						newPageCoordinates[i].Y = (UINT)newPages[i].textureLocation.y();
 						newPageCoordinates[i].Z = 0u;
 						newPageCoordinates[i].Subresource = (UINT)newPages[i].textureLocation.mipLevel();
 
-						commandList->CopyTiles(resourceInfo.resource, &newPageCoordinates[i], &tileSize, pageProvider.uploadResource, newPagesOffsetInLoadRequests[i] * 64u * 1024u,
+						commandList->CopyTiles(resourceInfo->resource, &newPageCoordinates[i], &tileSize, pageProvider.uploadResource, newPagesOffsetInLoadRequests[i] * 64u * 1024u,
 							D3D12_TILE_COPY_FLAGS::D3D12_TILE_COPY_FLAG_LINEAR_BUFFER_TO_SWIZZLED_TILED_RESOURCE);
 					}
-				}
-				VirtualTextureInfo& resourceInfo = virtualTextureManager.texturesByID.data()[newPages[i].textureLocation.textureId1()];
-				pageAllocator.addPages(newPageCoordinates + lastIndex, i - lastIndex, resourceInfo, commandQueue, graphicsDevice, newPages + lastIndex);
+				} 
+				pageAllocator.addPages(newPageCoordinates + lastIndex, i - lastIndex, *previousResourceInfo, commandQueue, graphicsDevice, newPages + lastIndex);
 
 				pageCache.addPages(newPages, newPageCount, pageDeleter);
 			}

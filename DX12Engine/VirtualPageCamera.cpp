@@ -51,7 +51,7 @@ void VirtualPageCamera::bindFirstThread(SharedResources& sharedResources, ID3D12
 {
 	bind(sharedResources, first, end);
 	auto commandList = *first;
-	constexpr float clearColor[] = { 65535.0f, 65280.0f, 0.0f, 0.0f };
+	constexpr float clearColor[] = { 0.0f, 0.0f, 65280.0f, 65535.0f };
 	commandList->ClearRenderTargetView(renderTargetView, clearColor, 0u, nullptr);
 	commandList->ClearDepthStencilView(depthSencilView, D3D12_CLEAR_FLAG_DEPTH, 1.0f, (uint8_t)0u, 0u, nullptr);
 }

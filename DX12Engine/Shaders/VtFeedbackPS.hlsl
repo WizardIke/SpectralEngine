@@ -11,7 +11,7 @@ struct Input
 	float2 texcoords : TEXCOORD0;
 };
 
-float4 main(Input input) : SV_TARGET
+uint4 main(Input input) : SV_TARGET
 {
 	const float maxAnisoLog2 = log2(maxAniso);
 	

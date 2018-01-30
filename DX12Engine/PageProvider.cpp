@@ -59,7 +59,7 @@ void PageProvider::addPageLoadRequestHelper(PageLoadRequest& pageRequest, Virtua
 
 	PageProvider& pageProvider = *pageRequest.pageProvider;
 	size_t pageRequestIndex = &pageRequest - pageProvider.pageLoadRequests;
-	ScopedFile file(resourceInfo.fileName, ScopedFile::accessRight::genericRead, ScopedFile::shareMode::writeMode, ScopedFile::creationMode::openExisting, nullptr);
+	ScopedFile file(resourceInfo.fileName, ScopedFile::accessRight::genericRead, ScopedFile::shareMode::readMode, ScopedFile::creationMode::openExisting, nullptr);
 	unsigned int mipLevel = (unsigned int)pageRequest.allocationInfo.textureLocation.mipLevel();
 	signed long long filePos = 0;
 	auto width = resourceInfo.pageWidthInTexels * resourceInfo.widthInPages;

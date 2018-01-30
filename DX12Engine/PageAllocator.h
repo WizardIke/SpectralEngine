@@ -39,14 +39,14 @@ private:
 	static void findOrMakeFirstFreeChunk(std::vector<Chunk>& chunks, decltype(chunks.begin())& currentChunk, decltype(chunks.end())& chunksEnd, ID3D12Device* graphicsDevice);
 
 	void allocatePage(decltype(chunks.begin())& currentChunk, decltype(chunks.end())& chunksEnd, ID3D12Device* graphicsDevice, ID3D12CommandQueue* commandQueue, VirtualTextureInfo& textureInfo,
-		unsigned int& lastIndex, unsigned int currentIndex, D3D12_TILED_RESOURCE_COORDINATE* locations, PageAllocationInfo* pageAllocationInfos, UINT* heapOffsets);
+		unsigned int& lastIndex, unsigned int currentIndex, D3D12_TILED_RESOURCE_COORDINATE* locations, PageAllocationInfo* pageAllocationInfos, UINT* heapOffsets, UINT* heapTileCounts);
 
 	void allocatePinnedPage(decltype(pinnedChunks.begin())& currentChunk, decltype(pinnedChunks.end())& chunksEnd, ID3D12Device* graphicsDevice, ID3D12CommandQueue* commandQueue, VirtualTextureInfo& textureInfo,
-		unsigned int& lastIndex, unsigned int currentIndex, D3D12_TILED_RESOURCE_COORDINATE* locations, UINT* heapOffsets);
+		unsigned int& lastIndex, unsigned int currentIndex, D3D12_TILED_RESOURCE_COORDINATE* locations, UINT* heapOffsets, UINT* heapTileCounts);
 
 	void allocatePagePacked(decltype(pinnedChunks.begin())& currentChunk, decltype(pinnedChunks.end())& chunksEnd, ID3D12Device* graphicsDevice, ID3D12CommandQueue* commandQueue,
 		const VirtualTextureInfo& textureInfo, unsigned int& lastIndex, unsigned int currentIndex, D3D12_TILE_REGION_SIZE& tileRegion,
-		const D3D12_TILED_RESOURCE_COORDINATE& location, HeapLocation* heapLocations, UINT* heapOffsets);
+		const D3D12_TILED_RESOURCE_COORDINATE& location, HeapLocation* heapLocations, UINT* heapOffsets, UINT* heapTileCounts);
 public:
 	void addPages(D3D12_TILED_RESOURCE_COORDINATE* locations, unsigned int pageCount, VirtualTextureInfo& textureInfo, ID3D12CommandQueue* commandQueue,
 		ID3D12Device* graphicsDevice, PageAllocationInfo* pageAllocationInfos);
@@ -62,7 +62,7 @@ public:
 		const TexturesByID& texturesByID)
 	{
 		size_t newNumChunks = newSize / heapSizeInPages;
-		assert(chunks.size() > newNumChunks && "can't decrease size to a larger size");
+		if (chunks.size() <= newNumChunks) return;
 		const size_t heapIdsStart = newNumChunks - 1u;
 		const size_t heapIdEnd = chunks.size() - 1u;
 		std::unique_ptr<textureLocation[]> locations(new textureLocation[(heapIdEnd - heapIdsStart) * heapSizeInPages]);

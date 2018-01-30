@@ -18,12 +18,21 @@ static inline void requestMipLevels(unsigned int mipLevel, const VirtualTextureI
 {
 	if (mipLevel < textureInfo->lowestPinnedMip)
 	{
+		auto x = feedbackData.x() >> mipLevel;
+		auto y = feedbackData.y() >> mipLevel;
+		feedbackData.setX(x);
+		feedbackData.setY(y);
+
 		PageRequestData& pageRequest = uniqueRequests[feedbackData];
 		++pageRequest.count;
 		++mipLevel;
 		while (mipLevel != textureInfo->lowestPinnedMip)
 		{
+			x >>= 1u;
+			y >>= 1u;
 			feedbackData.setMipLevel(mipLevel);
+			feedbackData.setX(x);
+			feedbackData.setY(y);
 			PageRequestData& pageRequest = uniqueRequests[feedbackData];
 			++pageRequest.count;
 			++mipLevel;
@@ -64,13 +73,13 @@ void FeedbackAnalizerSubPass::readbackTextureReadyHelper(void* requester, Virtua
 			textureInfo = &virtualTextureManager.texturesByID.data()[textureId];
 			requestMipLevels(nextMipLevel, textureInfo, feedbackData, uniqueRequests);
 		}
-		if (textureId != 255u)
+		if (texture2d != 255u)
 		{
 			feedbackData.setTextureId1(texture2d);
 			textureInfo = &virtualTextureManager.texturesByID.data()[texture2d];
 			requestMipLevels(nextMipLevel, textureInfo, feedbackData, uniqueRequests);
 		}
-		if (textureId != 255u)
+		if (texture3d != 255u)
 		{
 			feedbackData.setTextureId1(texture3d);
 			textureInfo = &virtualTextureManager.texturesByID.data()[texture3d];
@@ -144,10 +153,10 @@ void FeedbackAnalizerSubPass::createResources(SharedResources& sharedResources, 
 	resourceDesc.Width = newWidth;
 	D3D12_CLEAR_VALUE clearValue;
 	clearValue.Format = DXGI_FORMAT::DXGI_FORMAT_R16G16B16A16_UINT;
-	clearValue.Color[0] = 65535.0f;
-	clearValue.Color[1] = 65280.0f;
-	clearValue.Color[2] = 0.0f;
-	clearValue.Color[3] = 0.0f;
+	clearValue.Color[0] = 0.0f;
+	clearValue.Color[1] = 0.0f;
+	clearValue.Color[2] = 65280.0f;
+	clearValue.Color[3] = 65535.0f;
 	new(&feadbackTextureGpu) D3D12Resource(graphicsDevice, heapProperties, D3D12_HEAP_FLAGS::D3D12_HEAP_FLAG_NONE, resourceDesc, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_COMMON, &clearValue);
 
 	D3D12_RENDER_TARGET_VIEW_DESC rtvDesc;

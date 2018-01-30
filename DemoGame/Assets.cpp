@@ -145,6 +145,7 @@ void Assets::update(BaseExecutor* const executor)
 	timer.update();
 	playerPosition.update(executor, *this);
 	mainCamera.update(this, playerPosition.location);
+	(*renderPass.virtualTextureFeedbackSubPass().cameras().begin())->update(this, virtualTextureManager.pageProvider.mipBias);
 	//soundEngine.SetListenerPosition(playerPosition.location.position, DS3D_IMMEDIATE);
 }
 

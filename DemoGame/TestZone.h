@@ -160,6 +160,8 @@ class TestZoneFunctions
 			{
 				if (sharedResources.renderPass.virtualTextureFeedbackSubPass().isInView(sharedResources))
 				{
+					vtFeedbackCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
 					vtFeedbackCommandList->SetPipelineState(assets->pipelineStateObjects.vtFeedbackWithNormals);
 					vtFeedbackCommandList->IASetVertexBuffers(0u, 1u, &highResPlaneModel.mesh->vertexBufferView);
 					vtFeedbackCommandList->IASetIndexBuffer(&highResPlaneModel.mesh->indexBufferView);

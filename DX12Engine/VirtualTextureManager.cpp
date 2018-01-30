@@ -259,6 +259,7 @@ void VirtualTextureManager::createTextureWithResitencyInfo(D3D12GraphicsEngine& 
 	}
 	
 	vramRequest.mostDetailedMip = resitencyInfo.lowestPinnedMip;
+	vramRequest.currentMipLevel = resitencyInfo.lowestPinnedMip;
 		
 	std::lock_guard<decltype(mutex)> lock(mutex);
 	auto& textureInfo = textures[filename];

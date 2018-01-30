@@ -124,7 +124,7 @@ void UserInterface::update2(Executor* const executor, SharedResources& sharedRes
 			opaqueDirectCommandList->ResourceBarrier(2u, barrier);
 		}
 		
-		opaqueDirectCommandList->SetPipelineState(assets.pipelineStateObjects.texturedQuad);
+		opaqueDirectCommandList->SetPipelineState(assets.pipelineStateObjects.vtDebugDraw);
 		opaqueDirectCommandList->SetGraphicsRootConstantBufferView(2u, bufferGpu);
 		opaqueDirectCommandList->SetGraphicsRootConstantBufferView(3u, bufferGpu + TexturedQuadMaterialVsSize);
 		opaqueDirectCommandList->DrawInstanced(4u, 1u, 0u, 0u);

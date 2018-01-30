@@ -21,6 +21,7 @@ class textureLocation
 public:
 	uint64_t value;
 
+#ifdef false //might be based on endianness
 	uint64_t x() const
 	{
 		return value >> 48u;
@@ -85,6 +86,72 @@ public:
 	{
 		value = (idAndSlot ) | (value & 0xffffffffffffff00);
 	}
+#else
+	uint64_t x() const
+	{
+		return value & 0xffff;
+	}
+
+	void setX(uint64_t x)
+	{
+		value = (x) | (value & 0xffffffffffff0000);
+	}
+
+	uint64_t y() const
+	{
+		return (value & 0x00000000ffff0000) >> 16u;
+	}
+
+	void setY(uint64_t y)
+	{
+		value = (y << 16u) | (value & 0xffffffff0000ffff);
+	}
+
+	uint64_t mipLevel() const
+	{
+		return (value & 0x000000ff00000000) >> 32u;
+	}
+
+	void setMipLevel(uint64_t mipLevel)
+	{
+		value = (mipLevel << 32u) | (value & 0xffffff00ffffffff);
+	}
+
+	void decreaseMipLevel(uint64_t mipLevelDecr)
+	{
+		value -= mipLevelDecr << 32u;
+	}
+
+	uint64_t textureId1() const
+	{
+		return (value & 0x000ff0000000000) >> 40u;
+	}
+
+	void setTextureId1(uint64_t idAndSlot)
+	{
+		value = (idAndSlot << 40u) | (value & 0xffff00ffffffffff);
+	}
+
+	uint64_t textureId2() const
+	{
+		return (value & 0xff00000000000000) >> 56u;
+	}
+
+	void setTextureId2(uint64_t idAndSlot)
+	{
+		value = (idAndSlot << 56u) | (value & 0x00ffffffffffffff);
+	}
+
+	uint64_t textureId3() const
+	{
+		return (value & 0x00ff000000000000) >> 48u;
+	}
+
+	void setTextureId3(uint64_t idAndSlot)
+	{
+		value = (idAndSlot << 48u) | (value & 0x00ffffffffffffff);
+	}
+#endif
 
 	bool operator==(const textureLocation& other) const
 	{
