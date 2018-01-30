@@ -194,7 +194,8 @@ void VirtualTextureManager::createTextureWithResitencyInfo(D3D12GraphicsEngine& 
 	D3D12_PACKED_MIP_INFO packedMipInfo;
 	D3D12_TILE_SHAPE tileShape;
 	D3D12_SUBRESOURCE_TILING subresourceTiling;
-	graphicsEngine.graphicsDevice->GetResourceTiling(resource, nullptr, &packedMipInfo, &tileShape, nullptr, 0u, &subresourceTiling);
+	UINT numSubresourceTilings = 1u;
+	graphicsEngine.graphicsDevice->GetResourceTiling(resource, nullptr, &packedMipInfo, &tileShape, &numSubresourceTilings, 0u, &subresourceTiling);
 	unsigned int textureDescriptorIndex = createTextureDescriptor(graphicsEngine, resource, vramRequest);
 
 	VirtualTextureInfo resitencyInfo;
@@ -202,8 +203,8 @@ void VirtualTextureManager::createTextureWithResitencyInfo(D3D12GraphicsEngine& 
 	resitencyInfo.fileName = filename;
 	resitencyInfo.widthInPages = subresourceTiling.WidthInTiles;
 	resitencyInfo.heightInPages = subresourceTiling.HeightInTiles;
-	resitencyInfo.widthInTexels = tileShape.WidthInTexels;
-	resitencyInfo.heightInTexels = tileShape.HeightInTexels;
+	resitencyInfo.pageWidthInTexels = tileShape.WidthInTexels;
+	resitencyInfo.pageHeightInTexels = tileShape.HeightInTexels;
 	resitencyInfo.numMipLevels = vramRequest.mipLevels;
 	resitencyInfo.resource = resource;
 	resitencyInfo.format = vramRequest.format;
@@ -230,8 +231,9 @@ void VirtualTextureManager::createTextureWithResitencyInfo(D3D12GraphicsEngine& 
 				}
 				resourceTileCoords[resourceTileCoordsIndex].X = x;
 				resourceTileCoords[resourceTileCoordsIndex].Y = y;
-				resourceTileCoords[resourceTileCoordsIndex].Z = 1u;
+				resourceTileCoords[resourceTileCoordsIndex].Z = 0u;
 				resourceTileCoords[resourceTileCoordsIndex].Subresource = resitencyInfo.lowestPinnedMip;
+				++resourceTileCoordsIndex;
 			}
 		}
 		pageProvider.pageAllocator.addPinnedPages(resourceTileCoords, resourceTileCoordsIndex, resitencyInfo, commandQueue, graphicsEngine.graphicsDevice);
@@ -244,8 +246,8 @@ void VirtualTextureManager::createTextureWithResitencyInfo(D3D12GraphicsEngine& 
 	}
 
 	{
-		auto width = resitencyInfo.widthInTexels;
-		auto height = resitencyInfo.heightInTexels;
+		auto width = vramRequest.width;
+		auto height = vramRequest.height;
 		size_t totalSize = 0u;
 		for (auto i = 0u; i < resitencyInfo.lowestPinnedMip; ++i)
 		{
@@ -332,6 +334,7 @@ void VirtualTextureManager::TextureInfoAllocator::resize()
 		delete[] mData;
 		mData = tempData;
 		freeListCapacity = newCap;
+		freeListEnd = newCap - oldFreeListCapacity;
 	}
 	else
 	{
@@ -342,5 +345,7 @@ void VirtualTextureManager::TextureInfoAllocator::resize()
 			freeList[i] = i;
 		}
 		mData = new VirtualTextureInfo[newCap];
+		freeListCapacity = newCap;
+		freeListEnd = 8u;
 	}
 }

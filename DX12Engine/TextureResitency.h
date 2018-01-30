@@ -103,8 +103,8 @@ struct VirtualTextureInfo
 	ID3D12Resource* resource;
 	unsigned int widthInPages;
 	unsigned int heightInPages;
-	unsigned int widthInTexels;
-	unsigned int heightInTexels;
+	unsigned int pageWidthInTexels;
+	unsigned int pageHeightInTexels;
 	unsigned int numMipLevels;
 	unsigned int lowestPinnedMip;
 	DXGI_FORMAT format;

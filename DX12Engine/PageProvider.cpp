@@ -62,8 +62,8 @@ void PageProvider::addPageLoadRequestHelper(PageLoadRequest& pageRequest, Virtua
 	ScopedFile file(resourceInfo.fileName, ScopedFile::accessRight::genericRead, ScopedFile::shareMode::writeMode, ScopedFile::creationMode::openExisting, nullptr);
 	unsigned int mipLevel = (unsigned int)pageRequest.allocationInfo.textureLocation.mipLevel();
 	signed long long filePos = 0;
-	auto width = resourceInfo.widthInTexels;
-	auto height = resourceInfo.heightInTexels;
+	auto width = resourceInfo.pageWidthInTexels * resourceInfo.widthInPages;
+	auto height = resourceInfo.pageHeightInTexels * resourceInfo.heightInPages;
 	for (auto i = 0u; i != mipLevel; ++i)
 	{
 		size_t numBytes, rowBytes, numRows;
@@ -76,8 +76,8 @@ void PageProvider::addPageLoadRequestHelper(PageLoadRequest& pageRequest, Virtua
 	}
 	size_t numBytes, rowBytes, numRows;
 	DDSFileLoader::getSurfaceInfo(width, height, resourceInfo.format, numBytes, rowBytes, numRows);
-	filePos += resourceInfo.headerSize + rowBytes * ((pageRequest.allocationInfo.textureLocation.y() * resourceInfo.heightInTexels) / resourceInfo.heightInPages) +
-		(pageRequest.allocationInfo.textureLocation.x() * resourceInfo.widthInTexels) / resourceInfo.widthInPages;
+	filePos += resourceInfo.headerSize + rowBytes * (pageRequest.allocationInfo.textureLocation.y() * resourceInfo.pageHeightInTexels) +
+		pageRequest.allocationInfo.textureLocation.x() * resourceInfo.pageWidthInTexels;
 	file.setPosition(filePos, ScopedFile::Position::start);
 	file.read(pageProvider.uploadResourcePointer + 64u * 1024u * pageRequestIndex, 64u * 1024u);
 	pageRequest.state.store(PageProvider::PageLoadRequest::State::finished, std::memory_order::memory_order_release);
