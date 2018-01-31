@@ -8,6 +8,7 @@
 #include <d3d12.h>
 #include "D3D12Resource.h"
 #include "PageDeleter.h" 
+#include "GpuCompletionEventManager.h"
 class VirtualTextureManager;
 class StreamingManager;
 struct IDXGIAdapter3;
@@ -22,6 +23,113 @@ class PageProvider
 	constexpr static double memoryFullUpperBound = 0.97;
 	constexpr static double memoryFullLowerBound = 0.95;
 	constexpr static size_t maxPagesLoading = 32u;
+
+	class NewPageIterator
+	{
+		struct NewPage
+		{
+			PageAllocationInfo* page;
+			unsigned long* offsetInUploadBuffer;
+			PageAllocationInfo pageData;
+			unsigned long offsetInUploadBufferData;
+			VirtualTextureManager& virtualTextureManager;
+
+			NewPage(PageAllocationInfo* page, unsigned long* offsetInUploadBuffer, VirtualTextureManager& virtualTextureManager) : page(page),
+				offsetInUploadBuffer(offsetInUploadBuffer), virtualTextureManager(virtualTextureManager) {}
+
+			NewPage(NewPage&& other) : virtualTextureManager(other.virtualTextureManager)
+			{
+				pageData = *other.page;
+				offsetInUploadBufferData = *other.offsetInUploadBuffer;
+				page = &pageData;
+				offsetInUploadBuffer = &offsetInUploadBufferData;
+			}
+
+			void operator=(NewPage&& other)
+			{
+				*page = *other.page;
+				*offsetInUploadBuffer = *other.offsetInUploadBuffer;
+			}
+
+			void swap(const NewPage& other)
+			{
+				auto pageData = *page;
+				*page = *other.page;
+				*other.page = pageData;
+				auto offset = *offsetInUploadBuffer;
+				*offsetInUploadBuffer = *other.offsetInUploadBuffer;
+				*other.offsetInUploadBuffer = offset;
+			}
+
+			bool operator<(const NewPage& other);
+		};
+		NewPage newPage;
+	public:
+		using value_type = NewPage;
+		using difference_type = std::ptrdiff_t;
+		using pointer = NewPage* ;
+		using reference = NewPage &;
+		using iterator_category = std::random_access_iterator_tag;
+
+
+		NewPageIterator(PageAllocationInfo* page, unsigned long* offsetInUploadBuffer, VirtualTextureManager& virtualTextureManager) : 
+			newPage{ page, offsetInUploadBuffer, virtualTextureManager } {}
+		NewPageIterator(const NewPageIterator& e) : newPage(e.newPage.page, e.newPage.offsetInUploadBuffer, e.newPage.virtualTextureManager) {}
+		NewPageIterator& operator=(const NewPageIterator& other)
+		{
+			newPage.page = other.newPage.page;
+			newPage.offsetInUploadBuffer = other.newPage.offsetInUploadBuffer;
+			return *this;
+		}
+		reference operator*() { return newPage; }
+		NewPageIterator& operator++() 
+		{
+			++newPage.page;
+			++newPage.offsetInUploadBuffer;
+			return *this; 
+		}
+		NewPageIterator& operator--() 
+		{
+			--newPage.page;
+			--newPage.offsetInUploadBuffer;
+			return *this;
+		}
+		NewPageIterator operator++(int)
+		{
+			NewPageIterator tmp(*this); 
+			++newPage.page;
+			++newPage.offsetInUploadBuffer;
+			return tmp;
+		}
+		NewPageIterator operator--(int)
+		{
+			NewPageIterator tmp(*this);
+			--newPage.page;
+			--newPage.offsetInUploadBuffer;
+			return tmp;
+		}
+		difference_type operator-(const NewPageIterator& rhs) const noexcept
+		{
+			return newPage.page - rhs.newPage.page;
+		}
+		NewPageIterator operator+(difference_type n) const noexcept
+		{
+			NewPageIterator tmp(*this); 
+			tmp.newPage.page += n;
+			tmp.newPage.offsetInUploadBuffer += n;
+			return tmp; 
+		}
+		NewPageIterator operator-(difference_type n) const noexcept
+		{ 
+			NewPageIterator tmp(*this);
+			tmp.newPage.page -= n;
+			tmp.newPage.offsetInUploadBuffer -= n;
+			return tmp; 
+		}
+		bool operator==(const NewPageIterator& rhs) { return newPage.page == rhs.newPage.page; }
+		bool operator!=(const NewPageIterator& rhs) { return newPage.page != rhs.newPage.page; }
+		bool operator<(const NewPageIterator& rhs) { return newPage.page < rhs.newPage.page; }
+	};
 public:
 	PageAllocator pageAllocator;
 	float mipBias;
@@ -49,7 +157,7 @@ private:
 	D3D12Resource uploadResource; //this might be able to be merged into stream manager when it gets non-blocking io support
 	uint8_t* uploadResourcePointer;
 	PageAllocationInfo newPages[maxPagesLoading];
-	unsigned int newPagesOffsetInLoadRequests[maxPagesLoading];
+	unsigned long newPagesOffsetInLoadRequests[maxPagesLoading];
 	unsigned int newPageCount;
 	size_t newCacheSize;
 
@@ -176,10 +284,12 @@ public:
 			{
 				const unsigned int nextMipLevel = mipLevel + 1u;
 				textureLocation nextMipLocation;
-				nextMipLocation.setX(location.x() >> 1u);
-				nextMipLocation.setY(location.y() >> 1u);
+				nextMipLocation.setX(newX >> 1u);
+				nextMipLocation.setY(newY >> 1u);
 				nextMipLocation.setMipLevel(nextMipLevel);
 				nextMipLocation.setTextureId1(textureId);
+				nextMipLocation.setTextureId2(255u);
+				nextMipLocation.setTextureId3(255u);
 				if (nextMipLevel == textureInfo.lowestPinnedMip || pageCache.getPage(nextMipLocation) != nullptr)
 				{
 					bool pageAlreadyLoading = false;
@@ -213,10 +323,8 @@ public:
 			if (state == PageLoadRequest::State::finished)
 			{
 				newPages[newPageCount] = pageRequest.allocationInfo;
-				newPagesOffsetInLoadRequests[newPageCount] = static_cast<unsigned int>(&pageRequest - pageLoadRequests);
+				newPagesOffsetInLoadRequests[newPageCount] = static_cast<unsigned long>(&pageRequest - pageLoadRequests);
 				++newPageCount;
-				pageRequest.state.store(PageLoadRequest::State::unused, std::memory_order::memory_order_relaxed);
-				++numTexturesThatCanBeRequested;
 			}
 			else if (state == PageLoadRequest::State::unused)
 			{
@@ -244,7 +352,7 @@ public:
 		{
 			for (auto& pageRequest : pageLoadRequests)
 			{
-				auto state = pageRequest.state.load(std::memory_order::memory_order_relaxed);
+				auto state = pageRequest.state.load(std::memory_order::memory_order_acquire);
 				if (state == PageLoadRequest::State::unused)
 				{
 					pageRequest.state.store(PageLoadRequest::State::pending, std::memory_order::memory_order_relaxed);
@@ -289,6 +397,7 @@ public:
 								//this page isn't needed
 								--newPageCount;
 								std::swap(newPages[i], newPages[newPageCount]);
+								std::swap(newPagesOffsetInLoadRequests[i], newPagesOffsetInLoadRequests[newPageCount]);
 							}
 							if (i == 0u) break;
 							--i;
@@ -309,13 +418,14 @@ public:
 			VirtualTextureManager& virtualTextureManager = sharedResources.virtualTextureManager;
 			ID3D12Device* graphicsDevice = sharedResources.graphicsEngine.graphicsDevice;
 			PageProvider& pageProvider = *reinterpret_cast<PageProvider*>(requester);
+			GpuCompletionEventManager& gpuCompletionEventManager = executor->gpuCompletionEventManager;
 			PageAllocator& pageAllocator = pageProvider.pageAllocator;
 			PageCache& pageCache = pageProvider.pageCache;
 			PageDeleter<decltype(virtualTextureManager.texturesByID)> pageDeleter(pageAllocator, virtualTextureManager.texturesByID, commandQueue);
 			size_t newCacheSize = pageProvider.newCacheSize;
 			auto newPageCount = pageProvider.newPageCount;
 			PageAllocationInfo* newPages = pageProvider.newPages;
-			unsigned int* newPagesOffsetInLoadRequests = pageProvider.newPagesOffsetInLoadRequests;
+			unsigned long* newPagesOffsetInLoadRequests = pageProvider.newPagesOffsetInLoadRequests;
 			if (newCacheSize < pageCache.capacity())
 			{
 				pageCache.decreaseSize(newCacheSize, pageDeleter);
@@ -331,45 +441,43 @@ public:
 				tileSize.Width = 1u;
 				tileSize.NumTiles = 1u;
 				tileSize.UseBox = TRUE;
-
 				D3D12_TILED_RESOURCE_COORDINATE newPageCoordinates[maxPagesLoading];
-				newPageCoordinates[0].X = (UINT)newPages[0u].textureLocation.x();
-				newPageCoordinates[0].Y = (UINT)newPages[0u].textureLocation.y();
-				newPageCoordinates[0].Z = 0u;
-				newPageCoordinates[0].Subresource = (UINT)newPages[0u].textureLocation.mipLevel();
+
+				//sort in order of resource
+				std::sort(NewPageIterator{ newPages, newPagesOffsetInLoadRequests, virtualTextureManager },
+					NewPageIterator{ newPages + newPageCount, newPagesOffsetInLoadRequests + newPageCount, virtualTextureManager });
+
 				VirtualTextureInfo* previousResourceInfo = &virtualTextureManager.texturesByID.data()[newPages[0u].textureLocation.textureId1()];
 				unsigned int lastIndex = 0u;
+				auto i = 0u;
+				for (; i != newPageCount; ++i)
 				{
-					VirtualTextureInfo& resourceInfo = virtualTextureManager.texturesByID.data()[newPages[0].textureLocation.textureId1()];
-					commandList->CopyTiles(resourceInfo.resource, &newPageCoordinates[0u], &tileSize, pageProvider.uploadResource, newPagesOffsetInLoadRequests[0] * 64u * 1024u,
-						D3D12_TILE_COPY_FLAGS::D3D12_TILE_COPY_FLAG_LINEAR_BUFFER_TO_SWIZZLED_TILED_RESOURCE);
-				}
-				auto i = 1u;
-				if (newPageCount != 1u)
-				{
-					for (; i != newPageCount; ++i)
+					newPageCoordinates[i].X = (UINT)newPages[i].textureLocation.x();
+					newPageCoordinates[i].Y = (UINT)newPages[i].textureLocation.y();
+					newPageCoordinates[i].Z = 0u;
+					newPageCoordinates[i].Subresource = (UINT)newPages[i].textureLocation.mipLevel();
+
+					VirtualTextureInfo* resourceInfo = &virtualTextureManager.texturesByID.data()[newPages[i].textureLocation.textureId1()];
+					if (resourceInfo != previousResourceInfo)
 					{
-						VirtualTextureInfo* resourceInfo = &virtualTextureManager.texturesByID.data()[newPages[i].textureLocation.textureId1()];
-						if (resourceInfo != previousResourceInfo)
-						{
-							pageAllocator.addPages(newPageCoordinates + lastIndex, i - lastIndex, *resourceInfo, commandQueue, graphicsDevice, newPages + lastIndex);
-							lastIndex = i;
-							previousResourceInfo = resourceInfo;
-						}
-						newPageCoordinates[i].X = (UINT)newPages[i].textureLocation.x();
-						newPageCoordinates[i].Y = (UINT)newPages[i].textureLocation.y();
-						newPageCoordinates[i].Z = 0u;
-						newPageCoordinates[i].Subresource = (UINT)newPages[i].textureLocation.mipLevel();
-
-						commandList->CopyTiles(resourceInfo->resource, &newPageCoordinates[i], &tileSize, pageProvider.uploadResource, newPagesOffsetInLoadRequests[i] * 64u * 1024u,
-							D3D12_TILE_COPY_FLAGS::D3D12_TILE_COPY_FLAG_LINEAR_BUFFER_TO_SWIZZLED_TILED_RESOURCE);
+						const unsigned int pageCount = i - lastIndex;
+						pageAllocator.addPages(newPageCoordinates + lastIndex, pageCount, *previousResourceInfo, commandQueue, graphicsDevice, newPages + lastIndex);
+						pageProvider.addPageDataToResource(previousResourceInfo->resource, &newPageCoordinates[lastIndex], pageCount, tileSize, &newPagesOffsetInLoadRequests[lastIndex],
+							commandList, gpuCompletionEventManager, sharedResources.graphicsEngine.frameIndex);
+						lastIndex = i;
+						previousResourceInfo = resourceInfo;
 					}
-				} 
-				pageAllocator.addPages(newPageCoordinates + lastIndex, i - lastIndex, *previousResourceInfo, commandQueue, graphicsDevice, newPages + lastIndex);
-
+				}
+				const unsigned int pageCount = i - lastIndex;
+				pageAllocator.addPages(newPageCoordinates + lastIndex, pageCount, *previousResourceInfo, commandQueue, graphicsDevice, newPages + lastIndex);
+				pageProvider.addPageDataToResource(previousResourceInfo->resource, &newPageCoordinates[lastIndex], pageCount, tileSize, &newPagesOffsetInLoadRequests[lastIndex],
+					commandList, gpuCompletionEventManager, sharedResources.graphicsEngine.frameIndex);
 				pageCache.addPages(newPages, newPageCount, pageDeleter);
 			}
 			pageDeleter.finish();
 		}));
 	}
+
+	void addPageDataToResource(ID3D12Resource* resource, D3D12_TILED_RESOURCE_COORDINATE* newPageCoordinates, unsigned int pageCount,
+		D3D12_TILE_REGION_SIZE& tileSize, unsigned long* uploadBufferOffsets, ID3D12GraphicsCommandList* commandList, GpuCompletionEventManager& gpuCompletionEventManager, uint32_t frameIndex);
 };

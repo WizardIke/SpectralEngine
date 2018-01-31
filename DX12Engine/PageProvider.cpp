@@ -61,7 +61,7 @@ void PageProvider::addPageLoadRequestHelper(PageLoadRequest& pageRequest, Virtua
 	size_t pageRequestIndex = &pageRequest - pageProvider.pageLoadRequests;
 	ScopedFile file(resourceInfo.fileName, ScopedFile::accessRight::genericRead, ScopedFile::shareMode::readMode, ScopedFile::creationMode::openExisting, nullptr);
 	unsigned int mipLevel = (unsigned int)pageRequest.allocationInfo.textureLocation.mipLevel();
-	signed long long filePos = 0;
+	signed long long filePos = resourceInfo.headerSize;
 	auto width = resourceInfo.pageWidthInTexels * resourceInfo.widthInPages;
 	auto height = resourceInfo.pageHeightInTexels * resourceInfo.heightInPages;
 	for (auto i = 0u; i != mipLevel; ++i)
@@ -76,9 +76,57 @@ void PageProvider::addPageLoadRequestHelper(PageLoadRequest& pageRequest, Virtua
 	}
 	size_t numBytes, rowBytes, numRows;
 	DDSFileLoader::getSurfaceInfo(width, height, resourceInfo.format, numBytes, rowBytes, numRows);
-	filePos += resourceInfo.headerSize + rowBytes * (pageRequest.allocationInfo.textureLocation.y() * resourceInfo.pageHeightInTexels) +
-		pageRequest.allocationInfo.textureLocation.x() * resourceInfo.pageWidthInTexels;
+	size_t bitsPerPixel = DDSFileLoader::bitsPerPixel(resourceInfo.format);
+	filePos += pageRequest.allocationInfo.textureLocation.y() * resourceInfo.pageHeightInTexels * rowBytes;
+	filePos += (pageRequest.allocationInfo.textureLocation.x() * resourceInfo.pageWidthInTexels * bitsPerPixel) / 8u;
 	file.setPosition(filePos, ScopedFile::Position::start);
-	file.read(pageProvider.uploadResourcePointer + 64u * 1024u * pageRequestIndex, 64u * 1024u);
+	//might be better to use a file format that supports tiles
+	//warning this presumes that width of texture is an exact number of tiles
+	uint32_t pageWidthInBytes = uint32_t((resourceInfo.pageWidthInTexels * bitsPerPixel) / 8u);
+	size_t filePosIncrease = rowBytes - pageWidthInBytes;
+	uint8_t* uploadBufferPos = pageProvider.uploadResourcePointer + 64u * 1024u * pageRequestIndex;
+	for (unsigned int i = 0u; i != resourceInfo.pageHeightInTexels; ++i)
+	{
+		file.read(uploadBufferPos, pageWidthInBytes);
+		file.setPosition(filePosIncrease, ScopedFile::Position::current);
+		uploadBufferPos += pageWidthInBytes;
+	}
 	pageRequest.state.store(PageProvider::PageLoadRequest::State::finished, std::memory_order::memory_order_release);
+}
+
+void PageProvider::addPageDataToResource(ID3D12Resource* resource, D3D12_TILED_RESOURCE_COORDINATE* newPageCoordinates, unsigned int pageCount,
+	D3D12_TILE_REGION_SIZE& tileSize, unsigned long* uploadBufferOffsets, ID3D12GraphicsCommandList* commandList, GpuCompletionEventManager& gpuCompletionEventManager, uint32_t frameIndex)
+{
+	D3D12_RESOURCE_BARRIER barriers[1];
+	barriers[0].Type = D3D12_RESOURCE_BARRIER_TYPE::D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+	barriers[0].Flags = D3D12_RESOURCE_BARRIER_FLAGS::D3D12_RESOURCE_BARRIER_FLAG_NONE;
+	barriers[0].Transition.pResource = resource;
+	barriers[0].Transition.StateBefore = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+	barriers[0].Transition.StateAfter = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_COPY_DEST;
+	barriers[0].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+
+	commandList->ResourceBarrier(1u, barriers);
+	for (auto i = 0u; i != pageCount; ++i)
+	{
+		commandList->CopyTiles(resource, &newPageCoordinates[i], &tileSize, uploadResource, uploadBufferOffsets[i] * 64u * 1024u,
+			D3D12_TILE_COPY_FLAGS::D3D12_TILE_COPY_FLAG_LINEAR_BUFFER_TO_SWIZZLED_TILED_RESOURCE);
+
+		gpuCompletionEventManager.addRequest(&pageLoadRequests[uploadBufferOffsets[i]], [](void* requester, BaseExecutor* exe, SharedResources& sr)
+		{
+			PageLoadRequest* request = reinterpret_cast<PageLoadRequest*>(requester);
+			request->state.store(PageLoadRequest::State::unused, std::memory_order::memory_order_release);
+		}, frameIndex);
+	}
+
+	barriers[0].Transition.StateBefore = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_COPY_DEST;
+	barriers[0].Transition.StateAfter = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+
+	commandList->ResourceBarrier(1u, barriers);
+}
+
+bool PageProvider::NewPageIterator::NewPage::operator<(const NewPage& other)
+{
+	VirtualTextureInfo* resourceInfo = &virtualTextureManager.texturesByID.data()[page->textureLocation.textureId1()];
+	VirtualTextureInfo* otherResourceInfo = &virtualTextureManager.texturesByID.data()[other.page->textureLocation.textureId1()];
+	return resourceInfo < otherResourceInfo;
 }

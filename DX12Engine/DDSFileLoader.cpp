@@ -83,7 +83,7 @@ namespace DDSFileLoader
 		uint32_t        miscFlags2;
 	};
 
-	static size_t bitsPerPixel(DXGI_FORMAT fmt)
+	size_t bitsPerPixel(DXGI_FORMAT fmt)
 	{
 		switch (fmt)
 		{

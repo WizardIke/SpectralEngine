@@ -26,4 +26,6 @@ namespace DDSFileLoader
 		ScopedFile TextureFile, void* const UploadBuffer, ID3D12Resource* const destResource, ID3D12GraphicsCommandList* const CopyCommandList, ID3D12Resource* uploadResource, uint64_t uploadResourceOffset);
 
 	void getSurfaceInfo(size_t width, size_t height, DXGI_FORMAT fmt, size_t& outNumBytes, size_t& outRowBytes, size_t& outNumRows);
+
+	size_t bitsPerPixel(DXGI_FORMAT fmt);
 }
