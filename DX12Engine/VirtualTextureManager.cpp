@@ -49,7 +49,7 @@ static D3D12Resource createTexture(ID3D12Device* graphicsDevice, const RamToVram
 	textureDesc.SampleDesc.Count = 1u;
 	textureDesc.SampleDesc.Quality = 0u;
 	textureDesc.Width = request.width;
-	
+
 	return D3D12Resource(graphicsDevice, textureDesc, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_COMMON, nullptr);
 }
 
@@ -191,6 +191,11 @@ void VirtualTextureManager::unloadTextureHelper(const wchar_t * filename, D3D12G
 void VirtualTextureManager::createTextureWithResitencyInfo(D3D12GraphicsEngine& graphicsEngine, ID3D12CommandQueue* commandQueue, RamToVramUploadRequest& vramRequest, const wchar_t* filename)
 {
 	D3D12Resource resource = createTexture(graphicsEngine.graphicsDevice, vramRequest);
+#ifndef NDEBUG
+	std::wstring name = L"virtual texture ";
+	name += filename;
+	resource->SetName(name.c_str());
+#endif
 	D3D12_PACKED_MIP_INFO packedMipInfo;
 	D3D12_TILE_SHAPE tileShape;
 	D3D12_SUBRESOURCE_TILING subresourceTiling;

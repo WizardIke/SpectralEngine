@@ -171,6 +171,9 @@ PipelineStateObjects::PipelineStateObjects(ID3D12Device* const device, RootSigna
 	PSODesc.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
 
 	new(&text) D3D12PipelineState(device, PSODesc);
+#ifndef NDEBUG
+	text->SetName(L"Text");
+#endif
 
 
 	D3DBlob lightVS;
@@ -198,6 +201,9 @@ PipelineStateObjects::PipelineStateObjects(ID3D12Device* const device, RootSigna
 	PSODesc.InputLayout.pInputElementDescs = LightInputLayout;
 
 	new(&directionalLight) D3D12PipelineState(device, PSODesc);
+#ifndef NDEBUG
+	directionalLight->SetName(L"DirectionalLight");
+#endif
 
 
 
@@ -210,6 +216,9 @@ PipelineStateObjects::PipelineStateObjects(ID3D12Device* const device, RootSigna
 	PSODesc.PS.BytecodeLength = directionalLightVtPS->GetBufferSize();
 
 	new(&directionalLightVt) D3D12PipelineState(device, PSODesc);
+#ifndef NDEBUG
+	directionalLightVt->SetName(L"directionalLightVt");
+#endif
 
 
 
@@ -222,6 +231,10 @@ PipelineStateObjects::PipelineStateObjects(ID3D12Device* const device, RootSigna
 	PSODesc.PS.BytecodeLength = pointLightPS->GetBufferSize();
 
 	new(&pointLight) D3D12PipelineState(device, PSODesc);
+#ifndef NDEBUG
+	pointLight->SetName(L"pointLight");
+#endif
+
 
 
 	D3DBlob waterVS;
@@ -247,6 +260,10 @@ PipelineStateObjects::PipelineStateObjects(ID3D12Device* const device, RootSigna
 	PSODesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC::D3D12_COMPARISON_FUNC_LESS;
 
 	new(&waterWithReflectionTexture) D3D12PipelineState(device, PSODesc);
+#ifndef NDEBUG
+	waterWithReflectionTexture->SetName(L"waterWithReflectionTexture");
+#endif
+
 
 
 	D3DBlob waterNoReflectionsPS;
@@ -257,6 +274,10 @@ PipelineStateObjects::PipelineStateObjects(ID3D12Device* const device, RootSigna
 	PSODesc.PS.BytecodeLength = waterNoReflectionsPS->GetBufferSize();
 
 	new(&waterNoReflectionTexture) D3D12PipelineState(device, PSODesc);
+#ifndef NDEBUG
+	waterNoReflectionTexture->SetName(L"waterNoReflectionTexture");
+#endif
+
 
 
 	D3DBlob glassVS;
@@ -273,6 +294,10 @@ PipelineStateObjects::PipelineStateObjects(ID3D12Device* const device, RootSigna
 	PSODesc.PS.BytecodeLength = glassPS->GetBufferSize();
 
 	new(&glass) D3D12PipelineState(device, PSODesc);
+#ifndef NDEBUG
+	glass->SetName(L"glass");
+#endif
+
 
 
 	D3DBlob basicVS;
@@ -289,6 +314,9 @@ PipelineStateObjects::PipelineStateObjects(ID3D12Device* const device, RootSigna
 	PSODesc.PS.BytecodeLength = basicPS->GetBufferSize();
 
 	new(&basic) D3D12PipelineState(device, PSODesc);
+#ifndef NDEBUG
+	basic->SetName(L"basic");
+#endif
 
 
 
@@ -395,6 +423,9 @@ PipelineStateObjects::PipelineStateObjects(ID3D12Device* const device, RootSigna
 	PSODesc.BlendState.RenderTarget[0].BlendOp = D3D12_BLEND_OP::D3D12_BLEND_OP_ADD;
 
 	new(&fire) D3D12PipelineState(device, PSODesc);
+#ifndef NDEBUG
+	fire->SetName(L"fire");
+#endif
 }
 
 PipelineStateObjects::~PipelineStateObjects() {}
