@@ -19,7 +19,7 @@ class PageCache
 
 		Node() = default;
 
-		Node(Node&& other)
+		Node(Node&& other) noexcept
 		{
 			data = other.data;
 			next = other.next;
@@ -29,7 +29,7 @@ class PageCache
 			previous->next = this;
 		}
 
-		void operator=(Node&& other)
+		void operator=(Node&& other) noexcept
 		{
 			this->~Node();
 			new(this) Node(std::move(other));

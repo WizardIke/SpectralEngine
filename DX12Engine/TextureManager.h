@@ -63,7 +63,7 @@ private:
 	static void textureUploaded(void* storedFilename, BaseExecutor* executor, SharedResources& sharedResources);
 
 	template<class Executor>
-	void TextureManager::loadTextureUncached(StreamingManagerThreadLocal& streamingManager, D3D12GraphicsEngine& graphicsEngine, const wchar_t * filename)
+	void loadTextureUncached(StreamingManagerThreadLocal& streamingManager, D3D12GraphicsEngine& graphicsEngine, const wchar_t * filename)
 	{
 		loadTextureUncachedHelper(streamingManager, graphicsEngine, filename, textureUseSubresource<Executor>);
 	}

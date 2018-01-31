@@ -23,7 +23,7 @@ protected:
 	using WindowCallback = LRESULT (CALLBACK *)(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
 
 	template<class InputHandler>
-	static LRESULT SharedResources::windowCallbackImpl(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam, SharedResources* sharedResources, BaseExecutor* executor, InputHandler& inputHandler)
+	static LRESULT windowCallbackImpl(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam, SharedResources* sharedResources, BaseExecutor* executor, InputHandler& inputHandler)
 	{
 		switch (message)
 		{
