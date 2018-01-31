@@ -142,12 +142,14 @@ public:
 				pageDeleter(mBack.previous->data);
 				textureLocation oldBack = mBack.previous->data.textureLocation;
 				mBack.previous = mBack.previous->previous;
+				mBack.previous->next = &mBack;
 				pageLookUp.erase(oldBack);
 			}
 		}
 		maxPages = newMaxPages;
 	}
 
+	//should try linked list iterator
 	auto pages() -> decltype(std::declval<Range<decltype(pageLookUp.begin()), decltype(pageLookUp.end())>>().map<const PageAllocationInfo, getDataFromNode>())
 	{
 		Range<decltype(pageLookUp.begin()), decltype(pageLookUp.end())> rng = range(pageLookUp.begin(), pageLookUp.end());

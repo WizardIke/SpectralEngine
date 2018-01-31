@@ -433,9 +433,6 @@
     <FxCompile Include="Shaders\PositionOnlyVS.hlsl">
       <Filter>Shaders\Vertex</Filter>
     </FxCompile>
-    <FxCompile Include="Shaders\VtFeedbackPS.hlsl">
-      <Filter>Shaders\Pixel</Filter>
-    </FxCompile>
     <FxCompile Include="Shaders\TexturedQuadVS.hlsl">
       <Filter>Shaders\Vertex</Filter>
     </FxCompile>
@@ -443,6 +440,9 @@
       <Filter>Shaders\Pixel</Filter>
     </FxCompile>
     <FxCompile Include="VtDebugDrawPs.hlsl">
+      <Filter>Shaders\Pixel</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\VtFeedbackPS.hlsl">
       <Filter>Shaders\Pixel</Filter>
     </FxCompile>
   </ItemGroup>

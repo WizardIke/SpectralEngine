@@ -1,6 +1,6 @@
 #include "FeedbackAnalizer.h"
 #include <chrono>
-/*
+
 #include <Windows.h>
 #include <iostream>
 #include <sstream>
@@ -11,7 +11,6 @@
    os_ << s;                   \
    OutputDebugStringW( os_.str().c_str() );  \
 }
-*/
 
 template<class HashMap>
 static inline void requestMipLevels(unsigned int mipLevel, const VirtualTextureInfo* textureInfo, textureLocation feedbackData, HashMap& uniqueRequests)
@@ -52,7 +51,7 @@ void FeedbackAnalizerSubPass::readbackTextureReadyHelper(void* requester, Virtua
 	D3D12_RANGE readRange{ 0u, totalSize };
 	subPass.readbackTexture->Map(0u, &readRange, reinterpret_cast<void**>(&feadBackBuffer));
 
-	//auto start = std::chrono::high_resolution_clock::now();
+	auto start = std::chrono::high_resolution_clock::now();
 
 	const auto feadBackBufferEnd = feadBackBuffer + totalSize;
 	for (; feadBackBuffer != feadBackBufferEnd; feadBackBuffer += 8u)
@@ -87,9 +86,9 @@ void FeedbackAnalizerSubPass::readbackTextureReadyHelper(void* requester, Virtua
 		}
 	}
 
-	//auto end = std::chrono::high_resolution_clock::now();
-	//std::chrono::duration<double> time = end - start;
-	//DBOUT("\n" << time.count());
+	auto end = std::chrono::high_resolution_clock::now();
+	std::chrono::duration<double> time = end - start;
+	DBOUT("\n" << time.count());
 
 	D3D12_RANGE writtenRange{ 0u, 0u };
 	subPass.readbackTexture->Unmap(0u, &writtenRange);

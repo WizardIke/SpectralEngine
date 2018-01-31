@@ -109,8 +109,7 @@ public:
 					//cache size needs increasing
 					size_t maxPagesUsable = size_t(maxPagesMinZero * ((memoryFullLowerBound + memoryFullUpperBound) / 2u));
 					maxPagesUsable -= maxPagesUsable % PageAllocator::heapSizeInPages;
-					newCacheSize = std::min(maxPagesUsable,
-						totalPagesNeeded * ((maxPageCountMultiplierLowerBound + maxPageCountMultiplierUpperBound) / 2u));
+					newCacheSize = std::min(maxPagesUsable, totalPagesNeeded * ((maxPageCountMultiplierLowerBound + maxPageCountMultiplierUpperBound) / 2u));
 					pageCache.increaseSize(newCacheSize);
 				}
 				else if (totalPagesNeeded * maxPageCountMultiplierUpperBound < pageCache.capacity())
@@ -320,8 +319,7 @@ public:
 			if (newCacheSize < pageCache.capacity())
 			{
 				pageCache.decreaseSize(newCacheSize, pageDeleter);
-				size_t newPageAllocatorSize = newCacheSize + newCacheSize % PageAllocator::heapSizeInPages;
-				pageAllocator.decreaseNonPinnedSize(newPageAllocatorSize, pageCache, commandQueue, virtualTextureManager.texturesByID);
+				pageAllocator.decreaseNonPinnedSize(newCacheSize, pageCache, commandQueue, virtualTextureManager.texturesByID);
 			}
 			//add all remaining new pages to the cache and drop old pages from the cache
 			if (newPageCount != 0u)
