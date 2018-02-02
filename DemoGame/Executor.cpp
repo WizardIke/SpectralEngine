@@ -14,46 +14,46 @@ void Executor::initialize(BaseExecutor* exe, SharedResources& sharedResources, s
 	exe->initialize<Executor::update1NextPhaseJob>(std::move(lock), executor->streamingManager, sharedResources);
 }
 
-void Executor::update1(std::unique_lock<std::mutex>&& lock, SharedResources& sharedResources)
+void Executor::update1(std::unique_lock<std::mutex>&& lock, SharedResources& sr)
 {
-	Assets* const assets = (Assets*)&sharedResources;
-	unsigned int oldIndex = assets->numThreadsThatHaveFinished;
-	renderPass.update1(this, assets->renderPass, oldIndex);
+	Assets& sharedResources = (Assets&)sr;
+	unsigned int oldIndex = sharedResources.threadBarrier.waiting_count();
+	renderPass.update1(this, sharedResources.renderPass, oldIndex);
 
-	if (assets->numThreadsThatHaveFinished == assets->maxPrimaryThreads + assets->numPrimaryJobExeThreads)
+	if (sharedResources.threadBarrier.waiting_count() == sharedResources.maxPrimaryThreads + sharedResources.numPrimaryJobExeThreads)
 	{
-		assets->renderPass.update1(assets->graphicsEngine);
-		assets->currentWorkStealingQueues = &assets->workStealingQueues[assets->maxThreads];
+		sharedResources.renderPass.update1(sharedResources.graphicsEngine);
+		sharedResources.currentWorkStealingQueues = &sharedResources.workStealingQueues[sharedResources.maxThreads];
 
-		assets->nextPhaseJob = update2NextPhaseJob;
-		assets->numThreadsThatHaveFinished = 0u;
-		++(assets->generation);
+		sharedResources.nextPhaseJob = update2NextPhaseJob;
+		sharedResources.threadBarrier.waiting_count() = 0u;
+		++(sharedResources.threadBarrier.generation());
 		lock.unlock();
-		assets->conditionVariable.notify_all();
+		sharedResources.threadBarrier.notify_all();
 	}
 	else
 	{
-		++(assets->numThreadsThatHaveFinished);
-		assets->conditionVariable.wait(lock, [&generation = assets->generation, gen = assets->generation]() {return gen != generation; });
+		++(sharedResources.threadBarrier.waiting_count());
+		sharedResources.threadBarrier.wait(lock, [&generation = sharedResources.threadBarrier.generation(), gen = sharedResources.threadBarrier.generation()]() {return gen != generation; });
 		lock.unlock();
 	}
 	
 	currentWorkStealingDeque = &workStealDeques[1u];
-	renderPass.update1After(*assets, assets->renderPass, assets->rootSignatures.rootSignature, oldIndex);
+	renderPass.update1After(sharedResources, sharedResources.renderPass, sharedResources.rootSignatures.rootSignature, oldIndex);
 }
 
 void Executor::update2(std::unique_lock<std::mutex>&& lock, SharedResources& sr)
 {
 	Assets& sharedResources = reinterpret_cast<Assets&>(sr);
 	renderPass.update2(this, sharedResources, sharedResources.renderPass);
-	++(sharedResources.numThreadsThatHaveFinished);
+	++(sharedResources.threadBarrier.waiting_count());
 
-	if (sharedResources.numThreadsThatHaveFinished == sharedResources.maxPrimaryThreads + sharedResources.numPrimaryJobExeThreads)
+	if (sharedResources.threadBarrier.waiting_count() == sharedResources.maxPrimaryThreads + sharedResources.numPrimaryJobExeThreads)
 	{
-		sharedResources.conditionVariable.notify_all();
+		sharedResources.threadBarrier.notify_all();
 	}
 
-	sharedResources.conditionVariable.wait(lock, [&generation = sharedResources.generation, gen = sharedResources.generation]() {return gen != generation; });
+	sharedResources.threadBarrier.wait(lock, [&generation = sharedResources.threadBarrier.generation(), gen = sharedResources.threadBarrier.generation()]() {return gen != generation; });
 	lock.unlock();
 
 	currentWorkStealingDeque = &workStealDeques[0u];

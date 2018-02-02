@@ -33,7 +33,7 @@ protected:
 	std::string type;
 #endif // NDEBUG
 
-	BaseExecutor(SharedResources* const sharedResources);
+	BaseExecutor(SharedResources& sharedResources);
 	~BaseExecutor();
 
 	virtual void update2(std::unique_lock<std::mutex>&& lock, SharedResources& sharedResources) = 0;
@@ -56,17 +56,17 @@ public:
 	{
 		if (streamingManager.hasPendingUploads())
 		{
-			++sharedResources.numThreadsThatHaveFinished;
-			if (sharedResources.numThreadsThatHaveFinished % sharedResources.maxThreads == 0u)
+			++sharedResources.threadBarrier.waiting_count();
+			if (sharedResources.threadBarrier.waiting_count() % sharedResources.maxThreads == 0u)
 			{
-				sharedResources.numThreadsThatHaveFinished = 0u;
-				++(sharedResources.generation);
+				sharedResources.threadBarrier.waiting_count() = 0u;
+				++(sharedResources.threadBarrier.generation());
 				lock.unlock();
-				sharedResources.conditionVariable.notify_all();
+				sharedResources.threadBarrier.notify_all();
 			}
 			else
 			{
-				sharedResources.conditionVariable.wait(lock, [&gen = sharedResources.generation, oldGen = sharedResources.generation]() {return oldGen != gen; });
+				sharedResources.threadBarrier.wait(lock, [&gen = sharedResources.threadBarrier.generation(), oldGen = sharedResources.threadBarrier.generation()]() {return oldGen != gen; });
 				lock.unlock();
 			}
 
@@ -74,10 +74,10 @@ public:
 		}
 		else
 		{
-			sharedResources.numThreadsThatHaveFinished += sharedResources.maxThreads + 1u;
-			if (sharedResources.numThreadsThatHaveFinished % sharedResources.maxThreads == 0u)
+			sharedResources.threadBarrier.waiting_count() += sharedResources.maxThreads + 1u;
+			if (sharedResources.threadBarrier.waiting_count() % sharedResources.maxThreads == 0u)
 			{
-				if (sharedResources.numThreadsThatHaveFinished / sharedResources.maxThreads == sharedResources.maxThreads + 1u)
+				if (sharedResources.threadBarrier.waiting_count() / sharedResources.maxThreads == sharedResources.maxThreads + 1u)
 				{
 					sharedResources.nextPhaseJob = update1NextPhaseJob;
 
@@ -85,14 +85,14 @@ public:
 					currentWorkStealingDeque = &workStealDeques[0u];
 				}
 
-				sharedResources.numThreadsThatHaveFinished = 0u;
-				++(sharedResources.generation);
+				sharedResources.threadBarrier.waiting_count() = 0u;
+				++(sharedResources.threadBarrier.generation());
 				lock.unlock();
-				sharedResources.conditionVariable.notify_all();
+				sharedResources.threadBarrier.notify_all();
 			}
 			else
 			{
-				sharedResources.conditionVariable.wait(lock, [&gen = sharedResources.generation, oldGen = sharedResources.generation]() {return oldGen != gen; });
+				sharedResources.threadBarrier.wait(lock, [&gen = sharedResources.threadBarrier.generation(), oldGen = sharedResources.threadBarrier.generation()]() {return oldGen != gen; });
 				if (sharedResources.currentWorkStealingQueues == &sharedResources.workStealingQueues[0u])
 				{
 					currentWorkStealingDeque = &workStealDeques[0u];

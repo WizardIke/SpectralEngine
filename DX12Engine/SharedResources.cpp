@@ -21,8 +21,6 @@ SharedResources::SharedResources(bool fullScreen, bool vSync, bool enableGpuDebu
 	{
 		lock.unlock();
 	}),
-	syncMutex(),
-	conditionVariable(),
 	timer(),
 	streamingManager(graphicsEngine.graphicsDevice),
 	soundEngine(),

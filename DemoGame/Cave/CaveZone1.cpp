@@ -293,15 +293,15 @@ namespace Cave
 
 		static void start(BaseZone* const zone, BaseExecutor* const executor, SharedResources& sharedResources)
 		{
-			sharedResources.syncMutex.lock();
+			sharedResources.threadBarrier.lock();
 			if (sharedResources.nextPhaseJob == Executor::update1NextPhaseJob)
 			{
-				sharedResources.syncMutex.unlock();
+				sharedResources.threadBarrier.unlock();
 				update2(zone, executor);
 			}
 			else
 			{
-				sharedResources.syncMutex.unlock();
+				sharedResources.threadBarrier.unlock();
 				update1(zone, executor, sharedResources);
 			}
 		}

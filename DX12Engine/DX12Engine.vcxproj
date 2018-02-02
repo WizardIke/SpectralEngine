@@ -229,6 +229,7 @@
     <ClInclude Include="StreamingManager.h" />
     <ClInclude Include="TemplateFloat.h" />
     <ClInclude Include="TextureResitency.h" />
+    <ClInclude Include="ThreadBarrier.h" />
     <ClInclude Include="Vector2.h" />
     <ClInclude Include="Vector4.h" />
     <ClInclude Include="VirtualPageCamera.h" />

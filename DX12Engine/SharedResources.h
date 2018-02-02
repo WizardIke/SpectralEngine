@@ -11,6 +11,7 @@
 #include "Job.h"
 #include "../WorkStealingQueue/WorkStealingQueue.h"
 #include "StreamingManager.h"
+#include "ThreadBarrier.h"
 struct ID3D12CommandList;
 
 class SharedResources
@@ -84,11 +85,7 @@ public:
 	const unsigned int maxThreads;
 	unsigned int numPrimaryJobExeThreads; //not thread safe
 
-	std::mutex syncMutex; //thread safe
-	std::condition_variable conditionVariable; //thread safe
-	unsigned int numThreadsThatHaveFinished = 0u; //not thread safe
-	unsigned int generation = 0u; //not thread safe
-
+	ThreadBarrier threadBarrier;
 	Window window;
 	D3D12GraphicsEngine graphicsEngine;
 

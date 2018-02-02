@@ -18,14 +18,15 @@ void BackgroundExecutor::update2(std::unique_lock<std::mutex>&& lock, SharedReso
 {
 	Assets& sharedResources = reinterpret_cast<Assets&>(sr);
 	renderPass.update2(this, sharedResources, sharedResources.renderPass);
-	++(sharedResources.numThreadsThatHaveFinished);
 
-	if (sharedResources.numThreadsThatHaveFinished == sharedResources.maxPrimaryThreads + sharedResources.numPrimaryJobExeThreads)
+	++(sharedResources.threadBarrier.waiting_count());
+
+	if (sharedResources.threadBarrier.waiting_count() == sharedResources.maxPrimaryThreads + sharedResources.numPrimaryJobExeThreads)
 	{
-		sharedResources.conditionVariable.notify_all();
+		sharedResources.threadBarrier.notify_all();
 	}
 
-	sharedResources.conditionVariable.wait(lock, [&generation = sharedResources.generation, gen = sharedResources.generation]() {return gen != generation; });
+	sharedResources.threadBarrier.wait(lock, [&generation = sharedResources.threadBarrier.generation(), gen = sharedResources.threadBarrier.generation()]() {return gen != generation; });
 
 	Job job;
 	bool found = sharedResources.backgroundQueue.pop(job);
@@ -52,13 +53,13 @@ void BackgroundExecutor::update2(std::unique_lock<std::mutex>&& lock, SharedReso
 void BackgroundExecutor::getIntoCorrectStateAfterDoingBackgroundJob(SharedResources& sharedResources)
 {
 	const auto assets = reinterpret_cast<Assets*>(&sharedResources);
-	std::unique_lock<decltype(assets->syncMutex)> lock(assets->syncMutex);
+	std::unique_lock<std::mutex> lock(sharedResources.threadBarrier.mutex());
 
 	if (assets->nextPhaseJob == update2NextPhaseJob)
 	{
-		if (assets->numThreadsThatHaveFinished != 0u)
+		if (assets->threadBarrier.waiting_count() != 0u)
 		{
-			assets->conditionVariable.wait(lock, [oldGen = assets->generation, &gen = assets->generation]() {return oldGen != gen; });
+			assets->threadBarrier.wait(lock, [oldGen = assets->threadBarrier.generation(), &gen = assets->threadBarrier.generation()]() {return oldGen != gen; });
 
 			++(assets->numPrimaryJobExeThreads);
 

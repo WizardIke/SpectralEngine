@@ -404,6 +404,7 @@
     <ClInclude Include="Shaders\VtFeedbackMaterialPS.h">
       <Filter>Shaders\Pixel</Filter>
     </ClInclude>
+    <ClInclude Include="ThreadBarrier.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="SharedResources.cpp">

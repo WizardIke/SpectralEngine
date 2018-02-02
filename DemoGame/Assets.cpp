@@ -117,7 +117,7 @@ Assets::Assets() :
 	mainCamera.update(this, playerPosition.location);
 
 	{
-		std::lock_guard<decltype(syncMutex)> lock(syncMutex);
+		std::lock_guard<decltype(threadBarrier)> lock(threadBarrier);
 		nextPhaseJob = Executor::initialize;
 	}
 

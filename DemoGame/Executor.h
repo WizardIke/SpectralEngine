@@ -12,7 +12,7 @@ protected:
 	virtual void update2(std::unique_lock<std::mutex>&& lock, SharedResources& sharedResources) override;
 public:
 	Executor(SharedResources& sharedResources, unsigned long uploadHeapStartingSize, unsigned int uploadRequestBufferStartingCapacity, unsigned int halfFinishedUploadRequestBufferStartingCapasity) : 
-		BaseExecutor(&sharedResources), renderPass(sharedResources),
+		BaseExecutor(sharedResources), renderPass(sharedResources),
 		streamingManager(sharedResources.graphicsEngine.graphicsDevice, uploadHeapStartingSize, uploadRequestBufferStartingCapacity, halfFinishedUploadRequestBufferStartingCapasity)
 	{}
 

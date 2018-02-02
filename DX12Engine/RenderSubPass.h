@@ -55,14 +55,14 @@ public:
 	template<class RenderPass>
 	void addCamera(SharedResources& sharedResources, RenderPass& renderPass, Camera* const camera)
 	{
-		std::lock_guard<decltype(sharedResources.syncMutex)> lock(sharedResources.syncMutex);
+		std::lock_guard<decltype(sharedResources.threadBarrier)> lock(sharedResources.threadBarrier);
 		mCameras.push_back(camera);
 		renderPass.updateBarrierCount();
 	}
 
 	void removeCamera(SharedResources& sharedResources, Camera* const camera) noexcept
 	{
-		std::lock_guard<decltype(sharedResources.syncMutex)> lock(sharedResources.syncMutex);
+		std::lock_guard<decltype(sharedResources.threadBarrier)> lock(sharedResources.threadBarrier);
 		auto cam = std::find(mCameras.begin(), mCameras.end(), camera);
 		std::swap(*cam, *(mCameras.end() - 1u));
 		mCameras.pop_back();
@@ -414,7 +414,7 @@ public:
 	template<class RenderPass, class SubPasses>
 	SubPass& addSubPass(SharedResources& sharedResources, RenderPass& renderPass, SubPasses subPasses)
 	{
-		std::lock_guard<decltype(sharedResources.syncMutex)> lock(sharedResources.syncMutex);
+		std::lock_guard<decltype(sharedResources.threadBarrier)> lock(sharedResources.threadBarrier);
 		auto& subPass = mSubPasses.emplace_back();
 		auto end = subPasses.end();
 		for (auto start = subPasses.begin(); start != end; ++start)
@@ -430,7 +430,7 @@ public:
 	void removeSubPass(SharedResources& sharedResources, SubPass* subPass, SubPasses subPasses)
 	{
 		using std::swap; using std::find;
-		std::lock_guard<decltype(sharedResources.syncMutex)> lock(sharedResources.syncMutex);
+		std::lock_guard<decltype(sharedResources.threadBarrier)> lock(sharedResources.threadBarrier);
 		auto pos = find_if(mSubPasses.begin(), mSubPasses.end(), [subPass](const SubPass& sub) {return subPass == &sub; });
 		commandListsPerFrame -= pos->commandListsPerFrame;
 		auto index = std::distance(mSubPasses.begin(), pos);

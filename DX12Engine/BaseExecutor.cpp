@@ -3,18 +3,18 @@
 #include "SharedResources.h"
 #include <chrono>
 
-BaseExecutor::BaseExecutor(SharedResources* const sharedResources) :
+BaseExecutor::BaseExecutor(SharedResources& sharedResources) :
 	currentWorkStealingDeque(&workStealDeques[1u]),
 	gpuCompletionEventManager(),
 	randomNumberGenerator(std::chrono::high_resolution_clock::now().time_since_epoch().count()),
 	meshAllocator()
 {
-	sharedResources->workStealingQueues[sharedResources->numThreadsThatHaveFinished] = workStealDeques[0u];
-	sharedResources->workStealingQueues[sharedResources->numThreadsThatHaveFinished + sharedResources->maxThreads] = workStealDeques[1u];
-	++sharedResources->numThreadsThatHaveFinished;
-	if (sharedResources->numThreadsThatHaveFinished == sharedResources->maxThreads)
+	sharedResources.workStealingQueues[sharedResources.threadBarrier.waiting_count()] = workStealDeques[0u];
+	sharedResources.workStealingQueues[sharedResources.threadBarrier.waiting_count() + sharedResources.maxThreads] = workStealDeques[1u];
+	++sharedResources.threadBarrier.waiting_count();
+	if (sharedResources.threadBarrier.waiting_count() == sharedResources.maxThreads)
 	{
-		sharedResources->numThreadsThatHaveFinished = 0u;
+		sharedResources.threadBarrier.waiting_count() = 0u;
 	}
 }
 
@@ -22,17 +22,7 @@ BaseExecutor::~BaseExecutor() {}
 
 void BaseExecutor::quit(BaseExecutor* exe, SharedResources& sharedResources, std::unique_lock<std::mutex>&& lock)
 {
-	++sharedResources.numThreadsThatHaveFinished;
-	if (sharedResources.numThreadsThatHaveFinished == sharedResources.maxThreads)
-	{
-		sharedResources.numThreadsThatHaveFinished = 0u;
-		++sharedResources.generation;
-	}
-	else
-	{
-		sharedResources.conditionVariable.wait(lock, [oldGen = sharedResources.generation, &gen = sharedResources.generation]() {return oldGen != gen; });
-	}
-	lock.unlock();
+	sharedResources.threadBarrier.sync(std::move(lock), sharedResources.maxThreads);
 	exe->mQuit = true;
 }
 
@@ -58,7 +48,7 @@ void BaseExecutor::doPrimaryJob(SharedResources& sharedResources)
 			}
 			else if (i == sharedResources.maxThreads - 1u)
 			{
-				std::unique_lock<std::mutex> lock(sharedResources.syncMutex);
+				std::unique_lock<std::mutex> lock(sharedResources.threadBarrier.mutex());
 				sharedResources.nextPhaseJob(this, sharedResources, std::move(lock));
 				break;
 			}
