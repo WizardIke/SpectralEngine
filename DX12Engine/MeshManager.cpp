@@ -409,10 +409,10 @@ void MeshManager::CalculateTangentBitangent(unsigned char* start, unsigned char*
 		vector2[2] = meshes[2].z - meshes[0].z;
 
 		tuVector[0] = meshes[1].tu - meshes[0].tu;
-		tuVector[0] = meshes[1].tv - meshes[0].tv;
+		tvVector[0] = meshes[1].tv - meshes[0].tv;
 
 		tuVector[1] = meshes[2].tu - meshes[0].tu;
-		tuVector[1] = meshes[2].tv - meshes[0].tv;
+		tvVector[1] = meshes[2].tv - meshes[0].tv;
 
 		meshes[0].tx = (tvVector[1] * vector1[0] - tvVector[0] * vector2[0]);
 		meshes[0].ty = (tvVector[1] * vector1[1] - tvVector[0] * vector2[1]);

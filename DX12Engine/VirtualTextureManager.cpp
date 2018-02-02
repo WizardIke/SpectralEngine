@@ -117,7 +117,7 @@ static unsigned int createTextureDescriptor(D3D12GraphicsEngine& graphicsEngine,
 void VirtualTextureManager::unloadTextureHelper(const wchar_t * filename, D3D12GraphicsEngine& graphicsEngine, StreamingManager& streamingManager)
 {
 	unsigned int descriptorIndex = std::numeric_limits<unsigned int>::max();
-	unsigned int textureID;
+	unsigned int textureID = 255;
 	{
 		std::lock_guard<std::mutex> lock(mutex);
 		auto& texture = textures[filename];
@@ -132,11 +132,12 @@ void VirtualTextureManager::unloadTextureHelper(const wchar_t * filename, D3D12G
 	if (descriptorIndex != std::numeric_limits<unsigned int>::max())
 	{
 		graphicsEngine.descriptorAllocator.deallocate(descriptorIndex);
-
-		auto& resitencyInfo = texturesByID.data()[textureID];
+		assert(textureID != 255);
+		auto& resitencyInfo = texturesByID[textureID];
 
 		D3D12_PACKED_MIP_INFO packedMipInfo;
-		graphicsEngine.graphicsDevice->GetResourceTiling(resitencyInfo.resource, nullptr, &packedMipInfo, nullptr, nullptr, 0u, nullptr);
+		D3D12_SUBRESOURCE_TILING subresourceTiling;
+		graphicsEngine.graphicsDevice->GetResourceTiling(resitencyInfo.resource, nullptr, &packedMipInfo, nullptr, nullptr, 0u, &subresourceTiling);
 		if (packedMipInfo.NumPackedMips != 0u)
 		{
 			pageProvider.pageAllocator.removePinnedPages(resitencyInfo.pinnedHeapLocations, packedMipInfo.NumTilesForPackedMips);
@@ -281,7 +282,7 @@ void VirtualTextureManager::createTextureWithResitencyInfo(D3D12GraphicsEngine& 
 	auto& request = requests->second[0];
 	unsigned int textureID = texturesByID.allocate();
 	textureInfo.textureID = textureID;
-	texturesByID.data()[textureID] = std::move(resitencyInfo);
+	texturesByID[textureID] = std::move(resitencyInfo);
 }
 
 void VirtualTextureManager::textureUseSubresourceHelper(RamToVramUploadRequest& request, D3D12GraphicsEngine& graphicsEngine, StreamingManagerThreadLocal& streamingManager, void* const uploadBufferCpuAddressOfCurrentPos,
@@ -319,44 +320,5 @@ void VirtualTextureManager::textureUploadedHelper(void* storedFilename, BaseExec
 	for (auto& request : requests)
 	{
 		request(executor, sharedResources, *texture);
-	}
-}
-
-void VirtualTextureManager::TextureInfoAllocator::resize()
-{
-	if (freeListCapacity != 0u)
-	{
-		const auto oldFreeListCapacity = freeListCapacity;
-		const auto newCap = oldFreeListCapacity + (oldFreeListCapacity >> 1u);
-
-		delete[] freeList;
-		freeList = new unsigned int[newCap];
-		for (auto start = oldFreeListCapacity; start != newCap; ++start)
-		{
-			freeList[start - oldFreeListCapacity] = start;
-		}
-
-		VirtualTextureInfo* tempData = new VirtualTextureInfo[newCap];
-		const auto end = mData + freeListCapacity;
-		for (auto newStart = tempData, start = mData; start != end; ++start, ++newStart)
-		{
-			*newStart = *start;
-		}
-		delete[] mData;
-		mData = tempData;
-		freeListCapacity = newCap;
-		freeListEnd = newCap - oldFreeListCapacity;
-	}
-	else
-	{
-		constexpr auto newCap = 8u;
-		freeList = new unsigned int[newCap];
-		for (auto i = 0u; i < newCap; ++i)
-		{
-			freeList[i] = i;
-		}
-		mData = new VirtualTextureInfo[newCap];
-		freeListCapacity = newCap;
-		freeListEnd = 8u;
 	}
 }

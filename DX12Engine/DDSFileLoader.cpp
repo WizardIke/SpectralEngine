@@ -1089,6 +1089,9 @@ namespace DDSFileLoader
 
 
 		D3D12_FEATURE_DATA_FEATURE_LEVELS featureLevel;
+		D3D_FEATURE_LEVEL featureLevelsRequested = D3D_FEATURE_LEVEL::D3D_FEATURE_LEVEL_11_0;
+		featureLevel.NumFeatureLevels = 1u;
+		featureLevel.pFeatureLevelsRequested = &featureLevelsRequested;
 		HRESULT hr = Device->CheckFeatureSupport(D3D12_FEATURE_FEATURE_LEVELS, &featureLevel, sizeof(D3D12_FEATURE_DATA_FEATURE_LEVELS));
 		if (FAILED(hr)) throw HresultException(hr);
 		size_t maxsize;
@@ -1126,8 +1129,8 @@ namespace DDSFileLoader
 		std::unique_ptr<D3D12_SUBRESOURCE_DATA[]> initData(new D3D12_SUBRESOURCE_DATA[TextureDesc.MipLevels * arraySize]);
 		std::unique_ptr<uint8_t[]> ByteData(new uint8_t[FileByteSize]);
 		DWORD BytesRead;
-		ReadFile(TextureFile, ByteData.get(), static_cast<DWORD>(FileByteSize), &BytesRead, nullptr);
-		if (BytesRead != FileByteSize) throw IOException();
+		bool result = ReadFile(TextureFile, ByteData.get(), static_cast<DWORD>(FileByteSize), &BytesRead, nullptr);
+		if (BytesRead != FileByteSize || !result) throw IOException();
 
 		size_t NumBytes = 0u;
 		size_t RowBytes = 0u;

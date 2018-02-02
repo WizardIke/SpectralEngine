@@ -62,14 +62,14 @@ class FeedbackAnalizerSubPass : public RenderSubPass<VirtualPageCamera, D3D12_RE
 	}
 
 	static void readbackTextureReadyHelper(void* requester, VirtualTextureManager& virtualTextureManager, BaseExecutor* executor);
-	void createResources(SharedResources& sharedResources, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1, uint8_t*& constantBufferCpuAddress1, uint32_t width, uint32_t height, float fieldOfView);
+	void createResources(SharedResources& sharedResources, Transform& mainCameraTransform, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1, uint8_t*& constantBufferCpuAddress1, uint32_t width, uint32_t height, float fieldOfView);
 public:
 	FeedbackAnalizerSubPass() {}
 	template<class RenderPass>
-	FeedbackAnalizerSubPass(SharedResources& sharedResources, uint32_t width, uint32_t height, RenderPass& renderPass, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1,
+	FeedbackAnalizerSubPass(SharedResources& sharedResources, Transform& mainCameraTransform, uint32_t width, uint32_t height, RenderPass& renderPass, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1,
 		uint8_t*& constantBufferCpuAddress1, float fieldOfView)
 	{
-		createResources(sharedResources, constantBufferGpuAddress1, constantBufferCpuAddress1, width, height, fieldOfView);
+		createResources(sharedResources, mainCameraTransform, constantBufferGpuAddress1, constantBufferCpuAddress1, width, height, fieldOfView);
 		addCamera(sharedResources, renderPass, &camera);
 	}
 

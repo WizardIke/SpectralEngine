@@ -636,7 +636,7 @@ namespace
 				transparantCommandList->IASetIndexBuffer(&iceModel.mesh->indexBufferView);
 				transparantCommandList->DrawIndexedInstanced(iceModel.mesh->indexCount, 1u, 0u, 0, 0u);
 			}
-
+			
 			if (fireModel1.isInView(frustum) || fireModel2.isInView(frustum))
 			{
 				transparantCommandList->SetPipelineState(assets->pipelineStateObjects.fire);
@@ -971,7 +971,6 @@ namespace
 				assets->areas.cave.setAsCurrentArea(executor, sharedResources);
 				return true;
 			}
-
 			return false;
 		}
 

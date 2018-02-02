@@ -274,7 +274,7 @@ public:
 			auto newY = location.y() >> mipBiasIncrease;
 			location.setX(newX);
 			location.setY(newY);
-			const VirtualTextureInfo& textureInfo = virtualTextureManager.texturesByID.data()[textureId];
+			const VirtualTextureInfo& textureInfo = virtualTextureManager.texturesByID[textureId];
 
 			if (pageCache.getPage(location) != nullptr)
 			{
@@ -447,7 +447,7 @@ public:
 				std::sort(NewPageIterator{ newPages, newPagesOffsetInLoadRequests, virtualTextureManager },
 					NewPageIterator{ newPages + newPageCount, newPagesOffsetInLoadRequests + newPageCount, virtualTextureManager });
 
-				VirtualTextureInfo* previousResourceInfo = &virtualTextureManager.texturesByID.data()[newPages[0u].textureLocation.textureId1()];
+				VirtualTextureInfo* previousResourceInfo = &virtualTextureManager.texturesByID[newPages[0u].textureLocation.textureId1()];
 				unsigned int lastIndex = 0u;
 				auto i = 0u;
 				for (; i != newPageCount; ++i)
@@ -457,7 +457,7 @@ public:
 					newPageCoordinates[i].Z = 0u;
 					newPageCoordinates[i].Subresource = (UINT)newPages[i].textureLocation.mipLevel();
 
-					VirtualTextureInfo* resourceInfo = &virtualTextureManager.texturesByID.data()[newPages[i].textureLocation.textureId1()];
+					VirtualTextureInfo* resourceInfo = &virtualTextureManager.texturesByID[newPages[i].textureLocation.textureId1()];
 					if (resourceInfo != previousResourceInfo)
 					{
 						const unsigned int pageCount = i - lastIndex;

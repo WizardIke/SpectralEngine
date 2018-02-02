@@ -29,13 +29,13 @@ private:
 		if (alignof(Element) > alignof(char*))
 		{
 			size = sizeof(char*) + (alignof(Element)-alignof(char*)) + sizeof(Element) * slabSize;
-			nextSlab = (char*)malloc(size);
+			nextSlab = new char[size];
 			currentFreeElement = reinterpret_cast<Element*>(((reinterpret_cast<std::uintptr_t>(nextSlab) + sizeof(char*)) + alignof(Element)-1) & (alignof(Element)-1));
 		}
 		else
 		{
 			size = sizeof(char*) + sizeof(Element) * slabSize;
-			nextSlab = (char*)malloc(size);
+			nextSlab = new char[size];
 			currentFreeElement = reinterpret_cast<Element*>(nextSlab + sizeof(char*));
 		}
 		reinterpret_cast<char**>(nextSlab)[0] = currentSlab;
@@ -62,8 +62,9 @@ public:
 		auto slab = currentSlab;
 		while (slab)
 		{
-			free(slab);
-			slab = reinterpret_cast<char**>(slab)[0];
+			auto temp = slab;
+			delete[] slab;
+			slab = reinterpret_cast<char**>(temp)[0];
 		}
 	}
 

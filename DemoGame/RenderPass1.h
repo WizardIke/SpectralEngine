@@ -25,9 +25,10 @@ public:
 	using RenderToTextureSubPass = RenderToTextureSubPass1;
 
 	RenderPass1() {}
-	RenderPass1(SharedResources& sharedResources, MainCamera& mainCamera, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpu, uint8_t*& constantBufferCpu, float feedbackFieldOfView) : data(sharedResources)
+	template<class SharedResources_t>
+	RenderPass1(SharedResources_t& sharedResources, MainCamera& mainCamera, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpu, uint8_t*& constantBufferCpu, float feedbackFieldOfView) : data(sharedResources)
 	{
-		new(&std::get<virtualTextureFeedbackSubPassIndex>(data.subPasses)) FeedbackAnalizerSubPass{ sharedResources, mainCamera.width() / 4u, mainCamera.height() / 4u, this->data,
+		new(&std::get<virtualTextureFeedbackSubPassIndex>(data.subPasses)) FeedbackAnalizerSubPass{ sharedResources, sharedResources.mainCamera.transform(), mainCamera.width() / 4u, mainCamera.height() / 4u, this->data,
 			constantBufferGpu, constantBufferCpu, feedbackFieldOfView };
 	}
 

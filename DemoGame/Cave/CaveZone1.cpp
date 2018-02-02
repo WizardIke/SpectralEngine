@@ -7,9 +7,11 @@
 #include <TextureManager.h>
 #include <D3D12DescriptorHeap.h>
 #include <Light.h>
+#include <VirtualTextureManager.h>
 class BaseExecutor;
 
 #include "CaveModelPart1.h"
+#include "../Shaders/VtFeedbackMaterialPS.h"
 
 namespace Cave
 {
@@ -32,13 +34,14 @@ namespace Cave
 		Light light;
 		LightConstantBuffer* pointLightConstantBufferCpuAddress;
 		D3D12_GPU_VIRTUAL_ADDRESS pointLightConstantBufferGpuAddress;
+		D3D12_GPU_VIRTUAL_ADDRESS stone4FeedbackBufferPs;
 
 		CaveModelPart1 caveModelPart1;
 
 
-		HDResources(Executor* const executor, SharedResources& sharedResources, void* zone) :
+		HDResources(Executor* const executor, SharedResources& sr, void* zone) :
 			light(DirectX::XMFLOAT4(0.1f, 0.1f, 0.1f, 1.0f), DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f), DirectX::XMFLOAT3(0.0f, -0.894427191f, 0.447213595f)),
-			perObjectConstantBuffers(sharedResources.graphicsEngine.graphicsDevice, []()
+			perObjectConstantBuffers(sr.graphicsEngine.graphicsDevice, []()
 		{
 			D3D12_HEAP_PROPERTIES heapProperties;
 			heapProperties.Type = D3D12_HEAP_TYPE_UPLOAD;
@@ -63,18 +66,39 @@ namespace Cave
 			return resourceDesc;
 		}(), D3D12_RESOURCE_STATE_GENERIC_READ, nullptr)
 		{
+			Assets& sharedResources = reinterpret_cast<Assets&>(sr);
 			D3D12_RANGE readRange{ 0u, 0u };
 			HRESULT hr = perObjectConstantBuffers->Map(0u, &readRange, reinterpret_cast<void**>(&perObjectConstantBuffersCpuAddress));
 			if (FAILED(hr)) throw ID3D12ResourceMapFailedException();
 			auto PerObjectConstantBuffersGpuAddress = perObjectConstantBuffers->GetGPUVirtualAddress();
 			auto cpuConstantBuffer = perObjectConstantBuffersCpuAddress;
 
+			stone4FeedbackBufferPs = PerObjectConstantBuffersGpuAddress;
+			PerObjectConstantBuffersGpuAddress += vtFeedbackMaterialPsSize;
+			cpuConstantBuffer += vtFeedbackMaterialPsSize;
+
 			new(&caveModelPart1) CaveModelPart1(PerObjectConstantBuffersGpuAddress, cpuConstantBuffer);
 
-			TextureManager::loadTexture(executor, sharedResources, TextureNames::stone04, { zone, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources, unsigned int textureID) {
+			VirtualTextureManager::loadTexture(executor, sharedResources, TextureNames::stone04, { zone , [](void* requester, BaseExecutor* executor,
+				SharedResources& sr, const VirtualTextureManager::Texture& texture)
+			{
+				auto& sharedResources = reinterpret_cast<Assets&>(sr);
 				const auto zone = reinterpret_cast<BaseZone*>(requester);
 				auto resources = ((HDResources*)zone->nextResources);
-				resources->caveModelPart1.setDiffuseTexture(textureID, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
+				const auto cpuStartAddress = resources->perObjectConstantBuffersCpuAddress;
+				const auto gpuStartAddress = resources->perObjectConstantBuffers->GetGPUVirtualAddress();
+				resources->caveModelPart1.setDiffuseTexture(texture.descriptorIndex, cpuStartAddress, gpuStartAddress);
+
+				//stone4FeedbackBufferPs = create virtual feedback materialPS
+				auto& textureInfo = sharedResources.virtualTextureManager.texturesByID[texture.textureID];
+				auto stone4FeedbackBufferPsCpu = reinterpret_cast<VtFeedbackMaterialPS*>(cpuStartAddress + (resources->stone4FeedbackBufferPs - gpuStartAddress));
+				stone4FeedbackBufferPsCpu->virtualTextureID1 = (float)(texture.textureID << 8u);
+				stone4FeedbackBufferPsCpu->virtualTextureID2And3 = (float)0xffff;
+				stone4FeedbackBufferPsCpu->textureHeightInPages = (float)textureInfo.heightInPages;
+				stone4FeedbackBufferPsCpu->textureWidthInPages = (float)textureInfo.widthInPages;
+				stone4FeedbackBufferPsCpu->usefulTextureHeight = (float)(textureInfo.pageHeightInTexels * textureInfo.heightInPages);
+				stone4FeedbackBufferPsCpu->usefulTextureWidth = (float)(textureInfo.pageWidthInTexels * textureInfo.widthInPages);
+
 				componentUploaded(requester, executor, sharedResources);
 			} });
 
@@ -111,20 +135,29 @@ namespace Cave
 
 		~HDResources() {}
 
-		void update2(BaseExecutor* const executor1, SharedResources& sharedResources)
+		void update2(BaseExecutor* const executor1, SharedResources& sr)
 		{
+			Assets& sharedResources = (Assets&)sr;
 			const auto executor = reinterpret_cast<Executor* const>(executor1);
 			uint32_t frameIndex = sharedResources.graphicsEngine.frameIndex;
 			const auto commandList = executor->renderPass.colorSubPass().opaqueCommandList();
-			Assets* const assets = (Assets*)&sharedResources;
+			const auto vtFeedbackCommandList = executor->renderPass.virtualTextureFeedbackSubPass().firstCommandList();
+			
 
-			if (caveModelPart1.isInView(assets->mainCamera.frustum()))
+			if (caveModelPart1.isInView(sharedResources.mainCamera.frustum()))
 			{
+				if (sharedResources.renderPass.virtualTextureFeedbackSubPass().isInView(sharedResources))
+				{
+					vtFeedbackCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+					vtFeedbackCommandList->SetPipelineState(sharedResources.pipelineStateObjects.vtFeedbackWithNormals);
+					vtFeedbackCommandList->SetGraphicsRootConstantBufferView(3u, stone4FeedbackBufferPs);
+
+					caveModelPart1.renderVirtualFeedback(vtFeedbackCommandList);
+				}
+
 				commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-				commandList->SetPipelineState(assets->pipelineStateObjects.directionalLight);
-
+				commandList->SetPipelineState(sharedResources.pipelineStateObjects.directionalLightVt);
 				commandList->SetGraphicsRootConstantBufferView(1u, pointLightConstantBufferGpuAddress);
-
 				caveModelPart1.render(commandList);
 			}
 		}
@@ -140,13 +173,13 @@ namespace Cave
 			componentUploaded(zone, executor, sharedResources);
 		}
 
-		void destruct(BaseExecutor*const executor, SharedResources& sharedResources)
+		void destruct(BaseExecutor*const executor, SharedResources& sr)
 		{
-			auto& textureManager = sharedResources.textureManager;
+			Assets& sharedResources = reinterpret_cast<Assets&>(sr);
 			auto& meshManager = sharedResources.meshManager;
-			auto& graphicsEngine = sharedResources.graphicsEngine;
+			auto& virtualTextureManager = sharedResources.virtualTextureManager;
 
-			textureManager.unloadTexture(TextureNames::stone04, graphicsEngine);
+			virtualTextureManager.unloadTexture(TextureNames::stone04, sharedResources);
 
 			meshManager.unloadMesh(MeshNames::squareWithNormals, executor);
 		}

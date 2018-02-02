@@ -44,39 +44,60 @@ public:
 private:
 	class TextureInfoAllocator
 	{
-		unsigned int* freeList;
-		unsigned int freeListEnd = 0u;
-		unsigned int freeListCapacity = 0u;
-		VirtualTextureInfo* mData;
-
-		void resize();
-	public:
-		TextureInfoAllocator() = default;
-
-		~TextureInfoAllocator()
+		union Element
 		{
-			delete[] freeList;
-			delete[] mData;
+			VirtualTextureInfo data;
+			Element* next;
+		};
+		Element mData[255]; //index 255 is reserved for invalid texture ids
+		Element* freeList;
+	public:
+		TextureInfoAllocator()
+		{
+			Element* newFreeList = nullptr;
+			for (auto i = 255u; i != 0u;)
+			{
+				--i;
+				mData[i].next = newFreeList;
+				newFreeList = &mData[i];
+			}
+			freeList = newFreeList;
+		}
+
+		~TextureInfoAllocator() 
+		{
+#ifndef NDEBUG
+			unsigned int freeListLength = 0u;
+			for (auto i = freeList; i != nullptr; i = i->next)
+			{
+				++freeListLength;
+			}
+			assert(freeListLength == 255u && "cannot destruct a TextureInfoAllocator while it is still in use");
+#endif
 		}
 
 		unsigned int allocate()
 		{
-			if (freeListEnd == 0u)
-			{
-				resize();
-			}
-			--freeListEnd;
-			return freeList[freeListEnd];
+			Element* element = freeList;
+			freeList = freeList->next;
+			return (unsigned int)(element - mData);
 		}
 
 		void deallocate(unsigned int index)
 		{
-			freeList[freeListEnd] = index;
-			++freeListEnd;
+			mData[index].next = freeList;
+			freeList = &mData[index];
 		}
 
-		VirtualTextureInfo* data() { return mData; }
-		const VirtualTextureInfo* data() const { return mData; }
+		VirtualTextureInfo& operator[](size_t index)
+		{
+			return mData[index].data;
+		}
+
+		const VirtualTextureInfo& operator[](size_t index) const
+		{
+			return mData[index].data;
+		}
 	};
 
 	std::mutex mutex;

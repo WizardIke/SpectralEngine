@@ -80,7 +80,7 @@ public:
 		if(pagePtr != end)
 		{
 			auto textureId = pages.begin()->textureLocation.textureId1();
-			const VirtualTextureInfo& textureInfo = texturesByID.data()[textureId];
+			const VirtualTextureInfo& textureInfo = texturesByID[textureId];
 			lastResource = textureInfo.resource;
 
 			do
@@ -92,7 +92,7 @@ public:
 					++locationsEnd;
 
 					auto textureId = page.textureLocation.textureId1();
-					const VirtualTextureInfo& textureInfo = texturesByID.data()[textureId];
+					const VirtualTextureInfo& textureInfo = texturesByID[textureId];
 					resourceTileCoords[i].X = (UINT)page.textureLocation.x();
 					resourceTileCoords[i].Y = (UINT)page.textureLocation.y();
 					resourceTileCoords[i].Z = 0u;
@@ -109,8 +109,11 @@ public:
 				++pagePtr;
 			} while (pagePtr != end);
 			 
-			commandQueue->UpdateTileMappings(lastResource, (UINT)(i - lastIndex), resourceTileCoords + lastIndex, nullptr, nullptr, 1u, &rangeFlags, nullptr,
-				nullptr, D3D12_TILE_MAPPING_FLAG_NONE);
+			if (i != lastIndex)
+			{
+				commandQueue->UpdateTileMappings(lastResource, (UINT)(i - lastIndex), resourceTileCoords + lastIndex, nullptr, nullptr, 1u, &rangeFlags, nullptr,
+					nullptr, D3D12_TILE_MAPPING_FLAG_NONE);
+			}
 
 			for (auto i = locations.get(); i != locationsEnd; ++i)
 			{

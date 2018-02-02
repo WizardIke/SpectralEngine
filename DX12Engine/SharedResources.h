@@ -6,7 +6,6 @@
 #include "MeshManager.h"
 #include "Timer.h"
 #include "InputManager.h"
-#include "PlayerPosition.h"
 #include "Queue.h"
 #include <mutex>
 #include "Job.h"
@@ -104,7 +103,6 @@ public:
 	MeshManager meshManager; //thread safe
 	SoundEngine soundEngine;
 	Timer timer;
-	PlayerPosition playerPosition;
 	InputManager inputManager;
 
 	bool isUpdate1()

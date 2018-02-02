@@ -72,7 +72,7 @@ public:
 	template<class InputHandler>
 	void handleRawInput(LPARAM lParam, InputHandler& inputHandler, SharedResources& sharedResources)
 	{
-		UINT requiredInputBufferSize;
+		UINT requiredInputBufferSize = 0u;
 		GetRawInputData((HRAWINPUT)lParam, RID_INPUT, nullptr, &requiredInputBufferSize, sizeof(RAWINPUTHEADER)); //get the required buffer size
 		if (requiredInputBufferSize > rawInputBuffersize)
 		{

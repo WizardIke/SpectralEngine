@@ -164,7 +164,7 @@ float4 sampleTexture(Texture2D<float4> t, SamplerState samplerType, float2 texCo
         uint status;
         value = t.Sample(samplerType, texCoords, status);
         float bias = 1.0;
-        while (CheckAccessFullyMapped(status))
+        while (!CheckAccessFullyMapped(status))
         {
             value = t.SampleBias(samplerType, texCoords, bias, status);
             ++bias;

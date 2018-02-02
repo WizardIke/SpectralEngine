@@ -55,7 +55,7 @@ PageProvider::PageProvider(float desiredMipBias, IDXGIAdapter3* adapter, ID3D12D
 
 void PageProvider::addPageLoadRequestHelper(PageLoadRequest& pageRequest, VirtualTextureManager& virtualTextureManager)
 {
-	VirtualTextureInfo& resourceInfo = virtualTextureManager.texturesByID.data()[pageRequest.allocationInfo.textureLocation.textureId1()];
+	VirtualTextureInfo& resourceInfo = virtualTextureManager.texturesByID[pageRequest.allocationInfo.textureLocation.textureId1()];
 
 	PageProvider& pageProvider = *pageRequest.pageProvider;
 	size_t pageRequestIndex = &pageRequest - pageProvider.pageLoadRequests;
@@ -126,7 +126,7 @@ void PageProvider::addPageDataToResource(ID3D12Resource* resource, D3D12_TILED_R
 
 bool PageProvider::NewPageIterator::NewPage::operator<(const NewPage& other)
 {
-	VirtualTextureInfo* resourceInfo = &virtualTextureManager.texturesByID.data()[page->textureLocation.textureId1()];
-	VirtualTextureInfo* otherResourceInfo = &virtualTextureManager.texturesByID.data()[other.page->textureLocation.textureId1()];
+	VirtualTextureInfo* resourceInfo = &virtualTextureManager.texturesByID[page->textureLocation.textureId1()];
+	VirtualTextureInfo* otherResourceInfo = &virtualTextureManager.texturesByID[other.page->textureLocation.textureId1()];
 	return resourceInfo < otherResourceInfo;
 }

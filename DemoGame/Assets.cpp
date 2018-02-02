@@ -9,12 +9,13 @@ static void loadingResourceCallback(void* data, BaseExecutor* exe, SharedResourc
 }
 
 Assets::Assets() :
-	SharedResources(false, false, false, std::thread::hardware_concurrency(), SharedResources::windowCallback<Assets>),
+	SharedResources(false, true, true, 1u/*std::thread::hardware_concurrency()*/, SharedResources::windowCallback<Assets>),
 	mainExecutor(*this),
 	inputHandler(window, { PlayerPosition::mouseMoved, &playerPosition }),
 	rootSignatures(graphicsEngine.graphicsDevice),
 	pipelineStateObjects(graphicsEngine.graphicsDevice, rootSignatures),
 	virtualTextureManager(graphicsEngine),
+	playerPosition(DirectX::XMFLOAT3(59.0f, 4.0f, 10.0f), DirectX::XMFLOAT3(0.0f, 0.2f, 0.0f)),
 	sharedConstantBuffer(graphicsEngine.graphicsDevice, []()
 {
 	D3D12_HEAP_PROPERTIES heapProperties;

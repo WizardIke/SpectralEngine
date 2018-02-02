@@ -84,7 +84,7 @@ D3D12GraphicsEngine::D3D12GraphicsEngine(Window& window, bool fullScreen, bool v
 
 	graphicsDevice->CreateDepthStencilView(depthStencilHeap, &depthStencilDesc, depthStencilDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
 
-	D3D12_FEATURE_DATA_D3D12_OPTIONS options;
+	D3D12_FEATURE_DATA_D3D12_OPTIONS options = {};
 	graphicsDevice->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS, &options, sizeof(options));
 
 	D3D12_DESCRIPTOR_HEAP_DESC heapDesc;

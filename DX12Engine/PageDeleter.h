@@ -39,13 +39,13 @@ public:
 		ID3D12Resource* lastResource;
 		{
 			auto textureId = deletedPages[0].textureLocation.textureId1();
-			const VirtualTextureInfo& textureInfo = texturesByID.data()[textureId];
+			const VirtualTextureInfo& textureInfo = texturesByID[textureId];
 			lastResource = textureInfo.resource;
 		}
 		for (size_t i = 0u; i != deletedPageCount; ++i)
 		{
 			auto textureId = deletedPages[i].textureLocation.textureId1();
-			const VirtualTextureInfo& textureInfo = texturesByID.data()[textureId];
+			const VirtualTextureInfo& textureInfo = texturesByID[textureId];
 			resourceTileCoords[i].X = (UINT)deletedPages[i].textureLocation.x();
 			resourceTileCoords[i].Y = (UINT)deletedPages[i].textureLocation.y();
 			resourceTileCoords[i].Z = 0u;

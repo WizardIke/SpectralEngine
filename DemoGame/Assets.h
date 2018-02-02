@@ -15,6 +15,7 @@
 #include <Range.h>
 #include <VirtualTextureManager.h>
 #include "InputHander.h"
+#include <PlayerPosition.h>
 
 class Assets : public SharedResources
 {
@@ -97,6 +98,7 @@ public:
 	Areas areas;
 	AmbientMusic ambientMusic;
 	MainCamera mainCamera;
+	PlayerPosition playerPosition;
 
 	D3D12Resource warpTexture;
 	unsigned int warpTextureDescriptorIndex;

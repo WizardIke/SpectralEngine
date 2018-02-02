@@ -79,11 +79,9 @@ class TestZoneFunctions
 
 			new(&highResPlaneModel) HighResPlane<x, z>(PerObjectConstantBuffersGpuAddress, cpuConstantBuffer);
 
-			pointLightConstantBufferCpuAddress = reinterpret_cast<LightConstantBuffer*>(cpuConstantBuffer);
-			cpuConstantBuffer += vtFeedbackMaterialPsSize;
-
 			stone4FeedbackBufferPs = PerObjectConstantBuffersGpuAddress;
 			PerObjectConstantBuffersGpuAddress += vtFeedbackMaterialPsSize;
+			cpuConstantBuffer += vtFeedbackMaterialPsSize;
 
 			VirtualTextureManager::loadTexture(executor, sharedResources, TextureNames::stone04, { zone , [](void* requester, BaseExecutor* executor,
 				SharedResources& sr, const VirtualTextureManager::Texture& texture)
@@ -96,7 +94,7 @@ class TestZoneFunctions
 				resources->highResPlaneModel.setDiffuseTexture(texture.descriptorIndex, cpuStartAddress, gpuStartAddress);
 
 				//stone4FeedbackBufferPs = create virtual feedback materialPS
-				auto& textureInfo = sharedResources.virtualTextureManager.texturesByID.data()[texture.textureID];
+				auto& textureInfo = sharedResources.virtualTextureManager.texturesByID[texture.textureID];
 				auto stone4FeedbackBufferPsCpu = reinterpret_cast<VtFeedbackMaterialPS*>(cpuStartAddress + (resources->stone4FeedbackBufferPs - gpuStartAddress));
 				stone4FeedbackBufferPsCpu->virtualTextureID1 = (float)(texture.textureID << 8u);
 				stone4FeedbackBufferPsCpu->virtualTextureID2And3 = (float)0xffff;

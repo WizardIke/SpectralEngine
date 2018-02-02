@@ -70,19 +70,19 @@ void FeedbackAnalizerSubPass::readbackTextureReadyHelper(void* requester, Virtua
 		VirtualTextureInfo* textureInfo;
 		if (textureId != 255u)
 		{
-			textureInfo = &virtualTextureManager.texturesByID.data()[textureId];
+			textureInfo = &virtualTextureManager.texturesByID[textureId];
 			requestMipLevels(nextMipLevel, textureInfo, feedbackData, uniqueRequests);
 		}
 		if (texture2d != 255u)
 		{
 			feedbackData.setTextureId1(texture2d);
-			textureInfo = &virtualTextureManager.texturesByID.data()[texture2d];
+			textureInfo = &virtualTextureManager.texturesByID[texture2d];
 			requestMipLevels(nextMipLevel, textureInfo, feedbackData, uniqueRequests);
 		}
 		if (texture3d != 255u)
 		{
 			feedbackData.setTextureId1(texture3d);
-			textureInfo = &virtualTextureManager.texturesByID.data()[texture3d];
+			textureInfo = &virtualTextureManager.texturesByID[texture3d];
 			requestMipLevels(nextMipLevel, textureInfo, feedbackData, uniqueRequests);
 		}
 	}
@@ -104,7 +104,8 @@ void FeedbackAnalizerSubPass::destruct(SharedResources* sharedResources)
 	readbackTexture->Unmap(0u, &writenRange);
 }
 
-void FeedbackAnalizerSubPass::createResources(SharedResources& sharedResources, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1, uint8_t*& constantBufferCpuAddress1, uint32_t width, uint32_t height, float fieldOfView)
+void FeedbackAnalizerSubPass::createResources(SharedResources& sharedResources, Transform& mainCameraTransform, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1, uint8_t*& constantBufferCpuAddress1,
+	uint32_t width, uint32_t height, float fieldOfView)
 {
 	auto& graphicsEngine = sharedResources.graphicsEngine;
 	ID3D12Device* graphicsDevice = graphicsEngine.graphicsDevice;
@@ -192,7 +193,7 @@ void FeedbackAnalizerSubPass::createResources(SharedResources& sharedResources, 
 	graphicsDevice->CreateDepthStencilView(depthBuffer, &dsvDesc, depthDescriptor);
 
 	new(&camera) VirtualPageCamera(&sharedResources, feadbackTextureGpu, rtvdescriptor, depthDescriptor, newWidth, newHeight, constantBufferGpuAddress1, constantBufferCpuAddress1, fieldOfView,
-		sharedResources.playerPosition.location);
+		mainCameraTransform);
 
 #ifndef NDEBUG
 	readbackTexture->SetName(L"Readback texture cpu");

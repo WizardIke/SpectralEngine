@@ -1,6 +1,6 @@
 #include "CaveArea.h"
 #include <BaseExecutor.h>
-#include <SharedResources.h>
+#include "../Assets.h"
 #include "CaveZone1.h"
 
 namespace Cave
@@ -76,9 +76,10 @@ namespace Cave
 		}
 	}
 
-	void CaveArea::update(BaseExecutor* const executor, SharedResources& sharedResources)
+	void CaveArea::update(BaseExecutor* const executor, SharedResources& sr)
 	{
-		auto& position = sharedResources.playerPosition.location.position;
+		auto& sharedResources = reinterpret_cast<Assets&>(sr);
+		auto& position = sharedResources.mainCamera.position();
 		Vector2 zonePosition{ currentZoneX * Area::zoneDiameter + 0.5f * Area::zoneDiameter, currentZoneZ * Area::zoneDiameter + 0.5f * Area::zoneDiameter };
 		if (position.x > zonePosition.x + 0.5f * Area::zoneDiameter)
 		{
@@ -124,9 +125,10 @@ namespace Cave
 		}));
 	}
 
-	void CaveArea::setAsCurrentArea(BaseExecutor* const executor, SharedResources& sharedResources)
+	void CaveArea::setAsCurrentArea(BaseExecutor* const executor, SharedResources& sr)
 	{
-		auto& position = sharedResources.playerPosition.location.position;
+		auto& sharedResources = reinterpret_cast<Assets&>(sr);
+		auto& position = sharedResources.mainCamera.position();
 		oldPosX = position.x;
 		oldPosZ = position.z;
 
@@ -140,14 +142,15 @@ namespace Cave
 		}));
 	}
 
-	void CaveArea::start(BaseExecutor* const executor, SharedResources& sharedResources)
+	void CaveArea::start(BaseExecutor* const executor, SharedResources& sr)
 	{
+		auto& sharedResources = reinterpret_cast<Assets&>(sr);
 		Vector2 position{ currentZoneX * Area::zoneDiameter, currentZoneZ * Area::zoneDiameter };
 		load(executor, sharedResources, position, 0.0f, nullptr);
 
-		auto& playerPosition = sharedResources.playerPosition.location.position;
-		oldPosX = playerPosition.x;
-		oldPosZ = playerPosition.z;
+		auto& cameraPosition = sharedResources.mainCamera.position();
+		oldPosX = cameraPosition.x;
+		oldPosZ = cameraPosition.z;
 
 		executor->updateJobQueue().push(Job(this, [](void*const requester, BaseExecutor*const executor, SharedResources& sharedResources)
 		{

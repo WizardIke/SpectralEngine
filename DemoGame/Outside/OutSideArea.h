@@ -3,6 +3,7 @@
 #include <BaseZone.h>
 #include <Vector2.h>
 class BaseExecutor;
+class SharedResources;
 
 class OutSideArea
 {

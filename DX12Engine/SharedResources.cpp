@@ -26,7 +26,6 @@ SharedResources::SharedResources(bool fullScreen, bool vSync, bool enableGpuDebu
 	timer(),
 	streamingManager(graphicsEngine.graphicsDevice),
 	soundEngine(),
-	playerPosition(DirectX::XMFLOAT3(59.0f, 4.0f, 54.0f), DirectX::XMFLOAT3(0.0f, 0.2f, 0.0f)),
 	inputManager()
 {}
 	

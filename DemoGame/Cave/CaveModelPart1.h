@@ -42,6 +42,7 @@ public:
 	bool CaveModelPart1::isInView(const Frustum& Frustum);
 
 	void render(ID3D12GraphicsCommandList* const directCommandList);
+	void renderVirtualFeedback(ID3D12GraphicsCommandList* const commandList);
 
 	void setDiffuseTexture(uint32_t diffuseTexture, uint8_t* cpuStartAddress, D3D12_GPU_VIRTUAL_ADDRESS gpuStartAddress)
 	{

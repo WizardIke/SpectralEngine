@@ -5,7 +5,7 @@
 
 RootSignatures::RootSignatures(ID3D12Device* const device)
 {
-	D3D12_FEATURE_DATA_D3D12_OPTIONS options;
+	D3D12_FEATURE_DATA_D3D12_OPTIONS options = {};
 	device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS, &options, sizeof(options));
 
 	D3D12_DESCRIPTOR_RANGE  textureDescriptorTableRanges[1];
