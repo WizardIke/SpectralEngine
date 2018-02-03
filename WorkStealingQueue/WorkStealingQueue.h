@@ -46,33 +46,31 @@ public:
 	}
 
 	// Single consumer
-	bool pop(value_type& result) noexcept {
-		auto oldBottom = bottom.fetch_sub(1u, std::memory_order_acquire);
+	bool pop(value_type& result) noexcept 
+	{
+		auto oldBottom = bottom.load(std::memory_order_relaxed);
+		auto newbottom = oldBottom - 1u;
+		bottom.exchange(newbottom, std::memory_order::memory_order_seq_cst);
 		auto oldTop = top.load(std::memory_order_acquire);
 
-		auto newbottom = oldBottom - 1u;
 		if (newbottom > oldTop)
 		{
 			result = values[newbottom % capacity];
 			return true;
 		}
-		else if (newbottom == oldTop) //there was one element
+		if (newbottom == oldTop)
 		{
+			result = values[newbottom % capacity];
 			if (top.compare_exchange_strong(oldTop, oldTop + 1u, std::memory_order_release, std::memory_order_relaxed))
 			{
 				//we got the job
-				bottom.store(oldBottom, std::memory_order_release);
-				result = values[newbottom % capacity];
+				bottom.store(oldTop + 1u, std::memory_order_release);
 				return true;
 			}
-			else//we were too late
-			{
-				bottom.store(oldBottom, std::memory_order_release);
-				return false;
-			}
+			return false;
 		}
-
-		bottom.store(oldBottom, std::memory_order_release);//was already empty
+			
+		bottom.store(oldTop, std::memory_order_release);
 		return false;
 	}
 
@@ -83,12 +81,11 @@ public:
 
 		if (oldbottom <= oldtop) return false;
 
+		result = values[oldtop % capacity];
 		// Make sure that we are not contending for the item.
 		if (!top.compare_exchange_strong(oldtop, oldtop + 1u, std::memory_order_release, std::memory_order_relaxed)) {
 			return false;
 		}
-
-		result = values[oldtop % capacity];
 		return true;
 	}
 };
