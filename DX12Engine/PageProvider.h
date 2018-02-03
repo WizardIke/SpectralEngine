@@ -380,6 +380,7 @@ public:
 				auto i = newPageCount;
 				while (true)
 				{
+					--i;
 					auto pos = pageRequests.find(newPages[i].textureLocation);
 					if (pos == pageRequests.end())
 					{
@@ -388,9 +389,9 @@ public:
 					}
 					else
 					{
-						--i;
-						while (true)
+						while (i != 0u)
 						{
+							--i;
 							auto pos = pageRequests.find(newPages[i].textureLocation);
 							if (pos == pageRequests.end())
 							{
@@ -399,13 +400,10 @@ public:
 								std::swap(newPages[i], newPages[newPageCount]);
 								std::swap(newPagesOffsetInLoadRequests[i], newPagesOffsetInLoadRequests[newPageCount]);
 							}
-							if (i == 0u) break;
-							--i;
 						}
 						break;
 					}
 					if (i == 0u) break;
-					--i;
 				}
 			}
 		}

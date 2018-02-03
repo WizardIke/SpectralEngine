@@ -1,6 +1,19 @@
 #include "MainExecutor.h"
 #include "Assets.h"
 
+/*
+#include <Windows.h>
+#include <iostream>
+#include <sstream>
+
+#define DBOUT( s )            \
+{                             \
+   std::wostringstream os_;    \
+   os_ << s;                   \
+   OutputDebugStringW( os_.str().c_str() );  \
+}
+*/
+
 MainExecutor::MainExecutor(SharedResources& sharedResources) :
 	Executor(sharedResources, uploadHeapStartingSize, uploadRequestBufferStartingCapacity, halfFinishedUploadRequestBufferStartingCapasity)
 {
@@ -22,6 +35,8 @@ void MainExecutor::update2(std::unique_lock<std::mutex>&& lock, SharedResources&
 	++(sharedResources.threadBarrier.generation());
 	lock.unlock();
 	sharedResources.threadBarrier.notify_all();
+
+	//DBOUT(L"thread 0: " << sharedResources.mainCamera.position().x << L"\n");
 
 	currentWorkStealingDeque = &workStealDeques[0u];
 	gpuCompletionEventManager.update(this, sharedResources);

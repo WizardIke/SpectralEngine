@@ -1,6 +1,18 @@
 #include "BackgroundExecutor.h"
 #include "Assets.h"
 #include <D3D12GraphicsEngine.h>
+/*
+#include <Windows.h>
+#include <iostream>
+#include <sstream>
+
+#define DBOUT( s )            \
+{                             \
+	std::wostringstream os_;    \
+	os_ << s;                   \
+	OutputDebugStringW( os_.str().c_str() );  \
+}
+*/
 
 BackgroundExecutor::BackgroundExecutor(SharedResources& sharedResources) : Executor(sharedResources, uploadHeapStartingSize, uploadRequestBufferStartingCapacity, halfFinishedUploadRequestBufferStartingCapasity)
 {
@@ -27,6 +39,8 @@ void BackgroundExecutor::update2(std::unique_lock<std::mutex>&& lock, SharedReso
 	}
 
 	sharedResources.threadBarrier.wait(lock, [&generation = sharedResources.threadBarrier.generation(), gen = sharedResources.threadBarrier.generation()]() {return gen != generation; });
+
+	//DBOUT(L"thread 1: " << sharedResources.mainCamera.position().x << L"\n");
 
 	Job job;
 	bool found = sharedResources.backgroundQueue.pop(job);

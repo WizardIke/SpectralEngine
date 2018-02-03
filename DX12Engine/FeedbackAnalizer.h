@@ -23,7 +23,6 @@ class FeedbackAnalizerSubPass : public RenderSubPass<VirtualPageCamera, D3D12_RE
 	//uint8_t* readbackTextureCpu;
 	unsigned long width, height;
 	VirtualPageCamera camera;
-	unsigned long long memoryUsage;
 
 	struct TextureLocationHasher : std::hash<uint64_t>
 	{

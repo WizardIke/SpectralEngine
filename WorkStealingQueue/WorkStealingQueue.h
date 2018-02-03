@@ -38,19 +38,10 @@ public:
 		auto numtasks = oldbottom - oldtop;
 
 		if (numtasks > capacity) {
-			return false;
+			return false; //might be full
 		}
-		if (oldbottom == std::numeric_limits<unsigned long>::max()) { //bottum is going to overfrow
-			auto newTop = top % capacity;
-			auto newBottum = oldbottom - top + newTop;
-			values[newBottum % capacity] = item;
-			bottom.store(newBottum + 1u, std::memory_order_release);
-			top.store(newTop, std::memory_order_release);
-		}
-		else {
-			values[oldbottom % capacity] = item;
-			bottom.store(oldbottom + 1u, std::memory_order_release); //other threads need to see changes to values
-		}
+		values[oldbottom % capacity] = item;
+		bottom.store(oldbottom + 1u, std::memory_order_release); //other threads need to see changes to values
 		return true;
 	}
 
