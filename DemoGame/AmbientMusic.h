@@ -8,7 +8,7 @@ class SharedResources;
 class AmbientMusic : IXAudio2VoiceCallback
 {
 	//The total size of front plus back buffer
-	constexpr static size_t rawSoundDataBufferSize = 35280u; //200 ms of data
+	constexpr static size_t rawSoundDataBufferSize = 352800u; //2000 ms of data
 
 	XAudio2SourceVoice musicPlayer;
 	unsigned long long previousTrack;

@@ -12,10 +12,10 @@ SharedResources::SharedResources(bool fullScreen, bool vSync, bool enableGpuDebu
 		[fullScreen]() {if (fullScreen) { return GetSystemMetrics(SM_CYVIRTUALSCREEN); } else return GetSystemMetrics(SM_CYSCREEN) / 2; }(),
 		[fullScreen]() {if (fullScreen) { return 0; } else return GetSystemMetrics(SM_CXSCREEN) / 5; }(),
 		[fullScreen]() {if (fullScreen) { return 0; } else return GetSystemMetrics(SM_CYSCREEN) / 5; }(), fullScreen, vSync),
-	graphicsEngine(window, fullScreen, vSync, enableGpuDebugging),
+	graphicsEngine(window, enableGpuDebugging),
 	textureManager(),
 	backgroundQueue(backgroundQueueStartingLength),
-	workStealingQueues(new WorkStealingStackReference<Job>[(maxThreads) * 2u]),
+	workStealingQueues(new PrimaryWorkStealingQueue*[(maxThreads) * 2u]),
 	currentWorkStealingQueues(&workStealingQueues[maxThreads]),
 	nextPhaseJob([](BaseExecutor* executor, SharedResources& sharedResources, std::unique_lock<std::mutex>&& lock)
 	{

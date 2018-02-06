@@ -9,7 +9,7 @@
 #include "Queue.h"
 #include <mutex>
 #include "Job.h"
-#include "../WorkStealingQueue/WorkStealingQueue.h"
+#include "PrimaryWorkStealingQueue.h"
 #include "StreamingManager.h"
 #include "ThreadBarrier.h"
 struct ID3D12CommandList;
@@ -89,9 +89,9 @@ public:
 	Window window;
 	D3D12GraphicsEngine graphicsEngine;
 
-	std::unique_ptr<WorkStealingStackReference<Job>[]> workStealingQueues;
+	std::unique_ptr<PrimaryWorkStealingQueue*[]> workStealingQueues;
 	Queue<Job> backgroundQueue; //thread safe
-	WorkStealingStackReference<Job>* currentWorkStealingQueues;
+	PrimaryWorkStealingQueue** currentWorkStealingQueues;
 
 	void(*nextPhaseJob)(BaseExecutor* executor, SharedResources& sharedResources, std::unique_lock<std::mutex>&& lock);
 
@@ -101,9 +101,4 @@ public:
 	SoundEngine soundEngine;
 	Timer timer;
 	InputManager inputManager;
-
-	bool isUpdate1()
-	{
-		return currentWorkStealingQueues == workStealingQueues.get();
-	}
 };

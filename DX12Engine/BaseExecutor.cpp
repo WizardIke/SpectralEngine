@@ -9,8 +9,8 @@ BaseExecutor::BaseExecutor(SharedResources& sharedResources) :
 	randomNumberGenerator(std::chrono::high_resolution_clock::now().time_since_epoch().count()),
 	meshAllocator()
 {
-	sharedResources.workStealingQueues[sharedResources.threadBarrier.waiting_count()] = workStealDeques[0u];
-	sharedResources.workStealingQueues[sharedResources.threadBarrier.waiting_count() + sharedResources.maxThreads] = workStealDeques[1u];
+	sharedResources.workStealingQueues[sharedResources.threadBarrier.waiting_count()] = &workStealDeques[0u];
+	sharedResources.workStealingQueues[sharedResources.threadBarrier.waiting_count() + sharedResources.maxThreads] = &workStealDeques[1u];
 	++sharedResources.threadBarrier.waiting_count();
 	if (sharedResources.threadBarrier.waiting_count() == sharedResources.maxThreads)
 	{
@@ -40,7 +40,7 @@ void BaseExecutor::doPrimaryJob(SharedResources& sharedResources)
 		for (auto i = 0u;; ++i)
 		{
 			//steal from other thread
-			found = sharedResources.currentWorkStealingQueues[i].steal(job);
+			found = sharedResources.currentWorkStealingQueues[i]->steal(job);
 			if (found)
 			{
 				job(this, sharedResources);

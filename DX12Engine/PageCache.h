@@ -27,6 +27,11 @@ class PageCache
 
 			next->previous = this;
 			previous->next = this;
+
+#ifndef NDEBUG
+			other.next = nullptr;
+			other.previous = nullptr;
+#endif
 		}
 
 		void operator=(Node&& other) noexcept
@@ -123,9 +128,12 @@ public:
 			Node newPage;
 			newPage.data = pageInfos[i];
 			newPage.next = mFront.next;
-			mFront.next->previous = &newPage;
 			newPage.previous = &mFront;
+
+			//both of these are nesesary of if no moves happen or the hashmap resizes before moving the newPage
+			mFront.next->previous = &newPage;
 			mFront.next = &newPage;
+
 			pageLookUp.insert(std::move(newPage));
 		}
 	}
@@ -142,6 +150,10 @@ public:
 				pageDeleter(mBack.previous->data);
 				textureLocation oldBack = mBack.previous->data.textureLocation;
 				mBack.previous = mBack.previous->previous;
+#ifndef NDEBUG
+				mBack.previous->next->previous = nullptr;
+				mBack.previous->next->next = nullptr;
+#endif // !NDEBUG
 				mBack.previous->next = &mBack;
 				pageLookUp.erase(oldBack);
 			}
@@ -158,6 +170,13 @@ public:
 
 	void removePageWithoutDeleting(const textureLocation& location)
 	{
-		pageLookUp.erase(location);
+		auto page = pageLookUp.find(location);
+		page->previous->next = page->next;
+		page->next->previous = page->previous;
+#ifndef NDEBUG
+		page.value().next = nullptr;
+		page.value().previous = nullptr;
+#endif
+		pageLookUp.erase(page);
 	}
 };

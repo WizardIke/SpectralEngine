@@ -28,7 +28,7 @@ public:
 
 	void resize(unsigned int width, unsigned int height, int positionX, int positionY);
 	void setForgroundAndShow();
-	
+
 	unsigned int width() const
 	{
 		return mwidth;
@@ -48,4 +48,6 @@ public:
 	void present();
 	void setFullScreen();
 	void setWindowed();
+	void setVSync(bool value) { vSync = value; }
+	bool getVSync() { return vSync; }
 };

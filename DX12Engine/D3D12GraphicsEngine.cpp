@@ -5,7 +5,7 @@
 #include "Window.h"
 
 
-D3D12GraphicsEngine::D3D12GraphicsEngine(Window& window, bool fullScreen, bool vSync, bool enableGpuDebugging) : D3D12GraphicsEngine(window, fullScreen, vSync, 
+D3D12GraphicsEngine::D3D12GraphicsEngine(Window& window, bool enableGpuDebugging) : D3D12GraphicsEngine(window, 
 #ifndef NDEBUG
 	DXGIFactory(true, enableGpuDebugging))
 #else
@@ -13,7 +13,7 @@ D3D12GraphicsEngine::D3D12GraphicsEngine(Window& window, bool fullScreen, bool v
 #endif
 {}
 
-D3D12GraphicsEngine::D3D12GraphicsEngine(Window& window, bool fullScreen, bool vSync, DXGIFactory factory) :
+D3D12GraphicsEngine::D3D12GraphicsEngine(Window& window, DXGIFactory factory) :
 	adapter(factory, window.windowHandle, D3D_FEATURE_LEVEL_11_0),
 	graphicsDevice(adapter, D3D_FEATURE_LEVEL_11_0),
 

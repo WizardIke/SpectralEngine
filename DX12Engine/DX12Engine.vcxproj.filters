@@ -405,6 +405,7 @@
       <Filter>Shaders\Pixel</Filter>
     </ClInclude>
     <ClInclude Include="ThreadBarrier.h" />
+    <ClInclude Include="PrimaryWorkStealingQueue.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="SharedResources.cpp">

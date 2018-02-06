@@ -6,16 +6,13 @@
 
 void PageCache::moveNodeToFront(Node* node)
 {
-	//if (node != mFront.next)
-	//{
-		node->next->previous = node->previous;
-		node->previous->next = node->next;
+	node->next->previous = node->previous;
+	node->previous->next = node->next;
 
-		node->next = mFront.next;
-		node->previous = &mFront;
-		mFront.next->previous = node;
-		mFront.next = node;
-	//}
+	node->next = mFront.next;
+	node->previous = &mFront;
+	mFront.next->previous = node;
+	mFront.next = node;
 }
 
 PageAllocationInfo* PageCache::getPage(const textureLocation& location)

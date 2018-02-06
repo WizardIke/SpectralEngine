@@ -2,7 +2,7 @@
 
 #include <d3d12.h>
 #include "frameBufferCount.h"
-#include "../WorkStealingQueue/WorkStealingQueue.h"
+#include "PrimaryWorkStealingQueue.h"
 #include "StreamingManager.h"
 #include "GpuCompletionEventManager.h"
 #include "Job.h"
@@ -20,9 +20,8 @@ class SharedResources;
 class BaseExecutor
 {
 protected:
-	constexpr static unsigned int startingWorkStealingStackSize = 128u;
-	WorkStealingStack<Job, startingWorkStealingStackSize> workStealDeques[2u];
-	WorkStealingStack<Job, startingWorkStealingStackSize>* currentWorkStealingDeque;
+	PrimaryWorkStealingQueue workStealDeques[2u];
+	PrimaryWorkStealingQueue* currentWorkStealingDeque;
 	bool mQuit;
 
 
@@ -44,9 +43,9 @@ public:
 
 	void run(SharedResources& sharedResources);
 
-	WorkStealingStack<Job, startingWorkStealingStackSize>& renderJobQueue() { return workStealDeques[1u]; }
-	WorkStealingStack<Job, startingWorkStealingStackSize>& updateJobQueue() { return workStealDeques[0u]; }
-	WorkStealingStack<Job, startingWorkStealingStackSize>& initializeJobQueue() { return workStealDeques[1u]; }
+	PrimaryWorkStealingQueue& renderJobQueue() { return workStealDeques[1u]; }
+	PrimaryWorkStealingQueue& updateJobQueue() { return workStealDeques[0u]; }
+	PrimaryWorkStealingQueue& initializeJobQueue() { return workStealDeques[1u]; }
 
 
 	static void quit(BaseExecutor* exe, SharedResources& sharedResources, std::unique_lock<std::mutex>&& lock);

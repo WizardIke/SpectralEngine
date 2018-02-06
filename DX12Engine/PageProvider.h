@@ -426,8 +426,8 @@ public:
 			unsigned long* newPagesOffsetInLoadRequests = pageProvider.newPagesOffsetInLoadRequests;
 			if (newCacheSize < pageCache.capacity())
 			{
-				pageCache.decreaseSize(newCacheSize, pageDeleter);
 				pageAllocator.decreaseNonPinnedSize(newCacheSize, pageCache, commandQueue, virtualTextureManager.texturesByID);
+				pageCache.decreaseSize(newCacheSize, pageDeleter);
 			}
 			//add all remaining new pages to the cache and drop old pages from the cache
 			if (newPageCount != 0u)

@@ -222,11 +222,21 @@ PipelineStateObjects::PipelineStateObjects(ID3D12Device* const device, RootSigna
 
 
 
+	PSODesc.RasterizerState.CullMode = D3D12_CULL_MODE::D3D12_CULL_MODE_NONE;
+
+	new(&directionalLightVtTwoSided) D3D12PipelineState(device, PSODesc);
+#ifndef NDEBUG
+	directionalLightVtTwoSided->SetName(L"directionalLightVtTwoSided");
+#endif
+
+
+
 	D3DBlob pointLightPS;
 
 	hr = D3DReadFileToBlob(L"../DemoGame/CompiledShaders/PointLightPS.cso", &pointLightPS.get());
 	if (FAILED(hr)) throw false;
 
+	PSODesc.RasterizerState.CullMode = D3D12_CULL_MODE::D3D12_CULL_MODE_BACK;
 	PSODesc.PS.pShaderBytecode = pointLightPS->GetBufferPointer();
 	PSODesc.PS.BytecodeLength = pointLightPS->GetBufferSize();
 
@@ -346,6 +356,16 @@ PipelineStateObjects::PipelineStateObjects(ID3D12Device* const device, RootSigna
 
 
 
+	PSODesc.RasterizerState.CullMode = D3D12_CULL_MODE::D3D12_CULL_MODE_NONE;
+
+	new(&vtFeedbackWithNormalsTwoSided) D3D12PipelineState(device, PSODesc);
+#ifndef NDEBUG
+	vtFeedbackWithNormalsTwoSided->SetName(L"Virtual texture feedback with normals two sided");
+#endif
+
+
+
+	PSODesc.RasterizerState.CullMode = D3D12_CULL_MODE::D3D12_CULL_MODE_BACK;
 	PSODesc.InputLayout.NumElements = sizeof(texturedInputLayout) / sizeof(D3D12_INPUT_ELEMENT_DESC);
 	PSODesc.InputLayout.pInputElementDescs = texturedInputLayout;
 

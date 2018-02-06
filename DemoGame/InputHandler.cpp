@@ -18,18 +18,9 @@ void InputHandler::f1Pressed(SharedResources& sr)
 	if (!f1Down)
 	{
 		f1Down = true;
-		if (f1Toggled)
-		{
-			f1Toggled = false;
-			Assets& sharedResources = reinterpret_cast<Assets&>(sr);
-			sharedResources.userInterface().setDisplayVirtualFeedbackTexture(false);
-		}
-		else
-		{
-			f1Toggled = true;
-			Assets& sharedResources = reinterpret_cast<Assets&>(sr);
-			sharedResources.userInterface().setDisplayVirtualFeedbackTexture(true);
-		}
+		Assets& sharedResources = reinterpret_cast<Assets&>(sr);
+		f1Toggled = !f1Toggled;
+		sharedResources.userInterface().setDisplayVirtualFeedbackTexture(f1Toggled);
 	}
 }
 
@@ -38,5 +29,23 @@ void InputHandler::f1Released(SharedResources& sr)
 	if (f1Down)
 	{
 		f1Down = false;
+	}
+}
+
+void InputHandler::f2Pressed(SharedResources& sr)
+{
+	if (!f2Down)
+	{
+		f2Down = true;
+		Assets& sharedResources = reinterpret_cast<Assets&>(sr);
+		sharedResources.window.setVSync(!sharedResources.window.getVSync());
+	}
+}
+
+void InputHandler::f2Released(SharedResources& sr)
+{
+	if (f2Down)
+	{
+		f2Down = false;
 	}
 }

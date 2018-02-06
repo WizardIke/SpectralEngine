@@ -191,9 +191,9 @@ class TestZoneFunctions
 		{
 			auto& sharedResources = reinterpret_cast<Assets&>(sr);
 			auto& meshManager = sharedResources.meshManager;
+			VirtualTextureManager& virtualTextureManager = sharedResources.virtualTextureManager;
 
-			//textureManager.unloadTexture(TextureNames::stone04, executor);
-			VirtualTextureManager::unloadTexture(TextureNames::stone04, sharedResources);
+			virtualTextureManager.unloadTexture(TextureNames::stone04, sharedResources);
 
 			meshManager.unloadMesh(MeshNames::HighResMesh1, executor);
 		}
@@ -268,6 +268,7 @@ public:
 		{
 			const auto zone = reinterpret_cast<BaseZone*const>(zone1);
 			const auto resource = reinterpret_cast<HDResources*>(zone->nextResources);
+			resource->destruct(executor, sharedResources);
 			resource->~HDResources();
 			free(zone->nextResources);
 			zone->nextResources = nullptr;

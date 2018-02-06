@@ -149,14 +149,14 @@ namespace Cave
 				if (sharedResources.renderPass.virtualTextureFeedbackSubPass().isInView(sharedResources))
 				{
 					vtFeedbackCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-					vtFeedbackCommandList->SetPipelineState(sharedResources.pipelineStateObjects.vtFeedbackWithNormals);
+					vtFeedbackCommandList->SetPipelineState(sharedResources.pipelineStateObjects.vtFeedbackWithNormalsTwoSided);
 					vtFeedbackCommandList->SetGraphicsRootConstantBufferView(3u, stone4FeedbackBufferPs);
 
 					caveModelPart1.renderVirtualFeedback(vtFeedbackCommandList);
 				}
 
 				commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-				commandList->SetPipelineState(sharedResources.pipelineStateObjects.directionalLightVt);
+				commandList->SetPipelineState(sharedResources.pipelineStateObjects.directionalLightVtTwoSided);
 				commandList->SetGraphicsRootConstantBufferView(1u, pointLightConstantBufferGpuAddress);
 				caveModelPart1.render(commandList);
 			}

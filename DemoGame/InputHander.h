@@ -40,6 +40,7 @@ public:
 	bool pageDownDown = false;
 	bool spaceDown = false;
 	bool f1Down = false;
+	bool f2Down = false;
 	bool f1Toggled = false;
 
 	int previousMousePosX, previousMousePosY;
@@ -61,6 +62,7 @@ public:
 	void spacePressed(SharedResources& sharedResources) { spaceDown = true; }
 	void escapePressed(SharedResources& sharedResources);
 	void f1Pressed(SharedResources& sr);
+	void f2Pressed(SharedResources& sr);
 
 	void leftReleased(SharedResources& sharedResources) { leftDown = false; }
 	void rightReleased(SharedResources& sharedResources) { rightDown = false; }
@@ -76,4 +78,5 @@ public:
 	void pageDownReleased(SharedResources& sharedResources) { pageDownDown = false; }
 	void spaceReleased(SharedResources& sharedResources) { spaceDown = false; }
 	void f1Released(SharedResources& sr);
+	void f2Released(SharedResources& sr);
 };

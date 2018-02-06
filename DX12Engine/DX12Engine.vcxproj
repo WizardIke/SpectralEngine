@@ -186,6 +186,7 @@
     <ClInclude Include="PageCache.h" />
     <ClInclude Include="PageDeleter.h" />
     <ClInclude Include="PageProvider.h" />
+    <ClInclude Include="PrimaryWorkStealingQueue.h" />
     <ClInclude Include="ReflectionCamera.h" />
     <ClInclude Include="CameraUtil.h" />
     <ClInclude Include="D3D12PipelineState.h" />
