@@ -171,6 +171,12 @@ public:
 	void removePageWithoutDeleting(const textureLocation& location)
 	{
 		auto page = pageLookUp.find(location);
+#ifndef NDEBUG
+		if (page == pageLookUp.end())
+		{
+			int x = 1;
+		}
+#endif
 		page->previous->next = page->next;
 		page->next->previous = page->previous;
 #ifndef NDEBUG

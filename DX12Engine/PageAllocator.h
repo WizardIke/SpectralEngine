@@ -65,7 +65,7 @@ public:
 		if (chunks.size() <= newNumChunks) return;
 		const size_t heapIdsStart = newNumChunks;
 		const size_t heapIdEnd = chunks.size() - 1u;
-		std::unique_ptr<textureLocation[]> locations(new textureLocation[(heapIdEnd - heapIdsStart) * heapSizeInPages]);
+		std::unique_ptr<textureLocation[]> locations(new textureLocation[(heapIdEnd - heapIdsStart + 1u) * heapSizeInPages]);
 		textureLocation* locationsEnd = locations.get();
 		auto pages = pageCache.pages();
 
