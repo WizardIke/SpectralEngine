@@ -33,7 +33,7 @@ CPUUsageSentence::~CPUUsageSentence()
 
 void CPUUsageSentence::update(SharedResources& sharedResources)
 {
-	auto frameTime = sharedResources.timer.frameTime;;
+	auto frameTime = sharedResources.timer.frameTime();
 	timeSinceLastUpdate += frameTime;
 	if (timeSinceLastUpdate > 1.0f)
 	{

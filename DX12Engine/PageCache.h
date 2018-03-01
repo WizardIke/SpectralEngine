@@ -150,10 +150,6 @@ public:
 				pageDeleter(mBack.previous->data);
 				textureLocation oldBack = mBack.previous->data.textureLocation;
 				mBack.previous = mBack.previous->previous;
-#ifndef NDEBUG
-				mBack.previous->next->previous = nullptr;
-				mBack.previous->next->next = nullptr;
-#endif // !NDEBUG
 				mBack.previous->next = &mBack;
 				pageLookUp.erase(oldBack);
 			}
@@ -171,12 +167,7 @@ public:
 	void removePageWithoutDeleting(const textureLocation& location)
 	{
 		auto page = pageLookUp.find(location);
-#ifndef NDEBUG
-		if (page == pageLookUp.end())
-		{
-			int x = 1;
-		}
-#endif
+		assert(page != pageLookUp.end() && "Cannot delete a page that doesn't exist");
 		page->previous->next = page->next;
 		page->next->previous = page->previous;
 #ifndef NDEBUG

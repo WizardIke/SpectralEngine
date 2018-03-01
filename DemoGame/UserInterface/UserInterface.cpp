@@ -72,7 +72,7 @@ void UserInterface::update1(SharedResources& sharedResources)
 {
 	unsigned int frameIndex = sharedResources.graphicsEngine.frameIndex;
 	CPUUsageSentence.update(sharedResources);
-	FPSSentence.update(frameIndex, sharedResources.timer.frameTime);
+	FPSSentence.update(frameIndex, sharedResources.timer.frameTime());
 }
 
 void UserInterface::update2(Executor* const executor, SharedResources& sharedResources)

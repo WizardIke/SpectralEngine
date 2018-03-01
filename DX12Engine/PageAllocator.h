@@ -97,21 +97,22 @@ public:
 					resourceTileCoords[i].Y = (UINT)page.textureLocation.y();
 					resourceTileCoords[i].Z = 0u;
 					resourceTileCoords[i].Subresource = (UINT)page.textureLocation.mipLevel();
-					if (lastResource != textureInfo.resource || i == 63u)
+					++i;
+					if (lastResource != textureInfo.resource || i == 64u)
 					{
-						commandQueue->UpdateTileMappings(lastResource, (UINT)(i - lastIndex), resourceTileCoords + lastIndex, nullptr, nullptr, 1u, &rangeFlags, nullptr,
+						commandQueue->UpdateTileMappings(lastResource, (UINT)(i), resourceTileCoords + lastIndex, nullptr, nullptr, 1u, &rangeFlags, nullptr,
 							nullptr, D3D12_TILE_MAPPING_FLAG_NONE);
-						lastIndex = i;
+						lastIndex += i;
+						i = 0u;
 						lastResource = textureInfo.resource;
 					}
-					++i;
 				}
 				++pagePtr;
 			} while (pagePtr != end);
 			 
-			if (i != lastIndex)
+			if (i != 0u)
 			{
-				commandQueue->UpdateTileMappings(lastResource, (UINT)(i - lastIndex), resourceTileCoords + lastIndex, nullptr, nullptr, 1u, &rangeFlags, nullptr,
+				commandQueue->UpdateTileMappings(lastResource, (UINT)(i), resourceTileCoords + lastIndex, nullptr, nullptr, 1u, &rangeFlags, nullptr,
 					nullptr, D3D12_TILE_MAPPING_FLAG_NONE);
 			}
 

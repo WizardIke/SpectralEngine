@@ -199,7 +199,6 @@
     <ClInclude Include="PageAllocator.h" />
     <ClInclude Include="RenderSubPass.h" />
     <ClInclude Include="RenderPass.h" />
-    <ClInclude Include="CriticalSection.h" />
     <ClInclude Include="D3D12CommandAllocator.h" />
     <ClInclude Include="D3D12CommandQueue.h" />
     <ClInclude Include="D3D12Heap.h" />
@@ -251,7 +250,6 @@
     <ClInclude Include="Transform.h" />
     <ClInclude Include="Quaternion.h" />
     <ClInclude Include="RamToVramUploadRequest.h" />
-    <ClInclude Include="ReadWriteLock.h" />
     <ClInclude Include="ScopedFile.h" />
     <ClInclude Include="SecurityException.h" />
     <ClInclude Include="SharedResources.h" />

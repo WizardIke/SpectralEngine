@@ -40,28 +40,25 @@ public:
 
 	void push(value_type&& job)
 	{
-		criticalSection.lock();
+		std::lock_guard<decltype(criticalSection)> lock(criticalSection);
 		buffer[writePos] = job;
 		++writePos;
 		if (writePos == capacity) writePos = 0u;
 		if (writePos == readPos) {
 			resizeBuffer();
 		}
-		criticalSection.unlock();
 	}
 
 	bool pop(value_type& element)
 	{
-		criticalSection.lock();
+		std::lock_guard<decltype(criticalSection)> lock(criticalSection);
 		if (readPos == writePos)
 		{
-			criticalSection.unlock();
 			return false; //empty queue
 		}
 		element = buffer[readPos];
 		++readPos;
 		if (readPos == capacity) readPos = 0u;
-		criticalSection.unlock();
 		return true;
 	}
 };

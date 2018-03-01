@@ -50,7 +50,7 @@ void WaterModel2::update(SharedResources& sharedResources)
 	auto frameIndex = sharedResources.graphicsEngine.frameIndex;
 	const auto assets = reinterpret_cast<Assets*>(&sharedResources);
 
-	waterTranslation += 0.1f * assets->timer.frameTime;
+	waterTranslation += 0.1f * assets->timer.frameTime();
 	if (waterTranslation > 1.0f)
 	{
 		waterTranslation -= 1.0f;

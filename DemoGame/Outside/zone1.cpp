@@ -404,7 +404,7 @@ namespace
 			const auto assets = reinterpret_cast<Assets*>(&sharedResources);
 			const auto frameIndex = assets->graphicsEngine.frameIndex;
 			const auto& cameraPos = assets->mainCamera.position();
-			const auto frameTime = assets->timer.frameTime;
+			const auto frameTime = assets->timer.frameTime();
 			waterModel.update(sharedResources);
 			fireModel1.update(frameIndex, cameraPos, frameTime);
 			fireModel2.update(frameIndex, cameraPos, frameTime);
@@ -413,7 +413,7 @@ namespace
 				camera.update(assets, assets->mainCamera.transform().reflection(waterModel.reflectionHeight()).toMatrix());
 			}
 
-			auto rotationMatrix = DirectX::XMMatrixTranslation(-64.0f, -5.0f, -64.0f) * DirectX::XMMatrixRotationAxis(DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f), assets->timer.frameTime) * DirectX::XMMatrixTranslation(64.0f, 5.0f, 64.0f);
+			auto rotationMatrix = DirectX::XMMatrixTranslation(-64.0f, -5.0f, -64.0f) * DirectX::XMMatrixRotationAxis(DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f), assets->timer.frameTime()) * DirectX::XMMatrixTranslation(64.0f, 5.0f, 64.0f);
 
 			constexpr uint64_t pointLightConstantBufferAlignedSize = (sizeof(LightConstantBuffer) + D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull) & ~(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull);
 			auto pointLightConstantBuffer = reinterpret_cast<LightConstantBuffer*>(reinterpret_cast<uint8_t*>(pointLightConstantBufferCpuAddress) + frameIndex * pointLightConstantBufferAlignedSize);

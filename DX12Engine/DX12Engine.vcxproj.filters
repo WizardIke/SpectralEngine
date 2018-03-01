@@ -31,18 +31,6 @@
     <Filter Include="Light">
       <UniqueIdentifier>{1da70e47-cc90-4d69-a53a-3e490b8c47e0}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Locks">
-      <UniqueIdentifier>{4e406b92-454b-49a1-85dd-2f4a29f8b8c0}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Locks\CriticalSection">
-      <UniqueIdentifier>{4f5e37c8-7c59-46b0-a22d-78074986f534}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Locks\ReadWriteLock">
-      <UniqueIdentifier>{797a3dda-dca0-4cf9-b189-2debaa80161a}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Locks\spinlock">
-      <UniqueIdentifier>{9ca8b1ae-f9d2-42c5-b68a-718f19926b4a}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Math">
       <UniqueIdentifier>{0df7bc28-63a3-4b44-9176-0799db138149}</UniqueIdentifier>
     </Filter>
@@ -183,17 +171,8 @@
     <ClInclude Include="ID3D12ResourceMapFailedException.h">
       <Filter>Exceptions</Filter>
     </ClInclude>
-    <ClInclude Include="ReadWriteLock.h">
-      <Filter>Locks\ReadWriteLock</Filter>
-    </ClInclude>
     <ClInclude Include="UnkownCpuFrequencyException.h">
       <Filter>Exceptions</Filter>
-    </ClInclude>
-    <ClInclude Include="Spinlock.h">
-      <Filter>Locks\spinlock</Filter>
-    </ClInclude>
-    <ClInclude Include="CriticalSection.h">
-      <Filter>Locks\CriticalSection</Filter>
     </ClInclude>
     <ClInclude Include="D3D12GraphicsCommandList.h">
       <Filter>D3D12</Filter>
@@ -406,6 +385,7 @@
     </ClInclude>
     <ClInclude Include="ThreadBarrier.h" />
     <ClInclude Include="PrimaryWorkStealingQueue.h" />
+    <ClInclude Include="Spinlock.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="SharedResources.cpp">

@@ -1,18 +1,15 @@
 #pragma once
-
-#include <windows.h>
-#include <stdint.h>
+#include <chrono>
 
 class Timer
 {
+	std::chrono::time_point<std::chrono::high_resolution_clock> oldTime;
+	float mFrameTime;
 public:
-	Timer();
-	~Timer();
-
 	void start();
 	void update();
-	float frameTime;
-private:
-	Timer(const Timer&) = delete;
-	uint64_t startTime;
+	float frameTime()
+	{
+		return mFrameTime;
+	}
 };

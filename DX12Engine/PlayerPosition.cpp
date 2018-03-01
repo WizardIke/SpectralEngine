@@ -187,7 +187,7 @@ void PlayerPosition::updateImpl(BaseExecutor* const executor, SharedResources& s
 		}
 	}
 
-	auto frameTime = sharedResources.timer.frameTime;
+	auto frameTime = sharedResources.timer.frameTime();
 	velocity.x += forceX * oneOverMass * frameTime;
 	velocity.y += forceY * oneOverMass * frameTime;
 	velocity.z += forceZ * oneOverMass * frameTime;
