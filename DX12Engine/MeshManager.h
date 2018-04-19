@@ -66,44 +66,16 @@ class MeshManager
 	std::unordered_map<const wchar_t * const, std::vector<Request>, std::hash<const wchar_t *>> uploadRequests;
 	std::unordered_map<const wchar_t * const, MeshInfo, std::hash<const wchar_t *>> meshInfos;
 
-	static void meshWithPositionTextureNormalTangentBitangentUseSubresource(BaseExecutor* exe, SharedResources& sr, HalfFinishedUploadRequest& useSubresourceRequest)
-	{
-		sr.backgroundQueue.push(Job(&useSubresourceRequest, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources)
-		{
-			meshWithPositionTextureNormalTangentBitangentUseSubresourceHelper(*reinterpret_cast<HalfFinishedUploadRequest*>(requester), sharedResources, executor);
-		}));
-	}
-
+	static void meshWithPositionTextureNormalTangentBitangentUseSubresource(BaseExecutor* exe, SharedResources& sr, HalfFinishedUploadRequest& useSubresourceRequest);
 	static void MeshManager::meshWithPositionTextureNormalTangentBitangentUseSubresourceHelper(HalfFinishedUploadRequest& useSubresourceRequest, SharedResources& sharedResources, BaseExecutor* executor);
 
-	static void meshWithPositionTextureNormalUseSubresource(BaseExecutor* exe, SharedResources& sr, HalfFinishedUploadRequest& useSubresourceRequest)
-	{
-		sr.backgroundQueue.push(Job(&useSubresourceRequest, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources)
-		{
-			meshWithPositionTextureNormalUseSubresourceHelper(*reinterpret_cast<HalfFinishedUploadRequest*>(requester), sharedResources, executor);
-		}));
-	}
-
+	static void meshWithPositionTextureNormalUseSubresource(BaseExecutor* exe, SharedResources& sr, HalfFinishedUploadRequest& useSubresourceRequest);
 	static void meshWithPositionTextureNormalUseSubresourceHelper(HalfFinishedUploadRequest& useSubresourceRequest, SharedResources& sharedResources, BaseExecutor* executor);
 
-	static void meshWithPositionTextureUseSubresource(BaseExecutor* exe, SharedResources& sr, HalfFinishedUploadRequest& useSubresourceRequest)
-	{
-		sr.backgroundQueue.push(Job(&useSubresourceRequest, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources)
-		{
-			meshWithPositionTextureUseSubresourceHelper(*reinterpret_cast<HalfFinishedUploadRequest*>(requester), sharedResources, executor);
-		}));
-	}
-
+	static void meshWithPositionTextureUseSubresource(BaseExecutor* exe, SharedResources& sr, HalfFinishedUploadRequest& useSubresourceRequest);
 	static void meshWithPositionTextureUseSubresourceHelper(HalfFinishedUploadRequest& useSubresourceRequest, SharedResources& sharedResources, BaseExecutor* executor);
 
-	static void meshWithPositionUseSubresource(BaseExecutor* exe, SharedResources& sr, HalfFinishedUploadRequest& useSubresourceRequest)
-	{
-		sr.backgroundQueue.push(Job(&useSubresourceRequest, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources)
-		{
-			meshWithPositionUseSubresourceHelper(*reinterpret_cast<HalfFinishedUploadRequest*>(requester), sharedResources, executor);
-		}));
-	}
-
+	static void meshWithPositionUseSubresource(BaseExecutor* exe, SharedResources& sr, HalfFinishedUploadRequest& useSubresourceRequest);
 	static void meshWithPositionUseSubresourceHelper(HalfFinishedUploadRequest& useSubresourceRequest, SharedResources& sharedResources, BaseExecutor* executor);
 
 	static void fillUploadRequest(RamToVramUploadRequest& uploadRequest, uint32_t vertexCount, uint32_t indexCount, uint32_t vertexStride, void* filename, File file);

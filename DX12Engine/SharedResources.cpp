@@ -24,7 +24,8 @@ SharedResources::SharedResources(bool fullScreen, bool vSync, bool enableGpuDebu
 	timer(),
 	streamingManager(graphicsEngine.graphicsDevice, 32u * 1024u * 1024u),
 	soundEngine(),
-	inputManager()
+	inputManager(),
+	asynchronousFileManager()
 {}
 	
 void SharedResources::checkForWindowsMessages()

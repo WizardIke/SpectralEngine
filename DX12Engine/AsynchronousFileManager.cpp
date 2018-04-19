@@ -14,7 +14,7 @@ void AsynchronousFileManager::checkAndResizeCache(size_t memoryNeeded)
 		VirtualFree(data->allocation, 0u, MEM_RELEASE);
 		filesTail.previous = data->previous;
 		filesTail.previous->next = &filesTail;
-		nonPinnedFiles.erase(data);
+		nonPinnedFiles.erase(data->key);
 		GlobalMemoryStatusEx(&statex);
 	}
 }
@@ -32,7 +32,7 @@ void AsynchronousFileManager::update()
 		VirtualFree(data->allocation, 0u, MEM_RELEASE);
 		filesTail.previous = data->previous;
 		filesTail.previous->next = &filesTail;
-		nonPinnedFiles.erase(data);
+		nonPinnedFiles.erase(data->key);
 		GlobalMemoryStatusEx(&statex);
 	}
 }
@@ -92,10 +92,10 @@ bool AsynchronousFileManager::readFile(BaseExecutor* executor, SharedResources& 
 	request->memoryStart = memoryStart;
 	request->file = file;
 	request->Offset = memoryStart & (std::numeric_limits<DWORD>::max() - 1u);
-	request->OffsetHigh = (memoryStart & ~(std::numeric_limits<DWORD>::max() - 1u)) >> 32u;
+	request->OffsetHigh = (DWORD)((memoryStart & ~(size_t)(std::numeric_limits<DWORD>::max() - 1u)) >> 32u);
 
 	DWORD bytesRead = 0u;
-	BOOL finished = ReadFile(file.native_handle(), request->buffer, request->sizeToRead, &bytesRead, request);
+	BOOL finished = ReadFile(file.native_handle(), request->buffer, (DWORD)request->sizeToRead, &bytesRead, request);
 	if (finished == FALSE && GetLastError() != ERROR_IO_PENDING)
 	{
 		return false;
@@ -112,6 +112,7 @@ void AsynchronousFileManager::discard(const wchar_t* name, size_t start, size_t 
 
 	data2.allocation = data->second.allocation;
 	data2.data = data->second.data;
+	data2.key = key;
 
 	data2.next = filesHead.next;
 	data2.previous = &filesHead;
@@ -119,8 +120,8 @@ void AsynchronousFileManager::discard(const wchar_t* name, size_t start, size_t 
 	filesHead.next->previous = &data2;
 	filesHead.next = &data2;
 
-	nonPinnedFiles.insert(std::pair<Key, FileData2>{key, std::move(data2)});
-	pinnedFiles.erase(data);
+	nonPinnedFiles.insert(std::move(data2));
+	pinnedFiles.erase(key);
 }
 
  bool AsynchronousFileManager::processIOCompletion(BaseExecutor* executor, SharedResources& sharedResources, DWORD numberOfBytes, LPOVERLAPPED overlapped)
@@ -133,9 +134,9 @@ void AsynchronousFileManager::discard(const wchar_t* name, size_t start, size_t 
 		DWORD bytesRead = 0u;
 		request->memoryStart = request->memoryStart + request->accumulatedSize;
 		request->Offset = request->memoryStart & (std::numeric_limits<DWORD>::max() - 1u);
-		request->OffsetHigh = (request->memoryStart & ~(std::numeric_limits<DWORD>::max() - 1u)) >> 32u;
-		BOOL finished = ReadFile(request->file.native_handle(), request->buffer + request->accumulatedSize, request->sizeToRead - request->accumulatedSize, &bytesRead, request);
-		if (finished == true)
+		request->OffsetHigh = (DWORD)((request->memoryStart & ~(size_t)(std::numeric_limits<DWORD>::max() - 1u)) >> 32u);
+		BOOL finished = ReadFile(request->file.native_handle(), request->buffer + request->accumulatedSize, (DWORD)(request->sizeToRead - request->accumulatedSize), &bytesRead, request);
+		if (finished == TRUE)
 		{
 			return processIOCompletion(executor, sharedResources, bytesRead, request);
 		}

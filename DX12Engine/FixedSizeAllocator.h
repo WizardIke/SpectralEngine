@@ -15,8 +15,8 @@ public:
 	using value_type = T;
 private:
 	union Element {
-		value_type mesh;
-		Element* nextFreeMesh;
+		value_type data;
+		Element* next;
 	};
 	char* currentSlab;
 	Element* currentFreeElement;
@@ -45,12 +45,12 @@ private:
 		{
 			if (start == end)
 			{
-				start->nextFreeMesh = nullptr;
+				start->next = nullptr;
 				lastFreeElement = start;
 				break;
 			}
 			Element* next = start + 1;
-			start->nextFreeMesh = next;
+			start->next = next;
 			start = next;
 		}
 	}
@@ -72,15 +72,15 @@ public:
 	{
 		if (!currentFreeElement) { allocateSlab(); }
 
-		Mesh* returnMesh = &(currentFreeElement->mesh);
-		currentFreeElement = currentFreeElement->nextFreeMesh;
+		value_type* returnMesh = &(currentFreeElement->data);
+		currentFreeElement = currentFreeElement->next;
 		return returnMesh;
 	}
 
-	void deallocate(value_type* mesh)
+	void deallocate(value_type* value)
 	{
-		lastFreeElement->nextFreeMesh = reinterpret_cast<Element*>(mesh);
-		lastFreeElement = reinterpret_cast<Element*>(mesh);
-		lastFreeElement->nextFreeMesh = nullptr;
+		lastFreeElement->next = reinterpret_cast<Element*>(value);
+		lastFreeElement = reinterpret_cast<Element*>(value);
+		lastFreeElement->next = nullptr;
 	}
 };

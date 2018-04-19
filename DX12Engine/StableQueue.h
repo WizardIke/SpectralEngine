@@ -3,7 +3,16 @@
 
 /* references and pointers to objects in a StableQueue remain valid even if the queue resizes.
  */
-template<class T, class Allocator = std::allocator<T>, size_t slabSize = 32u>
+
+template<class value_type, size_t mSlabSize>
+struct StableQueue_Slab
+{
+	constexpr static auto slabSize = mSlabSize;
+	value_type data[slabSize];
+	StableQueue_Slab* next;
+};
+
+template<class T, class Allocator = std::allocator<StableQueue_Slab<T, 32u>>>
 class StableQueue
 {
 public:
@@ -11,12 +20,9 @@ public:
 	using reference = value_type&;
 	using const_reference = const value_type&;
 private:
-	struct Slab
-	{
-		value_type data[slabSize];
-		Slab* next;
-	};
-	std::allocator_traits<Allocator>::rebind_alloc<Slab> allocator;
+	using Slab = typename std::allocator_traits<Allocator>::value_type;
+	constexpr static auto slabSize = Slab::slabSize;
+	Allocator allocator;
 	Slab* freeList = nullptr;
 	value_type* mFrontSlabEnd;
 	value_type* mFront = nullptr;

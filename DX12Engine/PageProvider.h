@@ -13,6 +13,7 @@ class VirtualTextureManager;
 class StreamingManager;
 struct IDXGIAdapter3;
 class BaseExecutor;
+class HalfFinishedUploadRequest;
 #undef min
 #undef max
 

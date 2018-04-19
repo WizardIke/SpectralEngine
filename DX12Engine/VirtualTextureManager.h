@@ -190,7 +190,7 @@ private:
 			const wchar_t* filename = reinterpret_cast<const wchar_t*>(requester);
 			loadTextureUncachedHelper(filename, file, executor, sharedResources, textureUseSubresource<SharedResources_t>,
 				textureUploaded<SharedResources_t>, *reinterpret_cast<const DDSFileLoader::DdsHeaderDx12*>(buffer));
-		}
+		});
 	}
 
 	void createTextureWithResitencyInfo(D3D12GraphicsEngine& graphicsEngine, ID3D12CommandQueue* commandQueue, RamToVramUploadRequest& vramRequest, const wchar_t* filename, File file);

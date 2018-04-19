@@ -213,8 +213,6 @@ void VirtualTextureManager::createTextureWithResitencyInfo(D3D12GraphicsEngine& 
 	resitencyInfo.filename = filename;
 	resitencyInfo.widthInPages = subresourceTiling.WidthInTiles;
 	resitencyInfo.heightInPages = subresourceTiling.HeightInTiles;
-	resitencyInfo.pageWidthInTexels = tileShape.WidthInTexels;
-	resitencyInfo.pageHeightInTexels = tileShape.HeightInTexels;
 	resitencyInfo.numMipLevels = vramRequest.mipLevels;
 	resitencyInfo.resource = resource;
 	resitencyInfo.format = vramRequest.textureInfo.format;

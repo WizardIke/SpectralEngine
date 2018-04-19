@@ -94,15 +94,15 @@ void PageProvider::addPageLoadRequestHelper(PageLoadRequest& pageRequest, Virtua
 		}
 		else
 		{
-			size_t lastColumnWidthInBytes = pageWidthInBytes - (widthInPages * pageWidthInBytes - rowBytes);
+			uint32_t lastColumnWidthInBytes = pageWidthInBytes - (widthInPages * pageWidthInBytes - (uint32_t)rowBytes);
 			request.meshInfo.indicesSize = lastColumnWidthInBytes;
 			request.meshInfo.verticesSize = pageHeightInTexels;
 		}
 	}
 	else
 	{
-		size_t bottomPageHeight = pageHeightInTexels - (heightInPages * pageHeightInTexels - numRows);
-		size_t bottomPageSize = pageWidthInBytes * bottomPageHeight;
+		uint32_t bottomPageHeight = pageHeightInTexels - (heightInPages * pageHeightInTexels - (uint32_t)numRows);
+		uint32_t bottomPageSize = pageWidthInBytes * bottomPageHeight;
 		filePos += bottomPageSize * pageX;
 		if (pageX != (widthInPages - 1u))
 		{
@@ -111,7 +111,7 @@ void PageProvider::addPageLoadRequestHelper(PageLoadRequest& pageRequest, Virtua
 		}
 		else
 		{
-			size_t lastColumnWidthInBytes = pageWidthInBytes - (widthInPages * pageWidthInBytes - rowBytes);
+			uint32_t lastColumnWidthInBytes = pageWidthInBytes - (widthInPages * pageWidthInBytes - (uint32_t)rowBytes);
 			request.meshInfo.indicesSize = lastColumnWidthInBytes;
 			request.meshInfo.verticesSize = bottomPageHeight;
 		}

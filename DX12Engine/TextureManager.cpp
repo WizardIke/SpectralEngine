@@ -244,3 +244,12 @@ void TextureManager::textureUseSubresourceHelper(BaseExecutor* executor, SharedR
 		streamingManager.copyStarted(executor, useSubresourceRequest);
 	});
 }
+
+void TextureManager::textureUseSubresource(BaseExecutor* executor, SharedResources& sharedResources, HalfFinishedUploadRequest& useSubresourceRequest)
+{
+	sharedResources.backgroundQueue.push(Job(&useSubresourceRequest, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources)
+	{
+		auto& textureManager = sharedResources.textureManager;
+		textureManager.textureUseSubresourceHelper(executor, sharedResources, *reinterpret_cast<HalfFinishedUploadRequest*>(requester));
+	}));
+}

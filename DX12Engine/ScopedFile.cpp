@@ -1,6 +1,6 @@
 #include "ScopedFile.h"
 
-File::File(const wchar_t* fileName, DWORD accessRight, DWORD shareMode, creationMode creationMode, DWORD fileAttributes = FILE_ATTRIBUTE_NORMAL, HANDLE templateFile = nullptr)
+File::File(const wchar_t* fileName, DWORD accessRight, DWORD shareMode, creationMode creationMode, DWORD fileAttributes, HANDLE templateFile)
 {
 	open(fileName, accessRight, shareMode, creationMode, fileAttributes, templateFile);
 }
@@ -10,7 +10,7 @@ File::File(const File& other)
 	file = other.file;
 }
 
-void File::open(const wchar_t* fileName, DWORD accessRight, DWORD shareMode, creationMode creationMode, DWORD fileAttributes = FILE_ATTRIBUTE_NORMAL, HANDLE templateFile = nullptr)
+void File::open(const wchar_t* fileName, DWORD accessRight, DWORD shareMode, creationMode creationMode, DWORD fileAttributes, HANDLE templateFile)
 {
 #ifdef _WIN32_WINNT
 	file = CreateFileW(fileName, accessRight, shareMode, nullptr, creationMode, fileAttributes, templateFile);

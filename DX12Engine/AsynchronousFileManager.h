@@ -19,6 +19,11 @@ public:
 		const wchar_t* name;
 		size_t start;
 		size_t end;
+
+		bool operator==(const Key& other) const
+		{
+			return name == other.name && start == other.start && end == other.end;
+		}
 	};
 
 	struct FileData
@@ -47,6 +52,12 @@ public:
 			next->previous = this;
 			previous->next = this;
 		}
+
+		void operator=(FileData2&& other)
+		{
+			this->~FileData2();
+			new(this) FileData2(std::move(other));
+		}
 	};
 
 	struct Hasher
@@ -62,6 +73,7 @@ public:
 
 	struct KeySelect
 	{
+		using key_type = Key;
 		const Key& operator()(const FileData2& data) const
 		{
 			return data.key;
@@ -73,6 +85,11 @@ public:
 		using value_type = FileData2;
 
 		const FileData2& operator()(const FileData2& data) const
+		{
+			return data;
+		}
+
+		FileData2& operator()(FileData2& data) const
 		{
 			return data;
 		}
@@ -95,13 +112,14 @@ private:
 	FixedSizeAllocator<IORequest> requestAllocator;
 	std::unordered_map<Key, FileData, Hasher> pinnedFiles;
 	tsl::detail_robin_hash::robin_hash<FileData2, KeySelect, ValueSelect,
-		Hasher, std::equal_to<FileData2>, std::allocator<FileData2>, false, tsl::rh::power_of_two_growth_policy<2>> nonPinnedFiles;
+		Hasher, std::equal_to<Key>, std::allocator<FileData2>, false, tsl::rh::power_of_two_growth_policy<2>> nonPinnedFiles;
 	FileData2 filesHead;
 	FileData2 filesTail;
 
 	//Drops the least resently used items from the cache to make room for memoryNeeded
 	void checkAndResizeCache(size_t memoryNeeded);
 public:
+	AsynchronousFileManager() : nonPinnedFiles(8u, Hasher(), std::equal_to<Key>(), std::allocator<FileData2>(), 0.5f) {}
 	~AsynchronousFileManager();
 	File openFileForReading(IOCompletionQueue& ioCompletionQueue, const wchar_t* name);
 	bool readFile(BaseExecutor* executor, SharedResources& sharedResources, const wchar_t* name, size_t start, size_t end, File file,

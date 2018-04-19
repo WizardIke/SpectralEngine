@@ -506,3 +506,35 @@ void MeshManager::CalculateTangentBitangent(const uint8_t* start, const uint8_t*
 
 MeshManager::MeshManager() {}
 MeshManager::~MeshManager() {}
+
+void MeshManager::meshWithPositionTextureNormalTangentBitangentUseSubresource(BaseExecutor* exe, SharedResources& sr, HalfFinishedUploadRequest& useSubresourceRequest)
+{
+	sr.backgroundQueue.push(Job(&useSubresourceRequest, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources)
+	{
+		meshWithPositionTextureNormalTangentBitangentUseSubresourceHelper(*reinterpret_cast<HalfFinishedUploadRequest*>(requester), sharedResources, executor);
+	}));
+}
+
+void MeshManager::meshWithPositionTextureNormalUseSubresource(BaseExecutor* exe, SharedResources& sr, HalfFinishedUploadRequest& useSubresourceRequest)
+{
+	sr.backgroundQueue.push(Job(&useSubresourceRequest, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources)
+	{
+		meshWithPositionTextureNormalUseSubresourceHelper(*reinterpret_cast<HalfFinishedUploadRequest*>(requester), sharedResources, executor);
+	}));
+}
+
+void MeshManager::meshWithPositionTextureUseSubresource(BaseExecutor* exe, SharedResources& sr, HalfFinishedUploadRequest& useSubresourceRequest)
+{
+	sr.backgroundQueue.push(Job(&useSubresourceRequest, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources)
+	{
+		meshWithPositionTextureUseSubresourceHelper(*reinterpret_cast<HalfFinishedUploadRequest*>(requester), sharedResources, executor);
+	}));
+}
+
+void MeshManager::meshWithPositionUseSubresource(BaseExecutor* exe, SharedResources& sr, HalfFinishedUploadRequest& useSubresourceRequest)
+{
+	sr.backgroundQueue.push(Job(&useSubresourceRequest, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources)
+	{
+		meshWithPositionUseSubresourceHelper(*reinterpret_cast<HalfFinishedUploadRequest*>(requester), sharedResources, executor);
+	}));
+}
