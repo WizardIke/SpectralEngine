@@ -253,3 +253,31 @@ void TextureManager::textureUseSubresource(BaseExecutor* executor, SharedResourc
 		textureManager.textureUseSubresourceHelper(executor, sharedResources, *reinterpret_cast<HalfFinishedUploadRequest*>(requester));
 	}));
 }
+
+void TextureManager::loadTexture(BaseExecutor* executor, SharedResources& sharedResources, const wchar_t * filename, Request callback)
+{
+	auto& textureManager = sharedResources.textureManager;
+
+	std::unique_lock<decltype(textureManager.mutex)> lock(textureManager.mutex);
+	Texture& texture = textureManager.textures[filename];
+	texture.numUsers += 1u;
+	if (texture.numUsers == 1u)
+	{
+		textureManager.uploadRequests[filename].push_back(callback);
+		lock.unlock();
+
+		textureManager.loadTextureUncached(executor, sharedResources, filename);
+		return;
+	}
+	//the resource is loaded or loading
+	if (texture.loaded)
+	{
+		unsigned int textureIndex = texture.descriptorIndex;
+		lock.unlock();
+		callback(executor, sharedResources, textureIndex);
+		return;
+	}
+
+	textureManager.uploadRequests[filename].push_back(callback);
+	return;
+}

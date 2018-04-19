@@ -129,19 +129,19 @@ class MeshManager
 	}
 
 	template<class VertexType_t, class Executor_t, class SharedResources_t>
-	void loadMeshUncached(Executor_t executor, SharedResources_t& sharedResources, const wchar_t* filename, void(*useSubresourceCallback)(BaseExecutor* executor, SharedResources& sharedResources, HalfFinishedUploadRequest& useSubresourcesRequest))
+	void loadMeshUncached(Executor_t executor, SharedResources_t& sharedResources, const wchar_t* filename)
 	{
 		File file = sharedResources.asynchronousFileManager.openFileForReading(sharedResources.ioCompletionQueue, filename);
 		sharedResources.asynchronousFileManager.readFile(executor, sharedResources, filename, 0u, sizeof(uint32_t) * 3u, file, reinterpret_cast<void*>(const_cast<wchar_t *>(filename)),
-			[](void* requester, BaseExecutor* executor, SharedResources& sharedResources, Range<const uint8_t*> buffer, File file)
+			[](void* requester, BaseExecutor* executor, SharedResources& sharedResources, const uint8_t* buffer, File file)
 		{
-			const uint32_t* data = reinterpret_cast<const uint32_t*>(buffer.begin());
+			const uint32_t* data = reinterpret_cast<const uint32_t*>(buffer);
 			uint32_t vertexType2 = data[0];
 			uint32_t vertexCount = data[1];
 			uint32_t indexCount = data[2];
 			RamToVramUploadRequest uploadRequest;
 			fillUploadRequest(uploadRequest, vertexCount, indexCount, sizeof(VertexType_t), requester, file);
-			fillUploadRequestUseSubresourceCallback<VertexType_t>(uploadRequest, indexCount, uint32_t vertexType2);
+			fillUploadRequestUseSubresourceCallback<VertexType_t>(uploadRequest, indexCount, vertexType2);
 			sharedResources.streamingManager.addUploadRequest(uploadRequest);
 		});
 	}
@@ -159,7 +159,7 @@ class MeshManager
 			meshManager.uploadRequests[filename].push_back(Request{ requester, resourceUploadedCallback });
 			lock.unlock();
 
-			meshManager.loadMeshUncached<VertexType_t>(sharedResources, filename);
+			meshManager.loadMeshUncached<VertexType_t>(executor, sharedResources, filename);
 		}
 		else if (meshInfo.loaded)
 		{
@@ -186,32 +186,28 @@ public:
 	static void loadMeshWithPositionTextureNormalTangentBitangent(const wchar_t * filename, void* requester, Executor* const executor, SharedResources_t& sharedResources,
 		void(*resourceUploadedCallback)(void* const requester, BaseExecutor* const executor, SharedResources& sharedResources, Mesh* mesh))
 	{
-		loadMesh(filename, requester, executor, sharedResources, resourceUploadedCallback, meshWithPositionTextureNormalTangentBitangentUseSubresource,
-			sizeof(MeshWithPositionTextureNormalTangentBitangent));
+		loadMesh<MeshWithPositionTextureNormalTangentBitangent, Executor, SharedResources_t>(filename, requester, executor, sharedResources, resourceUploadedCallback);
 	}
 
 	template<class Executor, class SharedResources_t>
 	static void loadMeshWithPositionTextureNormal(const wchar_t * filename, void* requester, Executor* const executor, SharedResources_t& sharedResources,
 		void(*resourceUploadedCallback)(void* const requester, BaseExecutor* const executor, SharedResources& sharedResources, Mesh* mesh))
 	{
-		loadMesh(filename, requester, executor, sharedResources, resourceUploadedCallback, meshWithPositionTextureNormalUseSubresource,
-			sizeof(MeshWithPositionTextureNormal));
+		loadMesh<MeshWithPositionTextureNormal, Executor, SharedResources_t>(filename, requester, executor, sharedResources, resourceUploadedCallback);
 	}
 
 	template<class Executor, class SharedResources_t>
 	static void loadMeshWithPositionTexture(const wchar_t * filename, void* requester, Executor* const executor, SharedResources_t& sharedResources,
 		void(*resourceUploadedCallback)(void* const requester, BaseExecutor* const executor, SharedResources& sharedResources, Mesh* mesh))
 	{
-		loadMesh(filename, requester, executor, sharedResources, resourceUploadedCallback, meshWithPositionTextureUseSubresource,
-			sizeof(MeshWithPositionTexture));
+		loadMesh<MeshWithPositionTexture, Executor, SharedResources_t>(filename, requester, executor, sharedResources, resourceUploadedCallback);
 	}
 
 	template<class Executor, class SharedResources_t>
 	static void loadMeshWithPosition(const wchar_t * filename, void* requester, Executor* const executor, SharedResources_t& sharedResources,
 		void(*resourceUploadedCallback)(void* const requester, BaseExecutor* const executor, SharedResources& sharedResources, Mesh* mesh))
 	{
-		loadMesh(filename, requester, executor, sharedResources, resourceUploadedCallback, meshWithPositionUseSubresource,
-			sizeof(MeshWithPosition));
+		loadMesh<MeshWithPosition, Executor, SharedResources_t>(filename, requester, executor, sharedResources, resourceUploadedCallback);
 	}
 
 	void unloadMesh(const wchar_t * const filename, BaseExecutor* const executor);

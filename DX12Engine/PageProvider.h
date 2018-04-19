@@ -172,7 +172,7 @@ private:
 			SharedResources_t& sharedResources = reinterpret_cast<SharedResources_t&>(sr);
 			PageLoadRequest& pageRequest = *reinterpret_cast<PageLoadRequest*>(requester);
 			VirtualTextureManager& virtualTextureManager = sharedResources.virtualTextureManager;
-			addPageLoadRequestHelper(pageRequest, virtualTextureManager);
+			addPageLoadRequestHelper(pageRequest, virtualTextureManager, sharedResources);
 		}));
 	}
 public:

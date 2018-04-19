@@ -101,7 +101,7 @@ public:
 				{
 					// copy feadbackTextureGpu to readbackTexture
 					Executor* executor = reinterpret_cast<Executor*>(exe);
-					StreamingManagerThreadLocal& streamingManager = executor->streamingManager;
+					StreamingManager::ThreadLocal& streamingManager = executor->streamingManager;
 					FeedbackAnalizerSubPass& renderSubPass = *reinterpret_cast<FeedbackAnalizerSubPass*>(requester);
 
 
@@ -120,9 +120,9 @@ public:
 					destination.PlacedFootprint.Footprint.Width = renderSubPass.width;
 					destination.PlacedFootprint.Footprint.RowPitch = static_cast<uint32_t>(renderSubPass.width * 8u);
 
-					streamingManager.currentCommandList->CopyTextureRegion(&destination, 0u, 0u, 0u, &UploadBufferLocation, nullptr);
+					streamingManager.copyCommandList()->CopyTextureRegion(&destination, 0u, 0u, 0u, &UploadBufferLocation, nullptr);
 
-					streamingManager.addCopyCompletionEvent(requester, FeedbackAnalizerSubPass::readbackTextureReady<Executor, SharedResources_t>);
+					sharedResources.streamingManager.addCopyCompletionEvent(executor, requester, FeedbackAnalizerSubPass::readbackTextureReady<Executor, SharedResources_t>);
 				}, sharedResources.graphicsEngine.frameIndex);
 			}));
 			

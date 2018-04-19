@@ -176,7 +176,7 @@ private:
 
 				streamingManager.copyStarted(executor, useSubresourceRequest);
 			});
-		}))
+		}));
 	}
 
 	template<class SharedResources_t>
@@ -188,7 +188,8 @@ private:
 			[](void* requester, BaseExecutor* executor, SharedResources& sharedResources, const uint8_t* buffer, File file)
 		{
 			const wchar_t* filename = reinterpret_cast<const wchar_t*>(requester);
-			loadTextureUncachedHelper(filename, file, executor, sharedResources, textureUseSubresource<SharedResources_t>,
+			auto& virtualTextureManager = reinterpret_cast<SharedResources_t&>(sharedResources).virtualTextureManager;
+			virtualTextureManager.loadTextureUncachedHelper(filename, file, executor, sharedResources, textureUseSubresource<SharedResources_t>,
 				textureUploaded<SharedResources_t>, *reinterpret_cast<const DDSFileLoader::DdsHeaderDx12*>(buffer));
 		});
 	}
@@ -215,8 +216,7 @@ public:
 			virtualTextureManager.uploadRequests[filename].push_back(callback);
 			lock.unlock();
 
-			virtualTextureManager.loadTextureUncached<Executor, SharedResources_t>(streamingManager, graphicsEngine,
-				sharedResources.streamingManager.commandQueue(), filename);
+			virtualTextureManager.loadTextureUncached<SharedResources_t>(filename, executor, sharedResources);
 			return;
 		}
 		if (texture.loaded) //the resource is loaded

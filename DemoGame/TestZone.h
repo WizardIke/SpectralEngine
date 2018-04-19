@@ -100,8 +100,8 @@ class TestZoneFunctions
 				stone4FeedbackBufferPsCpu->virtualTextureID2And3 = (float)0xffff;
 				stone4FeedbackBufferPsCpu->textureHeightInPages = (float)textureInfo.heightInPages;
 				stone4FeedbackBufferPsCpu->textureWidthInPages = (float)textureInfo.widthInPages;
-				stone4FeedbackBufferPsCpu->usefulTextureHeight = (float)(textureInfo.pageHeightInTexels * textureInfo.heightInPages);
-				stone4FeedbackBufferPsCpu->usefulTextureWidth = (float)(textureInfo.pageWidthInTexels * textureInfo.widthInPages);
+				stone4FeedbackBufferPsCpu->usefulTextureHeight = (float)(textureInfo.height);
+				stone4FeedbackBufferPsCpu->usefulTextureWidth = (float)(textureInfo.width);
 
 				componentUploaded(requester, executor, sharedResources);
 			} });
