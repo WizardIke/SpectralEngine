@@ -1,6 +1,5 @@
 #include "BaseSentence.h"
 #include "HresultException.h"
-#include "d3dx12.h"
 
 constexpr inline float setPositionX(const float pos)
 {
@@ -13,17 +12,36 @@ constexpr inline float setPositionY(const float pos)
 }
 
 
-BaseSentence::BaseSentence(const unsigned int MaxLength, ID3D12Device* const Device, Font* const Font, const wchar_t* Text, const DirectX::XMFLOAT2 Position, const DirectX::XMFLOAT2 Size, const DirectX::XMFLOAT4 color) :
+BaseSentence::BaseSentence(const unsigned int maxLength, ID3D12Device* const Device, Font* const Font, const wchar_t* Text, const DirectX::XMFLOAT2 Position, const DirectX::XMFLOAT2 Size, const DirectX::XMFLOAT4 color) :
 	font(Font),
 	text(Text),
 	size(Size),
-	maxLength(MaxLength),
+	maxLength(maxLength),
 	color(color),
 	position(setPositionX(Position.x), setPositionY(Position.y)), 
-	textVertexBuffer([Device, MaxLength](size_t i, D3D12Resource& element)
+	textVertexBuffer([Device, maxLength](size_t i, D3D12Resource& element)
 {
-	new(&element) D3D12Resource(Device, CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), D3D12_HEAP_FLAG_NONE, CD3DX12_RESOURCE_DESC::Buffer(MaxLength * sizeof(TextVertex)),
-		D3D12_RESOURCE_STATE_GENERIC_READ, nullptr);
+	D3D12_HEAP_PROPERTIES heapProperties;
+	heapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY::D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+	heapProperties.CreationNodeMask = 0u;
+	heapProperties.MemoryPoolPreference = D3D12_MEMORY_POOL::D3D12_MEMORY_POOL_UNKNOWN;
+	heapProperties.Type = D3D12_HEAP_TYPE_UPLOAD;
+	heapProperties.VisibleNodeMask = 0u;
+
+	D3D12_RESOURCE_DESC resourceDesc;
+	resourceDesc.Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
+	resourceDesc.DepthOrArraySize = 1u;
+	resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION::D3D12_RESOURCE_DIMENSION_BUFFER;
+	resourceDesc.Flags = D3D12_RESOURCE_FLAGS::D3D12_RESOURCE_FLAG_NONE;
+	resourceDesc.Format = DXGI_FORMAT::DXGI_FORMAT_UNKNOWN;
+	resourceDesc.Height = 1u;
+	resourceDesc.Layout = D3D12_TEXTURE_LAYOUT::D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+	resourceDesc.MipLevels = 1u;
+	resourceDesc.SampleDesc.Count = 1u;
+	resourceDesc.SampleDesc.Quality = 0u;
+	resourceDesc.Width = maxLength * sizeof(TextVertex);
+
+	new(&element) D3D12Resource(Device, heapProperties, D3D12_HEAP_FLAG_NONE, resourceDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr);
 })
 {
 	HRESULT hr;
@@ -45,7 +63,7 @@ BaseSentence::BaseSentence(const unsigned int MaxLength, ID3D12Device* const Dev
 
 		textVertexBufferView[i].BufferLocation = textVertexBuffer[i]->GetGPUVirtualAddress();
 		textVertexBufferView[i].StrideInBytes = sizeof(TextVertex);
-		textVertexBufferView[i].SizeInBytes = MaxLength * sizeof(TextVertex);
+		textVertexBufferView[i].SizeInBytes = maxLength * sizeof(TextVertex);
 	}
 }
 

@@ -41,12 +41,10 @@ public:
 			}
 		} while (!readPos.compare_exchange_weak(oldReadPos, oldReadPos + 1u));
 
-		if (!empty)
-		{
-			element = std::move(data[oldReadPos]);
-			return true;
-		}
-		return false;
+		if (empty) return false;
+
+		element = std::move(data[oldReadPos]);
+		return true;
 	}
 };
 
