@@ -4,7 +4,7 @@
 #include <d3d12.h>
 #include <DirectXMath.h>
 #include "Font.h"
-#include "../Array/Array.h"
+#include "Array.h"
 #include "D3D12Resource.h"
 
 class BaseSentence

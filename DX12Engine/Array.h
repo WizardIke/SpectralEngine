@@ -3,18 +3,28 @@
 #include <string>
 #include <type_traits>
 #include <algorithm>
-#include "ArrayPointer.h"
-#include "Buffer.h"
 
 template<class Element, std::size_t capacity>
 class Array
 {
+	template<class Element, std::size_t capacity>
+	class alignas(alignof(Element)) Buffer
+	{
+		alignas(alignof(Element)) unsigned char buffer[capacity * sizeof(Element)];
+	public:
+		Element & operator[](std::size_t i)
+		{
+			return (reinterpret_cast<Element*>(buffer))[i];
+		}
+		constexpr Element& operator[](std::size_t i) const
+		{
+			return (reinterpret_cast<const Element*>(buffer))[i];
+		}
+	};
+
 	Buffer<Element, capacity> buffer;
 public:
-	enum initializeElements
-	{
-		doNotInitialize = true,
-	};
+	class DoNotInitialize {};
 
 	typedef Element* iterator;
 	typedef ::std::reverse_iterator<Element*> reverse_iterator;
@@ -33,13 +43,10 @@ public:
 		}
 		catch (...)
 		{
-			if (i != 0u)
+			while (i != 0u)
 			{
-				do
-				{
-					buffer[i].~Element();
-					--i;
-				} while (i != 0u);
+				--i;
+				buffer[i].~Element();
 			}
 			throw;
 		}
@@ -58,13 +65,10 @@ public:
 		}
 		catch (...)
 		{
-			if (i != 0u)
+			while (i != 0u)
 			{
-				do
-				{
-					buffer[i].~Element();
-					--i;
-				} while (i != 0u);
+				--i;
+				buffer[i].~Element();
 			}
 			throw;
 		}
@@ -82,13 +86,10 @@ public:
 		}
 		catch (...)
 		{
-			if (i != 0u)
+			while (i != 0u)
 			{
-				do
-				{
-					buffer[i].~Element();
-					--i;
-				} while (i != 0u);
+				--i;
+				buffer[i].~Element();
 			}
 			throw;
 		}
@@ -106,19 +107,16 @@ public:
 		}
 		catch (...)
 		{
-			if (i != 0u)
+			while (i != 0u)
 			{
-				do
-				{
-					buffer[i].~Element();
-					--i;
-				} while (i != 0u);
+				--i;
+				buffer[i].~Element();
 			}
 			throw;
 		}
 	}
 
-	constexpr Array(initializeElements) {}
+	constexpr Array(DoNotInitialize) {}
 
 	Array()
 	{
@@ -132,13 +130,10 @@ public:
 		}
 		catch (...)
 		{
-			if (i != 0u)
+			while (i != 0u)
 			{
-				do
-				{
-					buffer[i].~Element();
-					--i;
-				} while (i != 0u);
+				--i;
+				buffer[i].~Element();
 			}
 			throw;
 		}
@@ -157,12 +152,10 @@ public:
 		std::size_t i = capacity;
 		do
 		{
-			buffer[i].~Element();
 			--i;
+			buffer[i].~Element();
 		} while (i != 0);
 	}
-
-	operator ArrayPointer<Element>() { return ArrayPointer<Element>(&buffer[0], capacity); }
 
 	Element& at(const std::size_t pos)
 	{
@@ -266,101 +259,13 @@ public:
 		return capacity;
 	}
 
-	void fill(const Element& value)
-	{
-		for (std::size_t i = 0u; i < capacity; ++i)
-		{
-			buffer[i] = value;
-		}
-	}
 	void swap(Array& other) //noexcept(noexcept(std::swap(declval<Element&>(), declval<Element&>())))
 	{
 		for (std::size_t i = 0u; i < capacity; ++i)
 		{
-			Element temp = std::move(other.buffer[i]);
-			other.buffer[i] = std::move(this->buffer[i]);
-			this->buffer[i] = std::move(temp);
+			using std::swap;
+			swap(buffer[i], other.buffer[i]);
 		}
-	}
-
-	std::size_t linearSearchFor(const Element& element) const
-	{
-		for (std::size_t i = 0u; i < capacity; ++i)
-		{
-			if (this->get(i) == element) return i;
-		}
-		return i;
-	}
-
-	void sort()
-	{
-		std::sort(begin(), end());
-	}
-
-	void sort(bool(*comparator)(const Element&, const Element&))
-	{
-		std::sort(begin(), end(), comparator);
-	}
-
-	void sort(const std::size_t first, const std::size_t last)
-	{
-		std::sort(get(first), get(last));
-	}
-
-	void sort(const std::size_t first, const std::size_t last, bool(*comparator)(const Element&, const Element&))
-	{
-		std::sort(get(first), get(last), comparator);
-	}
-
-	void stableSort()
-	{
-		std::stable_sort(begin(), end());
-	}
-
-	void stableSort(bool(*comparator)(const Element&, const Element&))
-	{
-		std::stable_sort(begin(), end(), comparator);
-	}
-
-	void stableSort(const std::size_t first, const std::size_t last)
-	{
-		std::stable_sort(buffer[first], buffer[last]);
-	}
-
-	void stableSort(const std::size_t first, const std::size_t last, bool(*comparator)(const Element&, const Element&))
-	{
-		std::stable_sort(buffer[first], buffer[last], comparator);
-	}
-
-	void partialSort(const std::size_t middle)
-	{
-		std::partial_sort(begin(), buffer[middle], end());
-	}
-
-	void partialSort(const std::size_t middle, bool(*comparator)(const Element&, const Element&))
-	{
-		std::partial_sort(begin(), buffer[middle], end(), comparator);
-	}
-
-	void partialSort(const std::size_t first, const std::size_t middle, const std::size_t last)
-	{
-		std::partial_sort(buffer[first], buffer[middle], buffer[last]);
-	}
-
-	void partialSort(const std::size_t first, const std::size_t middle, const std::size_t last,
-		bool(*comparator)(const Element&, const Element&))
-	{
-		std::partial_sort(buffer[first], buffer[middle], buffer[last], comparator);
-	}
-
-	void reverse()
-	{
-		std::reverse(begin(), end());
-	}
-
-	void reverse(std::size_t first, std::size_t last)
-	{
-		std::reverse(buffer[first], buffer[last]);
 	}
 };
 

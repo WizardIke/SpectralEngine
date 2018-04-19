@@ -3,7 +3,7 @@ class BaseExecutor;
 #include "D3D12Resource.h"
 #include <unordered_map>
 #include <mutex>
-#include <vector>
+#include "ResizingArray.h"
 #include "Job.h"
 #include "StreamingManager.h"
 #include "DDSFileLoader.h"
@@ -101,7 +101,7 @@ private:
 	};
 
 	std::mutex mutex;
-	std::unordered_map<const wchar_t * const, std::vector<Request>, std::hash<const wchar_t *>> uploadRequests;
+	std::unordered_map<const wchar_t * const, ResizingArray<Request>, std::hash<const wchar_t *>> uploadRequests;
 	std::unordered_map<const wchar_t * const, Texture, std::hash<const wchar_t *>> textures;
 public:
 	TextureInfoAllocator texturesByID;

@@ -2,7 +2,7 @@
 
 #include <atomic>
 #include <utility>
-#include "../Array/Array.h"
+#include "Array.h"
 
 template<class ElementType, unsigned int capacity>
 class LocklessQueue

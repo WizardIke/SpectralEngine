@@ -5,7 +5,7 @@
 #ifdef max
 #undef max
 #endif
-#include <array>
+#include "Array.h"
 
 // Push = single producer
 // Pop = single consumer (same thread as push)
@@ -22,7 +22,7 @@ private:
 	std::atomic<unsigned long> top; // queue
 	std::atomic<unsigned long> bottom; // stack
 									   // Circular array
-	std::array<value_type, capacity> values;
+	Array<value_type, capacity> values;
 public:
 	WorkStealingStack() : top(1), bottom(1) {}
 

@@ -1,6 +1,8 @@
 #include "VirtualTextureManager.h"
 #include "SharedResources.h"
 #include "BaseExecutor.h"
+#undef min
+#undef max
 
 void VirtualTextureManager::loadTextureUncachedHelper(const wchar_t * filename, File file, BaseExecutor* executor, SharedResources& sharedResources,
 	void(*useSubresource)(BaseExecutor* executor, SharedResources& sharedResources, HalfFinishedUploadRequest& useSubresourceRequest),
@@ -291,7 +293,7 @@ void VirtualTextureManager::textureUploadedHelper(void* storedFilename, BaseExec
 {
 	const wchar_t* filename = reinterpret_cast<wchar_t*>(storedFilename);
 	Texture* texture;
-	std::vector<Request> requests;
+	ResizingArray<Request> requests;
 	{
 		std::lock_guard<decltype(mutex)> lock(mutex);
 		texture = &textures[filename];

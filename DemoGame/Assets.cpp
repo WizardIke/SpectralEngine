@@ -65,11 +65,11 @@ Assets::Assets() :
 	return desc;
 }()),
 
-	backgroundExecutors(ArraySize(maxBackgroundThreads), [this](size_t i, BackgroundExecutor& element)
+backgroundExecutors(DynamicArray<BackgroundExecutor>::Size{ maxBackgroundThreads }, [this](size_t i, BackgroundExecutor& element)
 	{
 		new(&element) BackgroundExecutor(*this);
 	}),
-	primaryExecutors(ArraySize(maxPrimaryThreads), [this](size_t i, PrimaryExecutor& element)
+	primaryExecutors(DynamicArray<PrimaryExecutor>::Size{ maxBackgroundThreads }, [this](size_t i, PrimaryExecutor& element)
 	{
 		new(&element) PrimaryExecutor(*this);
 	})

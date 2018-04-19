@@ -6,7 +6,7 @@
 #include "UserInterface/UserInterface.h"
 #include "Areas.h"
 #include "AmbientMusic.h"
-#include <../Array/dynamicarray.h>
+#include <DynamicArray.h>
 #include "MainExecutor.h"
 #include "PrimaryExecutor.h"
 #include "BackgroundExecutor.h"

@@ -14,7 +14,7 @@
 #include <TemplateFloat.h>
 #include <D3D12DescriptorHeap.h>
 #include "../Executor.h"
-#include <array>
+#include "Array.h"
 #include <Vector4.h>
 #include <ReflectionCamera.h>
 #include <Range.h>
@@ -57,12 +57,12 @@ namespace
 		Mesh* cubeWithPos;
 		D3D12Resource perObjectConstantBuffers;
 		uint8_t* perObjectConstantBuffersCpuAddress;
-		std::array<D3D12Resource, numRenderTargetTextures> renderTargetTextures;
+		Array<D3D12Resource, numRenderTargetTextures> renderTargetTextures;
 		D3D12_RESOURCE_STATES waterRenderTargetTextureState;
 		D3D12DescriptorHeap renderTargetTexturesDescriptorHeap;
 		unsigned int shaderResourceViews[numRenderTargetTextures];
-		std::array<ReflectionCamera, numRenderTargetTextures> reflectionCameras;
-		std::array<RenderPass1::RenderToTextureSubPass*, numRenderTargetTextures> renderTargetTextureSubPasses;
+		Array<ReflectionCamera, numRenderTargetTextures> reflectionCameras;
+		Array<RenderPass1::RenderToTextureSubPass*, numRenderTargetTextures> renderTargetTextureSubPasses;
 		unsigned int reflectionCameraBackBuffers[numRenderTargetTextures];
 
 		Light light;

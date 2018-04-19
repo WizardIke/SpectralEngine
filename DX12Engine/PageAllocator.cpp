@@ -2,7 +2,7 @@
 #include <cassert>
 #include "TextureResitency.h"
 
-void PageAllocator::allocateChunk(std::vector<Chunk>& chunks, ID3D12Device* graphicsDevice)
+void PageAllocator::allocateChunk(ResizingArray<Chunk>& chunks, ID3D12Device* graphicsDevice)
 {
 	D3D12_HEAP_DESC heapDesc;
 	heapDesc.Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
@@ -17,7 +17,7 @@ void PageAllocator::allocateChunk(std::vector<Chunk>& chunks, ID3D12Device* grap
 	chunks.emplace_back(graphicsDevice, heapDesc);
 }
 
-void PageAllocator::findOrMakeFirstFreeChunk(std::vector<Chunk>& chunks, decltype(chunks.begin())& currentChunk, decltype(chunks.end())& chunksEnd, ID3D12Device* graphicsDevice)
+void PageAllocator::findOrMakeFirstFreeChunk(ResizingArray<Chunk>& chunks, decltype(chunks.begin())& currentChunk, decltype(chunks.end())& chunksEnd, ID3D12Device* graphicsDevice)
 {
 	while (true)
 	{

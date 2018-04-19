@@ -1,15 +1,15 @@
 #pragma once
-#include <vector>
+#include "ResizingArray.h"
 #include "frameBufferCount.h"
 #include "Job.h"
 #include <cassert>
-#include <array>
+#include "Array.h"
 class BaseExecutor;
 class SharedResources;
 
 class GpuCompletionEventManager
 {
-	std::array<std::vector<Job>, frameBufferCount> requests;
+	Array<ResizingArray<Job>, frameBufferCount> requests;
 public:
 	void update(BaseExecutor* const executor, SharedResources& sharedResources);
 	void addRequest(void* requester, void(*unloadCallback)(void* const requester, BaseExecutor* const executor, SharedResources& sharedResources), uint32_t frameIndex);

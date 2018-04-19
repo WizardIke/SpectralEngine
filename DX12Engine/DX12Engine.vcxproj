@@ -180,10 +180,12 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="Area.h" />
+    <ClInclude Include="Array.h" />
     <ClInclude Include="AsynchronousFileManager.h" />
     <ClInclude Include="AudioFormatNotSupportedException.h" />
     <ClInclude Include="AudioPlaybackException.h" />
     <ClInclude Include="BaseZone.h" />
+    <ClInclude Include="DynamicArray.h" />
     <ClInclude Include="IOCompletionQueue.h" />
     <ClInclude Include="PageCache.h" />
     <ClInclude Include="PageDeleter.h" />
@@ -218,6 +220,7 @@
     <ClInclude Include="Mesh.h" />
     <ClInclude Include="FixedSizeAllocator.h" />
     <ClInclude Include="MeshManager.h" />
+    <ClInclude Include="ResizingArray.h" />
     <ClInclude Include="Shaders\CameraConstantBuffer.h" />
     <ClInclude Include="Shaders\FireMaterialPS.h" />
     <ClInclude Include="Shaders\FireMaterialVS.h" />

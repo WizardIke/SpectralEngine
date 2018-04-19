@@ -5,7 +5,7 @@
 #include "D3D12DescriptorHeap.h"
 #include "D3D12Device.h"
 #include "D3D12Fence.h"
-#include "../Array/Array.h"
+#include "Array.h"
 #include "Win32Event.h"
 #include "DXGIFactory.h"
 #include <mutex>

@@ -4,7 +4,7 @@
 #include "TextureResitency.h"
 #include "Range.h"
 #include <atomic>
-#include <vector>
+#include "ResizingArray.h"
 #include <d3d12.h>
 #include "D3D12Resource.h"
 #include "PageDeleter.h" 
@@ -156,7 +156,7 @@ private:
 	};
 
 	PageLoadRequest pageLoadRequests[maxPagesLoading];
-	std::vector<std::pair<textureLocation, unsigned long long>> posableLoadRequests;
+	ResizingArray<std::pair<textureLocation, unsigned long long>> posableLoadRequests;
 	PageAllocationInfo newPages[maxPagesLoading];
 	unsigned long newPagesOffsetInLoadRequests[maxPagesLoading];
 	unsigned int newPageCount;

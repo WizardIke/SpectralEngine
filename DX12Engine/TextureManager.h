@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../Array/Array.h"
+#include "ResizingArray.h"
 #include "D3D12Resource.h"
 #include "RamToVramUploadRequest.h"
 #include <unordered_map>
@@ -40,7 +40,7 @@ private:
 	};
 
 	std::mutex mutex;
-	std::unordered_map<const wchar_t * const, std::vector<Request>, std::hash<const wchar_t *>> uploadRequests;
+	std::unordered_map<const wchar_t * const, ResizingArray<Request>, std::hash<const wchar_t *>> uploadRequests;
 	std::unordered_map<const wchar_t * const, Texture, std::hash<const wchar_t *>> textures;
 	
 	void textureUseSubresourceHelper(BaseExecutor* executor, SharedResources& sharedResources, HalfFinishedUploadRequest& useSubresourceRequest);

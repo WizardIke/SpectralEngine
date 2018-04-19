@@ -362,7 +362,7 @@ void MeshManager::meshUploaded(void* requester, BaseExecutor* executor, SharedRe
 	MeshManager& meshManager = sharedResources.meshManager;
 	const wchar_t* filename = reinterpret_cast<wchar_t*>(requester);
 	Mesh* mesh;
-	std::vector<Request> requests;
+	ResizingArray<Request> requests;
 	{
 		std::lock_guard<decltype(meshManager.mutex)> lock(meshManager.mutex);
 		MeshInfo* meshInfo = &meshManager.meshInfos[filename];

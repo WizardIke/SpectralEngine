@@ -71,7 +71,7 @@ void TextureManager::textureUploaded(void* storedFilename, BaseExecutor* executo
 	auto& textureManager = sharedResources.textureManager;
 
 	unsigned int descriptorIndex;
-	std::vector<Request> requests;
+	ResizingArray<Request> requests;
 	{
 		std::lock_guard<decltype(textureManager.mutex)> lock(textureManager.mutex);
 		auto& texture = textureManager.textures[filename];

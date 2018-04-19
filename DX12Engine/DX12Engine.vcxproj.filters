@@ -394,6 +394,9 @@
     <ClInclude Include="AsynchronousFileManager.h">
       <Filter>AsynchronousFileManager</Filter>
     </ClInclude>
+    <ClInclude Include="ResizingArray.h" />
+    <ClInclude Include="DynamicArray.h" />
+    <ClInclude Include="Array.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="SharedResources.cpp">

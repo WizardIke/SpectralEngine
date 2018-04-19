@@ -1,7 +1,7 @@
 #pragma once
 #include "Mesh.h"
 #include "RamToVramUploadRequest.h"
-#include <vector>
+#include "ResizingArray.h"
 #include <unordered_map>
 #include <mutex>
 #include "FixedSizeAllocator.h"
@@ -63,7 +63,7 @@ class MeshManager
 	};
 
 	std::mutex mutex;
-	std::unordered_map<const wchar_t * const, std::vector<Request>, std::hash<const wchar_t *>> uploadRequests;
+	std::unordered_map<const wchar_t * const, ResizingArray<Request>, std::hash<const wchar_t *>> uploadRequests;
 	std::unordered_map<const wchar_t * const, MeshInfo, std::hash<const wchar_t *>> meshInfos;
 
 	static void meshWithPositionTextureNormalTangentBitangentUseSubresource(BaseExecutor* exe, SharedResources& sr, HalfFinishedUploadRequest& useSubresourceRequest);

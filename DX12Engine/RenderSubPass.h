@@ -4,12 +4,11 @@
 #include "D3D12GraphicsCommandList.h"
 #include "for_each.h"
 #include "Frustum.h"
-#include <vector>
-#include <array>
+#include "Array.h"
 #include "SharedResources.h"
 #include "BaseExecutor.h"
 #include "Range.h"
-#include "../Array/ResizingArray.h"
+#include "ResizingArray.h"
 #include "ReflectionCamera.h"
 
 //use std::tuple<std::integral_constant<unsigned int, value>, ...> for dependencies
@@ -17,11 +16,11 @@
 template<class Camera_t, D3D12_RESOURCE_STATES state1, class Dependencies_t, class DependencyStates_t, unsigned int commandListsPerFrame1, D3D12_RESOURCE_STATES stateAfter1 = state1>
 class RenderSubPass
 {
-	std::vector<Camera_t*> mCameras;
+	ResizingArray<Camera_t*> mCameras;
 public:
 	using Camera = Camera_t;
-	using CameraIterator = typename std::vector<Camera*>::iterator;
-	using ConstCameraIterator = typename std::vector<Camera*>::const_iterator;
+	using CameraIterator = typename ResizingArray<Camera*>::iterator;
+	using ConstCameraIterator = typename ResizingArray<Camera*>::const_iterator;
 	using Dependencies = Dependencies_t;
 	constexpr static auto state = state1;
 	constexpr static auto stateAfter = stateAfter1;
@@ -85,10 +84,10 @@ public:
 	protected:
 		struct PerFrameData
 		{
-			std::array<D3D12CommandAllocator, commandListsPerFrame> commandAllocators;
-			std::array<D3D12GraphicsCommandList, commandListsPerFrame> commandLists;
+			Array<D3D12CommandAllocator, commandListsPerFrame> commandAllocators;
+			Array<D3D12GraphicsCommandList, commandListsPerFrame> commandLists;
 		};
-		std::array<PerFrameData, frameBufferCount> perFrameDatas;
+		Array<PerFrameData, frameBufferCount> perFrameDatas;
 
 		void bindRootArguments(ID3D12RootSignature* rootSignature, ID3D12DescriptorHeap* mainDescriptorHeap) noexcept
 		{
@@ -301,7 +300,7 @@ template<class RenderSubPass_t>
 class RenderSubPassGroup
 {
 	ResizingArray<RenderSubPass_t> mSubPasses;
-	//std::vector<RenderSubPass_t> mSubPasses; //doesn't support move on realocation in some implementations
+	//std::vector<RenderSubPass_t> mSubPasses; //doesn't support move on reallocation in some implementations
 	using SubPasses = decltype(mSubPasses);
 
 	template<class Camera, class CameraIterator, class SubPassIterator>
@@ -460,13 +459,13 @@ public:
 
 	class ThreadLocal
 	{
-		std::vector<typename RenderSubPass_t::ThreadLocal> mSubPasses;
+		ResizingArray<typename RenderSubPass_t::ThreadLocal> mSubPasses;
 	public:
 		ThreadLocal(SharedResources& sharedResources) {}
 
 		using SubPass = typename RenderSubPass_t::ThreadLocal;
 
-		Range<typename std::vector<SubPass>::iterator> subPasses()
+		Range<typename ResizingArray<SubPass>::iterator> subPasses()
 		{
 			return { mSubPasses.begin(), mSubPasses.end() };
 		}
@@ -512,7 +511,7 @@ public:
 		{
 			const auto end = mSubPasses.end();
 			auto subPass = renderSubPassGroup.mSubPasses.begin();
-			for (auto& subPassLocal = mSubPasses.begin(); subPassLocal != end; ++subPassLocal, ++subPass)
+			for (auto subPassLocal = mSubPasses.begin(); subPassLocal != end; ++subPassLocal, ++subPass)
 			{
 				subPassLocal->update2LastThread(commandLists, numThreads, *subPass, executor, sharedResources);
 			}

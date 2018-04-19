@@ -1,12 +1,11 @@
 #pragma once
 #include "D3D12CommandQueue.h"
 #include "D3D12Fence.h"
-#include "../Array/Array.h"
+#include "Array.h"
 #include "D3D12CommandAllocator.h"
 #include "D3D12GraphicsCommandList.h"
 #include <memory>
 #include <cassert>
-#include <vector>
 #include "RamToVramUploadRequest.h"
 #include "HalfFinishedUploadRequset.h"
 #include "D3D12Resource.h"

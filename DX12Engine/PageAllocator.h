@@ -1,6 +1,6 @@
 #pragma once
 #include "D3D12Heap.h"
-#include <vector>
+#include "ResizingArray.h"
 #include "TextureResitency.h"
 #include "PageCache.h"
 #undef min
@@ -31,12 +31,12 @@ private:
 			}
 		}
 	};
-	std::vector<Chunk> chunks;
-	std::vector<Chunk> pinnedChunks;
+	ResizingArray<Chunk> chunks;
+	ResizingArray<Chunk> pinnedChunks;
 	size_t mPinnedPageCount = 0u;
 
-	static void allocateChunk(std::vector<Chunk>& chunks, ID3D12Device* graphicsDevice);
-	static void findOrMakeFirstFreeChunk(std::vector<Chunk>& chunks, decltype(chunks.begin())& currentChunk, decltype(chunks.end())& chunksEnd, ID3D12Device* graphicsDevice);
+	static void allocateChunk(ResizingArray<Chunk>& chunks, ID3D12Device* graphicsDevice);
+	static void findOrMakeFirstFreeChunk(ResizingArray<Chunk>& chunks, decltype(chunks.begin())& currentChunk, decltype(chunks.end())& chunksEnd, ID3D12Device* graphicsDevice);
 
 	void allocatePage(decltype(chunks.begin())& currentChunk, decltype(chunks.end())& chunksEnd, ID3D12Device* graphicsDevice, ID3D12CommandQueue* commandQueue, VirtualTextureInfo& textureInfo,
 		unsigned int& lastIndex, unsigned int currentIndex, D3D12_TILED_RESOURCE_COORDINATE* locations, PageAllocationInfo* pageAllocationInfos, UINT* heapOffsets, UINT* heapTileCounts);
