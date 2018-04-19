@@ -4,13 +4,13 @@
 #include "IOException.h"
 #include "WindowsFileCreationException.h"
 
-class ScopedFile
+class File
 {
 #ifdef _WIN32_WINNT
 	HANDLE file;
 #endif
 
-	ScopedFile(HANDLE file) : file(file) {}
+	File(HANDLE file) : file(file) {}
 public:
 	enum accessRight : uint32_t
 	{
@@ -56,10 +56,10 @@ public:
 		False = false,
 	};
 
-	ScopedFile();
-	ScopedFile(const wchar_t* fileName, DWORD accessRight, DWORD shareMode, creationMode creationMode, PCREATEFILE2_EXTENDED_PARAMETERS extendedParameter);
-	ScopedFile(const ScopedFile& other);
-	void open(const wchar_t* fileName, DWORD accessRight, DWORD shareMode, creationMode creationMode, PCREATEFILE2_EXTENDED_PARAMETERS extendedParameter);
+	File() {}
+	File(const wchar_t* fileName, DWORD accessRight, DWORD shareMode, creationMode creationMode, DWORD fileAttributes = FILE_ATTRIBUTE_NORMAL, HANDLE templateFile = nullptr);
+	File(const File& other);
+	void open(const wchar_t* fileName, DWORD accessRight, DWORD shareMode, creationMode creationMode, DWORD fileAttributes = FILE_ATTRIBUTE_NORMAL, HANDLE templateFile = nullptr);
 
 	template <typename value_type>
 	NotEndOfFile read(value_type& buffer, LPOVERLAPPED overlapped)
@@ -79,4 +79,5 @@ public:
 	void setPosition(signed long long offset, Position pos);
 	unsigned long getPosition();
 	size_t size();
+	HANDLE native_handle() { return file; }
 };

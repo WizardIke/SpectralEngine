@@ -14,7 +14,7 @@
 }
 */
 
-BackgroundExecutor::BackgroundExecutor(SharedResources& sharedResources) : Executor(sharedResources, uploadHeapStartingSize, uploadRequestBufferStartingCapacity, halfFinishedUploadRequestBufferStartingCapasity)
+BackgroundExecutor::BackgroundExecutor(SharedResources& sharedResources) : Executor(sharedResources)
 {
 #ifndef NDEBUG
 	type = "BackgroundExecutor";

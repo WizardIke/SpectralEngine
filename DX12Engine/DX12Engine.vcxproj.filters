@@ -103,6 +103,9 @@
     <Filter Include="GpuCompletionEventManager">
       <UniqueIdentifier>{e7651cd0-07b5-4966-804e-a2ff713025c3}</UniqueIdentifier>
     </Filter>
+    <Filter Include="AsynchronousFileManager">
+      <UniqueIdentifier>{5afee8b7-b3b4-4914-af56-e50ea467f776}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="HresultException.h">
@@ -386,6 +389,11 @@
     <ClInclude Include="ThreadBarrier.h" />
     <ClInclude Include="PrimaryWorkStealingQueue.h" />
     <ClInclude Include="Spinlock.h" />
+    <ClInclude Include="IOCompletionQueue.h" />
+    <ClInclude Include="StableQueue.h" />
+    <ClInclude Include="AsynchronousFileManager.h">
+      <Filter>AsynchronousFileManager</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="SharedResources.cpp">
@@ -472,6 +480,9 @@
     </ClCompile>
     <ClCompile Include="ScopedFile.cpp">
       <Filter>ScopedFile</Filter>
+    </ClCompile>
+    <ClCompile Include="AsynchronousFileManager.cpp">
+      <Filter>AsynchronousFileManager</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

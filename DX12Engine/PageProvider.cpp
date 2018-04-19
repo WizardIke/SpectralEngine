@@ -42,56 +42,132 @@ PageProvider::PageProvider(float desiredMipBias, IDXGIAdapter3* adapter, ID3D12D
 	resourceDesc.Width = 64 * 1024 * maxPagesLoading;
 	resourceDesc.Height = 1u;
 
-	uploadResource = D3D12Resource(graphicsDevice, uploadHeapProperties, D3D12_HEAP_FLAGS::D3D12_HEAP_FLAG_NONE, resourceDesc, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_GENERIC_READ, nullptr);
-	D3D12_RANGE readRange{ 0u, 0u };
-	uploadResource->Map(0u, &readRange, reinterpret_cast<void**>(&uploadResourcePointer));
-
 	for (auto& request : pageLoadRequests)
 	{
-		request.pageProvider = this;
 		request.state.store(PageLoadRequest::State::unused, std::memory_order::memory_order_relaxed);
 	}
 }
 
-void PageProvider::addPageLoadRequestHelper(PageLoadRequest& pageRequest, VirtualTextureManager& virtualTextureManager)
+//textures must be tiled
+void PageProvider::addPageLoadRequestHelper(PageLoadRequest& pageRequest, VirtualTextureManager& virtualTextureManager, SharedResources& sharedResources)
 {
 	VirtualTextureInfo& resourceInfo = virtualTextureManager.texturesByID[pageRequest.allocationInfo.textureLocation.textureId1()];
-
-	PageProvider& pageProvider = *pageRequest.pageProvider;
-	size_t pageRequestIndex = &pageRequest - pageProvider.pageLoadRequests;
-	ScopedFile file(resourceInfo.fileName, ScopedFile::accessRight::genericRead, ScopedFile::shareMode::readMode, ScopedFile::creationMode::openExisting, nullptr);
-	unsigned int mipLevel = (unsigned int)pageRequest.allocationInfo.textureLocation.mipLevel();
-	signed long long filePos = resourceInfo.headerSize;
-	auto width = resourceInfo.pageWidthInTexels * resourceInfo.widthInPages;
-	auto height = resourceInfo.pageHeightInTexels * resourceInfo.heightInPages;
-	for (auto i = 0u; i != mipLevel; ++i)
+	pageRequest.filename = resourceInfo.filename;
+	size_t mipLevel = (size_t)pageRequest.allocationInfo.textureLocation.mipLevel();
+	auto width = resourceInfo.width;
+	auto height = resourceInfo.height;
+	uint64_t filePos = sizeof(DDSFileLoader::DdsHeaderDx12);
+	for (size_t i = 0u; i != mipLevel; ++i)
 	{
 		size_t numBytes, rowBytes, numRows;
-		DDSFileLoader::getSurfaceInfo(width, height, resourceInfo.format, numBytes, rowBytes, numRows);
+		DDSFileLoader::surfaceInfo(width, height, resourceInfo.format, numBytes, rowBytes, numRows);
 		filePos += numBytes;
-		width = width >> 1;
-		if (width == 0u) width = 1;
-		height = height >> 1;
-		if (height == 0u) height = 1;
+		width = width >> 1u;
+		if (width == 0u) width = 1u;
+		height = height >> 1u;
+		if (height == 0u) height = 1u;
 	}
 	size_t numBytes, rowBytes, numRows;
-	DDSFileLoader::getSurfaceInfo(width, height, resourceInfo.format, numBytes, rowBytes, numRows);
-	size_t bitsPerPixel = DDSFileLoader::bitsPerPixel(resourceInfo.format);
-	filePos += pageRequest.allocationInfo.textureLocation.y() * resourceInfo.pageHeightInTexels * rowBytes;
-	filePos += (pageRequest.allocationInfo.textureLocation.x() * resourceInfo.pageWidthInTexels * bitsPerPixel) / 8u;
-	file.setPosition(filePos, ScopedFile::Position::start);
-	//might be better to use a file format that supports tiles
-	//warning this presumes that width of texture is an exact number of tiles
-	uint32_t pageWidthInBytes = uint32_t((resourceInfo.pageWidthInTexels * bitsPerPixel) / 8u);
-	size_t filePosIncrease = rowBytes - pageWidthInBytes;
-	uint8_t* uploadBufferPos = pageProvider.uploadResourcePointer + 64u * 1024u * pageRequestIndex;
-	for (unsigned int i = 0u; i != resourceInfo.pageHeightInTexels; ++i)
+	DDSFileLoader::surfaceInfo(width, height, resourceInfo.format, numBytes, rowBytes, numRows);
+	constexpr size_t pageSize = 64u * 1024u;
+	auto heightInPages = resourceInfo.heightInPages >> mipLevel;
+	if (heightInPages == 0u) heightInPages = 1u;
+	auto widthInPages = resourceInfo.widthInPages >> mipLevel;
+	if (widthInPages == 0u) widthInPages = 1u;
+	auto pageX = pageRequest.allocationInfo.textureLocation.x();
+	auto pageY = pageRequest.allocationInfo.textureLocation.y();
+	
+	RamToVramUploadRequest request;
+
+	uint32_t pageHeightInTexels, pageWidthInTexels, pageWidthInBytes;
+	DDSFileLoader::tileWidthAndHeightAndTileWidthInBytes(resourceInfo.format, pageWidthInTexels, pageHeightInTexels, pageWidthInBytes);
+
+	filePos += pageY * rowBytes * pageHeightInTexels;
+	if (pageY != (heightInPages - 1u))
 	{
-		file.read(uploadBufferPos, pageWidthInBytes);
-		file.setPosition(filePosIncrease, ScopedFile::Position::current);
-		uploadBufferPos += pageWidthInBytes;
+		filePos += pageSize * pageX;
+		if (pageX < widthInPages)
+		{
+			sharedResources.streamingManager.addUploadRequest(request);
+			request.meshInfo.indicesSize = pageWidthInBytes;
+			request.meshInfo.verticesSize = pageHeightInTexels;
+		}
+		else
+		{
+			size_t lastColumnWidthInBytes = pageWidthInBytes - (widthInPages * pageWidthInBytes - rowBytes);
+			request.meshInfo.indicesSize = lastColumnWidthInBytes;
+			request.meshInfo.verticesSize = pageHeightInTexels;
+		}
 	}
-	pageRequest.state.store(PageProvider::PageLoadRequest::State::finished, std::memory_order::memory_order_release);
+	else
+	{
+		size_t bottomPageHeight = pageHeightInTexels - (heightInPages * pageHeightInTexels - numRows);
+		size_t bottomPageSize = pageWidthInBytes * bottomPageHeight;
+		filePos += bottomPageSize * pageX;
+		if (pageX != (widthInPages - 1u))
+		{
+			request.meshInfo.indicesSize = pageWidthInBytes;
+			request.meshInfo.verticesSize = bottomPageHeight;
+		}
+		else
+		{
+			size_t lastColumnWidthInBytes = pageWidthInBytes - (widthInPages * pageWidthInBytes - rowBytes);
+			request.meshInfo.indicesSize = lastColumnWidthInBytes;
+			request.meshInfo.verticesSize = bottomPageHeight;
+		}
+	}
+
+	pageRequest.offsetInFile = filePos;
+	
+	request.meshInfo.padding = pageWidthInBytes;
+	request.arraySize = 1u;
+	request.currentArrayIndex = 0u;
+	request.currentMipLevel = 0u;
+	request.dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+	request.file = resourceInfo.file;
+	request.meshInfo.sizeInBytes = pageSize;
+	request.mostDetailedMip = 0u;
+	request.requester = &pageRequest;
+	
+	request.useSubresource = [](BaseExecutor* executor, SharedResources& sharedResources, HalfFinishedUploadRequest& useSubresourceRequest)
+	{
+		auto& uploadRequest = *useSubresourceRequest.uploadRequest;
+		const size_t length = uploadRequest.meshInfo.indicesSize * uploadRequest.meshInfo.verticesSize;
+		PageLoadRequest& pageRequest = *reinterpret_cast<PageLoadRequest*>(uploadRequest.requester);
+		sharedResources.asynchronousFileManager.readFile(executor, sharedResources, pageRequest.filename, pageRequest.offsetInFile, pageRequest.offsetInFile + length, uploadRequest.file, &useSubresourceRequest,
+			[](void* requester, BaseExecutor* executor, SharedResources& sharedResources, const uint8_t* data, File file)
+		{
+			HalfFinishedUploadRequest& useSubresourceRequest = *reinterpret_cast<HalfFinishedUploadRequest*>(requester);
+			auto& uploadRequest = *useSubresourceRequest.uploadRequest;
+			size_t widthInBytes = uploadRequest.meshInfo.indicesSize;
+			size_t heightInTexels = uploadRequest.meshInfo.verticesSize;
+			size_t pageWidthInBytes = (size_t)uploadRequest.meshInfo.padding;
+			if (widthInBytes == pageWidthInBytes)
+			{
+				memcpy(useSubresourceRequest.uploadBufferCpuAddressOfCurrentPos, data, widthInBytes * heightInTexels);
+			}
+			else
+			{
+				const uint8_t* source = data;
+				uint8_t* destination = (uint8_t*)useSubresourceRequest.uploadBufferCpuAddressOfCurrentPos;
+				for (std::size_t i = 0u; i != heightInTexels; ++i)
+				{
+					memcpy(destination, source, widthInBytes);
+					source += widthInBytes;
+					destination += pageWidthInBytes;
+				}
+			}
+
+			PageLoadRequest& pageRequest = *reinterpret_cast<PageLoadRequest*>(uploadRequest.requester);
+			pageRequest.subresourceRequest = &useSubresourceRequest;
+		});
+	};
+
+	request.resourceUploadedPointer = [](void* requester, BaseExecutor* executor, SharedResources& sharedResources)
+	{
+		PageLoadRequest& pageRequest = *reinterpret_cast<PageLoadRequest*>(requester);
+		pageRequest.state.store(PageProvider::PageLoadRequest::State::finished, std::memory_order::memory_order_release);
+	};
 }
 
 void PageProvider::addPageDataToResource(ID3D12Resource* resource, D3D12_TILED_RESOURCE_COORDINATE* newPageCoordinates, unsigned int pageCount,
@@ -108,13 +184,15 @@ void PageProvider::addPageDataToResource(ID3D12Resource* resource, D3D12_TILED_R
 	commandList->ResourceBarrier(1u, barriers);
 	for (auto i = 0u; i != pageCount; ++i)
 	{
-		commandList->CopyTiles(resource, &newPageCoordinates[i], &tileSize, uploadResource, uploadBufferOffsets[i] * 64u * 1024u,
+		commandList->CopyTiles(resource, &newPageCoordinates[i], &tileSize, pageLoadRequests[uploadBufferOffsets[i]].subresourceRequest->uploadRequest->uploadResource,
+			pageLoadRequests[uploadBufferOffsets[i]].subresourceRequest->uploadResourceOffset,
 			D3D12_TILE_COPY_FLAGS::D3D12_TILE_COPY_FLAG_LINEAR_BUFFER_TO_SWIZZLED_TILED_RESOURCE);
 
 		gpuCompletionEventManager.addRequest(&pageLoadRequests[uploadBufferOffsets[i]], [](void* requester, BaseExecutor* exe, SharedResources& sr)
 		{
 			PageLoadRequest* request = reinterpret_cast<PageLoadRequest*>(requester);
 			request->state.store(PageLoadRequest::State::unused, std::memory_order::memory_order_release);
+			request->subresourceRequest->copyFenceValue.store(0u, std::memory_order::memory_order_release); //copy has finished.
 		}, frameIndex);
 	}
 

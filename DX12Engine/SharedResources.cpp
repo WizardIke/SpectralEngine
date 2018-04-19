@@ -22,7 +22,7 @@ SharedResources::SharedResources(bool fullScreen, bool vSync, bool enableGpuDebu
 		lock.unlock();
 	}),
 	timer(),
-	streamingManager(graphicsEngine.graphicsDevice),
+	streamingManager(graphicsEngine.graphicsDevice, 32u * 1024u * 1024u),
 	soundEngine(),
 	inputManager()
 {}

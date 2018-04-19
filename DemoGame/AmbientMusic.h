@@ -26,6 +26,7 @@ class AmbientMusic : IXAudio2VoiceCallback
 	virtual void STDMETHODCALLTYPE OnVoiceProcessingPassStart(UINT32 BytesRequired) override;
 
 	void update(BaseExecutor* const executor, SharedResources& sharedResources);
+	void findNextMusic(BaseExecutor* const executor);
 public:
 	AmbientMusic(BaseExecutor* const executor, SharedResources& sharedResources);
 	~AmbientMusic() {}

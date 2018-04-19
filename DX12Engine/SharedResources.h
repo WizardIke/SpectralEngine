@@ -11,7 +11,9 @@
 #include "Job.h"
 #include "PrimaryWorkStealingQueue.h"
 #include "StreamingManager.h"
+#include "IOCompletionQueue.h"
 #include "ThreadBarrier.h"
+#include "AsynchronousFileManager.h"
 struct ID3D12CommandList;
 
 class SharedResources
@@ -89,13 +91,16 @@ public:
 	Window window;
 	D3D12GraphicsEngine graphicsEngine;
 
+	std::unique_ptr<BaseExecutor*[]> executors;
 	std::unique_ptr<PrimaryWorkStealingQueue*[]> workStealingQueues;
-	Queue<Job> backgroundQueue; //thread safe
 	PrimaryWorkStealingQueue** currentWorkStealingQueues;
+	Queue<Job> backgroundQueue; //thread safe
 
 	void(*nextPhaseJob)(BaseExecutor* executor, SharedResources& sharedResources, std::unique_lock<std::mutex>&& lock);
 
-	StreamingManager streamingManager;
+	StreamingManager streamingManager; //thread safe
+	IOCompletionQueue ioCompletionQueue; //thread safe
+	AsynchronousFileManager asynchronousFileManager;
 	TextureManager textureManager; //thread safe
 	MeshManager meshManager; //thread safe
 	SoundEngine soundEngine;

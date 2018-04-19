@@ -67,8 +67,8 @@ class PageProvider
 	public:
 		using value_type = NewPage;
 		using difference_type = std::ptrdiff_t;
-		using pointer = NewPage* ;
-		using reference = NewPage &;
+		using pointer = NewPage*;
+		using reference = NewPage&;
 		using iterator_category = std::random_access_iterator_tag;
 
 
@@ -149,19 +149,19 @@ private:
 		};
 		std::atomic<State> state;
 		PageAllocationInfo allocationInfo;
-		PageProvider* pageProvider;
+		const wchar_t* filename;
+		uint64_t offsetInFile;
+		HalfFinishedUploadRequest* subresourceRequest;
 	};
 
 	PageLoadRequest pageLoadRequests[maxPagesLoading];
 	std::vector<std::pair<textureLocation, unsigned long long>> posableLoadRequests;
-	D3D12Resource uploadResource; //this might be able to be merged into stream manager when it gets non-blocking io support
-	uint8_t* uploadResourcePointer;
 	PageAllocationInfo newPages[maxPagesLoading];
 	unsigned long newPagesOffsetInLoadRequests[maxPagesLoading];
 	unsigned int newPageCount;
 	size_t newCacheSize;
 
-	static void addPageLoadRequestHelper(PageLoadRequest& pageRequest, VirtualTextureManager& virtualTextureManager);
+	static void addPageLoadRequestHelper(PageLoadRequest& pageRequest, VirtualTextureManager& virtualTextureManager, SharedResources& sharedResources);
 
 	template<class SharedResources_t>
 	static void addPageLoadRequest(PageLoadRequest& pageRequest, SharedResources_t& sharedResources)

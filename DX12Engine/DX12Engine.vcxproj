@@ -180,9 +180,11 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="Area.h" />
+    <ClInclude Include="AsynchronousFileManager.h" />
     <ClInclude Include="AudioFormatNotSupportedException.h" />
     <ClInclude Include="AudioPlaybackException.h" />
     <ClInclude Include="BaseZone.h" />
+    <ClInclude Include="IOCompletionQueue.h" />
     <ClInclude Include="PageCache.h" />
     <ClInclude Include="PageDeleter.h" />
     <ClInclude Include="PageProvider.h" />
@@ -226,6 +228,7 @@
     <ClInclude Include="Shaders\VtFeedbackMaterialPS.h" />
     <ClInclude Include="Shaders\WaterMaterialPS.h" />
     <ClInclude Include="Shaders\WaterMaterialVS.h" />
+    <ClInclude Include="StableQueue.h" />
     <ClInclude Include="StreamingManager.h" />
     <ClInclude Include="TemplateFloat.h" />
     <ClInclude Include="TextureResitency.h" />
@@ -283,6 +286,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="AABBSweepTest.cpp" />
+    <ClCompile Include="AsynchronousFileManager.cpp" />
     <ClCompile Include="BaseExecutor.cpp" />
     <ClCompile Include="BaseSentence.cpp" />
     <ClCompile Include="BaseZone.cpp" />

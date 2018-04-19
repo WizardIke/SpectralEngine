@@ -40,6 +40,8 @@ public:
 	GpuCompletionEventManager gpuCompletionEventManager;
 	pcg32 randomNumberGenerator;
 	FixedSizeAllocator<Mesh> meshAllocator;
+	StreamingManager::ThreadLocal streamingManager;
+	unsigned int index;
 
 	void run(SharedResources& sharedResources);
 
@@ -51,9 +53,9 @@ public:
 	static void quit(BaseExecutor* exe, SharedResources& sharedResources, std::unique_lock<std::mutex>&& lock);
 
 	template<void(*update1NextPhaseJob)(BaseExecutor*, SharedResources&, std::unique_lock<std::mutex>&& lock)>
-	void initialize(std::unique_lock<std::mutex>&& lock, StreamingManagerThreadLocal& streamingManager, SharedResources& sharedResources)
+	void initialize(std::unique_lock<std::mutex>&& lock, SharedResources& sharedResources)
 	{
-		if (streamingManager.hasPendingUploads())
+		if (sharedResources.streamingManager.hasPendingUploads())
 		{
 			++sharedResources.threadBarrier.waiting_count();
 			if (sharedResources.threadBarrier.waiting_count() % sharedResources.maxThreads == 0u)

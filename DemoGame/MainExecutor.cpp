@@ -15,7 +15,7 @@
 */
 
 MainExecutor::MainExecutor(SharedResources& sharedResources) :
-	Executor(sharedResources, uploadHeapStartingSize, uploadRequestBufferStartingCapacity, halfFinishedUploadRequestBufferStartingCapasity)
+	Executor(sharedResources)
 {
 #ifdef _DEBUG
 	this->type = "MainExecutor";

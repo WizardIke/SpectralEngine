@@ -43,17 +43,6 @@ namespace DDSFileLoader
                 ((DWORD)(BYTE)(ch2) << 16) | ((DWORD)(BYTE)(ch3) << 24 ))
 #endif /* defined(MAKEFOURCC) */
 
-	struct DDS_PIXELFORMAT
-	{
-		uint32_t    size;
-		uint32_t    flags;
-		uint32_t    fourCC;
-		uint32_t    RGBBitCount;
-		uint32_t    RBitMask;
-		uint32_t    GBitMask;
-		uint32_t    BBitMask;
-		uint32_t    ABitMask;
-	};
 
 	struct DDS_HEADER
 	{
@@ -474,7 +463,7 @@ namespace DDSFileLoader
 		}
 	}
 
-	void getSurfaceInfo(size_t width, size_t height, DXGI_FORMAT fmt, size_t& outNumBytes, size_t& outRowBytes, size_t& outNumRows)
+	void surfaceInfo(size_t width, size_t height, DXGI_FORMAT fmt, size_t& outNumBytes, size_t& outRowBytes, size_t& outNumRows)
 	{
 		bool bc = false;
 		bool packed = false;
@@ -583,7 +572,7 @@ namespace DDSFileLoader
 		outRowBytes = rowBytes;
 	}
 
-	TextureInfo getDDSTextureInfoFromFile(ScopedFile& textureFile)
+	TextureInfo getDDSTextureInfoFromFile(File& textureFile)
 	{
 		TextureInfo textureInfo;
 		size_t fileSize = textureFile.size();
@@ -721,7 +710,74 @@ namespace DDSFileLoader
 		return textureInfo;
 	}
 
-	void getDDSTextureInfoFromFile(D3D12_RESOURCE_DESC& textureDesc, ScopedFile& textureFile, D3D12_SHADER_RESOURCE_VIEW_DESC& textureView, bool forceSRGB)
+	bool validateDdsHeader(const DdsHeaderDx12& header)
+	{
+		if (header.ddsMagicNumber != DDS_MAGIC)
+		{
+			return false; //Not a dds file
+		}
+
+		if (header.size != (sizeof(DDS_HEADER) - 4u) ||
+			header.ddspf.size != sizeof(DDS_PIXELFORMAT))
+		{
+			return false; //Incorrect size fields
+		}
+
+		if (!(header.ddspf.flags & DDS_FOURCC) || (header.ddspf.fourCC != MAKEFOURCC('D', 'X', '1', '0')))
+		{
+			return false; //Format to old
+		}
+
+		if (header.arraySize == 0u)
+		{
+			return false; //An array of zero images isn't useful.
+		}
+
+		if (header.mipMapCount == 0u)
+		{
+			return false; //You need at least 1 miplevel to display an image
+		}
+
+		switch (header.dxgiFormat)
+		{
+		case DXGI_FORMAT_AI44:
+		case DXGI_FORMAT_IA44:
+		case DXGI_FORMAT_P8:
+		case DXGI_FORMAT_A8P8:
+			return false; //We don't use these formats
+		default:
+			if (bitsPerPixel(header.dxgiFormat) == 0u)
+			{
+				return false; //unknown format
+			}
+		}
+
+		switch (header.dimension)
+		{
+		case D3D12_RESOURCE_DIMENSION_TEXTURE1D:
+			if ((header.flags & DDS_HEIGHT) && header.height != 1u)
+			{
+				return false; //1D textures must have a height of 1
+			}
+			break;
+		case D3D12_RESOURCE_DIMENSION_TEXTURE3D:
+			if (!(header.flags & DDS_HEADER_FLAGS_VOLUME))
+			{
+				return false;
+			}
+			if (header.arraySize > 1)
+			{
+				return false; //Current not posible to make a 3D texture array in DX12
+			}
+			break;
+		default:
+			return false;
+		}
+
+		return true;
+	}
+
+	void getDDSTextureInfoFromFile(D3D12_RESOURCE_DESC& textureDesc, File& textureFile, D3D12_SHADER_RESOURCE_VIEW_DESC& textureView, bool forceSRGB)
 	{
 		size_t fileSize = textureFile.size();
 		if (fileSize < (sizeof(DDS_HEADER)))
@@ -1147,7 +1203,7 @@ namespace DDSFileLoader
 			size_t d = depth;
 			for (size_t i = 0; i < TextureDesc.MipLevels; i++)
 			{
-				getSurfaceInfo(w, h, TextureDesc.Format, NumBytes, RowBytes, NumRows);
+				surfaceInfo(w, h, TextureDesc.Format, NumBytes, RowBytes, NumRows);
 
 				if ((TextureDesc.MipLevels <= 1) || (w <= maxsize && h <= maxsize && d <= maxsize))
 				{
@@ -1190,7 +1246,7 @@ namespace DDSFileLoader
 	}
 
 	void loadSubresourceFromFile(ID3D12Device* const graphicsDevice, uint64_t textureWidth, uint32_t textureHeight, uint32_t textureDepth, DXGI_FORMAT format, uint16_t arrayIndex, uint16_t mipLevel, uint16_t mipLevels,
-		ScopedFile TextureFile, void* const UploadBuffer, ID3D12Resource* const destResource, ID3D12GraphicsCommandList* const CopyCommandList, ID3D12Resource* uploadResource, uint64_t uploadResourceOffset)
+		File TextureFile, void* const UploadBuffer, ID3D12Resource* const destResource, ID3D12GraphicsCommandList* const CopyCommandList, ID3D12Resource* uploadResource, uint64_t uploadResourceOffset)
 	{
 		size_t sourceSlicePitch, sourceRowPitch, numRows;
 		uint32_t subresouceWidth = (uint32_t)(textureWidth >> mipLevel);
@@ -1199,7 +1255,7 @@ namespace DDSFileLoader
 		if (subresourceHeight == 0u) subresourceHeight = 1u;
 		uint32_t subresourceDepth = textureDepth >> mipLevel;
 		if (subresourceDepth == 0u) subresourceDepth = 1u;
-		getSurfaceInfo(subresouceWidth, subresourceHeight, format, sourceSlicePitch, sourceRowPitch, numRows);
+		surfaceInfo(subresouceWidth, subresourceHeight, format, sourceSlicePitch, sourceRowPitch, numRows);
 		size_t destRowPitch = (sourceRowPitch + (size_t)D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - (size_t)1u) & ~((size_t)D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - (size_t)1u);//sourceRowPitch is 4 byte aligned but destRowPitch is D3D12_TEXTURE_DATA_PITCH_ALIGNMENT byte aligned
 
 		if (destRowPitch == sourceRowPitch)
@@ -1208,8 +1264,7 @@ namespace DDSFileLoader
 		}
 		else
 		{
-			//something is wrong here, textures with less than D3D12_TEXTURE_DATA_PITCH_ALIGNMENT width and/or height loot bad
-			//throw "textures with miplevel width and/or height less than D3D12_TEXTURE_DATA_PITCH_ALIGNMENT don't currently work";
+			//something is wrong here, textures with less than D3D12_TEXTURE_DATA_PITCH_ALIGNMENT width and/or height look bad
 			std::unique_ptr<unsigned char[]> buffer(new unsigned char[sourceSlicePitch * subresourceDepth]);
 			TextureFile.read(buffer.get(), static_cast<DWORD>(sourceSlicePitch * subresourceDepth));
 			
@@ -1249,5 +1304,288 @@ namespace DDSFileLoader
 		UploadBufferLocation.PlacedFootprint.Footprint.RowPitch = static_cast<uint32_t>(destRowPitch);
 
 		CopyCommandList->CopyTextureRegion(&destination, 0u, 0u, 0u, &UploadBufferLocation, nullptr);
+	}
+
+	void tileWidthAndHeightAndTileWidthInBytes(DXGI_FORMAT format, uint32_t& width, uint32_t& height, uint32_t& tileWidthBytes)
+	{
+		switch (format)
+		{
+		case DXGI_FORMAT_R32G32B32A32_TYPELESS:
+		case DXGI_FORMAT_R32G32B32A32_FLOAT:
+		case DXGI_FORMAT_R32G32B32A32_UINT:
+		case DXGI_FORMAT_R32G32B32A32_SINT:
+			width = 64u;
+			height = 64u;
+			tileWidthBytes = 1024u;
+			return;
+
+		case DXGI_FORMAT_R16G16B16A16_TYPELESS:
+		case DXGI_FORMAT_R16G16B16A16_FLOAT:
+		case DXGI_FORMAT_R16G16B16A16_UNORM:
+		case DXGI_FORMAT_R16G16B16A16_UINT:
+		case DXGI_FORMAT_R16G16B16A16_SNORM:
+		case DXGI_FORMAT_R16G16B16A16_SINT:
+		case DXGI_FORMAT_R32G32_TYPELESS:
+		case DXGI_FORMAT_R32G32_FLOAT:
+		case DXGI_FORMAT_R32G32_UINT:
+		case DXGI_FORMAT_R32G32_SINT:
+		case DXGI_FORMAT_R32G8X24_TYPELESS:
+		case DXGI_FORMAT_D32_FLOAT_S8X24_UINT:
+		case DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS:
+		case DXGI_FORMAT_X32_TYPELESS_G8X24_UINT:
+		case DXGI_FORMAT_Y416:
+		case DXGI_FORMAT_Y210:
+		case DXGI_FORMAT_Y216:
+			width = 128u;
+			height = 64u;
+			tileWidthBytes = 1024u;
+			return;
+
+		case DXGI_FORMAT_R10G10B10A2_TYPELESS:
+		case DXGI_FORMAT_R10G10B10A2_UNORM:
+		case DXGI_FORMAT_R10G10B10A2_UINT:
+		case DXGI_FORMAT_R11G11B10_FLOAT:
+		case DXGI_FORMAT_R8G8B8A8_TYPELESS:
+		case DXGI_FORMAT_R8G8B8A8_UNORM:
+		case DXGI_FORMAT_R8G8B8A8_UNORM_SRGB:
+		case DXGI_FORMAT_R8G8B8A8_UINT:
+		case DXGI_FORMAT_R8G8B8A8_SNORM:
+		case DXGI_FORMAT_R8G8B8A8_SINT:
+		case DXGI_FORMAT_R16G16_TYPELESS:
+		case DXGI_FORMAT_R16G16_FLOAT:
+		case DXGI_FORMAT_R16G16_UNORM:
+		case DXGI_FORMAT_R16G16_UINT:
+		case DXGI_FORMAT_R16G16_SNORM:
+		case DXGI_FORMAT_R16G16_SINT:
+		case DXGI_FORMAT_R32_TYPELESS:
+		case DXGI_FORMAT_D32_FLOAT:
+		case DXGI_FORMAT_R32_FLOAT:
+		case DXGI_FORMAT_R32_UINT:
+		case DXGI_FORMAT_R32_SINT:
+		case DXGI_FORMAT_R24G8_TYPELESS:
+		case DXGI_FORMAT_D24_UNORM_S8_UINT:
+		case DXGI_FORMAT_R24_UNORM_X8_TYPELESS:
+		case DXGI_FORMAT_X24_TYPELESS_G8_UINT:
+		case DXGI_FORMAT_R9G9B9E5_SHAREDEXP:
+		case DXGI_FORMAT_R8G8_B8G8_UNORM:
+		case DXGI_FORMAT_G8R8_G8B8_UNORM:
+		case DXGI_FORMAT_B8G8R8A8_UNORM:
+		case DXGI_FORMAT_B8G8R8X8_UNORM:
+		case DXGI_FORMAT_R10G10B10_XR_BIAS_A2_UNORM:
+		case DXGI_FORMAT_B8G8R8A8_TYPELESS:
+		case DXGI_FORMAT_B8G8R8A8_UNORM_SRGB:
+		case DXGI_FORMAT_B8G8R8X8_TYPELESS:
+		case DXGI_FORMAT_B8G8R8X8_UNORM_SRGB:
+		case DXGI_FORMAT_AYUV:
+		case DXGI_FORMAT_Y410:
+		case DXGI_FORMAT_YUY2:
+			width = 128u;
+			height = 128u;
+			tileWidthBytes = 512u;
+			return;
+
+		case DXGI_FORMAT_R8G8_TYPELESS:
+		case DXGI_FORMAT_R8G8_UNORM:
+		case DXGI_FORMAT_R8G8_UINT:
+		case DXGI_FORMAT_R8G8_SNORM:
+		case DXGI_FORMAT_R8G8_SINT:
+		case DXGI_FORMAT_R16_TYPELESS:
+		case DXGI_FORMAT_R16_FLOAT:
+		case DXGI_FORMAT_D16_UNORM:
+		case DXGI_FORMAT_R16_UNORM:
+		case DXGI_FORMAT_R16_UINT:
+		case DXGI_FORMAT_R16_SNORM:
+		case DXGI_FORMAT_R16_SINT:
+		case DXGI_FORMAT_B5G6R5_UNORM:
+		case DXGI_FORMAT_B5G5R5A1_UNORM:
+		case DXGI_FORMAT_A8P8:
+		case DXGI_FORMAT_B4G4R4A4_UNORM:
+			width = 256u;
+			height = 128u;
+			tileWidthBytes = 512u;
+			return;
+
+		case DXGI_FORMAT_R8_TYPELESS:
+		case DXGI_FORMAT_R8_UNORM:
+		case DXGI_FORMAT_R8_UINT:
+		case DXGI_FORMAT_R8_SNORM:
+		case DXGI_FORMAT_R8_SINT:
+		case DXGI_FORMAT_A8_UNORM:
+		case DXGI_FORMAT_AI44:
+		case DXGI_FORMAT_IA44:
+		case DXGI_FORMAT_P8:
+		case DXGI_FORMAT_BC2_TYPELESS:
+		case DXGI_FORMAT_BC2_UNORM:
+		case DXGI_FORMAT_BC2_UNORM_SRGB:
+		case DXGI_FORMAT_BC3_TYPELESS:
+		case DXGI_FORMAT_BC3_UNORM:
+		case DXGI_FORMAT_BC3_UNORM_SRGB:
+		case DXGI_FORMAT_BC5_TYPELESS:
+		case DXGI_FORMAT_BC5_UNORM:
+		case DXGI_FORMAT_BC5_SNORM:
+		case DXGI_FORMAT_BC6H_TYPELESS:
+		case DXGI_FORMAT_BC6H_UF16:
+		case DXGI_FORMAT_BC6H_SF16:
+		case DXGI_FORMAT_BC7_TYPELESS:
+		case DXGI_FORMAT_BC7_UNORM:
+		case DXGI_FORMAT_BC7_UNORM_SRGB:
+			width = 256u;
+			height = 256u;
+			tileWidthBytes = 256u;
+			return;
+
+		case DXGI_FORMAT_BC1_TYPELESS:
+		case DXGI_FORMAT_BC1_UNORM:
+		case DXGI_FORMAT_BC1_UNORM_SRGB:
+		case DXGI_FORMAT_BC4_TYPELESS:
+		case DXGI_FORMAT_BC4_UNORM:
+		case DXGI_FORMAT_BC4_SNORM:
+			width = 512u;
+			height = 256u;
+			tileWidthBytes = 256u;
+			return;
+
+		default:
+			width = 0u;
+			height = 0u;
+			tileWidthBytes = 0u;
+			return;
+		}
+	}
+
+	void copySubresourceToGpu(ID3D12Resource* destResource, ID3D12Resource* uploadResource, uint64_t uploadBufferOffset, uint32_t width, uint32_t height, uint32_t depth, uint32_t currentMipLevel, uint32_t mipLevels,
+		uint32_t currentArrayIndex, DXGI_FORMAT format, uint8_t* uploadBufferAddress, const uint8_t* sourceBuffer, ID3D12GraphicsCommandList* copyCommandList)
+	{
+		uint32_t subresouceWidth = (width >> currentMipLevel);
+		if (subresouceWidth == 0u) subresouceWidth = 1u;
+		uint32_t subresourceHeight = height >> currentMipLevel;
+		if (subresourceHeight == 0u) subresourceHeight = 1u;
+		uint32_t subresourceDepth = depth >> currentMipLevel;
+		if (subresourceDepth == 0u) subresourceDepth = 1u;
+
+		size_t sourceSlicePitch, sourceRowPitch, numRows;
+		surfaceInfo(subresouceWidth, subresourceHeight, format, sourceSlicePitch, sourceRowPitch, numRows);
+		size_t destRowPitch = (sourceRowPitch + (size_t)D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - (size_t)1u) & ~((size_t)D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - (size_t)1u);//sourceRowPitch is 4 byte aligned but destRowPitch is D3D12_TEXTURE_DATA_PITCH_ALIGNMENT byte aligned
+
+		if (destRowPitch == sourceRowPitch)
+		{
+			size_t subresourceSize = sourceSlicePitch * subresourceDepth;
+			memcpy(uploadBufferAddress, sourceBuffer, subresourceSize);
+		}
+		else
+		{
+			//something is wrong here, textures with less than D3D12_TEXTURE_DATA_PITCH_ALIGNMENT width and/or height look bad
+
+			const uint8_t* source = sourceBuffer;
+			uint8_t* dest = uploadBufferAddress;
+			for (uint32_t i = 0u; i != subresourceDepth; ++i)
+			{
+				for (size_t j = 0u; j != numRows; ++j)
+				{
+					memcpy(dest, source, sourceRowPitch);
+					source += sourceRowPitch;
+					dest += destRowPitch;
+				}
+			}
+		}
+
+		D3D12_TEXTURE_COPY_LOCATION destination;
+		destination.pResource = destResource;
+		destination.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+		destination.SubresourceIndex = currentArrayIndex * mipLevels + currentMipLevel;
+
+		D3D12_TEXTURE_COPY_LOCATION UploadBufferLocation;
+		UploadBufferLocation.pResource = uploadResource;
+		UploadBufferLocation.Type = D3D12_TEXTURE_COPY_TYPE::D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+		UploadBufferLocation.PlacedFootprint.Offset = uploadBufferOffset;
+		UploadBufferLocation.PlacedFootprint.Footprint.Depth = subresourceDepth;
+		UploadBufferLocation.PlacedFootprint.Footprint.Format = format;
+		UploadBufferLocation.PlacedFootprint.Footprint.Height = subresourceHeight;
+		UploadBufferLocation.PlacedFootprint.Footprint.Width = subresouceWidth;
+		UploadBufferLocation.PlacedFootprint.Footprint.RowPitch = static_cast<uint32_t>(destRowPitch);
+
+		copyCommandList->CopyTextureRegion(&destination, 0u, 0u, 0u, &UploadBufferLocation, nullptr);
+	}
+
+	void copySubresourceToGpuTiled(ID3D12Resource* destResource, ID3D12Resource* uploadResource, uint64_t uploadBufferOffset, uint32_t width, uint32_t height, uint32_t depth, uint32_t currentMipLevel, uint32_t mipLevels,
+		uint32_t currentArrayIndex, DXGI_FORMAT format, uint8_t* uploadBufferAddress, const uint8_t* sourceBuffer, ID3D12GraphicsCommandList* copyCommandList)
+	{
+		uint32_t subresouceWidth = (width >> currentMipLevel);
+		if (subresouceWidth == 0u) subresouceWidth = 1u;
+		uint32_t subresourceHeight = height >> currentMipLevel;
+		if (subresourceHeight == 0u) subresourceHeight = 1u;
+		uint32_t subresourceDepth = depth >> currentMipLevel;
+		if (subresourceDepth == 0u) subresourceDepth = 1u;
+
+		size_t sourceSlicePitch, sourceRowPitch, numRows;
+		surfaceInfo(subresouceWidth, subresourceHeight, format, sourceSlicePitch, sourceRowPitch, numRows);
+		size_t destRowPitch = (sourceRowPitch + (size_t)D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - (size_t)1u) & ~((size_t)D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - (size_t)1u);//sourceRowPitch is 4 byte aligned but destRowPitch is D3D12_TEXTURE_DATA_PITCH_ALIGNMENT byte aligned
+
+		uint32_t tileWidth, tileHeight, tileWidthBytes;
+		tileWidthAndHeightAndTileWidthInBytes(format, tileWidth, tileHeight, tileWidthBytes);
+
+		const size_t numColumns = sourceRowPitch / tileWidthBytes;
+		const size_t partialColumnBytes = sourceRowPitch % tileWidthBytes;
+		const size_t rowPadding = destRowPitch - sourceRowPitch;
+
+		uint8_t* currentUploadBuffer = uploadBufferAddress;
+		const uint8_t* currentDepthSourceStart = sourceBuffer;
+		for (size_t currentDepth = 0u; currentDepth != subresourceDepth; ++currentDepth)
+		{
+
+			size_t remainingRows = numRows;
+			while (remainingRows != 0u)
+			{
+				size_t tileHeightOnDisk = tileHeight;
+				if (remainingRows < tileHeight) tileHeightOnDisk = remainingRows;
+				const size_t tileSizeOnDisk = tileHeightOnDisk * tileWidthBytes;
+
+				for (size_t row = 0u; row != tileHeightOnDisk; ++row)
+				{
+					for (size_t column = 0u; column != numColumns; ++column)
+					{
+						//copy row of current column
+						const uint8_t* currentSourceTileRowStart = currentDepthSourceStart + tileSizeOnDisk * column + tileWidthBytes * row;
+						const uint8_t* const currentSourceTileRowEnd = currentSourceTileRowStart + tileWidthBytes;
+						for (; currentSourceTileRowStart != currentSourceTileRowEnd;)
+						{
+							*reinterpret_cast<uint32_t*>(currentUploadBuffer) = *reinterpret_cast<const uint32_t*>(currentSourceTileRowStart);
+							currentUploadBuffer += sizeof(uint32_t);
+							currentSourceTileRowStart += sizeof(uint32_t);
+						}
+					}
+					//copy part of row of cuurent column, length partialColumnBytes
+					const uint8_t* currentSourceTileRowStart = currentDepthSourceStart + tileSizeOnDisk * numColumns + partialColumnBytes * row;
+					const uint8_t* const currentSourceTileRowEnd = currentSourceTileRowStart + partialColumnBytes;
+					for (; currentSourceTileRowStart != currentSourceTileRowEnd;)
+					{
+						*reinterpret_cast<uint32_t*>(currentUploadBuffer) = *reinterpret_cast<const uint32_t*>(currentSourceTileRowStart);
+						currentUploadBuffer += sizeof(uint32_t);
+						currentSourceTileRowStart += sizeof(uint32_t);
+					}
+					currentUploadBuffer += rowPadding; //Padding added to align destination rows to D3D12_TEXTURE_DATA_PITCH_ALIGNMENT bytes
+				}
+
+				remainingRows -= tileHeightOnDisk;
+			}
+			currentDepthSourceStart += sourceSlicePitch;
+		}
+
+		D3D12_TEXTURE_COPY_LOCATION destination;
+		destination.pResource = destResource;
+		destination.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+		destination.SubresourceIndex = currentArrayIndex * mipLevels + currentMipLevel;
+
+		D3D12_TEXTURE_COPY_LOCATION UploadBufferLocation;
+		UploadBufferLocation.pResource = uploadResource;
+		UploadBufferLocation.Type = D3D12_TEXTURE_COPY_TYPE::D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+		UploadBufferLocation.PlacedFootprint.Offset = uploadBufferOffset;
+		UploadBufferLocation.PlacedFootprint.Footprint.Depth = subresourceDepth;
+		UploadBufferLocation.PlacedFootprint.Footprint.Format = format;
+		UploadBufferLocation.PlacedFootprint.Footprint.Height = subresourceHeight;
+		UploadBufferLocation.PlacedFootprint.Footprint.Width = subresouceWidth;
+		UploadBufferLocation.PlacedFootprint.Footprint.RowPitch = static_cast<uint32_t>(destRowPitch);
+
+		copyCommandList->CopyTextureRegion(&destination, 0u, 0u, 0u, &UploadBufferLocation, nullptr);
 	}
 }

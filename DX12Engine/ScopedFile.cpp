@@ -1,35 +1,26 @@
 #include "ScopedFile.h"
 
-ScopedFile::ScopedFile() : file(nullptr) {}
-ScopedFile::ScopedFile(const wchar_t* fileName, DWORD accessRight, DWORD shareMode, creationMode creationMode, PCREATEFILE2_EXTENDED_PARAMETERS extendedParameter)
+File::File(const wchar_t* fileName, DWORD accessRight, DWORD shareMode, creationMode creationMode, DWORD fileAttributes = FILE_ATTRIBUTE_NORMAL, HANDLE templateFile = nullptr)
 {
-	open(fileName, accessRight, shareMode, creationMode, extendedParameter);
+	open(fileName, accessRight, shareMode, creationMode, fileAttributes, templateFile);
 }
 
-ScopedFile::ScopedFile(const ScopedFile& other)
+File::File(const File& other)
 {
 	file = other.file;
 }
 
-void ScopedFile::open(const wchar_t* fileName, DWORD accessRight, DWORD shareMode, creationMode creationMode, PCREATEFILE2_EXTENDED_PARAMETERS extendedParameter)
+void File::open(const wchar_t* fileName, DWORD accessRight, DWORD shareMode, creationMode creationMode, DWORD fileAttributes = FILE_ATTRIBUTE_NORMAL, HANDLE templateFile = nullptr)
 {
 #ifdef _WIN32_WINNT
-#if (_WIN32_WINNT >= _WIN32_WINNT_WIN8)
-	file = CreateFile2(fileName, accessRight, shareMode, creationMode, extendedParameter);
-	if (file == INVALID_HANDLE_VALUE)
-	{
-		throw WindowsFileCreationException(HRESULT_FROM_WIN32(GetLastError()));
-	}
-#else
-	file = CreateFileW(fileName, accessRight, shareMode, nullptr, creationMode, FILE_ATTRIBUTE_NORMAL, extendedParameter);
-	if (file == INVALID_HANDLE_VALUE) throw FileNotFoundException();
-#endif
+	file = CreateFileW(fileName, accessRight, shareMode, nullptr, creationMode, fileAttributes, templateFile);
+	if (file == INVALID_HANDLE_VALUE) throw WindowsFileCreationException(HRESULT_FROM_WIN32(GetLastError()));
 #else
 	platform doesn't support ScopedFile
 #endif
 }
 
-ScopedFile::NotEndOfFile ScopedFile::read(void* const buffer, uint32_t byteSize, LPOVERLAPPED overlapped)
+File::NotEndOfFile File::read(void* const buffer, uint32_t byteSize, LPOVERLAPPED overlapped)
 {
 	DWORD numBytesRead;
 	BOOL result = ReadFile(file, buffer, byteSize, &numBytesRead, overlapped);
@@ -41,7 +32,7 @@ ScopedFile::NotEndOfFile ScopedFile::read(void* const buffer, uint32_t byteSize,
 	return True;
 }
 
-ScopedFile::NotEndOfFile ScopedFile::read(void* const buffer, uint32_t byteSize)
+File::NotEndOfFile File::read(void* const buffer, uint32_t byteSize)
 {
 	DWORD numBytesRead;
 	BOOL result = ReadFile(file, buffer, byteSize, &numBytesRead, nullptr);
@@ -53,26 +44,22 @@ ScopedFile::NotEndOfFile ScopedFile::read(void* const buffer, uint32_t byteSize)
 	return True;
 }
 
-void ScopedFile::close()
+void File::close()
 {
-	if (file)
-	{
-		if (!CloseHandle(file)) throw IOException();
-		file = nullptr;
-	}
+	if (!CloseHandle(file)) throw IOException();
 }
 
-void ScopedFile::setPosition(signed long long offset, Position pos)
+void File::setPosition(signed long long offset, Position pos)
 {
 	LONG highBits = (LONG)((offset & ~0xffffffff00000000) >> 32);
 	SetFilePointer(file, offset & 0xffffffff, &highBits, pos);
 }
-unsigned long ScopedFile::getPosition()
+unsigned long File::getPosition()
 {
 	return SetFilePointer(file, 0, nullptr, Position::current);
 }
 
-size_t ScopedFile::size()
+size_t File::size()
 {
 	LARGE_INTEGER FileSize = { 0 };
 #if (_WIN32_WINNT >= _WIN32_WINNT_VISTA)

@@ -28,37 +28,41 @@ void TextureManager::unloadTexture(const wchar_t * filename, D3D12GraphicsEngine
 	}
 }
 
-void TextureManager::loadTextureUncachedHelper(StreamingManagerThreadLocal& streamingManager, D3D12GraphicsEngine& graphicsEngine, const wchar_t * filename,
-	void(*textureUseSubresource)(RamToVramUploadRequest* const request, BaseExecutor* executor1, SharedResources& sharedResources, void* const uploadBufferCpuAddressOfCurrentPos, ID3D12Resource* uploadResource,
-		uint64_t uploadResourceOffset))
+void TextureManager::loadTextureUncached(BaseExecutor* executor, SharedResources& sharedResources, const wchar_t * filename)
 {
-	RamToVramUploadRequest& uploadRequest = streamingManager.getUploadRequest();
-	uploadRequest.useSubresourcePointer = textureUseSubresource;
-	uploadRequest.requester = reinterpret_cast<void*>(const_cast<wchar_t *>(filename));
-	uploadRequest.resourceUploadedPointer = textureUploaded;
+	File file = sharedResources.asynchronousFileManager.openFileForReading(sharedResources.ioCompletionQueue, filename);
 
-	uploadRequest.file.open(filename, ScopedFile::accessRight::genericRead, ScopedFile::shareMode::readMode, ScopedFile::creationMode::openExisting, nullptr);
-	auto textureInfo = DDSFileLoader::getDDSTextureInfoFromFile(uploadRequest.file);
-
-	uploadRequest.width = textureInfo.width;
-	uploadRequest.height = textureInfo.height;
-	uploadRequest.format = textureInfo.format;
-	uploadRequest.mipLevels = textureInfo.mipLevels;
-	uploadRequest.currentArrayIndex = 0u;
-	uploadRequest.currentMipLevel = 0u;
-	uploadRequest.mostDetailedMip = 0u;
-	uploadRequest.dimension = textureInfo.dimension;
-
-	if (textureInfo.dimension == D3D12_RESOURCE_DIMENSION_TEXTURE3D)
+	sharedResources.asynchronousFileManager.readFile(executor, sharedResources, filename, 0u, sizeof(DDSFileLoader::DdsHeaderDx12), file, reinterpret_cast<void*>(const_cast<wchar_t *>(filename)),
+		[](void* requester, BaseExecutor* executor, SharedResources& sharedResources, const uint8_t* buffer, File file)
 	{
-		uploadRequest.arraySize = 1u;
-		uploadRequest.depth = textureInfo.depthOrArraySize;
-	}
-	else
-	{
-		uploadRequest.arraySize = textureInfo.depthOrArraySize;
-		uploadRequest.depth = 1u;
-	}
+		const DDSFileLoader::DdsHeaderDx12& header = *reinterpret_cast<const DDSFileLoader::DdsHeaderDx12*>(buffer);
+		bool valid = DDSFileLoader::validateDdsHeader(header);
+		if (!valid) throw false;
+		RamToVramUploadRequest uploadRequest;
+		uploadRequest.file = file;
+		uploadRequest.useSubresource = textureUseSubresource;
+		uploadRequest.requester = requester; //Actually the filename
+		uploadRequest.resourceUploadedPointer = textureUploaded;
+		uploadRequest.textureInfo.width = header.width;
+		uploadRequest.textureInfo.height = header.height;
+		uploadRequest.textureInfo.format = header.dxgiFormat;
+		uploadRequest.mipLevels = header.mipMapCount;
+		uploadRequest.currentArrayIndex = 0u;
+		uploadRequest.currentMipLevel = 0u;
+		uploadRequest.mostDetailedMip = 0u;
+		uploadRequest.dimension = (D3D12_RESOURCE_DIMENSION)header.dimension;
+		if (header.miscFlag & 0x4L)
+		{
+			uploadRequest.arraySize = header.arraySize * 6u; //The texture is a cubemap
+		}
+		else
+		{
+			uploadRequest.arraySize = header.arraySize;
+		}
+		uploadRequest.textureInfo.depth = header.depth;
+
+		sharedResources.streamingManager.addUploadRequest(uploadRequest);
+	});
 }
 
 void TextureManager::textureUploaded(void* storedFilename, BaseExecutor* executor, SharedResources& sharedResources)
@@ -86,12 +90,12 @@ void TextureManager::textureUploaded(void* storedFilename, BaseExecutor* executo
 	}
 }
 
-void TextureManager::textureUseSubresource(RamToVramUploadRequest& request, D3D12GraphicsEngine& graphicsEngine, void* const uploadBufferCpuAddressOfCurrentPos, ID3D12Resource* uploadResource,
-	uint64_t uploadResourceOffset, StreamingManagerThreadLocal& streamingManager)
+ID3D12Resource* TextureManager::createOrLookupTexture(const HalfFinishedUploadRequest& useSubresourceRequest, SharedResources& sharedResources, const wchar_t* filename)
 {
 	ID3D12Resource* texture;
-	const wchar_t* filename = reinterpret_cast<wchar_t*>(request.requester);
-	if (request.currentArrayIndex == 0u && request.currentMipLevel == 0u)
+	TextureManager& textureManager = sharedResources.textureManager;
+	auto& uploadRequest = *useSubresourceRequest.uploadRequest;
+	if (useSubresourceRequest.currentArrayIndex == 0u && useSubresourceRequest.currentMipLevel == 0u)
 	{
 		D3D12_HEAP_PROPERTIES textureHeapProperties;
 		textureHeapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
@@ -102,17 +106,18 @@ void TextureManager::textureUseSubresource(RamToVramUploadRequest& request, D3D1
 
 		D3D12_RESOURCE_DESC textureDesc;
 		textureDesc.Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
-		textureDesc.DepthOrArraySize = std::max(request.depth, request.arraySize);
-		textureDesc.Dimension = request.dimension;
+		textureDesc.DepthOrArraySize = std::max(uploadRequest.textureInfo.depth, uploadRequest.arraySize);
+		textureDesc.Dimension = uploadRequest.dimension;
 		textureDesc.Flags = D3D12_RESOURCE_FLAGS::D3D12_RESOURCE_FLAG_NONE;
-		textureDesc.Format = request.format;
-		textureDesc.Height = request.height;
+		textureDesc.Format = uploadRequest.textureInfo.format;
+		textureDesc.Height = uploadRequest.textureInfo.height;
 		textureDesc.Layout = D3D12_TEXTURE_LAYOUT::D3D12_TEXTURE_LAYOUT_UNKNOWN;
-		textureDesc.MipLevels = request.mipLevels;
+		textureDesc.MipLevels = uploadRequest.mipLevels;
 		textureDesc.SampleDesc.Count = 1u;
 		textureDesc.SampleDesc.Quality = 0u;
-		textureDesc.Width = request.width;
+		textureDesc.Width = uploadRequest.textureInfo.width;
 
+		auto& graphicsEngine = sharedResources.graphicsEngine;
 		D3D12Resource resource(graphicsEngine.graphicsDevice, textureHeapProperties, D3D12_HEAP_FLAGS::D3D12_HEAP_FLAG_NONE, textureDesc,
 			D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_COMMON, nullptr);
 
@@ -127,50 +132,50 @@ void TextureManager::textureUseSubresource(RamToVramUploadRequest& request, D3D1
 			discriptorIndex * graphicsEngine.constantBufferViewAndShaderResourceViewAndUnordedAccessViewDescriptorSize;
 
 		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc;
-		srvDesc.Format = request.format;
+		srvDesc.Format = uploadRequest.textureInfo.format;
 		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-		switch (request.dimension)
+		switch (uploadRequest.dimension)
 		{
 		case D3D12_RESOURCE_DIMENSION::D3D12_RESOURCE_DIMENSION_TEXTURE3D:
 			srvDesc.ViewDimension = D3D12_SRV_DIMENSION::D3D12_SRV_DIMENSION_TEXTURE3D;
-			srvDesc.Texture3D.MipLevels = request.mipLevels;
+			srvDesc.Texture3D.MipLevels = uploadRequest.mipLevels;
 			srvDesc.Texture3D.MostDetailedMip = 0u;
 			srvDesc.Texture3D.ResourceMinLODClamp = 0u;
 			break;
 		case D3D12_RESOURCE_DIMENSION::D3D12_RESOURCE_DIMENSION_TEXTURE2D:
-			if (request.arraySize > 1u)
+			if (uploadRequest.arraySize > 1u)
 			{
 				srvDesc.ViewDimension = D3D12_SRV_DIMENSION::D3D12_SRV_DIMENSION_TEXTURE2DARRAY;
-				srvDesc.Texture2DArray.MipLevels = request.mipLevels;
+				srvDesc.Texture2DArray.MipLevels = uploadRequest.mipLevels;
 				srvDesc.Texture2DArray.MostDetailedMip = 0u;
 				srvDesc.Texture2DArray.ResourceMinLODClamp = 0u;
-				srvDesc.Texture2DArray.ArraySize = request.arraySize;
+				srvDesc.Texture2DArray.ArraySize = uploadRequest.arraySize;
 				srvDesc.Texture2DArray.FirstArraySlice = 0u;
 				srvDesc.Texture2DArray.PlaneSlice = 0u;
 			}
 			else
 			{
 				srvDesc.ViewDimension = D3D12_SRV_DIMENSION::D3D12_SRV_DIMENSION_TEXTURE2D;
-				srvDesc.Texture2D.MipLevels = request.mipLevels;
+				srvDesc.Texture2D.MipLevels = uploadRequest.mipLevels;
 				srvDesc.Texture2D.MostDetailedMip = 0u;
 				srvDesc.Texture2D.ResourceMinLODClamp = 0u;
 				srvDesc.Texture2D.PlaneSlice = 0u;
 			}
 			break;
 		case D3D12_RESOURCE_DIMENSION::D3D12_RESOURCE_DIMENSION_TEXTURE1D:
-			if (request.arraySize > 1u)
+			if (uploadRequest.arraySize > 1u)
 			{
 				srvDesc.ViewDimension = D3D12_SRV_DIMENSION::D3D12_SRV_DIMENSION_TEXTURE1DARRAY;
-				srvDesc.Texture1DArray.MipLevels = request.mipLevels;
+				srvDesc.Texture1DArray.MipLevels = uploadRequest.mipLevels;
 				srvDesc.Texture1DArray.MostDetailedMip = 0u;
 				srvDesc.Texture1DArray.ResourceMinLODClamp = 0u;
-				srvDesc.Texture1DArray.ArraySize = request.arraySize;
+				srvDesc.Texture1DArray.ArraySize = uploadRequest.arraySize;
 				srvDesc.Texture1DArray.FirstArraySlice = 0u;
 			}
 			else
 			{
 				srvDesc.ViewDimension = D3D12_SRV_DIMENSION::D3D12_SRV_DIMENSION_TEXTURE1D;
-				srvDesc.Texture1D.MipLevels = request.mipLevels;
+				srvDesc.Texture1D.MipLevels = uploadRequest.mipLevels;
 				srvDesc.Texture1D.MostDetailedMip = 0u;
 				srvDesc.Texture1D.ResourceMinLODClamp = 0u;
 			}
@@ -180,19 +185,62 @@ void TextureManager::textureUseSubresource(RamToVramUploadRequest& request, D3D1
 
 		texture = resource;
 		{
-			std::lock_guard<decltype(mutex)> lock(mutex);
-			Texture& texture = textures[filename];
+			std::lock_guard<decltype(textureManager.mutex)> lock(textureManager.mutex);
+			Texture& texture = textureManager.textures[filename];
 			texture.resource = std::move(resource);
 			texture.descriptorIndex = discriptorIndex;
 		}
 	}
 	else
 	{
-		std::lock_guard<decltype(mutex)> lock(mutex);
-		texture = textures[filename].resource;
+		std::lock_guard<decltype(textureManager.mutex)> lock(textureManager.mutex);
+		texture = textureManager.textures[filename].resource;
 	}
 
-	DDSFileLoader::loadSubresourceFromFile(graphicsEngine.graphicsDevice, request.width, request.height, request.depth, request.format, request.currentArrayIndex,
-		request.currentMipLevel, request.mipLevels, request.file, uploadBufferCpuAddressOfCurrentPos, texture, streamingManager.currentCommandList,
-		uploadResource, uploadResourceOffset);
+	return texture;
+}
+
+void TextureManager::textureUseSubresourceHelper(BaseExecutor* executor, SharedResources& sharedResources,  HalfFinishedUploadRequest& useSubresourceRequest)
+{
+	auto& uploadRequest = *useSubresourceRequest.uploadRequest;
+	const wchar_t* filename = reinterpret_cast<wchar_t*>(uploadRequest.requester);
+
+	size_t subresouceWidth = uploadRequest.textureInfo.width;
+	size_t subresourceHeight = uploadRequest.textureInfo.height;
+	size_t subresourceDepth = uploadRequest.textureInfo.depth;
+	size_t fileOffset = sizeof(DDSFileLoader::DdsHeaderDx12);
+	size_t currentMip = 0u;
+	while (currentMip != useSubresourceRequest.currentMipLevel)
+	{
+		size_t numBytes, numRows, rowBytes;
+		DDSFileLoader::surfaceInfo(subresouceWidth, subresourceHeight, uploadRequest.textureInfo.format, numBytes, rowBytes, numRows);
+		fileOffset += numBytes * subresourceDepth;
+
+		subresouceWidth >>= 1u;
+		if (subresouceWidth == 0u) subresouceWidth = 1u;
+		subresourceHeight >>= 1u;
+		if (subresourceHeight == 0u) subresourceHeight = 1u;
+		subresourceDepth >>= 1u;
+		if (subresourceDepth == 0u) subresourceDepth = 1u;
+	}
+	
+	size_t numBytes, numRows, rowBytes;
+	DDSFileLoader::surfaceInfo(subresouceWidth, subresourceHeight, uploadRequest.textureInfo.format, numBytes, rowBytes, numRows);
+	size_t subresourceSize = numBytes * subresourceDepth;
+
+	sharedResources.asynchronousFileManager.readFile(executor, sharedResources, filename, fileOffset, fileOffset + subresourceSize, uploadRequest.file, &useSubresourceRequest,
+		[](void* requester, BaseExecutor* executor, SharedResources& sharedResources, const uint8_t* buffer, File file)
+	{
+		HalfFinishedUploadRequest& useSubresourceRequest = *reinterpret_cast<HalfFinishedUploadRequest*>(requester);
+		auto& uploadRequest = *useSubresourceRequest.uploadRequest;
+		const wchar_t* filename = reinterpret_cast<wchar_t*>(uploadRequest.requester);
+		auto& streamingManager = executor->streamingManager;
+		ID3D12Resource* destResource = createOrLookupTexture(useSubresourceRequest, sharedResources, filename);
+
+		DDSFileLoader::copySubresourceToGpu(destResource, uploadRequest.uploadResource, useSubresourceRequest.uploadResourceOffset, uploadRequest.textureInfo.width, uploadRequest.textureInfo.height,
+			uploadRequest.textureInfo.depth, useSubresourceRequest.currentMipLevel, uploadRequest.mipLevels, useSubresourceRequest.currentArrayIndex, uploadRequest.textureInfo.format, 
+			(uint8_t*)useSubresourceRequest.uploadBufferCpuAddressOfCurrentPos, buffer, streamingManager.copyCommandList());
+
+		streamingManager.copyStarted(executor, useSubresourceRequest);
+	});
 }

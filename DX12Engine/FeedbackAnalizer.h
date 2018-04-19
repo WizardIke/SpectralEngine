@@ -20,7 +20,6 @@ class FeedbackAnalizerSubPass : public RenderSubPass<VirtualPageCamera, D3D12_RE
 	D3D12DescriptorHeap depthStencilDescriptorHeap;
 	D3D12DescriptorHeap rtvDescriptorHeap;
 	D3D12Resource readbackTexture;
-	//uint8_t* readbackTextureCpu;
 	unsigned long width, height;
 	VirtualPageCamera camera;
 

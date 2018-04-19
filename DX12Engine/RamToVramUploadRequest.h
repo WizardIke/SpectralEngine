@@ -4,28 +4,42 @@
 #include <cstdint>
 class BaseExecutor;
 class SharedResources;
+class HalfFinishedUploadRequest;
+
+struct MeshHeader
+{
+	uint32_t verticesSize;
+	uint32_t indicesSize;
+	uint32_t sizeInBytes;
+	uint16_t padding;
+};
+
+struct TextureHeader
+{
+	uint32_t width;
+	DXGI_FORMAT format;
+	uint32_t height;
+	uint16_t depth;
+};
 
 class RamToVramUploadRequest
 {
 public:
-	ScopedFile file;
+	File file;
 	void* requester;
-	void(*useSubresourcePointer)(RamToVramUploadRequest* const request, BaseExecutor* executor, SharedResources& sharedResources, void* const uploadBufferCpuAddressOfCurrentPos, ID3D12Resource* uploadResource, uint64_t uploadResourceOffset);
+	ID3D12Resource* uploadResource;
+	void(*useSubresource)(BaseExecutor* executor, SharedResources& sharedResources, HalfFinishedUploadRequest& useSubresourceRequest);
 	void(*resourceUploadedPointer)(void* const requester, BaseExecutor* const executor, SharedResources& sharedResources);
 
-	DXGI_FORMAT format;
 	D3D12_RESOURCE_DIMENSION dimension;
-	uint64_t width;
-	uint32_t height;
-	uint16_t depth;
-	uint16_t arraySize;
-	uint16_t mipLevels;
-	uint16_t currentArrayIndex;
-	uint16_t currentMipLevel;
-	uint16_t mostDetailedMip;
-
-	void useSubresource(BaseExecutor* executor, void* const uploadBufferCpuAddressOfCurrentPos, ID3D12Resource* uploadResource, SharedResources& sharedResources, uint64_t uploadResourceOffset)
+	union
 	{
-		useSubresourcePointer(this, executor, sharedResources, uploadBufferCpuAddressOfCurrentPos, uploadResource, uploadResourceOffset);
-	}
+		MeshHeader meshInfo;
+		TextureHeader textureInfo;
+	};
+	uint16_t mipLevels;
+	uint16_t mostDetailedMip;
+	uint16_t arraySize;
+	uint16_t currentMipLevel; //Should not be read by resource loading threads. Instead use the copy in HalfFinishedUploadRequest
+	uint16_t currentArrayIndex; //Should not be read by resource loading threads. Instead use the copy in HalfFinishedUploadRequest
 };

@@ -7,10 +7,13 @@ BaseExecutor::BaseExecutor(SharedResources& sharedResources) :
 	currentWorkStealingDeque(&workStealDeques[1u]),
 	gpuCompletionEventManager(),
 	randomNumberGenerator(std::chrono::high_resolution_clock::now().time_since_epoch().count()),
-	meshAllocator()
+	meshAllocator(),
+	streamingManager(sharedResources.graphicsEngine.graphicsDevice)
 {
-	sharedResources.workStealingQueues[sharedResources.threadBarrier.waiting_count()] = &workStealDeques[0u];
-	sharedResources.workStealingQueues[sharedResources.threadBarrier.waiting_count() + sharedResources.maxThreads] = &workStealDeques[1u];
+	this->index = sharedResources.threadBarrier.waiting_count();
+	sharedResources.executors[index] = this;
+	sharedResources.workStealingQueues[index] = &workStealDeques[0u];
+	sharedResources.workStealingQueues[index + sharedResources.maxThreads] = &workStealDeques[1u];
 	++sharedResources.threadBarrier.waiting_count();
 	if (sharedResources.threadBarrier.waiting_count() == sharedResources.maxThreads)
 	{

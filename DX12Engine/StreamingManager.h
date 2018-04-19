@@ -10,33 +10,17 @@
 #include "RamToVramUploadRequest.h"
 #include "HalfFinishedUploadRequset.h"
 #include "D3D12Resource.h"
+#include <mutex>
+#include <atomic>
+#include "StableQueue.h"
 
 class StreamingManager
 {
-	friend class StreamingManagerThreadLocal;
+	std::mutex mutex;
 	D3D12CommandQueue copyCommandQueue;
-public:
-	StreamingManager(ID3D12Device* const graphicsDevice);
-	ID3D12CommandQueue* commandQueue()
-	{
-		return copyCommandQueue;
-	}
-};
 
-class StreamingManagerThreadLocal
-{
-	D3D12FencePointer copyFence;
-	uint64_t fenceValue;
-	Array<D3D12CommandAllocator, 2u> commandAllocators;
-	D3D12GraphicsCommandList commandLists[2u];
-
-	std::unique_ptr<RamToVramUploadRequest[]> uploadRequestBuffer;
-	unsigned int uploadRequestBufferCapacity;
-	unsigned int uploadRequestBufferWritePos = 0u;
-	unsigned int uploadRequestBufferReadPos = 0u;
-
-	Array<std::vector<HalfFinishedUploadRequest>, 2u> halfFinishedUploadRequestsBuffer;
-	std::vector<HalfFinishedUploadRequest>* currentHalfFinishedUploadRequestBuffer;
+	StableQueue<RamToVramUploadRequest> waitingForSpaceRequestBuffer; //Needs to be a StableQueue so pointers into in other threads remain valid when it resizes.
+	StableQueue<HalfFinishedUploadRequest> processingRequestBuffer; //Needs to be a StableQueue so pointers into in other threads remain valid when it resizes.
 
 	D3D12Resource uploadBuffer;
 	unsigned char* uploadBufferCpuAddress;
@@ -44,20 +28,30 @@ class StreamingManagerThreadLocal
 	unsigned long uploadBufferWritePos = 0u;
 	unsigned long uploadBufferReadPos = 0u;
 
+	std::atomic<bool> finishedUpdating = true;
+
 	void addUploadToBuffer(BaseExecutor* const executor, SharedResources& sharedResources);
+	void backgroundUpdate(BaseExecutor* const executor, SharedResources& sharedResources);
 public:
-	StreamingManagerThreadLocal(ID3D12Device* const graphicsDevice, unsigned long uploadHeapStartingSize, unsigned int uploadRequestBufferStartingCapacity, unsigned int halfFinishedUploadRequestBufferStartingCapasity);
-
+	StreamingManager(ID3D12Device* const graphicsDevice, unsigned long uploadHeapStartingSize);
 	void update(BaseExecutor* const executor, SharedResources& sharedResources);
-	RamToVramUploadRequest& getUploadRequest();
+	bool hasPendingUploads();
+	ID3D12CommandQueue* commandQueue() { return copyCommandQueue; }
+	void addUploadRequest(const RamToVramUploadRequest& request);
+	void addCopyCompletionEvent(BaseExecutor* executor, void* requester, void(*event)(void* requester, BaseExecutor* executor, SharedResources& sharedResources));
 
-
-	bool hasPendingUploads() { return uploadRequestBufferWritePos != uploadRequestBufferReadPos; }
-
-	ID3D12GraphicsCommandList* currentCommandList;
-
-	void addCopyCompletionEvent(void* requester, void(*event)(void* requester, BaseExecutor* executor, SharedResources& sharedResources))
+	class ThreadLocal
 	{
-		currentHalfFinishedUploadRequestBuffer->push_back(HalfFinishedUploadRequest{ 0u, requester, event });
-	}
+		D3D12FencePointer copyFence;
+		uint64_t mFenceValue;
+		Array<D3D12CommandAllocator, 2u> commandAllocators;
+		D3D12GraphicsCommandList commandLists[2u];
+		ID3D12GraphicsCommandList* currentCommandList; //Need to handle swapping currentCommandList in a thread safe manner
+	public:
+		ThreadLocal(ID3D12Device* const graphicsDevice);
+		ID3D12GraphicsCommandList * copyCommandList() { return currentCommandList; }
+		void update(BaseExecutor* const executor, SharedResources& sharedResources);
+		void copyStarted(BaseExecutor* const executor, HalfFinishedUploadRequest& processingRequest);
+		uint64_t fenceValue() { return mFenceValue; }
+	};
 };
