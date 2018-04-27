@@ -81,3 +81,13 @@ size_t File::size()
 #endif
 
 }
+
+void File::write(void* const buffer, uint32_t byteSize)
+{
+	DWORD numberOfBytesWritten;
+	BOOL result = WriteFile(file, buffer, byteSize, &numberOfBytesWritten, nullptr);
+	if (result == FALSE || numberOfBytesWritten != byteSize)
+	{
+		throw IOException();
+	}
+}

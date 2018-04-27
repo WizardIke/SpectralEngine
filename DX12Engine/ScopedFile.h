@@ -75,6 +75,14 @@ public:
 
 	NotEndOfFile read(void* const buffer, uint32_t byteSize, LPOVERLAPPED overlapped);
 	NotEndOfFile read(void* const buffer, uint32_t byteSize);
+
+	template <typename value_type>
+	void write(value_type& buffer)
+	{
+		return write(&buffer, sizeof(buffer));
+	}
+	void write(void* const buffer, uint32_t byteSize);
+
 	void close();
 	void setPosition(signed long long offset, Position pos);
 	unsigned long getPosition();

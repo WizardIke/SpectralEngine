@@ -42,25 +42,6 @@ namespace DDSFileLoader
 #endif /* defined(MAKEFOURCC) */
 
 
-	struct DDS_HEADER
-	{
-		uint32_t ddsMagicNumber;
-		uint32_t        size;
-		uint32_t        flags;
-		uint32_t        height;
-		uint32_t        width;
-		uint32_t        pitchOrLinearSize;
-		uint32_t        depth; // only if DDS_HEADER_FLAGS_VOLUME is set in flags
-		uint32_t        mipMapCount;
-		uint32_t        reserved1[11];
-		DDS_PIXELFORMAT ddspf;
-		uint32_t        caps;
-		uint32_t        caps2;
-		uint32_t        caps3;
-		uint32_t        caps4;
-		uint32_t        reserved2;
-	};
-
 	struct DDS_HEADER_DXT10
 	{
 		DXGI_FORMAT     dxgiFormat;
@@ -591,6 +572,7 @@ namespace DDSFileLoader
 		uint32_t dimension = D3D12_RESOURCE_DIMENSION_UNKNOWN;
 		uint32_t arraySize = 1;
 		DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN;
+		bool isCubeMap = false;
 
 		if ((ddsHeader.ddspf.flags & DDS_FOURCC) && (MAKEFOURCC('D', 'X', '1', '0') == ddsHeader.ddspf.fourCC))
 		{
@@ -645,6 +627,7 @@ namespace DDSFileLoader
 				{
 					arraySize *= 6;
 				}
+				isCubeMap = true;
 				ddsHeader.depth = 1;
 				break;
 
@@ -686,7 +669,7 @@ namespace DDSFileLoader
 					{
 						throw InvalidHeaderInfoException();
 					}
-
+					isCubeMap = true;
 					arraySize = 6;
 				}
 
@@ -703,8 +686,10 @@ namespace DDSFileLoader
 		textureInfo.dimension = static_cast<D3D12_RESOURCE_DIMENSION>(dimension);
 		textureInfo.width = ddsHeader.width;
 		textureInfo.height = ddsHeader.height;
-		textureInfo.depthOrArraySize = arraySize;
+		textureInfo.arraySize = arraySize;
+		textureInfo.depth = ddsHeader.depth;
 		textureInfo.mipLevels = ddsHeader.mipMapCount == 0u ? 1u : ddsHeader.mipMapCount;
+		textureInfo.isCubeMap = isCubeMap;
 		return textureInfo;
 	}
 

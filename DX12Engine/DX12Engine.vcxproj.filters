@@ -106,6 +106,9 @@
     <Filter Include="AsynchronousFileManager">
       <UniqueIdentifier>{5afee8b7-b3b4-4914-af56-e50ea467f776}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Tools">
+      <UniqueIdentifier>{60f4cb30-f53f-4bab-b02a-f8b01402cde4}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="HresultException.h">
@@ -486,6 +489,9 @@
     </ClCompile>
     <ClCompile Include="AsynchronousFileManager.cpp">
       <Filter>AsynchronousFileManager</Filter>
+    </ClCompile>
+    <ClCompile Include="tools\TextureImporter.cpp">
+      <Filter>Tools</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
