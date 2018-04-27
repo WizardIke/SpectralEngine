@@ -1,52 +1,15 @@
 #include "AsynchronousFileManager.h"
 #include "SharedResources.h"
+#include <Windows.h>
 
-void AsynchronousFileManager::checkAndResizeCache(size_t memoryNeeded)
+AsynchronousFileManager::AsynchronousFileManager()
 {
-	MEMORYSTATUSEX statex;
-	statex.dwLength = sizeof(statex);
-	GlobalMemoryStatusEx(&statex);
-
-	auto availableMemory = (DWORDLONG)(std::min(statex.ullAvailPhys, statex.ullAvailVirtual) * 0.8);
-	while ((availableMemory < memoryNeeded || statex.dwMemoryLoad > 90u) && filesHead.next != &filesTail)
-	{
-		auto data = filesTail.previous;
-		VirtualFree(data->allocation, 0u, MEM_RELEASE);
-		filesTail.previous = data->previous;
-		filesTail.previous->next = &filesTail;
-		nonPinnedFiles.erase(data->key);
-		GlobalMemoryStatusEx(&statex);
-	}
+	SYSTEM_INFO systemInfo;
+	GetSystemInfo(&systemInfo);
+	sectorSize = systemInfo.dwPageSize;
 }
 
-void AsynchronousFileManager::update()
-{
-	MEMORYSTATUSEX statex;
-	statex.dwLength = sizeof(statex);
-	GlobalMemoryStatusEx(&statex);
-
-	auto availableMemory = (DWORDLONG)(std::min(statex.ullAvailPhys, statex.ullAvailVirtual) * 0.8);
-	while (statex.dwMemoryLoad > 90u && filesHead.next != &filesTail)
-	{
-		auto data = filesTail.previous;
-		VirtualFree(data->allocation, 0u, MEM_RELEASE);
-		filesTail.previous = data->previous;
-		filesTail.previous->next = &filesTail;
-		nonPinnedFiles.erase(data->key);
-		GlobalMemoryStatusEx(&statex);
-	}
-}
-
-AsynchronousFileManager::~AsynchronousFileManager()
-{
-	while (filesHead.next != &filesTail)
-	{
-		auto data = filesTail.previous;
-		VirtualFree(data->allocation, 0u, MEM_RELEASE);
-		filesTail.previous = data->previous;
-		filesTail.previous->next = &filesTail;
-	}
-}
+AsynchronousFileManager::~AsynchronousFileManager() {}
 
 File AsynchronousFileManager::openFileForReading(IOCompletionQueue& ioCompletionQueue, const wchar_t* name)
 {
@@ -58,29 +21,51 @@ File AsynchronousFileManager::openFileForReading(IOCompletionQueue& ioCompletion
 bool AsynchronousFileManager::readFile(BaseExecutor* executor, SharedResources& sharedResources, const wchar_t* name, size_t start, size_t end, File file,
 	void* requester, void(*completionEvent)(void* requester, BaseExecutor* executor, SharedResources& sharedResources, const uint8_t* data, File file))
 {
-	IORequest* request;
-	{
-		std::lock_guard<decltype(mutex)> lock(mutex);
-		Key key{ name, start, end };
-		auto dataPtr = nonPinnedFiles.find(key);
-		if (dataPtr != nonPinnedFiles.end())
-		{
-			FileData2& oldData = dataPtr.value();
-			oldData.next->previous = oldData.previous;
-			oldData.previous->next = oldData.next;
-			pinnedFiles.insert(std::make_pair(key, FileData{ oldData.allocation,  oldData.data }));
-			auto data = oldData.data;
-			nonPinnedFiles.erase(dataPtr);
-			completionEvent(requester, executor, sharedResources, data, file);
-			return true;
-		}
-		request = requestAllocator.allocate();
-	}
 	size_t memoryStart = start & ~(sectorSize - 1u);
 	size_t memoryEnd = (end + sectorSize - 1u) & ~(sectorSize - 1u);
 	size_t memoryNeeded = memoryEnd - memoryStart;
-	checkAndResizeCache(memoryNeeded);
-	uint8_t* allocation = (uint8_t*)VirtualAlloc(nullptr, memoryNeeded, MEM_RESERVE, PAGE_READWRITE);
+
+	uint8_t* allocation;
+	bool dataFound = false;
+	Key key{ name, start, end };
+	{
+		std::lock_guard<decltype(mutex)> lock(mutex);
+		
+		auto dataPtr = files.find(key);
+		if (dataPtr != files.end())
+		{
+			dataFound = true;
+			allocation = dataPtr->second.allocation;
+		}
+		else
+		{
+			allocation = (uint8_t*)VirtualAlloc(nullptr, memoryNeeded, MEM_RESERVE, PAGE_READWRITE);
+			auto data = allocation + (start & ~(sectorSize - 1u));
+			files.insert(std::pair<const Key, FileData>(key, FileData{ allocation, data, memoryNeeded }));
+		}
+	}
+	
+	if (dataFound)
+	{
+		auto result = ReclaimVirtualMemory(allocation, memoryNeeded);
+		if (result == ERROR_SUCCESS)
+		{
+			auto data = allocation + (start & ~(sectorSize - 1u));
+			completionEvent(requester, executor, sharedResources, data, file);
+			return true;
+		}
+		else if(result != ERROR_BUSY) //ERROR_BUSY means the virtual memory was reclaimed but not its contents.
+		{
+			return false;
+		}
+	}
+
+	IORequest* request;
+	{
+		std::lock_guard<decltype(mutex)> lock(mutex);
+		request = requestAllocator.allocate();
+	}
+
 	request->buffer = allocation;
 	request->name = name;
 	request->start = start;
@@ -107,21 +92,8 @@ void AsynchronousFileManager::discard(const wchar_t* name, size_t start, size_t 
 {
 	Key key{ name, start, end };
 	std::lock_guard<decltype(mutex)> lock(mutex);
-	auto data = pinnedFiles.find(key);
-	FileData2 data2;
-
-	data2.allocation = data->second.allocation;
-	data2.data = data->second.data;
-	data2.key = key;
-
-	data2.next = filesHead.next;
-	data2.previous = &filesHead;
-
-	filesHead.next->previous = &data2;
-	filesHead.next = &data2;
-
-	nonPinnedFiles.insert(std::move(data2));
-	pinnedFiles.erase(key);
+	auto data = files.find(key);
+	OfferVirtualMemory(data->second.allocation, data->second.allocationSize, OFFER_PRIORITY::VmOfferPriorityLow);
 }
 
  bool AsynchronousFileManager::processIOCompletion(BaseExecutor* executor, SharedResources& sharedResources, DWORD numberOfBytes, LPOVERLAPPED overlapped)
@@ -142,11 +114,10 @@ void AsynchronousFileManager::discard(const wchar_t* name, size_t start, size_t 
 		}
 		return GetLastError() != ERROR_IO_PENDING;
 	}
-	auto data = request->buffer + (request->start & ~(sectorSize - 1u));
+	auto data = request->buffer + (request->start & ~(fileManager.sectorSize - 1u));
 	request->completionEvent(request->hEvent, executor, sharedResources, data, request->file);
 	{
 		std::lock_guard<decltype(fileManager.mutex)> lock(fileManager.mutex);
-		fileManager.pinnedFiles.insert(std::pair<const Key, FileData>(Key{ request->name, request->start, request->end }, FileData{ request->buffer, data }));
 		fileManager.requestAllocator.deallocate(request);
 	}
 	return true;
