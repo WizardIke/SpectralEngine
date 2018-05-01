@@ -15,6 +15,7 @@ SharedResources::SharedResources(bool fullScreen, bool vSync, bool enableGpuDebu
 	graphicsEngine(window, enableGpuDebugging),
 	textureManager(),
 	backgroundQueue(backgroundQueueStartingLength),
+	executors(new BaseExecutor*[maxThreads]),
 	workStealingQueues(new PrimaryWorkStealingQueue*[(maxThreads) * 2u]),
 	currentWorkStealingQueues(&workStealingQueues[maxThreads]),
 	nextPhaseJob([](BaseExecutor* executor, SharedResources& sharedResources, std::unique_lock<std::mutex>&& lock)
