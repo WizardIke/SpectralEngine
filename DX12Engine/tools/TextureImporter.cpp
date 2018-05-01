@@ -267,7 +267,7 @@ int main(int argc, char** argv)
 	
 	size_t dataLength = file.size() - file.getPosition();
 	std::unique_ptr<unsigned char[]> data(new unsigned char[dataLength]);
-	file.read(data.get(), dataLength);
+	file.read(data.get(), (uint32_t)dataLength);
 
 	File outFile(L"converted_file.dds", File::accessRight::genericWrite, File::shareMode::writeMode, File::creationMode::createNew);
 	DdsHeaderDx12 header;
@@ -312,7 +312,7 @@ int main(int argc, char** argv)
 	header.pitchOrLinearSize = 0u;
 
 	outFile.write(header);
-	outFile.write(data.get(), dataLength);
+	outFile.write(data.get(), (uint32_t)dataLength);
 
 	file.close();
 	outFile.close();
