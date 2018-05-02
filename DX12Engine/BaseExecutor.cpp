@@ -68,12 +68,44 @@ void BaseExecutor::run(SharedResources& sharedResources)
 	}
 }
 
-void BaseExecutor::runBackgroundJobs(Job job, SharedResources& sharedResources)
+void BaseExecutor::runBackgroundJobs(SharedResources& sharedResources)
 {
 	bool found;
-	do
+	Job job;
+	IOCompletionPacket ioJob;
+	while(true)
 	{
-		job(this, sharedResources);
 		found = sharedResources.backgroundQueue.pop(job);
-	} while (found);
+		if (found)
+		{
+			do
+			{
+				job(this, sharedResources);
+				found = sharedResources.backgroundQueue.pop(job);
+			} while (found);
+
+			found = sharedResources.ioCompletionQueue.removeIOCompletionPacket(ioJob);
+			while (found)
+			{
+				ioJob(this, sharedResources);
+				found = sharedResources.ioCompletionQueue.removeIOCompletionPacket(ioJob);
+			}
+		}
+		else
+		{
+			found = sharedResources.ioCompletionQueue.removeIOCompletionPacket(ioJob);
+			if (found)
+			{
+				do
+				{
+					ioJob(this, sharedResources);
+					found = sharedResources.ioCompletionQueue.removeIOCompletionPacket(ioJob);
+				} while (found);
+			}
+			else
+			{
+				return;
+			}
+		}
+	}
 }

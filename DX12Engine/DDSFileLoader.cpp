@@ -743,6 +743,8 @@ namespace DDSFileLoader
 				return false; //1D textures must have a height of 1
 			}
 			break;
+		case D3D12_RESOURCE_DIMENSION_TEXTURE2D:
+			break;
 		case D3D12_RESOURCE_DIMENSION_TEXTURE3D:
 			if (!(header.flags & DDS_HEADER_FLAGS_VOLUME))
 			{

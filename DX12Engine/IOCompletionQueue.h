@@ -3,12 +3,19 @@
 #undef max
 #undef min
 #include <limits>
+class BaseExecutor;
+class SharedResources;
 
 struct IOCompletionPacket
 {
 	DWORD numberOfBytesTransfered;
 	ULONG_PTR completionKey;
 	OVERLAPPED* overlapped;
+
+	bool operator()(BaseExecutor* executor, SharedResources& sharedResources)
+	{
+		return ((bool(*)(BaseExecutor* executor, SharedResources& sharedResources, DWORD numberOfBytes, LPOVERLAPPED overlapped))(completionKey))(executor, sharedResources, numberOfBytesTransfered, overlapped);
+	}
 };
 
 class IOCompletionQueue
@@ -28,9 +35,9 @@ public:
 	 * A file can only be associated to one IOCompletionQueue and the association lasts until the file handle is closed.
 	 * completionKey is in every IO completion packet from the associated file
 	 */
-	bool associateFile(HANDLE file, ULONG_PTR completionKey = 0u)
+	bool associateFile(HANDLE file, ULONG_PTR completionKey)
 	{
-		return CreateIoCompletionPort(file, queueHandle, 0u, 0u) != nullptr;
+		return CreateIoCompletionPort(file, queueHandle, completionKey, 0u) != nullptr;
 	}
 
 	/*

@@ -39,7 +39,7 @@ bool AsynchronousFileManager::readFile(BaseExecutor* executor, SharedResources& 
 		}
 		else
 		{
-			allocation = (uint8_t*)VirtualAlloc(nullptr, memoryNeeded, MEM_RESERVE, PAGE_READWRITE);
+			allocation = (uint8_t*)VirtualAlloc(nullptr, memoryNeeded, MEM_COMMIT, PAGE_READWRITE);
 			auto data = allocation + (start & ~(sectorSize - 1u));
 			files.insert(std::pair<const Key, FileData>(key, FileData{ allocation, data, memoryNeeded }));
 		}
@@ -73,7 +73,8 @@ bool AsynchronousFileManager::readFile(BaseExecutor* executor, SharedResources& 
 	request->sizeToRead = memoryNeeded;
 	request->accumulatedSize = 0u;
 	request->completionEvent = completionEvent;
-	request->hEvent = requester;
+	request->requester = requester;
+	request->hEvent = nullptr;
 	request->memoryStart = memoryStart;
 	request->file = file;
 	request->Offset = memoryStart & (std::numeric_limits<DWORD>::max() - 1u);
@@ -83,6 +84,9 @@ bool AsynchronousFileManager::readFile(BaseExecutor* executor, SharedResources& 
 	BOOL finished = ReadFile(file.native_handle(), request->buffer, (DWORD)request->sizeToRead, &bytesRead, request);
 	if (finished == FALSE && GetLastError() != ERROR_IO_PENDING)
 	{
+#ifndef ndebug
+		auto lastError = GetLastError();
+#endif
 		return false;
 	}
 	return true;
@@ -115,7 +119,7 @@ void AsynchronousFileManager::discard(const wchar_t* name, size_t start, size_t 
 		return GetLastError() != ERROR_IO_PENDING;
 	}
 	auto data = request->buffer + (request->start & ~(fileManager.sectorSize - 1u));
-	request->completionEvent(request->hEvent, executor, sharedResources, data, request->file);
+	request->completionEvent(request->requester, executor, sharedResources, data, request->file);
 	{
 		std::lock_guard<decltype(fileManager.mutex)> lock(fileManager.mutex);
 		fileManager.requestAllocator.deallocate(request);

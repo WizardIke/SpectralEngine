@@ -255,23 +255,6 @@ void VirtualTextureManager::createTextureWithResitencyInfo(D3D12GraphicsEngine& 
 		resitencyInfo.lowestPinnedMip = vramRequest.mipLevels - packedMipInfo.NumPackedMips;
 		pageProvider.pageAllocator.addPackedPages(resitencyInfo, packedMipInfo.NumTilesForPackedMips, commandQueue, graphicsEngine.graphicsDevice);
 	}
-
-	{
-		auto width = vramRequest.textureInfo.width;
-		auto height = vramRequest.textureInfo.height;
-		size_t totalSize = 0u;
-		for (auto i = 0u; i < resitencyInfo.lowestPinnedMip; ++i)
-		{
-			size_t numBytes, rowBytes, numRows;
-			DDSFileLoader::surfaceInfo(width, height, vramRequest.textureInfo.format, numBytes, rowBytes, numRows);
-			totalSize += numBytes;
-			width >>= 1;
-			if (width == 0u) width = 1u;
-			height >>= 1;
-			if (height == 0u) height = 1u;
-		}
-		vramRequest.file.setPosition(totalSize, File::Position::current);
-	}
 	
 	vramRequest.mostDetailedMip = resitencyInfo.lowestPinnedMip;
 	vramRequest.currentMipLevel = resitencyInfo.lowestPinnedMip;

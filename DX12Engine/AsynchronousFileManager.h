@@ -52,6 +52,7 @@ public:
 		size_t accumulatedSize;
 		size_t memoryStart;
 		File file;
+		void* requester;
 		void(*completionEvent)(void* requester, BaseExecutor* executor, SharedResources& sharedResources, const uint8_t* data, File file);
 	};
 private:

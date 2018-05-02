@@ -9,7 +9,7 @@ static void loadingResourceCallback(void* data, BaseExecutor* exe, SharedResourc
 }
 
 Assets::Assets() :
-	SharedResources(false, false, false, std::thread::hardware_concurrency(), SharedResources::windowCallback<Assets>),
+	SharedResources(false, false, true, std::thread::hardware_concurrency(), SharedResources::windowCallback<Assets>),
 	mainExecutor(*this),
 	inputHandler(window, { PlayerPosition::mouseMoved, &playerPosition }),
 	rootSignatures(graphicsEngine.graphicsDevice),
@@ -69,7 +69,7 @@ backgroundExecutors(DynamicArray<BackgroundExecutor>::Size{ maxBackgroundThreads
 	{
 		new(&element) BackgroundExecutor(*this);
 	}),
-	primaryExecutors(DynamicArray<PrimaryExecutor>::Size{ maxBackgroundThreads }, [this](size_t i, PrimaryExecutor& element)
+	primaryExecutors(DynamicArray<PrimaryExecutor>::Size{ maxPrimaryThreads }, [this](size_t i, PrimaryExecutor& element)
 	{
 		new(&element) PrimaryExecutor(*this);
 	})

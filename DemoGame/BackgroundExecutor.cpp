@@ -43,7 +43,13 @@ void BackgroundExecutor::update2(std::unique_lock<std::mutex>&& lock, SharedReso
 	//DBOUT(L"thread 1: " << sharedResources.mainCamera.position().x << L"\n");
 
 	Job job;
+	IOCompletionPacket ioJob;
+	bool firstJobType = true;
 	bool found = sharedResources.backgroundQueue.pop(job);
+	if (!found) {
+		found = sharedResources.ioCompletionQueue.removeIOCompletionPacket(ioJob);
+		firstJobType = false;
+	}
 	if (found)
 	{
 		--(sharedResources.numPrimaryJobExeThreads);
@@ -52,7 +58,15 @@ void BackgroundExecutor::update2(std::unique_lock<std::mutex>&& lock, SharedReso
 		gpuCompletionEventManager.update(this, sharedResources);
 		streamingManager.update(this, sharedResources);
 
-		Executor::runBackgroundJobs(job, sharedResources);
+		if (firstJobType)
+		{
+			job(this, sharedResources);
+		}
+		else
+		{
+			ioJob(this, sharedResources);
+		}
+		Executor::runBackgroundJobs(sharedResources);
 		getIntoCorrectStateAfterDoingBackgroundJob(sharedResources);
 	}
 	else

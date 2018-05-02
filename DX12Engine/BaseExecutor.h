@@ -26,7 +26,7 @@ protected:
 
 
 	void doPrimaryJob(SharedResources& sharedResources);
-	void runBackgroundJobs(Job job, SharedResources& sharedResources);
+	void runBackgroundJobs(SharedResources& sharedResources);
 
 #ifndef NDEBUG
 	std::string type;
