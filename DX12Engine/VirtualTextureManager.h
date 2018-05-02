@@ -150,6 +150,8 @@ private:
 				if (subresourceHeight == 0u) subresourceHeight = 1u;
 				subresourceDepth >>= 1u;
 				if (subresourceDepth == 0u) subresourceDepth = 1u;
+
+				++currentMip;
 			}
 
 			size_t numBytes, numRows, rowBytes;

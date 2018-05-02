@@ -13,7 +13,7 @@ void MeshManager::fillUploadRequest(RamToVramUploadRequest& uploadRequest, uint3
 	if (indexCount != 0u) indicesSize = sizeof(uint32_t) * indexCount;
 	else indicesSize = sizeof(uint32_t) * vertexCount;
 
-	uploadRequest.meshInfo.verticesSize = vertexCount + vertexStride;
+	uploadRequest.meshInfo.verticesSize = vertexCount * vertexStride;
 	uploadRequest.meshInfo.indicesSize = indicesSize;
 	uploadRequest.meshInfo.sizeInBytes = uploadRequest.meshInfo.verticesSize + indicesSize;
 	uploadRequest.arraySize = 1u;

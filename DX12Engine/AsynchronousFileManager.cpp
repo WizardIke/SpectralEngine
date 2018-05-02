@@ -40,7 +40,7 @@ bool AsynchronousFileManager::readFile(BaseExecutor* executor, SharedResources& 
 		else
 		{
 			allocation = (uint8_t*)VirtualAlloc(nullptr, memoryNeeded, MEM_COMMIT, PAGE_READWRITE);
-			auto data = allocation + (start & ~(sectorSize - 1u));
+			auto data = allocation + start - memoryStart;
 			files.insert(std::pair<const Key, FileData>(key, FileData{ allocation, data, memoryNeeded }));
 		}
 	}
@@ -50,7 +50,7 @@ bool AsynchronousFileManager::readFile(BaseExecutor* executor, SharedResources& 
 		auto result = ReclaimVirtualMemory(allocation, memoryNeeded);
 		if (result == ERROR_SUCCESS)
 		{
-			auto data = allocation + (start & ~(sectorSize - 1u));
+			auto data = allocation + start - memoryStart;
 			completionEvent(requester, executor, sharedResources, data, file);
 			return true;
 		}
@@ -105,20 +105,23 @@ void AsynchronousFileManager::discard(const wchar_t* name, size_t start, size_t 
 	AsynchronousFileManager& fileManager = sharedResources.asynchronousFileManager;
 	IORequest* request = reinterpret_cast<IORequest*>(overlapped);
 	request->accumulatedSize += numberOfBytes;
-	if (request->accumulatedSize != request->sizeToRead)
+	if (((request->accumulatedSize & (fileManager.sectorSize - 1u)) == 0) && request->accumulatedSize != request->sizeToRead)
 	{
 		DWORD bytesRead = 0u;
 		request->memoryStart = request->memoryStart + request->accumulatedSize;
 		request->Offset = request->memoryStart & (std::numeric_limits<DWORD>::max() - 1u);
 		request->OffsetHigh = (DWORD)((request->memoryStart & ~(size_t)(std::numeric_limits<DWORD>::max() - 1u)) >> 32u);
 		BOOL finished = ReadFile(request->file.native_handle(), request->buffer + request->accumulatedSize, (DWORD)(request->sizeToRead - request->accumulatedSize), &bytesRead, request);
-		if (finished == TRUE)
+		if (finished == FALSE && GetLastError() != ERROR_IO_PENDING)
 		{
-			return processIOCompletion(executor, sharedResources, bytesRead, request);
+#ifndef ndebug
+			auto lastError = GetLastError();
+#endif
+			return false;
 		}
-		return GetLastError() != ERROR_IO_PENDING;
+		return true;
 	}
-	auto data = request->buffer + (request->start & ~(fileManager.sectorSize - 1u));
+	auto data = request->buffer + (request->start & (fileManager.sectorSize - 1u));
 	request->completionEvent(request->requester, executor, sharedResources, data, request->file);
 	{
 		std::lock_guard<decltype(fileManager.mutex)> lock(fileManager.mutex);

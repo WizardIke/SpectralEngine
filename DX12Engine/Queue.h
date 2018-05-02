@@ -1,50 +1,65 @@
 #pragma once
 #include <mutex>
+#include <memory>
 
-template<typename value_type>
-class Queue
+template<typename value_type, class Allocator = std::allocator<value_type>>
+class Queue : private Allocator
 {
 	std::mutex criticalSection;
 
 	value_type* buffer;
-	unsigned int capacity;
+	value_type* capacityEnd;
 
-	unsigned int readPos = 0u;
-	unsigned int writePos = 0u;
+	value_type* readPos;
+	value_type* writePos;
 	
 	void resizeBuffer()
 	{
-		value_type* tempBuffer = new value_type[static_cast<size_t>(this->capacity * 1.2f)];
+		const size_t capacity = capacityEnd - buffer;
+		const size_t newCapacity = capacity + (capacity >> 1u);
+		value_type* tempBuffer = this->allocate(newCapacity);
 
-		unsigned int oldReadPos = this->readPos;
-		this->readPos = 0;
-		this->writePos = this->capacity;
-		for (unsigned int i = 0; i < this->capacity; ++i) {
-			tempBuffer[i] = this->buffer[oldReadPos];
+		value_type* oldReadPos = readPos;
+		value_type* const tempEnd = tempBuffer + capacity;
+		for (value_type* i = tempBuffer; i != tempEnd; ++i)
+		{
+			*i = std::move(*oldReadPos);
+			oldReadPos->~value_type();
 			++oldReadPos;
-			if (oldReadPos == this->capacity) oldReadPos = 0u;
+			if (oldReadPos == capacityEnd) oldReadPos = buffer;
 		}
-		delete[] this->buffer;
-		this->buffer = tempBuffer;
-		this->capacity = static_cast<unsigned int>(this->capacity * 1.2f);
+		delete[] buffer;
+		buffer = tempBuffer;
+		readPos = tempBuffer;
+		writePos = tempEnd;
+		capacityEnd = tempBuffer + newCapacity;
 	}
 public:
-	Queue(unsigned int initualCapacity) : capacity(initualCapacity)
+	Queue(size_t initualCapacity)
 	{
-		buffer = new value_type[initualCapacity];
+		if (initualCapacity < 2u) initualCapacity = 2u;
+		buffer = this->allocate(initualCapacity);
+		capacityEnd = buffer + initualCapacity;
+		readPos = buffer;
+		writePos = buffer;
 	}
 	~Queue()
 	{
-		delete buffer;
+		for (value_type* i = readPos; i != writePos; ++i)
+		{
+			i->~value_type();
+		}
+		deallocate(buffer, capacityEnd - buffer);
 	}
 
 	void push(value_type&& job)
 	{
 		std::lock_guard<decltype(criticalSection)> lock(criticalSection);
-		buffer[writePos] = job;
+		new(writePos) value_type(std::move(job));
 		++writePos;
-		if (writePos == capacity) writePos = 0u;
-		if (writePos == readPos) {
+		if (writePos == capacityEnd) writePos = buffer;
+		if (writePos == readPos) 
+		{
 			resizeBuffer();
 		}
 	}
@@ -56,9 +71,10 @@ public:
 		{
 			return false; //empty queue
 		}
-		element = buffer[readPos];
+		element = std::move(*readPos);
+		readPos->~value_type();
 		++readPos;
-		if (readPos == capacity) readPos = 0u;
+		if (readPos == capacityEnd) readPos = buffer;
 		return true;
 	}
 };

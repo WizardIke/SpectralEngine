@@ -200,7 +200,7 @@ ID3D12Resource* TextureManager::createOrLookupTexture(const HalfFinishedUploadRe
 	return texture;
 }
 
-void TextureManager::textureUseSubresourceHelper(BaseExecutor* executor, SharedResources& sharedResources,  HalfFinishedUploadRequest& useSubresourceRequest)
+void TextureManager::textureUseSubresourceHelper(BaseExecutor* executor, SharedResources& sharedResources, HalfFinishedUploadRequest& useSubresourceRequest)
 {
 	auto& uploadRequest = *useSubresourceRequest.uploadRequest;
 	const wchar_t* filename = reinterpret_cast<wchar_t*>(uploadRequest.requester);
@@ -222,13 +222,15 @@ void TextureManager::textureUseSubresourceHelper(BaseExecutor* executor, SharedR
 		if (subresourceHeight == 0u) subresourceHeight = 1u;
 		subresourceDepth >>= 1u;
 		if (subresourceDepth == 0u) subresourceDepth = 1u;
+
+		++currentMip;
 	}
 	
 	size_t numBytes, numRows, rowBytes;
 	DDSFileLoader::surfaceInfo(subresouceWidth, subresourceHeight, uploadRequest.textureInfo.format, numBytes, rowBytes, numRows);
 	size_t subresourceSize = numBytes * subresourceDepth;
 
-	sharedResources.asynchronousFileManager.readFile(executor, sharedResources, filename, fileOffset, fileOffset + subresourceSize, uploadRequest.file, &useSubresourceRequest,
+	bool result = sharedResources.asynchronousFileManager.readFile(executor, sharedResources, filename, fileOffset, fileOffset + subresourceSize, uploadRequest.file, &useSubresourceRequest,
 		[](void* requester, BaseExecutor* executor, SharedResources& sharedResources, const uint8_t* buffer, File file)
 	{
 		HalfFinishedUploadRequest& useSubresourceRequest = *reinterpret_cast<HalfFinishedUploadRequest*>(requester);
@@ -243,6 +245,12 @@ void TextureManager::textureUseSubresourceHelper(BaseExecutor* executor, SharedR
 
 		streamingManager.copyStarted(executor, useSubresourceRequest);
 	});
+#ifndef ndebug
+	if (!result)
+	{
+		throw false;
+	}
+#endif
 }
 
 void TextureManager::textureUseSubresource(BaseExecutor* executor, SharedResources& sharedResources, HalfFinishedUploadRequest& useSubresourceRequest)

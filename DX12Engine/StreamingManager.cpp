@@ -107,7 +107,7 @@ void StreamingManager::addUploadToBuffer(BaseExecutor* const executor, SharedRes
 				processingRequest.copyFenceValue.store(std::numeric_limits<uint64_t>::max() - 2u, std::memory_order::memory_order_relaxed); //copy not finished
 				processingRequest.numberOfBytesToFree = requiredWriteIndex - startWritePos;
 				processingRequest.requester = uploadRequest.requester;
-				processingRequest.resourceUploadedPointer = uploadRequest.currentArrayIndex == uploadRequest.arraySize ? uploadRequest.resourceUploadedPointer : nullptr;
+				processingRequest.resourceUploadedPointer = uploadRequest.currentArrayIndex == (uploadRequest.arraySize - 1u) && uploadRequest.currentMipLevel == (uploadRequest.mipLevels - 1u) ? uploadRequest.resourceUploadedPointer : nullptr;
 				processingRequest.uploadBufferCpuAddressOfCurrentPos = reinterpret_cast<void*>(uploadBufferCpuAddress + newUploadBufferWritePos);
 				processingRequest.uploadResourceOffset = newUploadBufferWritePos;
 				processingRequest.uploadRequest = &uploadRequest;
@@ -177,9 +177,8 @@ void StreamingManager::addUploadToBuffer(BaseExecutor* const executor, SharedRes
 
 void StreamingManager::update(BaseExecutor* const executor, SharedResources& sharedResources)
 {
-	if (finishedUpdating.load(std::memory_order::memory_order_acquire))
+	if (finishedUpdating.exchange(false, std::memory_order::memory_order_acquire))
 	{
-		finishedUpdating.store(false, std::memory_order::memory_order_relaxed);
 		sharedResources.backgroundQueue.push(Job(this, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources)
 		{
 			reinterpret_cast<StreamingManager*>(requester)->backgroundUpdate(executor, sharedResources);
@@ -200,6 +199,7 @@ void StreamingManager::backgroundUpdate(BaseExecutor* const executor, SharedReso
 		auto requestCopyFenceValue = processingRequest.copyFenceValue.load(std::memory_order::memory_order_acquire);
 		if (requestCopyFenceValue + 2u > sharedResources.executors[executor->index]->streamingManager.fenceValue()) break;
 		readPos += processingRequest.numberOfBytesToFree; //free CPU memory
+		processingRequest.subresourceUploaded(executor, sharedResources);
 		processingRequestBuffer.pop_front();
 	}
 	uploadBufferReadPos = readPos;
