@@ -5,7 +5,6 @@ static void loadingResourceCallback(void* data, BaseExecutor* exe, SharedResourc
 {
 	auto& assets = reinterpret_cast<Assets&>(sharedResources);
 	assets.arial.setDiffuseTexture(textureID, assets.constantBuffersCpuAddress, assets.sharedConstantBuffer->GetGPUVirtualAddress());
-	assets.start(exe);
 }
 
 Assets::Assets() :

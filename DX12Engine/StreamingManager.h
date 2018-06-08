@@ -42,7 +42,7 @@ public:
 	class ThreadLocal
 	{
 		D3D12FencePointer copyFence;
-		uint64_t mFenceValue;
+		std::atomic<uint64_t> mFenceValue;
 		Array<D3D12CommandAllocator, 2u> commandAllocators;
 		D3D12GraphicsCommandList commandLists[2u];
 		ID3D12GraphicsCommandList* currentCommandList; //Need to handle swapping currentCommandList in a thread safe manner
@@ -51,6 +51,6 @@ public:
 		ID3D12GraphicsCommandList * copyCommandList() { return currentCommandList; }
 		void update(BaseExecutor* const executor, SharedResources& sharedResources);
 		void copyStarted(BaseExecutor* const executor, HalfFinishedUploadRequest& processingRequest);
-		uint64_t fenceValue() { return mFenceValue; }
+		uint64_t fenceValue() { return mFenceValue.load(std::memory_order::memory_order_relaxed); }
 	};
 };

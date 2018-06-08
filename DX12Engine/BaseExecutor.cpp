@@ -19,6 +19,8 @@ BaseExecutor::BaseExecutor(SharedResources& sharedResources) :
 	{
 		sharedResources.threadBarrier.waiting_count() = 0u;
 	}
+
+	streamingManager.update(this, sharedResources);
 }
 
 BaseExecutor::~BaseExecutor() {}

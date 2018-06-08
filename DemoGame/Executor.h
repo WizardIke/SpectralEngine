@@ -6,6 +6,7 @@ class Assets;
 
 class Executor : public BaseExecutor
 {
+	static void start(BaseExecutor* executor, SharedResources& sr);
 protected:
 	void update1(std::unique_lock<std::mutex>&& lock, SharedResources& sharedResources);
 	virtual void update2(std::unique_lock<std::mutex>&& lock, SharedResources& sharedResources) override;

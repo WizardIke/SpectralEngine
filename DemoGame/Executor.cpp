@@ -8,10 +8,16 @@ void Executor::update1NextPhaseJob(BaseExecutor* exe, SharedResources& sharedRes
 	executor->update1(std::move(lock), sharedResources);
 }
 
+void Executor::start(BaseExecutor* executor, SharedResources& sr)
+{
+	auto& sharedResources = reinterpret_cast<Assets&>(sr);
+	sharedResources.start(executor);
+}
+
 void Executor::initialize(BaseExecutor* exe, SharedResources& sharedResources, std::unique_lock<std::mutex>&& lock)
 {
 	auto executor = reinterpret_cast<Executor*>(exe);
-	exe->initialize<Executor::update1NextPhaseJob>(std::move(lock), sharedResources);
+	exe->initialize<Executor::update1NextPhaseJob, Executor::start>(std::move(lock), sharedResources);
 }
 
 void Executor::update1(std::unique_lock<std::mutex>&& lock, SharedResources& sr)

@@ -150,20 +150,5 @@ void UserInterface::restart(Executor* const executor)
 
 void UserInterface::start(Executor* const executor, SharedResources& sharedResources)
 {
-	sharedResources.threadBarrier.lock();
-	if (sharedResources.nextPhaseJob == Executor::update1NextPhaseJob)
-	{
-		sharedResources.threadBarrier.unlock();
-		restart(executor);
-	}
-	else
-	{
-		sharedResources.threadBarrier.unlock();
-		executor->renderJobQueue().push(Job(this, [](void*const requester, BaseExecutor*const executor1, SharedResources& sharedResources)
-		{
-			const auto executor = reinterpret_cast<Executor*>(executor1);
-			const auto ui = reinterpret_cast<UserInterface*>(requester);
-			ui->restart(executor);
-		}));
-	}
+	restart(executor);
 }

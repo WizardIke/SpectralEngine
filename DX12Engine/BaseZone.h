@@ -57,9 +57,9 @@ public:
 		void* oldData;
 	};
 	
-	unsigned int currentState; //the state that is currenly getting used
+	unsigned int currentState = undefinedState; //the state that is currenly getting used
 	unsigned int lastUsedState;
-	unsigned int nextState; //the state that we want to be in
+	unsigned int nextState = undefinedState; //the state that we want to be in
 	union //state waiting to be used or deleted
 	{
 		unsigned int newState;

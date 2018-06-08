@@ -4,7 +4,6 @@
 class Frustum
 {
 	DirectX::XMVECTOR planes[6];
-	//float planes[6][4];
 public:
 	Frustum() {}
 	~Frustum() {}

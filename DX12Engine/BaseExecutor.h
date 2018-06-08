@@ -52,7 +52,7 @@ public:
 
 	static void quit(BaseExecutor* exe, SharedResources& sharedResources, std::unique_lock<std::mutex>&& lock);
 
-	template<void(*update1NextPhaseJob)(BaseExecutor*, SharedResources&, std::unique_lock<std::mutex>&& lock)>
+	template<void(*update1NextPhaseJob)(BaseExecutor*, SharedResources&, std::unique_lock<std::mutex>&& lock), void(*start)(BaseExecutor* executor, SharedResources& sr)>
 	void initialize(std::unique_lock<std::mutex>&& lock, SharedResources& sharedResources)
 	{
 		if (sharedResources.streamingManager.hasPendingUploads())
@@ -70,17 +70,16 @@ public:
 				sharedResources.threadBarrier.wait(lock, [&gen = sharedResources.threadBarrier.generation(), oldGen = sharedResources.threadBarrier.generation()]() {return oldGen != gen; });
 				lock.unlock();
 			}
-
-			streamingManager.update(this, sharedResources);
 		}
 		else
 		{
 			sharedResources.threadBarrier.waiting_count() += sharedResources.maxThreads + 1u;
 			if (sharedResources.threadBarrier.waiting_count() % sharedResources.maxThreads == 0u)
 			{
-				if (sharedResources.threadBarrier.waiting_count() / sharedResources.maxThreads == sharedResources.maxThreads + 1u)
+				if ((sharedResources.threadBarrier.waiting_count() / sharedResources.maxThreads) == sharedResources.maxThreads + 1u)
 				{
 					sharedResources.nextPhaseJob = update1NextPhaseJob;
+					start(this, sharedResources);
 
 					sharedResources.currentWorkStealingQueues = &sharedResources.workStealingQueues[0u];
 					currentWorkStealingDeque = &workStealDeques[0u];
@@ -105,5 +104,7 @@ public:
 				lock.unlock();
 			}
 		}
+
+		streamingManager.update(this, sharedResources);
 	}
 };

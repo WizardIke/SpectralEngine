@@ -2,7 +2,7 @@
 
 #include <atomic>
 #include <utility>
-#include "Array.h"
+#include "../DX12Engine/Array.h"
 
 template<class ElementType, unsigned int capacity>
 class LocklessQueue

@@ -263,15 +263,16 @@ StreamingManager::ThreadLocal::ThreadLocal(ID3D12Device* const graphicsDevice) :
 
 void StreamingManager::ThreadLocal::update(BaseExecutor* const executor, SharedResources& sharedResources)
 {
-	if (copyFence->GetCompletedValue() == mFenceValue)
+	auto oldFenceValue = mFenceValue.load(std::memory_order::memory_order_relaxed);
+	if (copyFence->GetCompletedValue() == oldFenceValue)
 	{
 		auto& manager = sharedResources.streamingManager;
 		auto hr = currentCommandList->Close();
 		assert(hr == S_OK);
 		ID3D12CommandList* lists = currentCommandList;
 		manager.copyCommandQueue->ExecuteCommandLists(1u, &lists);
-		++mFenceValue;
-		hr = manager.copyCommandQueue->Signal(copyFence, mFenceValue);
+		mFenceValue.store(oldFenceValue + 1u, std::memory_order::memory_order_relaxed);
+		hr = manager.copyCommandQueue->Signal(copyFence, oldFenceValue + 1u);
 		assert(hr == S_OK);
 
 		ID3D12CommandAllocator* currentCommandAllocator;
