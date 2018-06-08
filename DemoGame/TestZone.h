@@ -27,10 +27,9 @@ class TestZoneFunctions
 		static void componentUploaded(void* requester, BaseExecutor* executor, SharedResources& sharedResources)
 		{
 			const auto zone = reinterpret_cast<BaseZone* const>(requester);
-			BaseZone::componentUploaded<BaseZone::high, BaseZone::high>(zone, executor, sharedResources, ((HDResources*)zone->nextResources)->numComponentsLoaded, numComponents);
+			zone->componentUploaded(executor, numComponents);
 		}
 
-		std::atomic<unsigned char> numComponentsLoaded = 0u;
 		D3D12Resource perObjectConstantBuffers;
 		uint8_t* perObjectConstantBuffersCpuAddress;
 	public:
@@ -88,7 +87,7 @@ class TestZoneFunctions
 			{
 				auto& sharedResources = reinterpret_cast<Assets&>(sr);
 				const auto zone = reinterpret_cast<BaseZone*>(requester);
-				auto resources = ((HDResources*)zone->nextResources);
+				auto resources = ((HDResources*)zone->newData);
 				const auto cpuStartAddress = resources->perObjectConstantBuffersCpuAddress;
 				const auto gpuStartAddress = resources->perObjectConstantBuffers->GetGPUVirtualAddress();
 				resources->highResPlaneModel.setDiffuseTexture(texture.descriptorIndex, cpuStartAddress, gpuStartAddress);
@@ -109,7 +108,7 @@ class TestZoneFunctions
 			MeshManager::loadMeshWithPositionTextureNormal(MeshNames::HighResMesh1, zone, executor, sharedResources, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources, Mesh* mesh)
 			{
 				const auto zone = reinterpret_cast<BaseZone* const>(requester);
-				const auto resources = ((HDResources*)zone->nextResources);
+				const auto resources = ((HDResources*)zone->newData);
 				resources->highResPlaneModel.mesh = mesh;
 				componentUploaded(requester, executor, sharedResources);
 			});
@@ -182,8 +181,8 @@ class TestZoneFunctions
 		{
 			const auto executor = reinterpret_cast<Executor* const>(exe);
 			const auto zone = reinterpret_cast<BaseZone*const>(zone1);
-			zone->nextResources = malloc(sizeof(HDResources));
-			new(zone->nextResources) HDResources(executor, sharedResources, zone);
+			zone->newData = malloc(sizeof(HDResources));
+			new(zone->newData) HDResources(executor, sharedResources, zone);
 			componentUploaded(zone, executor, sharedResources);
 		}
 
@@ -199,104 +198,66 @@ class TestZoneFunctions
 		}
 	};
 
-	static void update1HighDetail(BaseZone* const zone, BaseExecutor* const executor)
+	static void update1(void* requester, BaseExecutor* executor, SharedResources& sharedResources)
 	{
-		executor->updateJobQueue().push(Job(zone, [](void*const zone1, BaseExecutor*const executor, SharedResources& sharedResources)
-		{
-			const auto zone = reinterpret_cast<BaseZone* const>(zone1);
-			reinterpret_cast<HDResources*>(zone->currentResources)->update1(executor, sharedResources);
-			executor->renderJobQueue().push(Job(zone, [](void*const zone1, BaseExecutor*const executor, SharedResources& sharedResources)
-			{
-				const auto zone = reinterpret_cast<BaseZone* const>(zone1);
-				reinterpret_cast<HDResources*>(zone->currentResources)->update2(executor, sharedResources);
-				restart(zone, executor, sharedResources);
-			}));
-		}));
-	}
+		auto zone = reinterpret_cast<BaseZone*>(requester);
+		zone->lastUsedData = zone->currentData;
+		zone->lastUsedState = zone->currentState;
 
-	static void restart(BaseZone* const zone, BaseExecutor* const executor, SharedResources& sharedResources)
-	{
-		auto oldLevelOfDetail = zone->levelOfDetail.load(std::memory_order::memory_order_acquire);
-		switch (oldLevelOfDetail)
+		switch (zone->currentState)
 		{
-		case BaseZone::high:
-			update1HighDetail(zone, executor);
-			break;
-		case BaseZone::transitionHighToMedium:
-		{
-			zone->transition<BaseZone::high, BaseZone::medium>(executor, sharedResources);
-			break;
-		}
-		case BaseZone::transitionHighToLow:
-			zone->transition<BaseZone::high, BaseZone::low>(executor, sharedResources);
-			break;
-		case BaseZone::transitionHighToUnloaded:
-			zone->transition<BaseZone::high, BaseZone::unloaded>(executor, sharedResources);
+		case 0u:
+			reinterpret_cast<HDResources*>(zone->currentData)->update1(executor, sharedResources);
+			executor->renderJobQueue().push(Job(zone, update2));
 			break;
 		}
 	}
 
-	static void update1(BaseZone* zone, BaseExecutor* const executor, SharedResources& sharedResources)
+	static void update2(void* requester, BaseExecutor* executor, SharedResources& sharedResources)
 	{
-		restart(zone, executor, sharedResources);
-	}
-	static void update2(BaseZone* zone, BaseExecutor* const executor)
-	{
-		executor->renderJobQueue().push(Job(zone, [](void*const zone1, BaseExecutor*const executor, SharedResources& sharedResources)
+		auto zone = reinterpret_cast<BaseZone*>(requester);
+
+		switch (zone->lastUsedState)
 		{
-			const auto zone = reinterpret_cast<BaseZone* const>(zone1);
-			restart(zone, executor, sharedResources);
-		}));
+		case 0u:
+			reinterpret_cast<HDResources*>(zone->lastUsedData)->update2(executor, sharedResources);
+			break;
+		}
+
+		executor->updateJobQueue().push(Job(zone, update1));
 	}
 public:
-	static void loadHighDetailJobs(BaseZone* zone, BaseExecutor* const executor, SharedResources& sharedResources)
+	static void createNewStateData(BaseZone* zone, BaseExecutor* executor, SharedResources& sharedResources)
 	{
-		sharedResources.backgroundQueue.push(Job(zone, &HDResources::create));
-	}
-	static void loadMediumDetailJobs(BaseZone* zone, BaseExecutor* const executor, SharedResources& sharedResources)
-	{
-		zone->lastComponentLoaded<BaseZone::medium, BaseZone::high>(executor, sharedResources);
-	}
-	static void loadLowDetailJobs(BaseZone* zone, BaseExecutor* const executor, SharedResources& sharedResources)
-	{
-		zone->lastComponentLoaded<BaseZone::low, BaseZone::high>(executor, sharedResources);
-	}
-
-	static void unloadHighDetailJobs(BaseZone* zone, BaseExecutor* const executor, SharedResources& sharedResources)
-	{
-		sharedResources.backgroundQueue.push(Job(zone, [](void*const zone1, BaseExecutor*const executor, SharedResources& sharedResources)
+		switch (zone->newState)
 		{
-			const auto zone = reinterpret_cast<BaseZone*const>(zone1);
-			const auto resource = reinterpret_cast<HDResources*>(zone->nextResources);
-			resource->destruct(executor, sharedResources);
-			resource->~HDResources();
-			free(zone->nextResources);
-			zone->nextResources = nullptr;
-			zone->lastComponentUnloaded<BaseZone::high>(executor, sharedResources);
-		}));
-	}
-	static void unloadMediumDetailJobs(BaseZone* zone, BaseExecutor* const executor, SharedResources& sharedResources)
-	{
-		zone->lastComponentUnloaded<BaseZone::high>(executor, sharedResources);
-	}
-	static void unloadLowDetailJobs(BaseZone* zone, BaseExecutor* const executor, SharedResources& sharedResources)
-	{
-		zone->lastComponentUnloaded<BaseZone::high>(executor, sharedResources);
+		case 0u:
+			sharedResources.backgroundQueue.push(Job(zone, &HDResources::create));
+			break;
+		}
 	}
 
+	static void deleteOldStateData(BaseZone* zone, BaseExecutor* executor, SharedResources& sharedResources)
+	{
+		switch (zone->oldState)
+		{
+		case 0u:
+			sharedResources.backgroundQueue.push(Job(zone, [](void*const highDetailResource, BaseExecutor*const executor, SharedResources& sharedResources)
+			{
+				const auto zone = reinterpret_cast<BaseZone*const>(highDetailResource);
+				auto resource = reinterpret_cast<HDResources*>(zone->oldData);
+				resource->destruct(executor, sharedResources);
+				resource->~HDResources();
+				free(resource);
+				zone->finishedDeletingOldState(executor);
+			}));
+			break;
+		}
+	}
+	
 	static void start(BaseZone* zone, BaseExecutor* const executor, SharedResources& sharedResources)
 	{
-		sharedResources.threadBarrier.lock();
-		if (sharedResources.nextPhaseJob == Executor::update1NextPhaseJob)
-		{
-			sharedResources.threadBarrier.unlock();
-			update2(zone, executor);
-		}
-		else
-		{
-			sharedResources.threadBarrier.unlock();
-			update1(zone, executor, sharedResources);
-		}
+		executor->updateJobQueue().push(Job(zone, update1));
 	}
 
 	static void loadConnectedAreas(BaseZone* zone, BaseExecutor* const executor, SharedResources& sharedResources, float distanceSquared, Area::VisitedNode* loadedAreas) {}
@@ -306,5 +267,5 @@ public:
 template<unsigned int x, unsigned int z>
 static BaseZone TestZone()
 {
-	return BaseZone::create<TestZoneFunctions<x, z>>();
+	return BaseZone::create<TestZoneFunctions<x, z>>(1u);
 }

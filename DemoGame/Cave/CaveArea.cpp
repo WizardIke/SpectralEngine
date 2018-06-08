@@ -60,17 +60,17 @@ namespace Cave
 
 				if (distanceSquared < highDetailRadiusSquared)
 				{
-					zone.loadHighDetail(executor, sharedResources);
+					zone.setState(0u, executor, sharedResources);
 					zone.loadConnectedAreas(executor, sharedResources, std::sqrt(distanceSquared) + distance, &thisArea);
 				}
 				else if (distanceSquared < mediumDetailRadiusSquared)
 				{
-					zone.loadMediumDetail(executor, sharedResources);
+					zone.setState(1u, executor, sharedResources);
 					zone.loadConnectedAreas(executor, sharedResources, std::sqrt(distanceSquared) + distance, &thisArea);
 				}
 				else
 				{
-					zone.unloadAll(executor, sharedResources);
+					zone.setState(2u, executor, sharedResources);
 				}
 			}
 		}

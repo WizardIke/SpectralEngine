@@ -2,81 +2,86 @@
 #include "SharedResources.h"
 #include "BaseExecutor.h"
 
-BaseZone::~BaseZone() {}
-
-void BaseZone::loadHighDetail(BaseExecutor* const executor, SharedResources& sharedResources)
+void BaseZone::componentUploaded(BaseExecutor* const executor, unsigned int numComponents)
 {
-	loadingMutex.lock();
-	nextLevelOfDetail = high;
-	auto oldLod = levelOfDetail.load(std::memory_order::memory_order_acquire);
-	if (oldLod != high && !transitioning)
+	//uses memory_order_acq_rel because it needs to see all loaded parts if it's the last load job and release it's load job otherwise
+	auto oldNumComponentsLoaded = this->numComponentsLoaded.fetch_add(1u, std::memory_order::memory_order_acq_rel);
+	if (oldNumComponentsLoaded == numComponents - 1u)
 	{
-		transitioning = true;
-		loadingMutex.unlock();
-		vTable->loadHighDetail(this, executor, sharedResources);
-		return;
+		this->numComponentsLoaded.store(0u, std::memory_order::memory_order_relaxed);
+		finishedCreatingNewState(executor);
 	}
-	loadingMutex.unlock();
 }
 
-void BaseZone::loadMediumDetail(BaseExecutor* const executor, SharedResources& sharedResources)
+void BaseZone::setState(unsigned int newState, BaseExecutor* executor, SharedResources& sharedResources)
 {
-	loadingMutex.lock();
-	nextLevelOfDetail = medium;
-	auto oldLod = levelOfDetail.load(std::memory_order::memory_order_acquire);
-	if (oldLod != medium && !transitioning)
+	unsigned int actualNewState = newState > this->highestSupportedState ? this->highestSupportedState : newState;
+	if (this->nextState == undefinedState)
 	{
-		transitioning = true;
-		loadingMutex.unlock();
-		vTable->loadMediumDetail(this, executor, sharedResources);
-		return;
+		//we aren't currently changing state
+		if (this->currentState != actualNewState)
+		{
+			this->nextState = actualNewState;
+			this->newState = actualNewState;
+			this->vTable->createNewStateData(this, executor, sharedResources);
+		}
 	}
-	loadingMutex.unlock();
-}
-
-void BaseZone::loadLowDetail(BaseExecutor* const executor, SharedResources& sharedResources)
-{
-	loadingMutex.lock();
-	nextLevelOfDetail = low;
-	auto oldLod = levelOfDetail.load(std::memory_order::memory_order_acquire);
-	if (oldLod != low && !transitioning)
+	else
 	{
-		transitioning = true;
-		loadingMutex.unlock();
-		vTable->loadLowDetail(this, executor, sharedResources);
-		return;
+		this->nextState = actualNewState;
 	}
-	loadingMutex.unlock();
 }
 
-void BaseZone::unloadAll(BaseExecutor* const executor, SharedResources& sharedResources)
+void BaseZone::finishedCreatingNewState(BaseExecutor* executor)
 {
-	loadingMutex.lock();
-	nextLevelOfDetail = unloaded;
-	auto oldLod = levelOfDetail.load(std::memory_order::memory_order_acquire);
-	if (oldLod != unloaded && !transitioning)
+	executor->renderJobQueue().push(Job(this, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources)
 	{
-		transitioning = true;
-		loadingMutex.unlock();
-		if (oldLod == high) unloadHighDetail(executor, sharedResources);
-		else if (oldLod == medium) unloadMediumDetail(executor, sharedResources);
-		else unloadLowDetail(executor, sharedResources);
-		return;
-	}
-	loadingMutex.unlock();
+		auto zone = (BaseZone*)(requester);
+		if (zone->currentState == zone->highestSupportedState)
+		{
+			zone->start(executor, sharedResources);
+		}
+		unsigned int oldState = zone->currentState;
+		void* oldData = zone->currentData;
+		zone->currentState = zone->newState;
+		zone->currentData = zone->newData;
+		zone->newData = oldData;
+		zone->newState = oldState;
+
+		executor->gpuCompletionEventManager.addRequest(zone, zone->vTable->deleteOldStateData, sharedResources.graphicsEngine.frameIndex);//wait for cpu and gpu to stop using old state
+	}));
 }
 
-void BaseZone::unloadHighDetail(BaseExecutor* executor, SharedResources& sharedResources)
+void BaseZone::finishedDeletingOldState(BaseExecutor* executor)
 {
-	executor->gpuCompletionEventManager.addRequest(this, vTable->unloadHighDetail, sharedResources.graphicsEngine.frameIndex);
+	executor->renderJobQueue().push(Job(this, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources)//wait for zone to start using new state
+	{
+		auto zone = (BaseZone*)(requester);
+		unsigned int newState = zone->currentState;
+		if (zone->nextState != newState)
+		{
+			zone->nextState = newState;
+			zone->newState = zone->nextState;
+			zone->vTable->createNewStateData(zone, executor, sharedResources);
+		}
+		else
+		{
+			zone->nextState = undefinedState;
+		}
+	}));
 }
 
-void BaseZone::unloadMediumDetail(BaseExecutor* executor, SharedResources& sharedResources)
+void BaseZone::start(BaseExecutor* const executor, SharedResources& sharedResources)
 {
-	executor->gpuCompletionEventManager.addRequest(this, vTable->unloadMediumDetail, sharedResources.graphicsEngine.frameIndex);
+	vTable->start(this, executor, sharedResources);
 }
 
-void BaseZone::unloadLowDetail(BaseExecutor* executor, SharedResources& sharedResources)
+void BaseZone::loadConnectedAreas(BaseExecutor* executor, SharedResources& sharedResources, float distanceSquared, Area::VisitedNode* loadedAreas)
 {
-	executor->gpuCompletionEventManager.addRequest(this, vTable->unloadLowDetail, sharedResources.graphicsEngine.frameIndex);
+	vTable->loadConnectedAreas(this, executor, sharedResources, distanceSquared, loadedAreas);
+}
+
+bool BaseZone::changeArea(BaseExecutor* executor, SharedResources& sharedResources)
+{
+	return vTable->changeArea(this, executor, sharedResources);
 }

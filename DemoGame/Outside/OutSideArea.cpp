@@ -70,21 +70,21 @@ void OutSideArea::load(BaseExecutor* const executor, SharedResources& sharedReso
 
 			if (distanceSquared < highDetailRadiusSquared)
 			{
-				zone.loadHighDetail(executor, sharedResources);
+				zone.setState(0u, executor, sharedResources);
 				zone.loadConnectedAreas(executor, sharedResources, distanceSquared, &thisArea);
 			}
 			else if (distanceSquared < mediumDetailRadiusSquared)
 			{
-				zone.loadMediumDetail(executor, sharedResources);
+				zone.setState(1u, executor, sharedResources);
 				zone.loadConnectedAreas(executor, sharedResources, distanceSquared, &thisArea);
 			}
 			else if (distanceSquared < lowDetailRadiusSquared)
 			{
-				zone.loadLowDetail(executor, sharedResources);
+				zone.setState(2u, executor, sharedResources);
 			}
 			else
 			{
-				zone.unloadAll(executor, sharedResources);
+				zone.setState(3u, executor, sharedResources);
 			}
 		}
 	}

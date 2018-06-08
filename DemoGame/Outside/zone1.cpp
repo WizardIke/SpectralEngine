@@ -43,10 +43,8 @@ namespace
 		static void componentUploaded(void* requester, BaseExecutor* executor, SharedResources& sharedResources)
 		{
 			const auto zone = reinterpret_cast<BaseZone* const>(requester);
-			BaseZone::componentUploaded<BaseZone::high, BaseZone::medium>(zone, executor, sharedResources, ((HDResources*)zone->nextResources)->numComponentsLoaded, numComponents);
+			zone->componentUploaded(executor, numComponents);
 		}
-
-		std::atomic<unsigned char> numComponentsLoaded = 0u;
 
 		static RenderPass1::Local::RenderToTextureSubPassGroup& getRenderToTextureSubPassGroup(Executor& executor)
 		{
@@ -243,58 +241,58 @@ namespace
 
 			TextureManager::loadTexture(executor, sharedResources, TextureNames::ground01, { zone, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources, unsigned int textureID) {
 				const auto zone = reinterpret_cast<BaseZone*>(requester);
-				auto resources = ((HDResources*)zone->nextResources);
+				auto resources = ((HDResources*)zone->newData);
 				resources->groundModel.setDiffuseTexture(textureID, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
 				componentUploaded(requester, executor, sharedResources);
 			} });
 			TextureManager::loadTexture(executor, sharedResources, TextureNames::wall01, { zone, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources, unsigned int textureID) {
 				const auto zone = reinterpret_cast<BaseZone*>(requester);
-				auto resources = ((HDResources*)zone->nextResources);
+				auto resources = ((HDResources*)zone->newData);
 				resources->wallModel.setDiffuseTexture(textureID, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
 				componentUploaded(requester, executor, sharedResources);
 			} });
 			TextureManager::loadTexture(executor, sharedResources, TextureNames::marble01, {zone, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources, unsigned int textureID) {
 				const auto zone = reinterpret_cast<BaseZone*>(requester);
-				auto resources = ((HDResources*)zone->nextResources);
+				auto resources = ((HDResources*)zone->newData);
 				resources->bathModel1.setDiffuseTexture(textureID, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
 					componentUploaded(requester, executor, sharedResources);
 			}});
 
 			TextureManager::loadTexture(executor, sharedResources, TextureNames::water01, { zone, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources, unsigned int textureID) {
 				const auto zone = reinterpret_cast<BaseZone*>(requester);
-				auto resources = ((HDResources*)zone->nextResources);
+				auto resources = ((HDResources*)zone->newData);
 				resources->waterModel.setNormalTexture(textureID, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
 				componentUploaded(requester, executor, sharedResources);
 			} });
 			TextureManager::loadTexture(executor, sharedResources, TextureNames::ice01, { zone, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources, unsigned int textureID) {
 				const auto zone = reinterpret_cast<BaseZone*>(requester);
-				auto resources = ((HDResources*)zone->nextResources);
+				auto resources = ((HDResources*)zone->newData);
 				resources->iceModel.setDiffuseTexture(textureID, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
 				componentUploaded(requester, executor, sharedResources);
 			} });
 			TextureManager::loadTexture(executor, sharedResources, TextureNames::icebump01, { zone, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources, unsigned int textureID) {
 				const auto zone = reinterpret_cast<BaseZone*>(requester);
-				auto resources = ((HDResources*)zone->nextResources);
+				auto resources = ((HDResources*)zone->newData);
 				resources->iceModel.setNormalTexture(textureID, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
 				componentUploaded(requester, executor, sharedResources);
 			} });
 			TextureManager::loadTexture(executor, sharedResources, TextureNames::firenoise01, { zone, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources, unsigned int textureID) {
 				const auto zone = reinterpret_cast<BaseZone*>(requester);
-				auto resources = ((HDResources*)zone->nextResources);
+				auto resources = ((HDResources*)zone->newData);
 				resources->fireModel1.setNormalTexture(textureID, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
 				resources->fireModel2.setNormalTexture(textureID, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
 				componentUploaded(requester, executor, sharedResources);
 			} });
 			TextureManager::loadTexture(executor, sharedResources, TextureNames::fire01, { zone, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources, unsigned int textureID) {
 				const auto zone = reinterpret_cast<BaseZone*>(requester);
-				auto resources = ((HDResources*)zone->nextResources);
+				auto resources = ((HDResources*)zone->newData);
 				resources->fireModel1.setDiffuseTexture(textureID, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
 				resources->fireModel2.setDiffuseTexture(textureID, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
 				componentUploaded(requester, executor, sharedResources);
 			} });
 			TextureManager::loadTexture(executor, sharedResources, TextureNames::firealpha01, { zone, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources, unsigned int textureID) {
 				const auto zone = reinterpret_cast<BaseZone*>(requester);
-				auto resources = ((HDResources*)zone->nextResources);
+				auto resources = ((HDResources*)zone->newData);
 				resources->fireModel1.setAlphaTexture(textureID, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
 				resources->fireModel2.setAlphaTexture(textureID, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
 				componentUploaded(requester, executor, sharedResources);
@@ -303,42 +301,42 @@ namespace
 			MeshManager::loadMeshWithPositionTextureNormal(MeshNames::bath, zone, executor, sharedResources, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources, Mesh* mesh)
 			{
 				const auto zone = reinterpret_cast<BaseZone* const>(requester);
-				auto resources = ((HDResources*)zone->nextResources);
+				auto resources = ((HDResources*)zone->newData);
 				resources->bathModel1.mesh = mesh;
 				componentUploaded(requester, executor, sharedResources);
 			});
 			MeshManager::loadMeshWithPositionTextureNormal(MeshNames::plane1, zone, executor, sharedResources, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources, Mesh* mesh)
 			{
 				const auto zone = reinterpret_cast<BaseZone* const>(requester);
-				auto resources = ((HDResources*)zone->nextResources);
+				auto resources = ((HDResources*)zone->newData);
 				resources->groundModel.mesh = mesh;
 				componentUploaded(requester, executor, sharedResources);
 			});
 			MeshManager::loadMeshWithPositionTextureNormal(MeshNames::wall, zone, executor, sharedResources, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources, Mesh* mesh)
 			{
 				const auto zone = reinterpret_cast<BaseZone* const>(requester);
-				auto resources = ((HDResources*)zone->nextResources);
+				auto resources = ((HDResources*)zone->newData);
 				resources->wallModel.mesh = mesh;
 				componentUploaded(requester, executor, sharedResources);
 			});
 			MeshManager::loadMeshWithPositionTexture(MeshNames::water, zone, executor, sharedResources, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources, Mesh* mesh)
 			{
 				const auto zone = reinterpret_cast<BaseZone* const>(requester);
-				auto resources = ((HDResources*)zone->nextResources);
+				auto resources = ((HDResources*)zone->newData);
 				resources->waterModel.mesh = mesh;
 				componentUploaded(requester, executor, sharedResources);
 			});
 			MeshManager::loadMeshWithPositionTexture(MeshNames::cube, zone, executor, sharedResources, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources, Mesh* mesh)
 			{
 				const auto zone = reinterpret_cast<BaseZone* const>(requester);
-				auto resources = ((HDResources*)zone->nextResources);
+				auto resources = ((HDResources*)zone->newData);
 				resources->iceModel.mesh = mesh;
 				componentUploaded(requester, executor, sharedResources);
 			});
 			MeshManager::loadMeshWithPositionTexture(MeshNames::square, zone, executor, sharedResources, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources, Mesh* mesh)
 			{
 				const auto zone = reinterpret_cast<BaseZone* const>(requester);
-				auto resources = ((HDResources*)zone->nextResources);
+				auto resources = ((HDResources*)zone->newData);
 				resources->fireModel1.mesh = mesh;
 				resources->fireModel2.mesh = mesh;
 				componentUploaded(requester, executor, sharedResources);
@@ -346,14 +344,14 @@ namespace
 			MeshManager::loadMeshWithPosition(MeshNames::aabb, zone, executor, sharedResources, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources, Mesh* mesh)
 			{
 				const auto zone = reinterpret_cast<BaseZone* const>(requester);
-				auto resources = ((HDResources*)zone->nextResources);
+				auto resources = ((HDResources*)zone->newData);
 				resources->cubeWithPos = mesh;
 				componentUploaded(requester, executor, sharedResources);
 			});
 			MeshManager::loadMeshWithPosition(MeshNames::squareWithPos, zone, executor, sharedResources, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources, Mesh* mesh)
 			{
 				const auto zone = reinterpret_cast<BaseZone* const>(requester);
-				auto resources = ((HDResources*)zone->nextResources);
+				auto resources = ((HDResources*)zone->newData);
 				resources->squareWithPos = mesh;
 				componentUploaded(requester, executor, sharedResources);
 			});
@@ -363,7 +361,7 @@ namespace
 				const auto zone = reinterpret_cast<BaseZone*>(zone1);
 				const auto executor = reinterpret_cast<Executor*>(executor1);
 				const auto assets = reinterpret_cast<Assets*>(&sharedResources);
-				const auto resource = reinterpret_cast<HDResources*>(zone->nextResources);
+				const auto resource = reinterpret_cast<HDResources*>(zone->newData);
 
 				for (auto i = 0u; i < numRenderTargetTextures; ++i)
 				{
@@ -393,8 +391,8 @@ namespace
 			const auto zone = reinterpret_cast<BaseZone*const>(zone1);
 			const auto executor = reinterpret_cast<Executor*const >(executor1);
 			
-			zone->nextResources = malloc(sizeof(HDResources));
-			new(zone->nextResources) HDResources(executor, (Assets&)sharedResources, zone);
+			zone->newData = malloc(sizeof(HDResources));
+			new(zone->newData) HDResources(executor, (Assets&)sharedResources, zone);
 			componentUploaded(zone, executor, sharedResources);
 		}
 
@@ -713,10 +711,8 @@ namespace
 		static void callback(void* requester, BaseExecutor* executor, SharedResources& sharedResources)
 		{
 			auto zone = reinterpret_cast<BaseZone* const>(requester);
-			BaseZone::componentUploaded<BaseZone::medium, BaseZone::medium>(zone, executor, sharedResources, ((MDResources*)zone->nextResources)->numComponentsLoaded, numComponents);
+			zone->componentUploaded(executor, numComponents);
 		}
-
-		std::atomic<unsigned char> numComponentsLoaded = 0u;
 	public:
 		D3D12Resource perObjectConstantBuffers;
 		uint8_t* perObjectConstantBuffersCpuAddress;
@@ -764,7 +760,7 @@ namespace
 
 			TextureManager::loadTexture(executor, sharedResources, TextureNames::marble01, { zone, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources, unsigned int textureID) {
 				const auto zone = reinterpret_cast<BaseZone*>(requester);
-				auto resources = ((MDResources*)zone->nextResources);
+				auto resources = ((MDResources*)zone->newData);
 				resources->bathModel.setDiffuseTexture(textureID, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
 				callback(requester, executor, sharedResources);
 			} });
@@ -772,7 +768,7 @@ namespace
 			MeshManager::loadMeshWithPositionTextureNormal(MeshNames::bath, zone, executor, sharedResources, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources, Mesh* mesh)
 			{
 				const auto zone = reinterpret_cast<BaseZone* const>(requester);
-				const auto resources = ((MDResources*)zone->nextResources);
+				const auto resources = ((MDResources*)zone->newData);
 				resources->bathModel.mesh = mesh;
 				callback(requester, executor, sharedResources);
 			});
@@ -820,141 +816,91 @@ namespace
 		{
 			const auto zone = reinterpret_cast<BaseZone*const>(zone1);
 			
-			zone->nextResources = malloc(sizeof(MDResources));
-			new(zone->nextResources) MDResources(executor, sharedResources, zone);
+			zone->newData = malloc(sizeof(MDResources));
+			new(zone->newData) MDResources(executor, sharedResources, zone);
 			callback(zone, executor, sharedResources);
 		}
 	};
 
-	static void restart(BaseZone* const zone, BaseExecutor* const executor, SharedResources& sharedResources);
-	static void update1HighDetail(BaseZone* const zone, BaseExecutor* const executor)
+	static void update2(void* requester, BaseExecutor* executor, SharedResources& sharedResources);
+	static void update1(void* requester, BaseExecutor* executor, SharedResources& sharedResources)
 	{
-		executor->updateJobQueue().push(Job(zone, [](void*const zone1, BaseExecutor*const executor, SharedResources& sharedResources)
-		{
-			const auto zone = reinterpret_cast<BaseZone* const>(zone1);
-			reinterpret_cast<HDResources*>(zone->currentResources)->update1(executor, sharedResources);
-			executor->renderJobQueue().push(Job(zone, [](void*const zone1, BaseExecutor*const executor, SharedResources& sharedResources)
-			{
-				const auto zone = reinterpret_cast<BaseZone* const>(zone1);
-				reinterpret_cast<HDResources*>(zone->currentResources)->update2(executor, sharedResources);
-				restart(zone, executor, sharedResources);
-			}));
-		}));
-	}
+		auto zone = reinterpret_cast<BaseZone*>(requester);
+		zone->lastUsedData = zone->currentData;
+		zone->lastUsedState = zone->currentState;
 
-	static void update1MediumDetail(BaseZone* const zone, BaseExecutor* const executor)
-	{
-		executor->updateJobQueue().push(Job(zone, [](void*const zone1, BaseExecutor*const executor, SharedResources& sharedResources)
+		switch (zone->currentState)
 		{
-			const auto zone = reinterpret_cast<BaseZone* const>(zone1);
-			reinterpret_cast<MDResources*>(zone->currentResources)->update1(executor, sharedResources);
-			executor->renderJobQueue().push(Job(zone, [](void*const zone1, BaseExecutor*const executor, SharedResources& sharedResources)
-			{
-				const auto zone = reinterpret_cast<BaseZone* const>(zone1);
-				reinterpret_cast<MDResources*>(zone->currentResources)->update2(executor, sharedResources);
-				restart(zone, executor, sharedResources);
-			}));
-		}));
-	}
-
-	static void restart(BaseZone* const zone, BaseExecutor* const executor, SharedResources& sharedResources)
-	{
-		auto oldLevelOfDetail = zone->levelOfDetail.load(std::memory_order::memory_order_acquire);
-		switch (oldLevelOfDetail)
-		{
-		case BaseZone::high:
-			update1HighDetail(zone, executor);
+		case 0u:
+			reinterpret_cast<HDResources*>(zone->currentData)->update1(executor, sharedResources);
+			executor->renderJobQueue().push(Job(zone, update2));
 			break;
-		case BaseZone::medium:
-			update1MediumDetail(zone, executor);
-			break;
-		case BaseZone::transitionHighToMedium:
-		{
-			zone->transition<BaseZone::high, BaseZone::medium>(executor, sharedResources);
-			update1MediumDetail(zone, executor);
-			break;
-		}
-		case BaseZone::transitionHighToLow:
-			zone->transition<BaseZone::high, BaseZone::low>(executor, sharedResources);
-			break;
-		case BaseZone::transitionHighToUnloaded:
-			zone->transition<BaseZone::high, BaseZone::unloaded>(executor, sharedResources);
-			break;
-		case BaseZone::transitionMediumToHigh:
-			zone->transition<BaseZone::medium, BaseZone::high>(executor, sharedResources);
-			update1HighDetail(zone, executor);
-			break;
-		case BaseZone::transitionMediumToLow:
-			zone->transition<BaseZone::medium, BaseZone::low>(executor, sharedResources);
-			break;
-		case BaseZone::transitionMediumToUnloaded:
-			zone->transition<BaseZone::medium, BaseZone::unloaded>(executor, sharedResources);
+		case 1u:
+			reinterpret_cast<MDResources*>(zone->currentData)->update1(executor, sharedResources);
+			executor->renderJobQueue().push(Job(zone, update2));
 			break;
 		}
 	}
 
-	static void update1(BaseZone* const zone, BaseExecutor* const executor, SharedResources& sharedResources)
+	static void update2(void* requester, BaseExecutor* executor, SharedResources& sharedResources)
 	{
-		restart(zone, executor, sharedResources);
-	}
+		auto zone = reinterpret_cast<BaseZone*>(requester);
 
-	static void update2(BaseZone* const zone, BaseExecutor* const executor, SharedResources& sharedResources)
-	{
-		executor->renderJobQueue().push(Job(zone, [](void*const zone1, BaseExecutor*const executor, SharedResources& sharedResources)
+		switch (zone->lastUsedState)
 		{
-			const auto zone = reinterpret_cast<BaseZone* const>(zone1);
-			restart(zone, executor, sharedResources);
-		}));
+		case 0u:
+			reinterpret_cast<HDResources*>(zone->lastUsedData)->update2(executor, sharedResources);
+			break;
+		case 1u:
+			reinterpret_cast<MDResources*>(zone->lastUsedData)->update2(executor, sharedResources);
+			break;
+		}
+
+		executor->updateJobQueue().push(Job(zone, update1));
 	}
 
 	struct Zone1Functions
 	{
-		static void loadHighDetailJobs(BaseZone* zone, BaseExecutor* const executor, SharedResources& sharedResources)
+		static void createNewStateData(BaseZone* zone, BaseExecutor* executor, SharedResources& sharedResources)
 		{
-			sharedResources.backgroundQueue.push(Job(zone, &HDResources::create));
-		}
-		static void loadMediumDetailJobs(BaseZone* zone, BaseExecutor* const executor, SharedResources& sharedResources)
-		{
-			sharedResources.backgroundQueue.push(Job(zone, &MDResources::create));
-		}
-		static void loadLowDetailJobs(BaseZone* zone, BaseExecutor* const executor, SharedResources& sharedResources)
-		{
-			zone->lastComponentLoaded<BaseZone::low, BaseZone::medium>(executor, sharedResources);
+			switch (zone->newState)
+			{
+			case 0u:
+				sharedResources.backgroundQueue.push(Job(zone, &HDResources::create));
+				break;
+			case 1u:
+				sharedResources.backgroundQueue.push(Job(zone, &MDResources::create));
+				break;
+			}
 		}
 
-		static void unloadHighDetailJobs(BaseZone* zone, BaseExecutor* const executor, SharedResources& sharedResources)
+		static void deleteOldStateData(BaseZone* zone, BaseExecutor* executor, SharedResources& sharedResources)
 		{
-			sharedResources.backgroundQueue.push(Job(zone, [](void*const highDetailResource, BaseExecutor*const executor, SharedResources& sharedResources)
+			switch (zone->oldState)
 			{
-				const auto zone = reinterpret_cast<BaseZone*const>(highDetailResource);
-				auto resource = reinterpret_cast<HDResources*>(zone->nextResources);
-				resource->destruct(executor, sharedResources);
-				resource->~HDResources();
-				free(zone->nextResources);
-				zone->nextResources = nullptr;
-				zone->lastComponentUnloaded<BaseZone::high>(executor, sharedResources);
-			}));
-		}
-		static void unloadMediumDetailJobs(BaseZone* zone, BaseExecutor* const executor, SharedResources& sharedResources)
-		{
-			sharedResources.backgroundQueue.push(Job(zone, [](void*const zone1, BaseExecutor*const executor, SharedResources& sharedResources)
-			{
-				const auto zone = reinterpret_cast<BaseZone*const>(zone1);
-				auto resource = reinterpret_cast<MDResources*>(zone->nextResources);
-				resource->destruct(executor, sharedResources);
-				resource->~MDResources();
-				free(zone->nextResources);
-				zone->nextResources = nullptr;
-				zone->lastComponentUnloaded<BaseZone::medium>(executor, sharedResources);
-			}));
-		}
-		static void unloadLowDetailJobs(BaseZone* zone, BaseExecutor* const executor, SharedResources& sharedResources)
-		{
-			sharedResources.backgroundQueue.push(Job(zone, [](void*const zone1, BaseExecutor*const executor, SharedResources& sharedResources)
-			{
-				const auto zone = reinterpret_cast<BaseZone*const>(zone1);
-				zone->lastComponentUnloaded<BaseZone::low>(executor, sharedResources);
-			}));
+			case 0u:
+				sharedResources.backgroundQueue.push(Job(zone, [](void*const highDetailResource, BaseExecutor*const executor, SharedResources& sharedResources)
+				{
+					const auto zone = reinterpret_cast<BaseZone*const>(highDetailResource);
+					auto resource = reinterpret_cast<HDResources*>(zone->oldData);
+					resource->destruct(executor, sharedResources);
+					resource->~HDResources();
+					free(resource);
+					zone->finishedDeletingOldState(executor);
+				}));
+				break;
+			case 1u:
+				sharedResources.backgroundQueue.push(Job(zone, [](void*const zone1, BaseExecutor*const executor, SharedResources& sharedResources)
+				{
+					const auto zone = reinterpret_cast<BaseZone*const>(zone1);
+					auto resource = reinterpret_cast<MDResources*>(zone->oldData);
+					resource->destruct(executor, sharedResources);
+					resource->~MDResources();
+					free(resource);
+					zone->finishedDeletingOldState(executor);
+				}));
+				break;
+			}
 		}
 
 		static void loadConnectedAreas(BaseZone* zone, BaseExecutor* const executor, SharedResources& sharedResources, float distance, Area::VisitedNode* loadedAreas)
@@ -976,22 +922,12 @@ namespace
 
 		static void start(BaseZone* zone, BaseExecutor* const executor, SharedResources& sharedResources)
 		{
-			sharedResources.threadBarrier.lock();
-			if (sharedResources.nextPhaseJob == Executor::update1NextPhaseJob)
-			{
-				sharedResources.threadBarrier.unlock();
-				update2(zone, executor, sharedResources);
-			}
-			else
-			{
-				sharedResources.threadBarrier.unlock();
-				update1(zone, executor, sharedResources);
-			}
+			executor->updateJobQueue().push(Job(zone, update1));
 		}
 	};
 }
 
 BaseZone Zone1()
 {
-	return BaseZone::create<Zone1Functions>();
+	return BaseZone::create<Zone1Functions>(2u);
 }
