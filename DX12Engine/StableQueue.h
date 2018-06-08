@@ -50,7 +50,7 @@ private:
 		else
 		{
 			mFront = &newSlab->data[0];
-			mFrontSlabEnd = mBack + slabSize;
+			mFrontSlabEnd = mFront + slabSize;
 		}
 		newSlab->next = nullptr;
 		mBack = &newSlab->data[0];
