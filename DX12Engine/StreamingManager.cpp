@@ -297,5 +297,5 @@ void StreamingManager::ThreadLocal::update(BaseExecutor* const executor, SharedR
 void StreamingManager::ThreadLocal::copyStarted(BaseExecutor* const executor, HalfFinishedUploadRequest& processingRequest)
 {
 	processingRequest.copyFenceIndex = executor->index;
-	processingRequest.copyFenceValue.store(mFenceValue, std::memory_order::memory_order_release);
+	processingRequest.copyFenceValue.store(mFenceValue.load(std::memory_order::memory_order_relaxed), std::memory_order::memory_order_release);
 }

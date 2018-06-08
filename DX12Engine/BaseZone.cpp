@@ -37,7 +37,7 @@ void BaseZone::finishedCreatingNewState(BaseExecutor* executor)
 	executor->renderJobQueue().push(Job(this, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources)
 	{
 		auto zone = (BaseZone*)(requester);
-		if (zone->currentState == zone->highestSupportedState)
+		if (zone->currentState >= zone->highestSupportedState)
 		{
 			zone->start(executor, sharedResources);
 		}
