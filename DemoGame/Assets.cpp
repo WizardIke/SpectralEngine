@@ -5,10 +5,11 @@ static void loadingResourceCallback(void* data, BaseExecutor* exe, SharedResourc
 {
 	auto& assets = reinterpret_cast<Assets&>(sharedResources);
 	assets.arial.setDiffuseTexture(textureID, assets.constantBuffersCpuAddress, assets.sharedConstantBuffer->GetGPUVirtualAddress());
+	assets.userInterface().start((Executor*)exe, assets);
 }
 
 Assets::Assets() :
-	SharedResources(false, true, true, std::thread::hardware_concurrency(), SharedResources::windowCallback<Assets>),
+	SharedResources(false, false, true, std::thread::hardware_concurrency(), SharedResources::windowCallback<Assets>),
 	mainExecutor(*this),
 	inputHandler(window, { PlayerPosition::mouseMoved, &playerPosition }),
 	rootSignatures(graphicsEngine.graphicsDevice),
@@ -153,6 +154,5 @@ void Assets::update(BaseExecutor* const executor)
 void Assets::start(BaseExecutor* executor)
 {
 	timer.start();
-	userInterface().start(&mainExecutor, *this);
 	//soundEngine.SetListenerPosition(playerPosition.location.position, DS3D_IMMEDIATE);
 }

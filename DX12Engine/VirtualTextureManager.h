@@ -228,7 +228,8 @@ public:
 			return;
 		}
 		//the resourse is loading
-		virtualTextureManager.uploadRequests[filename].push_back(callback);
+		auto& requests = virtualTextureManager.uploadRequests[filename];
+		requests.push_back(callback);
 	}
 
 	/*the texture must no longer be in use, including by the GPU*/

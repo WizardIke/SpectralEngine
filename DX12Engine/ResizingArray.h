@@ -37,7 +37,7 @@ private:
 	void resizeNoChecks()
 	{
 		size_type newSize = mCapacityEnd - buffer;
-		newSize = newSize + newSize / 2u + 1u > max_size() ? max_size() : newSize + newSize / 2u + 1u;// try to grow by 50%
+		newSize = newSize + newSize / 2u + 1u;// try to grow by 50%
 
 		resizeToKnownSizeNoChechs(newSize);
 	}
@@ -45,8 +45,7 @@ private:
 	void resizeNoChecks(std::size_t minCapacity)
 	{
 		size_type newSize = mCapacityEnd - buffer;
-		newSize = newSize + newSize / 2u > max_size() ? max_size() :
-			(newSize + newSize / 2u > minCapacity ? newSize + newSize / 2u : minCapacity);// try to grow by 50%
+		newSize = (newSize + newSize / 2u) > minCapacity ? (newSize + newSize / 2u) : minCapacity;// try to grow by 50%
 
 		resizeToKnownSizeNoChechs(newSize);
 	}
@@ -59,9 +58,9 @@ private:
 			size_t i = size;
 			do
 			{
+				--i;
 				new(&temp[i]) Element(std::move(buffer[i]));
 				buffer[i].~Element();
-				--i;
 			} while (i != 0u);
 			this->deallocate(buffer, size);
 		}

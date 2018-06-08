@@ -22,6 +22,7 @@ void VirtualTextureManager::loadTextureUncachedHelper(const wchar_t * filename, 
 	uploadRequest.mipLevels = header.mipMapCount;
 	uploadRequest.dimension = (D3D12_RESOURCE_DIMENSION)header.dimension;
 	uploadRequest.currentArrayIndex = 0u;
+	uploadRequest.file = file;
 
 	if (header.miscFlag & 0x4L)
 	{
@@ -263,10 +264,6 @@ void VirtualTextureManager::createTextureWithResitencyInfo(D3D12GraphicsEngine& 
 	auto& textureInfo = textures[filename];
 	textureInfo.resource = resource.release();
 	textureInfo.descriptorIndex = textureDescriptorIndex;
-
-	auto requests = uploadRequests.find(filename);
-	assert(requests != uploadRequests.end() && "A texture is loading with no requests for it");
-	auto& request = requests->second[0];
 	unsigned int textureID = texturesByID.allocate();
 	textureInfo.textureID = textureID;
 	texturesByID[textureID] = std::move(resitencyInfo);
