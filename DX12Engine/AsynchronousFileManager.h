@@ -1,7 +1,7 @@
 #pragma once
 #include <unordered_map>
 #include <cstdint>
-#include "ScopedFile.h"
+#include "File.h"
 #include "IOCompletionQueue.h"
 #include "Range.h"
 #include <mutex>

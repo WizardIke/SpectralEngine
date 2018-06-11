@@ -256,7 +256,7 @@
     <ClInclude Include="Transform.h" />
     <ClInclude Include="Quaternion.h" />
     <ClInclude Include="RamToVramUploadRequest.h" />
-    <ClInclude Include="ScopedFile.h" />
+    <ClInclude Include="File.h" />
     <ClInclude Include="SecurityException.h" />
     <ClInclude Include="SharedResources.h" />
     <ClInclude Include="D3D12CreateDeviceFailedException.h" />
@@ -304,7 +304,7 @@
     <ClCompile Include="MeshManager.cpp" />
     <ClCompile Include="PageAllocator.cpp" />
     <ClCompile Include="Quaternion.cpp" />
-    <ClCompile Include="ScopedFile.cpp" />
+    <ClCompile Include="File.cpp" />
     <ClCompile Include="SharedResources.cpp" />
     <ClCompile Include="DDSFileLoader.cpp" />
     <ClCompile Include="D3D12GraphicsEngine.cpp" />

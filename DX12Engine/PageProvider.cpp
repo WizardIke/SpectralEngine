@@ -4,7 +4,7 @@
 #include "BaseExecutor.h"
 #include "SharedResources.h"
 #include <d3d12.h>
-#include "ScopedFile.h"
+#include "File.h"
 
 PageProvider::PageProvider(float desiredMipBias, IDXGIAdapter3* adapter, ID3D12Device* graphicsDevice)
 {

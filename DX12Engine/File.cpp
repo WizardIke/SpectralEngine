@@ -1,4 +1,4 @@
-#include "ScopedFile.h"
+#include "File.h"
 
 File::File(const wchar_t* fileName, DWORD accessRight, DWORD shareMode, creationMode creationMode, DWORD fileAttributes, HANDLE templateFile)
 {

@@ -147,9 +147,6 @@
     <ClInclude Include="DDSFileLoader.h">
       <Filter>DDSFileLoader</Filter>
     </ClInclude>
-    <ClInclude Include="ScopedFile.h">
-      <Filter>ScopedFile</Filter>
-    </ClInclude>
     <ClInclude Include="WindowsFileCreationException.h">
       <Filter>Exceptions</Filter>
     </ClInclude>
@@ -400,6 +397,9 @@
     <ClInclude Include="ResizingArray.h" />
     <ClInclude Include="DynamicArray.h" />
     <ClInclude Include="Array.h" />
+    <ClInclude Include="File.h">
+      <Filter>ScopedFile</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="SharedResources.cpp">
@@ -484,14 +484,14 @@
     <ClCompile Include="PageProvider.cpp">
       <Filter>VirtualTexturing</Filter>
     </ClCompile>
-    <ClCompile Include="ScopedFile.cpp">
-      <Filter>ScopedFile</Filter>
-    </ClCompile>
     <ClCompile Include="AsynchronousFileManager.cpp">
       <Filter>AsynchronousFileManager</Filter>
     </ClCompile>
     <ClCompile Include="tools\TextureImporter.cpp">
       <Filter>Tools</Filter>
+    </ClCompile>
+    <ClCompile Include="File.cpp">
+      <Filter>ScopedFile</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
