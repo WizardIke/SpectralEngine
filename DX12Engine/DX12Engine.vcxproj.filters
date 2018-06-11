@@ -487,9 +487,6 @@
     <ClCompile Include="AsynchronousFileManager.cpp">
       <Filter>AsynchronousFileManager</Filter>
     </ClCompile>
-    <ClCompile Include="tools\TextureImporter.cpp">
-      <Filter>Tools</Filter>
-    </ClCompile>
     <ClCompile Include="File.cpp">
       <Filter>ScopedFile</Filter>
     </ClCompile>

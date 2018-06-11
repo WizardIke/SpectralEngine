@@ -313,7 +313,6 @@
     <ClCompile Include="StreamingManager.cpp" />
     <ClCompile Include="TextureManager.cpp" />
     <ClCompile Include="Timer.cpp" />
-    <ClCompile Include="tools\TextureImporter.cpp" />
     <ClCompile Include="Transform.cpp" />
     <ClCompile Include="VirtualPageCamera.cpp" />
     <ClCompile Include="VirtualTextureManager.cpp" />

@@ -626,8 +626,8 @@ namespace DDSFileLoader
 				if (d3d10ext.miscFlag & 0x4L) //D3D11_RESOURCE_MISC_TEXTURECUBE = 0x4L
 				{
 					arraySize *= 6;
+					isCubeMap = true;
 				}
-				isCubeMap = true;
 				ddsHeader.depth = 1;
 				break;
 
@@ -1517,7 +1517,7 @@ namespace DDSFileLoader
 		const uint8_t* currentDepthSourceStart = sourceBuffer;
 		for (size_t currentDepth = 0u; currentDepth != subresourceDepth; ++currentDepth)
 		{
-
+			size_t rowsDown = 0u;
 			size_t remainingRows = numRows;
 			while (remainingRows != 0u)
 			{
@@ -1530,7 +1530,7 @@ namespace DDSFileLoader
 					for (size_t column = 0u; column != numColumns; ++column)
 					{
 						//copy row of current column
-						const uint8_t* currentSourceTileRowStart = currentDepthSourceStart + tileSizeOnDisk * column + tileWidthBytes * row;
+						const uint8_t* currentSourceTileRowStart = currentDepthSourceStart + rowsDown * sourceRowPitch + tileSizeOnDisk * column + tileWidthBytes * row;
 						const uint8_t* const currentSourceTileRowEnd = currentSourceTileRowStart + tileWidthBytes;
 						for (; currentSourceTileRowStart != currentSourceTileRowEnd;)
 						{
@@ -1540,7 +1540,7 @@ namespace DDSFileLoader
 						}
 					}
 					//copy part of row of cuurent column, length partialColumnBytes
-					const uint8_t* currentSourceTileRowStart = currentDepthSourceStart + tileSizeOnDisk * numColumns + partialColumnBytes * row;
+					const uint8_t* currentSourceTileRowStart = currentDepthSourceStart + rowsDown * sourceRowPitch + tileSizeOnDisk * numColumns + partialColumnBytes * +row;
 					const uint8_t* const currentSourceTileRowEnd = currentSourceTileRowStart + partialColumnBytes;
 					for (; currentSourceTileRowStart != currentSourceTileRowEnd;)
 					{
@@ -1552,6 +1552,7 @@ namespace DDSFileLoader
 				}
 
 				remainingRows -= tileHeightOnDisk;
+				rowsDown += tileHeightOnDisk;
 			}
 			currentDepthSourceStart += sourceSlicePitch;
 		}

@@ -292,6 +292,9 @@
     <None Include="Arial.fnt">
       <Filter>Fonts</Filter>
     </None>
+    <None Include="Textures\stone04.tile">
+      <Filter>Textures</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Image Include="Textures\alpha01.dds">

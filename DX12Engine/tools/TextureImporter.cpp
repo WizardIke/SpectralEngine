@@ -1050,8 +1050,8 @@ TextureInfo getDDSTextureInfoFromFile(File& textureFile)
 			if (d3d10ext.miscFlag & 0x4L) //D3D11_RESOURCE_MISC_TEXTURECUBE = 0x4L
 			{
 				arraySize *= 6;
+				isCubeMap = true;
 			}
-			isCubeMap = true;
 			ddsHeader.depth = 1;
 			break;
 
