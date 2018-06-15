@@ -31,6 +31,13 @@ public:
 		}
 	};
 
+	DynamicArray(DynamicArray&& over)
+	{
+		buffer = other.buffer;
+		mEnd = other.mEnd;
+		other.mEnd = buffer;
+	}
+
 	DynamicArray(const Size size, DoNotInitialize)
 	{
 		buffer = this->allocate(size.size);
@@ -70,7 +77,7 @@ public:
 		std::size_t i;
 		try
 		{
-			for (i = 0u; i < size.size; ++i)
+			for (i = 0u; i != size.size; ++i)
 			{
 				new(&buffer[i]) Element(std::move(initializer(i)));
 			}
@@ -95,7 +102,7 @@ public:
 		std::size_t i;
 		try
 		{
-			for (i = 0u; i < size.size; ++i)
+			for (i = 0u; i != size.size; ++i)
 			{
 				initializer(i, buffer[i]);
 			}
