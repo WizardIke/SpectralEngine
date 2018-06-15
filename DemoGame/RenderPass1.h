@@ -14,11 +14,10 @@ class RenderPass1
 	constexpr static unsigned int renderToTextureSubPassIndex = 1u;
 	constexpr static unsigned int colorSubPassIndex = 2u;
 	using RenderToTextureSubPass1 = RenderSubPass<ReflectionCamera, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET, std::tuple<>, std::tuple<>, 1u>;
-	using RenderToTextureSubPassGroup1 = RenderSubPassGroup<RenderToTextureSubPass1>;
 	using ColorSubPass1 = RenderMainSubPass<MainCamera, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET,
 		std::tuple<std::integral_constant<unsigned int, renderToTextureSubPassIndex>>,
 		std::tuple<std::integral_constant<D3D12_RESOURCE_STATES, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE>>, 2u, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_PRESENT>;
-	using RenderPass11 = RenderPass<FeedbackAnalizerSubPass, RenderToTextureSubPassGroup1, ColorSubPass1>;
+	using RenderPass11 = RenderPass<FeedbackAnalizerSubPass, RenderToTextureSubPass1, ColorSubPass1>;
 
 	RenderPass11 data;
 public:
@@ -26,9 +25,12 @@ public:
 
 	RenderPass1() {}
 	template<class SharedResources_t>
-	RenderPass1(SharedResources_t& sharedResources, MainCamera& mainCamera, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpu, uint8_t*& constantBufferCpu, float feedbackFieldOfView) : data(sharedResources)
+	RenderPass1(SharedResources_t& sharedResources, uint32_t virtualTextureFeedbackWidth, uint32_t virtualTextureFeedbackHeight, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpu, uint8_t*& constantBufferCpu, float feedbackFieldOfView) :
+		data(sharedResources)
 	{
-		new(&std::get<virtualTextureFeedbackSubPassIndex>(data.subPasses)) FeedbackAnalizerSubPass{ sharedResources, sharedResources.mainCamera.transform(), mainCamera.width() / 4u, mainCamera.height() / 4u, this->data,
+		auto& subPass = std::get<virtualTextureFeedbackSubPassIndex>(data.subPasses);
+		subPass.~FeedbackAnalizerSubPass();
+		new(&subPass) FeedbackAnalizerSubPass{ sharedResources, sharedResources.mainCamera().transform(), virtualTextureFeedbackWidth, virtualTextureFeedbackHeight, this->data,
 			constantBufferGpu, constantBufferCpu, feedbackFieldOfView };
 	}
 
@@ -51,8 +53,7 @@ public:
 
 		ColorSubPass colorSubPass() { return std::get<colorSubPassIndex>(data.subPassesThreadLocal); }
 
-		using RenderToTextureSubPassGroup = RenderToTextureSubPassGroup1::ThreadLocal;
-		RenderToTextureSubPassGroup& renderToTextureSubPassGroup() { return std::get<renderToTextureSubPassIndex>(data.subPassesThreadLocal); }
+		RenderToTextureSubPass::ThreadLocal& renderToTextureSubPass() { return std::get<renderToTextureSubPassIndex>(data.subPassesThreadLocal); }
 		FeedbackAnalizerSubPass::ThreadLocal& virtualTextureFeedbackSubPass() { return std::get<virtualTextureFeedbackSubPassIndex>(data.subPassesThreadLocal); }
 
 		void update1(BaseExecutor* const executor, RenderPass1& renderPass, unsigned int notFirstThread)
@@ -71,8 +72,7 @@ public:
 	};
 
 	ColorSubPass1& colorSubPass() { return std::get<colorSubPassIndex>(data.subPasses); }
-	using RenderToTextureSubPassGroup = RenderToTextureSubPassGroup1;
-	RenderToTextureSubPassGroup& renderToTextureSubPassGroup() { return std::get<renderToTextureSubPassIndex>(data.subPasses); }
+	RenderToTextureSubPass& renderToTextureSubPass() { return std::get<renderToTextureSubPassIndex>(data.subPasses); }
 	FeedbackAnalizerSubPass& virtualTextureFeedbackSubPass() { return std::get<virtualTextureFeedbackSubPassIndex>(data.subPasses); }
 
 	void update1(D3D12GraphicsEngine& graphicsEngine)

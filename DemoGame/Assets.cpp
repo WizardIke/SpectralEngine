@@ -80,13 +80,10 @@ backgroundExecutors(DynamicArray<BackgroundExecutor>::Size{ maxBackgroundThreads
 	uint8_t* cpuConstantBuffer = constantBuffersCpuAddress;
 	auto constantBuffersGpuAddress = sharedConstantBuffer->GetGPUVirtualAddress();
 
-	new(&mainCamera) MainCamera(this, window.width(), window.height(), constantBuffersGpuAddress, cpuConstantBuffer, 0.25f * 3.141f, playerPosition.location);
-	new(&renderPass) RenderPass1(*this, mainCamera, constantBuffersGpuAddress, cpuConstantBuffer, 0.25f * 3.141f);
+	new(&renderPass) RenderPass1(*this, window.width() / 4, window.height() / 4, constantBuffersGpuAddress, cpuConstantBuffer, 0.25f * 3.141f);
+	mainCamera().init(this, window.width(), window.height(), constantBuffersGpuAddress, cpuConstantBuffer, 0.25f * 3.141f, playerPosition.location);
 	new(&mUserInterface) UserInterface(*this, constantBuffersGpuAddress, cpuConstantBuffer);
 	new(&arial) Font(constantBuffersGpuAddress, cpuConstantBuffer, L"Arial.fnt", TextureNames::Arial, &mainExecutor, *this, this, loadingResourceCallback);
-
-	renderPass.colorSubPass().addCamera(*this, renderPass, &mainCamera);
-
 
 	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc;
 	srvDesc.Format = DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM;
@@ -114,7 +111,7 @@ backgroundExecutors(DynamicArray<BackgroundExecutor>::Size{ maxBackgroundThreads
 
 	checkForWindowsMessages();
 	playerPosition.update(&mainExecutor, *this);
-	mainCamera.update(this, playerPosition.location);
+	mainCamera().update(this, playerPosition.location);
 
 	{
 		std::lock_guard<decltype(threadBarrier)> lock(threadBarrier);
@@ -136,7 +133,7 @@ backgroundExecutors(DynamicArray<BackgroundExecutor>::Size{ maxBackgroundThreads
 Assets::~Assets()
 {
 	graphicsEngine.descriptorAllocator.deallocate(warpTextureDescriptorIndex);
-	mainCamera.destruct(this);
+	mainCamera().destruct(this);
 	userInterface().~UserInterface();
 }
 
@@ -145,8 +142,8 @@ void Assets::update(BaseExecutor* const executor)
 	checkForWindowsMessages();
 	timer.update();
 	playerPosition.update(executor, *this);
-	mainCamera.update(this, playerPosition.location);
-	(*renderPass.virtualTextureFeedbackSubPass().cameras().begin())->update(this, virtualTextureManager.pageProvider.mipBias);
+	mainCamera().update(this, playerPosition.location);
+	renderPass.virtualTextureFeedbackSubPass().cameras().begin()->update(this, virtualTextureManager.pageProvider.mipBias);
 	streamingManager.update(executor, *this);
 	//soundEngine.SetListenerPosition(playerPosition.location.position, DS3D_IMMEDIATE);
 }

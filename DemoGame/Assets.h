@@ -97,7 +97,7 @@ public:
 	UserInterface& userInterface() { return *(UserInterface*)&mUserInterface; }
 	Areas areas;
 	AmbientMusic ambientMusic;
-	MainCamera mainCamera;
+	//MainCamera* mainCamera;
 	PlayerPosition playerPosition;
 
 	D3D12Resource warpTexture;
@@ -110,6 +110,10 @@ public:
 	Range<ExecutorIterator, Executor*> executors()
 	{
 		return { {this},  primaryExecutors.end()};
+	}
+	MainCamera& mainCamera()
+	{
+		return *renderPass.colorSubPass().cameras().begin();
 	}
 
 	void update(BaseExecutor* const executor);

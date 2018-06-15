@@ -5,6 +5,7 @@
 #include "frameBufferCount.h"
 #include "Frustum.h"
 #include "Shaders/VtFeedbackCameraMaterial.h"
+#include <new>
 class BaseExecutor;
 class SharedResources;
 
@@ -29,10 +30,17 @@ public:
 	VirtualPageCamera(SharedResources* sharedResources, ID3D12Resource* image, D3D12_CPU_DESCRIPTOR_HANDLE renderTargetView, D3D12_CPU_DESCRIPTOR_HANDLE depthSencilView,
 		unsigned int width, unsigned int height, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1, uint8_t*& constantBufferCpuAddress1, float fieldOfView,
 		Transform& target);
+	void init(SharedResources* sharedResources, ID3D12Resource* image, D3D12_CPU_DESCRIPTOR_HANDLE renderTargetView, D3D12_CPU_DESCRIPTOR_HANDLE depthSencilView,
+		unsigned int width, unsigned int height, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1, uint8_t*& constantBufferCpuAddress1, float fieldOfView,
+		Transform& target)
+	{
+		this->~VirtualPageCamera();
+		new(this) VirtualPageCamera(sharedResources, image, renderTargetView, depthSencilView, width, height, constantBufferGpuAddress1, constantBufferCpuAddress1, fieldOfView, target);
+	}
 	~VirtualPageCamera();
 
 	void update(SharedResources* sharedResources, float mipBias);
-	bool isInView(SharedResources& sharedResources) { return true; }
+	bool isInView(SharedResources& sharedResources) const { return true; }
 	void bind(SharedResources& sharedResources, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end);
 	void bindFirstThread(SharedResources& sharedResources, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end);
 	D3D12_CPU_DESCRIPTOR_HANDLE getRenderTargetView() { return renderTargetView; }

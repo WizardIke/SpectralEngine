@@ -10,18 +10,17 @@
 #include "PageProvider.h"
 
 class FeedbackAnalizerSubPass : public RenderSubPass<VirtualPageCamera, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET, std::tuple<>, std::tuple<>, 1u,
-	D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET>
+	D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET, true, 1u>
 {
 	friend class ThreadLocal;
 	using Base = RenderSubPass<VirtualPageCamera, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET, std::tuple<>, std::tuple<>, 1u,
-		D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET>;
+		D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET, true, 1u>;
 	D3D12Resource feadbackTextureGpu;
 	D3D12Resource depthBuffer;
 	D3D12DescriptorHeap depthStencilDescriptorHeap;
 	D3D12DescriptorHeap rtvDescriptorHeap;
 	D3D12Resource readbackTexture;
 	unsigned long width, height;
-	VirtualPageCamera camera;
 
 	struct TextureLocationHasher : std::hash<uint64_t>
 	{
@@ -68,7 +67,6 @@ public:
 		uint8_t*& constantBufferCpuAddress1, float fieldOfView)
 	{
 		createResources(sharedResources, mainCameraTransform, constantBufferGpuAddress1, constantBufferCpuAddress1, width, height, fieldOfView);
-		addCamera(sharedResources, renderPass, &camera);
 	}
 
 	void destruct(SharedResources* sharedResources);
@@ -76,7 +74,6 @@ public:
 	bool isInView(SharedResources& sharedResources)
 	{
 		return inView;
-		//return false;
 	}
 
 	class ThreadLocal : public Base::ThreadLocal
@@ -142,7 +139,7 @@ public:
 				auto camera = *cam;
 				barriers[barrierCount].Flags = D3D12_RESOURCE_BARRIER_FLAGS::D3D12_RESOURCE_BARRIER_FLAG_NONE;
 				barriers[barrierCount].Type = D3D12_RESOURCE_BARRIER_TYPE::D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-				barriers[barrierCount].Transition.pResource = camera->getImage();
+				barriers[barrierCount].Transition.pResource = camera.getImage();
 				barriers[barrierCount].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
 				barriers[barrierCount].Transition.StateBefore = stateBefore;
 				barriers[barrierCount].Transition.StateAfter = stateAfter;

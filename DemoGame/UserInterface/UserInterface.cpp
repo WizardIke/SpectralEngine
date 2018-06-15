@@ -26,19 +26,19 @@ UserInterface::UserInterface(SharedResources& sharedResources, D3D12_GPU_VIRTUAL
 
 
 	Assets& assets = reinterpret_cast<Assets&>(sharedResources);
-	auto camera = (*assets.renderPass.virtualTextureFeedbackSubPass().cameras().begin());
+	auto& camera = (*assets.renderPass.virtualTextureFeedbackSubPass().cameras().begin());
 	D3D12_RESOURCE_DESC resourceDesc;
 	resourceDesc.Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
 	resourceDesc.DepthOrArraySize = 1u;
 	resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION::D3D12_RESOURCE_DIMENSION_TEXTURE2D;
 	resourceDesc.Flags = D3D12_RESOURCE_FLAGS::D3D12_RESOURCE_FLAG_NONE;
 	resourceDesc.Format = DXGI_FORMAT::DXGI_FORMAT_R16G16B16A16_UINT;
-	resourceDesc.Height = camera->height();
+	resourceDesc.Height = camera.height();
 	resourceDesc.Layout = D3D12_TEXTURE_LAYOUT::D3D12_TEXTURE_LAYOUT_UNKNOWN;
 	resourceDesc.MipLevels = 1u;
 	resourceDesc.SampleDesc.Count = 1u;
 	resourceDesc.SampleDesc.Quality = 0u;
-	resourceDesc.Width = camera->width();
+	resourceDesc.Width = camera.width();
 
 	D3D12_HEAP_PROPERTIES heapProperties;
 	heapProperties.Type = D3D12_HEAP_TYPE::D3D12_HEAP_TYPE_DEFAULT;
@@ -97,7 +97,7 @@ void UserInterface::update2(Executor* const executor, SharedResources& sharedRes
 		auto& subPass = assets.renderPass.virtualTextureFeedbackSubPass();
 		if (subPass.isInView(sharedResources))
 		{
-			auto image = (*assets.renderPass.virtualTextureFeedbackSubPass().cameras().begin())->getImage();
+			auto image = (*assets.renderPass.virtualTextureFeedbackSubPass().cameras().begin()).getImage();
 
 			D3D12_RESOURCE_BARRIER barrier[2];
 			barrier[0].Type = D3D12_RESOURCE_BARRIER_TYPE::D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;

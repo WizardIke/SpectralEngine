@@ -79,7 +79,7 @@ namespace Cave
 	void CaveArea::update(BaseExecutor* const executor, SharedResources& sr)
 	{
 		auto& sharedResources = reinterpret_cast<Assets&>(sr);
-		auto& position = sharedResources.mainCamera.position();
+		auto& position = sharedResources.mainCamera().position();
 		Vector2 zonePosition{ currentZoneX * Area::zoneDiameter + 0.5f * Area::zoneDiameter, currentZoneZ * Area::zoneDiameter + 0.5f * Area::zoneDiameter };
 		if (position.x > zonePosition.x + 0.5f * Area::zoneDiameter)
 		{
@@ -128,7 +128,7 @@ namespace Cave
 	void CaveArea::setAsCurrentArea(BaseExecutor* const executor, SharedResources& sr)
 	{
 		auto& sharedResources = reinterpret_cast<Assets&>(sr);
-		auto& position = sharedResources.mainCamera.position();
+		auto& position = sharedResources.mainCamera().position();
 		oldPosX = position.x;
 		oldPosZ = position.z;
 
@@ -148,7 +148,7 @@ namespace Cave
 		Vector2 position{ currentZoneX * Area::zoneDiameter, currentZoneZ * Area::zoneDiameter };
 		load(executor, sharedResources, position, 0.0f, nullptr);
 
-		auto& cameraPosition = sharedResources.mainCamera.position();
+		auto& cameraPosition = sharedResources.mainCamera().position();
 		oldPosX = cameraPosition.x;
 		oldPosZ = cameraPosition.z;
 

@@ -5,6 +5,7 @@
 #include "Frustum.h"
 #include <DirectXMath.h>
 #include "frameBufferCount.h"
+#include <new>
 class SharedResources;
 class BaseExecutor;
 
@@ -32,12 +33,18 @@ public:
 	MainCamera() {}
 	MainCamera(SharedResources* sharedResources, unsigned int width, unsigned int height, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1,
 		uint8_t*& constantBufferCpuAddress1, float fieldOfView, const Transform& target);
+	void init(SharedResources* sharedResources, unsigned int width, unsigned int height, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1,
+		uint8_t*& constantBufferCpuAddress1, float fieldOfView, const Transform& target)
+	{
+		this->~MainCamera();
+		new(this) MainCamera(sharedResources, width, height, constantBufferGpuAddress1, constantBufferCpuAddress1, fieldOfView, target);
+	}
 
 	void destruct(SharedResources* sharedResources);
 	~MainCamera();
 
 	void update(SharedResources* sharedResources, const Transform& target);
-	bool isInView(SharedResources& sharedResources) { return true; }
+	bool isInView(SharedResources& sharedResources) const { return true; }
 	void bind(SharedResources& sharedResources, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end);
 	void bindFirstThread(SharedResources& sharedResources, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end);
 	ID3D12Resource* getImage() { return mImage; };

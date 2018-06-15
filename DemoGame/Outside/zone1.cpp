@@ -45,11 +45,6 @@ namespace
 			const auto zone = reinterpret_cast<BaseZone* const>(requester);
 			zone->componentUploaded(executor, numComponents);
 		}
-
-		static RenderPass1::Local::RenderToTextureSubPassGroup& getRenderToTextureSubPassGroup(Executor& executor)
-		{
-			return executor.renderPass.renderToTextureSubPassGroup();
-		}
 	public:
 		Mesh* squareWithPos;
 		Mesh* cubeWithPos;
@@ -59,8 +54,7 @@ namespace
 		D3D12_RESOURCE_STATES waterRenderTargetTextureState;
 		D3D12DescriptorHeap renderTargetTexturesDescriptorHeap;
 		unsigned int shaderResourceViews[numRenderTargetTextures];
-		Array<ReflectionCamera, numRenderTargetTextures> reflectionCameras;
-		Array<RenderPass1::RenderToTextureSubPass*, numRenderTargetTextures> renderTargetTextureSubPasses;
+		Array<ReflectionCamera*, numRenderTargetTextures> reflectionCameras;
 		unsigned int reflectionCameraBackBuffers[numRenderTargetTextures];
 
 		Light light;
@@ -169,58 +163,52 @@ namespace
 #endif // _DEBUG
 			}
 
-			D3D12_RENDER_TARGET_VIEW_DESC HDRenderTargetViewDesc;
-			HDRenderTargetViewDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-			HDRenderTargetViewDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
-			HDRenderTargetViewDesc.Texture2D.MipSlice = 0u;
-			HDRenderTargetViewDesc.Texture2D.PlaneSlice = 0u;
-
-			D3D12_SHADER_RESOURCE_VIEW_DESC HDSHaderResourceViewDesc;
-			HDSHaderResourceViewDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-			HDSHaderResourceViewDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-			HDSHaderResourceViewDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-			HDSHaderResourceViewDesc.Texture2D.MipLevels = 1u;
-			HDSHaderResourceViewDesc.Texture2D.MostDetailedMip = 0u;
-			HDSHaderResourceViewDesc.Texture2D.PlaneSlice = 0u;
-			HDSHaderResourceViewDesc.Texture2D.ResourceMinLODClamp = 0.0f;
-
-			auto shaderResourceViewCpuDescriptorHandle = sharedResources.graphicsEngine.mainDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
-			auto srvSize = sharedResources.graphicsEngine.constantBufferViewAndShaderResourceViewAndUnordedAccessViewDescriptorSize;
-			auto tempRenderTargetTexturesCpuDescriptorHandle = renderTargetTexturesDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
-			auto depthStencilHandle = sharedResources.graphicsEngine.depthStencilDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
-
-			D3D12_SHADER_RESOURCE_VIEW_DESC backBufferSrvDesc;
-			backBufferSrvDesc.Format = DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM;
-			backBufferSrvDesc.ViewDimension = D3D12_SRV_DIMENSION::D3D12_SRV_DIMENSION_TEXTURE2D;
-			backBufferSrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-			backBufferSrvDesc.Texture2D.MipLevels = 1u;
-			backBufferSrvDesc.Texture2D.MostDetailedMip = 0u;
-			backBufferSrvDesc.Texture2D.PlaneSlice = 0u;
-			backBufferSrvDesc.Texture2D.ResourceMinLODClamp = 0u;
-
-			for (auto i = 0u; i < numRenderTargetTextures; ++i)
 			{
-				shaderResourceViews[i] = sharedResources.graphicsEngine.descriptorAllocator.allocate();
-				sharedResources.graphicsEngine.graphicsDevice->CreateShaderResourceView(renderTargetTextures[i], &HDSHaderResourceViewDesc, shaderResourceViewCpuDescriptorHandle + srvSize * shaderResourceViews[i]);
+				D3D12_RENDER_TARGET_VIEW_DESC HDRenderTargetViewDesc;
+				HDRenderTargetViewDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+				HDRenderTargetViewDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
+				HDRenderTargetViewDesc.Texture2D.MipSlice = 0u;
+				HDRenderTargetViewDesc.Texture2D.PlaneSlice = 0u;
 
-				sharedResources.graphicsEngine.graphicsDevice->CreateRenderTargetView(renderTargetTextures[i], &HDRenderTargetViewDesc, tempRenderTargetTexturesCpuDescriptorHandle);
-				Transform transform = sharedResources.mainCamera.transform().reflection(waterModel.reflectionHeight());
+				D3D12_SHADER_RESOURCE_VIEW_DESC HDSHaderResourceViewDesc;
+				HDSHaderResourceViewDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+				HDSHaderResourceViewDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+				HDSHaderResourceViewDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+				HDSHaderResourceViewDesc.Texture2D.MipLevels = 1u;
+				HDSHaderResourceViewDesc.Texture2D.MostDetailedMip = 0u;
+				HDSHaderResourceViewDesc.Texture2D.PlaneSlice = 0u;
+				HDSHaderResourceViewDesc.Texture2D.ResourceMinLODClamp = 0.0f;
 
-				reflectionCameraBackBuffers[i] = sharedResources.graphicsEngine.descriptorAllocator.allocate();
-				sharedResources.graphicsEngine.graphicsDevice->CreateShaderResourceView(renderTargetTextures[i], &backBufferSrvDesc,
-					shaderResourceViewCpuDescriptorHandle + reflectionCameraBackBuffers[i] * sharedResources.graphicsEngine.constantBufferViewAndShaderResourceViewAndUnordedAccessViewDescriptorSize);
-				uint32_t backBuffers[frameBufferCount];
-				for (auto j = 0u; j < frameBufferCount; ++j)
+				auto shaderResourceViewCpuDescriptorHandle = sharedResources.graphicsEngine.mainDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
+				auto srvSize = sharedResources.graphicsEngine.constantBufferViewAndShaderResourceViewAndUnordedAccessViewDescriptorSize;
+				auto tempRenderTargetTexturesCpuDescriptorHandle = renderTargetTexturesDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
+
+				D3D12_SHADER_RESOURCE_VIEW_DESC backBufferSrvDesc;
+				backBufferSrvDesc.Format = DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM;
+				backBufferSrvDesc.ViewDimension = D3D12_SRV_DIMENSION::D3D12_SRV_DIMENSION_TEXTURE2D;
+				backBufferSrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+				backBufferSrvDesc.Texture2D.MipLevels = 1u;
+				backBufferSrvDesc.Texture2D.MostDetailedMip = 0u;
+				backBufferSrvDesc.Texture2D.PlaneSlice = 0u;
+				backBufferSrvDesc.Texture2D.ResourceMinLODClamp = 0u;
+
+				for (auto i = 0u; i < numRenderTargetTextures; ++i)
 				{
-					backBuffers[j] = reflectionCameraBackBuffers[i];
+					shaderResourceViews[i] = sharedResources.graphicsEngine.descriptorAllocator.allocate();
+					sharedResources.graphicsEngine.graphicsDevice->CreateShaderResourceView(renderTargetTextures[i], &HDSHaderResourceViewDesc, shaderResourceViewCpuDescriptorHandle + srvSize * shaderResourceViews[i]);
+
+					sharedResources.graphicsEngine.graphicsDevice->CreateRenderTargetView(renderTargetTextures[i], &HDRenderTargetViewDesc, tempRenderTargetTexturesCpuDescriptorHandle);
+
+					reflectionCameraBackBuffers[i] = sharedResources.graphicsEngine.descriptorAllocator.allocate();
+					sharedResources.graphicsEngine.graphicsDevice->CreateShaderResourceView(renderTargetTextures[i], &backBufferSrvDesc,
+						shaderResourceViewCpuDescriptorHandle + reflectionCameraBackBuffers[i] * sharedResources.graphicsEngine.constantBufferViewAndShaderResourceViewAndUnordedAccessViewDescriptorSize);
+
+					tempRenderTargetTexturesCpuDescriptorHandle.ptr += sharedResources.graphicsEngine.renderTargetViewDescriptorSize;
 				}
-
-				new(&reflectionCameras[i]) ReflectionCamera(&sharedResources, renderTargetTextures[i], tempRenderTargetTexturesCpuDescriptorHandle, depthStencilHandle,
-					sharedResources.window.width(), sharedResources.window.height(), PerObjectConstantBuffersGpuAddress, cpuConstantBuffer, 0.25f * 3.141f,
-					transform, backBuffers);
-
-				tempRenderTargetTexturesCpuDescriptorHandle.ptr += sharedResources.graphicsEngine.renderTargetViewDescriptorSize;
 			}
+
+			PerObjectConstantBuffersGpuAddress += ReflectionCamera::totalConstantBufferRequired;
+			cpuConstantBuffer += ReflectionCamera::totalConstantBufferRequired;
 
 			new(&bathModel1) BathModel2(PerObjectConstantBuffersGpuAddress, cpuConstantBuffer);
 
@@ -356,20 +344,34 @@ namespace
 				componentUploaded(requester, executor, sharedResources);
 			});
 			
-			executor->updateJobQueue().push(Job(zone, [](void* zone1, BaseExecutor* executor1, SharedResources& sharedResources)
+			executor->updateJobQueue().push(Job(zone, [](void* zone1, BaseExecutor* executor1, SharedResources& sr)
 			{
 				const auto zone = reinterpret_cast<BaseZone*>(zone1);
 				const auto executor = reinterpret_cast<Executor*>(executor1);
-				const auto assets = reinterpret_cast<Assets*>(&sharedResources);
+				auto& sharedResources = reinterpret_cast<Assets&>(sr);
 				const auto resource = reinterpret_cast<HDResources*>(zone->newData);
+
+				auto tempRenderTargetTexturesCpuDescriptorHandle = resource->renderTargetTexturesDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
+				auto depthStencilHandle = sharedResources.graphicsEngine.depthStencilDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
+				Transform transform = sharedResources.mainCamera().transform().reflection(resource->waterModel.reflectionHeight());
+				uint8_t* cpuConstantBuffer = resource->perObjectConstantBuffersCpuAddress;
+				D3D12_GPU_VIRTUAL_ADDRESS PerObjectConstantBuffersGpuAddress = resource->perObjectConstantBuffers->GetGPUVirtualAddress();
 
 				for (auto i = 0u; i < numRenderTargetTextures; ++i)
 				{
-					auto executors = assets->executors();
-					resource->renderTargetTextureSubPasses[i] = &assets->renderPass.renderToTextureSubPassGroup().addSubPass(sharedResources, assets->renderPass,
-						executors.map<RenderPass1::Local::RenderToTextureSubPassGroup, getRenderToTextureSubPassGroup>());
-					resource->renderTargetTextureSubPasses[i]->addCamera(sharedResources, assets->renderPass, &resource->reflectionCameras[i]);
+					uint32_t backBuffers[frameBufferCount];
+					for (auto j = 0u; j < frameBufferCount; ++j)
+					{
+						backBuffers[j] = resource->reflectionCameraBackBuffers[i];
+					}
+
+					resource->reflectionCameras[i] = &sharedResources.renderPass.renderToTextureSubPass().addCamera(sharedResources, sharedResources.renderPass, ReflectionCamera(&sharedResources,
+						resource->renderTargetTextures[i], tempRenderTargetTexturesCpuDescriptorHandle, depthStencilHandle, sharedResources.window.width(), sharedResources.window.height(), PerObjectConstantBuffersGpuAddress,
+						cpuConstantBuffer, 0.25f * 3.141f, transform, backBuffers));
+
+					tempRenderTargetTexturesCpuDescriptorHandle.ptr += sharedResources.graphicsEngine.renderTargetViewDescriptorSize;
 				}
+
 				componentUploaded(zone, executor, sharedResources);
 			}));
 
@@ -401,14 +403,14 @@ namespace
 			const auto executor = reinterpret_cast<Executor* const>(executor1);
 			const auto assets = reinterpret_cast<Assets*>(&sharedResources);
 			const auto frameIndex = assets->graphicsEngine.frameIndex;
-			const auto& cameraPos = assets->mainCamera.position();
+			const auto& cameraPos = assets->mainCamera().position();
 			const auto frameTime = assets->timer.frameTime();
 			waterModel.update(sharedResources);
 			fireModel1.update(frameIndex, cameraPos, frameTime);
 			fireModel2.update(frameIndex, cameraPos, frameTime);
 			for (auto& camera : reflectionCameras)
 			{
-				camera.update(assets, assets->mainCamera.transform().reflection(waterModel.reflectionHeight()).toMatrix());
+				camera->update(assets, assets->mainCamera().transform().reflection(waterModel.reflectionHeight()).toMatrix());
 			}
 
 			auto rotationMatrix = DirectX::XMMatrixTranslation(-64.0f, -5.0f, -64.0f) * DirectX::XMMatrixRotationAxis(DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f), assets->timer.frameTime()) * DirectX::XMMatrixTranslation(64.0f, 5.0f, 64.0f);
@@ -439,14 +441,13 @@ namespace
 			Assets* const assets = (Assets*)&sharedResources;
 
 			auto depthStencilHandle = assets->graphicsEngine.depthStencilDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
-			if (waterModel.isInView(assets->mainCamera.frustum()))
+			if (waterModel.isInView(assets->mainCamera().frustum()))
 			{
-				const auto subPass = assets->renderPass.renderToTextureSubPassGroup().subPasses().begin();
-				const auto camera = *subPass->cameras().begin();
-				const auto& frustum = camera->frustum();
-				const auto commandList = executor->renderPass.renderToTextureSubPassGroup().subPasses().begin()->firstCommandList();
+				auto& camera = *reflectionCameras[0];
+				const auto& frustum = camera.frustum();
+				const auto commandList = executor->renderPass.renderToTextureSubPass().firstCommandList();
 				auto warpTextureCpuDescriptorHandle = assets->warpTextureCpuDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
-				auto backBufferRenderTargetCpuHandle = camera->getRenderTargetView(assets);
+				auto backBufferRenderTargetCpuHandle = camera.getRenderTargetView(assets);
 
 				commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
@@ -463,7 +464,7 @@ namespace
 
 				copyStartBarriers[1u].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
 				copyStartBarriers[1u].Flags = D3D12_RESOURCE_BARRIER_FLAGS::D3D12_RESOURCE_BARRIER_FLAG_NONE;
-				copyStartBarriers[1u].Transition.pResource = camera->getImage();
+				copyStartBarriers[1u].Transition.pResource = camera.getImage();
 				copyStartBarriers[1u].Transition.StateBefore = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET;
 				copyStartBarriers[1u].Transition.StateAfter = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
 				copyStartBarriers[1u].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
@@ -524,7 +525,7 @@ namespace
 			const auto opaqueDirectCommandList = executor->renderPass.colorSubPass().opaqueCommandList();
 			const auto transparantCommandList = executor->renderPass.colorSubPass().transparentCommandList();
 			auto depthStencilHandle = assets->graphicsEngine.depthStencilDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
-			auto backBufferRenderTargetCpuHandle = assets->mainCamera.getRenderTargetView(assets);
+			auto backBufferRenderTargetCpuHandle = assets->mainCamera().getRenderTargetView(assets);
 			auto warpTextureCpuDescriptorHandle = assets->warpTextureCpuDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
 
 			D3D12_RESOURCE_BARRIER copyStartBarriers[2u];
@@ -561,7 +562,7 @@ namespace
 
 			constexpr uint64_t pointLightConstantBufferAlignedSize = (sizeof(LightConstantBuffer) + (uint64_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (uint64_t)1u) & ~((uint64_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (uint64_t)1u);
 			opaqueDirectCommandList->SetGraphicsRootConstantBufferView(1u, pointLightConstantBufferGpuAddress + frameIndex * pointLightConstantBufferAlignedSize);
-			const auto& frustum = assets->mainCamera.frustum();
+			const auto& frustum = assets->mainCamera().frustum();
 
 			if (groundModel.isInView(frustum))
 			{
@@ -666,18 +667,15 @@ namespace
 			for (auto i = 0u; i < numRenderTargetTextures; ++i)
 			{
 				graphicsEngine.descriptorAllocator.deallocate(shaderResourceViews[i]);
-
-				executor->updateJobQueue().push(Job(renderTargetTextureSubPasses[i], [](void* subPass1, BaseExecutor* executor1, SharedResources& sharedResources)
-				{
-					const auto subPass = reinterpret_cast<RenderPass1::RenderToTextureSubPass*>(subPass1);
-					const auto executor = reinterpret_cast<Executor*>(executor1);
-					const auto assets = reinterpret_cast<Assets*>(&sharedResources);
-					auto executors = assets->executors();
-					assets->renderPass.renderToTextureSubPassGroup().removeSubPass(sharedResources, subPass, 
-						executors.map<RenderPass1::Local::RenderToTextureSubPassGroup, getRenderToTextureSubPassGroup>());
-				}));
-
 				graphicsEngine.descriptorAllocator.deallocate(reflectionCameraBackBuffers[i]);
+
+				executor->updateJobQueue().push(Job(reflectionCameras[i], [](void* cam, BaseExecutor* executor1, SharedResources& sr)
+				{
+					auto camera = reinterpret_cast<ReflectionCamera*>(cam);
+					auto& sharedResources = reinterpret_cast<Assets&>(sr);
+
+					sharedResources.renderPass.renderToTextureSubPass().removeCamera(sharedResources, *camera);
+				}));
 			}
 
 			textureManager.unloadTexture(TextureNames::ground01, graphicsEngine);
@@ -798,7 +796,7 @@ namespace
 
 			commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-			if (bathModel.isInView(assets->mainCamera.frustum()))
+			if (bathModel.isInView(assets->mainCamera().frustum()))
 			{
 				commandList->SetPipelineState(assets->pipelineStateObjects.directionalLight);
 

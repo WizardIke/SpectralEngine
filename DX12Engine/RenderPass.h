@@ -26,6 +26,7 @@ public:
 		});
 		commandListCount += sharedResources.maxThreads;
 		commandLists.reset(new ID3D12CommandList*[commandListCount]);
+		updateBarrierCount();
 	}
 
 	std::tuple<RenderSubPass_t...> subPasses;
@@ -217,12 +218,12 @@ public:
 			auto camerasEnd = cameras.end();
 			for (auto cam = cameras.begin(); cam != camerasEnd; ++cam)
 			{
-				auto camera = *cam;
-				if (camera->isInView(sharedResources))
+				auto& camera = *cam;
+				if (camera.isInView(sharedResources))
 				{
 					barriers[barrierCount].Flags = flags;
 					barriers[barrierCount].Type = D3D12_RESOURCE_BARRIER_TYPE::D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-					barriers[barrierCount].Transition.pResource = camera->getImage();
+					barriers[barrierCount].Transition.pResource = camera.getImage();
 					barriers[barrierCount].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
 					barriers[barrierCount].Transition.StateBefore = stateBefore;
 					barriers[barrierCount].Transition.StateAfter = stateAfter;

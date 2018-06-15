@@ -16,7 +16,7 @@ class Array
 		{
 			return (reinterpret_cast<Element*>(buffer))[i];
 		}
-		constexpr Element& operator[](std::size_t i) const
+		constexpr const Element& operator[](std::size_t i) const
 		{
 			return (reinterpret_cast<const Element*>(buffer))[i];
 		}
@@ -27,6 +27,7 @@ public:
 	class DoNotInitialize {};
 
 	typedef Element* iterator;
+	using const_iterator = const Element*;
 	typedef ::std::reverse_iterator<Element*> reverse_iterator;
 	typedef ::std::reverse_iterator<const Element*> const_reverse_iterator;
 
@@ -217,7 +218,11 @@ public:
 	{
 		return &buffer[0];
 	}
-	constexpr iterator cbegin() const noexcept
+	constexpr const_iterator begin() const noexcept
+	{
+		return &buffer[0];
+	}
+	constexpr const_iterator cbegin() const noexcept
 	{
 		return &buffer[0];
 	}
@@ -233,7 +238,11 @@ public:
 	{
 		return &buffer[capacity];
 	}
-	constexpr iterator cend() const noexcept
+	constexpr const_iterator end() const noexcept
+	{
+		return &buffer[capacity];
+	}
+	constexpr const_iterator cend() const noexcept
 	{
 		return &buffer[capacity];
 	}

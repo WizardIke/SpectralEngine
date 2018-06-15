@@ -192,7 +192,7 @@ void FeedbackAnalizerSubPass::createResources(SharedResources& sharedResources, 
 	auto depthDescriptor = depthStencilDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
 	graphicsDevice->CreateDepthStencilView(depthBuffer, &dsvDesc, depthDescriptor);
 
-	new(&camera) VirtualPageCamera(&sharedResources, feadbackTextureGpu, rtvdescriptor, depthDescriptor, newWidth, newHeight, constantBufferGpuAddress1, constantBufferCpuAddress1, fieldOfView,
+	this->mCameras[0].init(&sharedResources, feadbackTextureGpu, rtvdescriptor, depthDescriptor, newWidth, newHeight, constantBufferGpuAddress1, constantBufferCpuAddress1, fieldOfView,
 		mainCameraTransform);
 
 #ifndef NDEBUG
@@ -215,10 +215,10 @@ void FeedbackAnalizerSubPass::ThreadLocal::update1AfterFirstThread(SharedResourc
 	auto camerasEnd = cameras.end();
 	for (auto cam = cameras.begin(); cam != camerasEnd; ++cam)
 	{
-		auto camera = *cam;
+		auto& camera = *cam;
 		barriers[barrierCount].Flags = D3D12_RESOURCE_BARRIER_FLAGS::D3D12_RESOURCE_BARRIER_FLAG_NONE;
 		barriers[barrierCount].Type = D3D12_RESOURCE_BARRIER_TYPE::D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-		barriers[barrierCount].Transition.pResource = camera->getImage();
+		barriers[barrierCount].Transition.pResource = camera.getImage();
 		barriers[barrierCount].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
 		barriers[barrierCount].Transition.StateBefore = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_COMMON;
 		barriers[barrierCount].Transition.StateAfter = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET;
@@ -228,9 +228,9 @@ void FeedbackAnalizerSubPass::ThreadLocal::update1AfterFirstThread(SharedResourc
 
 	for (auto& camera : renderSubPass.cameras())
 	{
-		if (camera->isInView(sharedResources))
+		if (camera.isInView(sharedResources))
 		{
-			camera->bindFirstThread(sharedResources, &currentData->commandLists[0u].get(),
+			camera.bindFirstThread(sharedResources, &currentData->commandLists[0u].get(),
 				&currentData->commandLists.data()[currentData->commandLists.size()].get());
 		}
 	}

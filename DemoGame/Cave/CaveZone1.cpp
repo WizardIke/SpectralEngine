@@ -143,7 +143,7 @@ namespace Cave
 			const auto vtFeedbackCommandList = executor->renderPass.virtualTextureFeedbackSubPass().firstCommandList();
 			
 
-			if (caveModelPart1.isInView(sharedResources.mainCamera.frustum()))
+			if (caveModelPart1.isInView(sharedResources.mainCamera().frustum()))
 			{
 				if (sharedResources.renderPass.virtualTextureFeedbackSubPass().isInView(sharedResources))
 				{

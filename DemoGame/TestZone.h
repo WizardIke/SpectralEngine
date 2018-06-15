@@ -153,7 +153,7 @@ class TestZoneFunctions
 
 			commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-			if (highResPlaneModel.isInView(assets->mainCamera.frustum()))
+			if (highResPlaneModel.isInView(assets->mainCamera().frustum()))
 			{
 				if (sharedResources.renderPass.virtualTextureFeedbackSubPass().isInView(sharedResources))
 				{
