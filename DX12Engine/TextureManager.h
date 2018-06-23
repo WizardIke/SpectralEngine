@@ -7,6 +7,7 @@
 #include <mutex>
 #include "StreamingManager.h"
 #include "DDSFileLoader.h"
+#include "Delegate.h"
 class BaseExecutor;
 class SharedResources;
 class D3D12GraphicsEngine;
@@ -22,22 +23,7 @@ private:
 		unsigned int numUsers;
 		bool loaded; //remove this bool
 	};
-
-	class Request
-	{
-		void* requester;
-		void(*job)(void*const requester, BaseExecutor* const executor, SharedResources& sharedResources, unsigned int textureDescriptorIndex);
-	public:
-		Request(const Request& other) = default;
-		Request(void* const requester, void(*job)(void*const requester, BaseExecutor* const executor, SharedResources& sharedResources, unsigned int textureDescriptorIndex)) : requester(requester),
-			job(job) {}
-		Request() {}
-
-		void operator()(BaseExecutor* const executor, SharedResources& sharedResources, unsigned int textureIndex)
-		{
-			job(requester, executor, sharedResources, textureIndex);
-		}
-	};
+	using Request = Delegate<void(BaseExecutor* const executor, SharedResources& sharedResources, unsigned int textureDescriptorIndex)>;
 
 	std::mutex mutex;
 	std::unordered_map<const wchar_t * const, ResizingArray<Request>, std::hash<const wchar_t *>> uploadRequests;

@@ -5,6 +5,7 @@ class BaseExecutor;
 #include <mutex>
 #include "ResizingArray.h"
 #include "Job.h"
+#include "Delegate.h"
 #include "StreamingManager.h"
 #include "DDSFileLoader.h"
 #include "D3D12GraphicsEngine.h"
@@ -26,21 +27,7 @@ public:
 		unsigned int numUsers;
 		bool loaded;
 	};
-	class Request
-	{
-		friend class VirtualTextureManager;
-		void* requester;
-		void(*job)(void*const requester, BaseExecutor* const executor, SharedResources& sharedResources, const Texture& texture);
-	public:
-		Request(void* const requester, void(*job)(void*const requester, BaseExecutor* const executor, SharedResources& sharedResources, const Texture& texture)) :
-			requester(requester), job(job) {}
-		Request() {}
-
-		void operator()(BaseExecutor* const executor, SharedResources& sharedResources, const Texture& texture)
-		{
-			job(requester, executor, sharedResources, texture);
-		}
-	};
+	using Request = Delegate<void(BaseExecutor* executor, SharedResources& sharedResources, const Texture& texture)>;
 private:
 	class TextureInfoAllocator
 	{

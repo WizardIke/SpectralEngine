@@ -185,6 +185,7 @@
     <ClInclude Include="AudioFormatNotSupportedException.h" />
     <ClInclude Include="AudioPlaybackException.h" />
     <ClInclude Include="BaseZone.h" />
+    <ClInclude Include="Delegate.h" />
     <ClInclude Include="DynamicArray.h" />
     <ClInclude Include="IOCompletionQueue.h" />
     <ClInclude Include="PageCache.h" />

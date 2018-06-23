@@ -5,6 +5,7 @@
 #include <unordered_map>
 #include <mutex>
 #include "FixedSizeAllocator.h"
+#include "Delegate.h"
 class BaseExecutor;
 class StreamingManager;
 class HalfFinishedUploadRequest;
@@ -48,11 +49,7 @@ class MeshManager
 		float x, y, z;
 	};
 
-	struct Request
-	{
-		void* requester;
-		void(*resourceUploaded)(void* const requester, BaseExecutor* const executor, SharedResources& sharedResources, Mesh* mesh);
-	};
+	using Request = Delegate<void(BaseExecutor* executor, SharedResources& sharedResources, Mesh* mesh)>;
 
 	struct MeshInfo
 	{

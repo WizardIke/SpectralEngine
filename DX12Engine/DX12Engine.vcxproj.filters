@@ -400,6 +400,7 @@
     <ClInclude Include="File.h">
       <Filter>ScopedFile</Filter>
     </ClInclude>
+    <ClInclude Include="Delegate.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="SharedResources.cpp">

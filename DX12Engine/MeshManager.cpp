@@ -378,9 +378,9 @@ void MeshManager::meshUploaded(void* requester, BaseExecutor* executor, SharedRe
 		}
 	}
 
-	for (auto& request : requests)
+	for (const auto& request : requests)
 	{
-		request.resourceUploaded(request.requester, executor, sharedResources, mesh);
+		request(executor, sharedResources, mesh);
 	}
 }
 
