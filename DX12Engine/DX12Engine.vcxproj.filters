@@ -4,12 +4,6 @@
     <Filter Include="Area">
       <UniqueIdentifier>{b08f89e8-c5ef-47d8-a031-cd00acc69bac}</UniqueIdentifier>
     </Filter>
-    <Filter Include="BaseExecutor">
-      <UniqueIdentifier>{30cea1f6-4842-45a4-81b9-b173f5ef9af7}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="BaseZone">
-      <UniqueIdentifier>{82b1869f-c665-4b66-af2d-80c3ddf24f8e}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Camera">
       <UniqueIdentifier>{434b7b73-2fd6-4cea-bc47-3028417b3712}</UniqueIdentifier>
     </Filter>
@@ -49,17 +43,11 @@
     <Filter Include="PointLight">
       <UniqueIdentifier>{583d4257-8c59-4306-ae3d-94a88fb973b7}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Queue">
-      <UniqueIdentifier>{0b03d907-d57a-49f5-8e6a-eaa709b5de54}</UniqueIdentifier>
-    </Filter>
     <Filter Include="RenderPass">
       <UniqueIdentifier>{4a0d2e67-25c8-4650-95d9-11ca3150361e}</UniqueIdentifier>
     </Filter>
     <Filter Include="ScopedFile">
       <UniqueIdentifier>{16679715-85ea-4032-b0fd-76176515a8e4}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="SharedResources">
-      <UniqueIdentifier>{3d915c62-676f-486c-a454-dd4d228b98ae}</UniqueIdentifier>
     </Filter>
     <Filter Include="Sound">
       <UniqueIdentifier>{69db3b22-7b90-401d-bf71-ddb1279ac137}</UniqueIdentifier>
@@ -100,22 +88,16 @@
     <Filter Include="Transform">
       <UniqueIdentifier>{c1f00c24-644d-4b56-a812-1788944f9806}</UniqueIdentifier>
     </Filter>
-    <Filter Include="GpuCompletionEventManager">
-      <UniqueIdentifier>{e7651cd0-07b5-4966-804e-a2ff713025c3}</UniqueIdentifier>
-    </Filter>
     <Filter Include="AsynchronousFileManager">
       <UniqueIdentifier>{5afee8b7-b3b4-4914-af56-e50ea467f776}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Tools">
-      <UniqueIdentifier>{60f4cb30-f53f-4bab-b02a-f8b01402cde4}</UniqueIdentifier>
+    <Filter Include="TaskShedular">
+      <UniqueIdentifier>{49351cba-9129-44c5-8694-3aea37bda5f4}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="HresultException.h">
       <Filter>Exceptions</Filter>
-    </ClInclude>
-    <ClInclude Include="Queue.h">
-      <Filter>Queue</Filter>
     </ClInclude>
     <ClInclude Include="EventCreationException.h">
       <Filter>Exceptions</Filter>
@@ -125,9 +107,6 @@
     </ClInclude>
     <ClInclude Include="D3D12CreateDeviceFailedException.h">
       <Filter>Exceptions</Filter>
-    </ClInclude>
-    <ClInclude Include="SharedResources.h">
-      <Filter>SharedResources</Filter>
     </ClInclude>
     <ClInclude Include="IOException.h">
       <Filter>Exceptions</Filter>
@@ -243,9 +222,6 @@
     <ClInclude Include="Area.h">
       <Filter>Area</Filter>
     </ClInclude>
-    <ClInclude Include="BaseZone.h">
-      <Filter>BaseZone</Filter>
-    </ClInclude>
     <ClInclude Include="EulerRotation.h">
       <Filter>Math\EulerRotation</Filter>
     </ClInclude>
@@ -263,9 +239,6 @@
     </ClInclude>
     <ClInclude Include="Timer.h">
       <Filter>Timer</Filter>
-    </ClInclude>
-    <ClInclude Include="BaseExecutor.h">
-      <Filter>BaseExecutor</Filter>
     </ClInclude>
     <ClInclude Include="MeshManager.h">
       <Filter>MeshManager</Filter>
@@ -297,7 +270,6 @@
     </ClInclude>
     <ClInclude Include="d3dx12.h" />
     <ClInclude Include="for_each.h" />
-    <ClInclude Include="Job.h" />
     <ClInclude Include="TemplateFloat.h" />
     <ClInclude Include="Vector4.h">
       <Filter>Math</Filter>
@@ -360,9 +332,6 @@
     <ClInclude Include="VirtualPageCamera.h">
       <Filter>Camera</Filter>
     </ClInclude>
-    <ClInclude Include="GpuCompletionEventManager.h">
-      <Filter>GpuCompletionEventManager</Filter>
-    </ClInclude>
     <ClInclude Include="PageCache.h">
       <Filter>VirtualTexturing</Filter>
     </ClInclude>
@@ -387,8 +356,6 @@
       <Filter>Shaders\Pixel</Filter>
     </ClInclude>
     <ClInclude Include="ThreadBarrier.h" />
-    <ClInclude Include="PrimaryWorkStealingQueue.h" />
-    <ClInclude Include="Spinlock.h" />
     <ClInclude Include="IOCompletionQueue.h" />
     <ClInclude Include="StableQueue.h" />
     <ClInclude Include="AsynchronousFileManager.h">
@@ -401,11 +368,19 @@
       <Filter>ScopedFile</Filter>
     </ClInclude>
     <ClInclude Include="Delegate.h" />
+    <ClInclude Include="TaskShedular.h">
+      <Filter>TaskShedular</Filter>
+    </ClInclude>
+    <ClInclude Include="WorkStealingQueue.h">
+      <Filter>TaskShedular</Filter>
+    </ClInclude>
+    <ClInclude Include="SingleProducerMultiConsumerQueue.h" />
+    <ClInclude Include="SingleProducerSingleConsumerQueue.h" />
+    <ClInclude Include="MultiProducerSingleConsumerQueue.h" />
+    <ClInclude Include="GpuCompletionEventManager.h" />
+    <ClInclude Include="Zone.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="SharedResources.cpp">
-      <Filter>SharedResources</Filter>
-    </ClCompile>
     <ClCompile Include="DDSFileLoader.cpp">
       <Filter>DDSFileLoader</Filter>
     </ClCompile>
@@ -427,9 +402,6 @@
     <ClCompile Include="PlayerPosition.cpp">
       <Filter>PlayerPosition</Filter>
     </ClCompile>
-    <ClCompile Include="BaseZone.cpp">
-      <Filter>BaseZone</Filter>
-    </ClCompile>
     <ClCompile Include="EulerRotation.cpp">
       <Filter>Math\EulerRotation</Filter>
     </ClCompile>
@@ -441,9 +413,6 @@
     </ClCompile>
     <ClCompile Include="Timer.cpp">
       <Filter>Timer</Filter>
-    </ClCompile>
-    <ClCompile Include="BaseExecutor.cpp">
-      <Filter>BaseExecutor</Filter>
     </ClCompile>
     <ClCompile Include="MeshManager.cpp">
       <Filter>MeshManager</Filter>
@@ -470,9 +439,6 @@
     <ClCompile Include="CameraUtil.cpp">
       <Filter>Camera</Filter>
     </ClCompile>
-    <ClCompile Include="GpuCompletionEventManager.cpp">
-      <Filter>GpuCompletionEventManager</Filter>
-    </ClCompile>
     <ClCompile Include="PageAllocator.cpp">
       <Filter>VirtualTexturing</Filter>
     </ClCompile>
@@ -491,6 +457,7 @@
     <ClCompile Include="File.cpp">
       <Filter>ScopedFile</Filter>
     </ClCompile>
+    <ClCompile Include="ThreadBarrier.cpp" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Shaders\WaterPS.hlsl">

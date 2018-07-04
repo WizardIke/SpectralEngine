@@ -1,10 +1,11 @@
 #include "MainCamera.h"
-#include "SharedResources.h"
 #include "CameraUtil.h"
+#include "Window.h"
+#include "D3D12GraphicsEngine.h"
 
-MainCamera::MainCamera(SharedResources* sharedResources, unsigned int width, unsigned int height, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1,
+MainCamera::MainCamera(Window& window, D3D12GraphicsEngine& graphicsEngine, unsigned int width, unsigned int height, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1,
 	uint8_t*& constantBufferCpuAddress1, float fieldOfView, const Transform& target) :
-	renderTargetViewDescriptorHeap(sharedResources->graphicsEngine.graphicsDevice, []()
+	renderTargetViewDescriptorHeap(graphicsEngine.graphicsDevice, []()
 {
 	D3D12_DESCRIPTOR_HEAP_DESC renderTargetViewHeapDesc;
 	renderTargetViewHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
@@ -15,9 +16,16 @@ MainCamera::MainCamera(SharedResources* sharedResources, unsigned int width, uns
 }()),
 	mWidth(width),
 	mHeight(height),
-	mImage(sharedResources->window.getBuffer(sharedResources->graphicsEngine.frameIndex)),
-	depthSencilView(sharedResources->graphicsEngine.depthStencilDescriptorHeap->GetCPUDescriptorHandleForHeapStart())
+	mImage(window.getBuffer(graphicsEngine.frameIndex)),
+	depthSencilView(graphicsEngine.depthStencilDescriptorHeap->GetCPUDescriptorHandleForHeapStart())
 {
+	auto currentRenderTargetView = renderTargetViewDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
+	for (auto& renderTargetView : renderTargetViews)
+	{
+		renderTargetView = currentRenderTargetView;
+		currentRenderTargetView += graphicsEngine.renderTargetViewDescriptorSize;
+	}
+
 	D3D12_SHADER_RESOURCE_VIEW_DESC backBufferSrvDesc;
 	backBufferSrvDesc.Format = DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM;
 	backBufferSrvDesc.ViewDimension = D3D12_SRV_DIMENSION::D3D12_SRV_DIMENSION_TEXTURE2D;
@@ -26,21 +34,21 @@ MainCamera::MainCamera(SharedResources* sharedResources, unsigned int width, uns
 	backBufferSrvDesc.Texture2D.MostDetailedMip = 0u;
 	backBufferSrvDesc.Texture2D.PlaneSlice = 0u;
 	backBufferSrvDesc.Texture2D.ResourceMinLODClamp = 0u;
-	auto shaderResourceViewCpuDescriptorHandle = sharedResources->graphicsEngine.mainDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
+	auto shaderResourceViewCpuDescriptorHandle = graphicsEngine.mainDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
 	D3D12_CPU_DESCRIPTOR_HANDLE backbufferRenderTargetViewHandle = renderTargetViewDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
 	for (auto i = 0u; i < frameBufferCount; ++i)
 	{
-		sharedResources->graphicsEngine.graphicsDevice->CreateRenderTargetView(sharedResources->window.getBuffer(i), nullptr, backbufferRenderTargetViewHandle);
-		backbufferRenderTargetViewHandle.ptr += sharedResources->graphicsEngine.renderTargetViewDescriptorSize;
+		graphicsEngine.graphicsDevice->CreateRenderTargetView(window.getBuffer(i), nullptr, backbufferRenderTargetViewHandle);
+		backbufferRenderTargetViewHandle.ptr += graphicsEngine.renderTargetViewDescriptorSize;
 
-		backBufferTextures[i] = sharedResources->graphicsEngine.descriptorAllocator.allocate();
-		sharedResources->graphicsEngine.graphicsDevice->CreateShaderResourceView(sharedResources->window.getBuffer(i), &backBufferSrvDesc,
-			shaderResourceViewCpuDescriptorHandle + backBufferTextures[i] * sharedResources->graphicsEngine.constantBufferViewAndShaderResourceViewAndUnordedAccessViewDescriptorSize);
+		backBufferTextures[i] = graphicsEngine.descriptorAllocator.allocate();
+		graphicsEngine.graphicsDevice->CreateShaderResourceView(window.getBuffer(i), &backBufferSrvDesc,
+			shaderResourceViewCpuDescriptorHandle + backBufferTextures[i] * graphicsEngine.constantBufferViewAndShaderResourceViewAndUnordedAccessViewDescriptorSize);
 	}
-	auto frameIndex = sharedResources->graphicsEngine.frameIndex;
+	auto frameIndex = graphicsEngine.frameIndex;
 	auto renderTargetView = renderTargetViewDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
-	renderTargetView.ptr += frameIndex * sharedResources->graphicsEngine.renderTargetViewDescriptorSize;
-	auto depthStencilView = sharedResources->graphicsEngine.depthStencilDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
+	renderTargetView.ptr += frameIndex * graphicsEngine.renderTargetViewDescriptorSize;
+	auto depthStencilView = graphicsEngine.depthStencilDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
 	
 
 	constantBufferCpuAddress = reinterpret_cast<CameraConstantBuffer*>(constantBufferCpuAddress1);
@@ -69,55 +77,50 @@ MainCamera::MainCamera(SharedResources* sharedResources, unsigned int width, uns
 	mFrustum.update(mProjectionMatrix, mViewMatrix, screenNear, screenDepth);
 }
 
-void MainCamera::destruct(SharedResources* sharedResources)
+void MainCamera::destruct(D3D12GraphicsEngine& graphicsEngine)
 {
 	for (auto i = 0u; i < frameBufferCount; ++i)
 	{
-		sharedResources->graphicsEngine.descriptorAllocator.deallocate(backBufferTextures[i]);
+		graphicsEngine.descriptorAllocator.deallocate(backBufferTextures[i]);
 	}
 }
 
 MainCamera::~MainCamera() {}
 
-void MainCamera::update(SharedResources* const sharedResources, const Transform& target)
+void MainCamera::update(Window& window, D3D12GraphicsEngine& graphicsEngine, const Transform& target)
 {
 	mLocation.position = target.position;
 	mLocation.rotation = target.rotation;
 
 	DirectX::XMMATRIX mViewMatrix = mLocation.toMatrix();
 
-	mImage = sharedResources->window.getBuffer(sharedResources->graphicsEngine.frameIndex);
+	mImage = window.getBuffer(graphicsEngine.frameIndex);
 
-	const auto constantBuffer = reinterpret_cast<CameraConstantBuffer*>(reinterpret_cast<unsigned char*>(constantBufferCpuAddress) + sharedResources->graphicsEngine.frameIndex * bufferSizePS);
+	const auto constantBuffer = reinterpret_cast<CameraConstantBuffer*>(reinterpret_cast<unsigned char*>(constantBufferCpuAddress) + graphicsEngine.frameIndex * bufferSizePS);
 	constantBuffer->viewProjectionMatrix = mViewMatrix * mProjectionMatrix;;
 	constantBuffer->cameraPosition = mLocation.position;
 
 	mFrustum.update(mProjectionMatrix, mViewMatrix, screenNear, screenDepth);
 }
 
-void MainCamera::bind(SharedResources& sharedResources, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end)
+void MainCamera::bind(uint32_t frameIndex, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end)
 {
-	auto frameIndex = sharedResources.graphicsEngine.frameIndex;
-	auto renderTargetViewHandle = renderTargetViewDescriptorHeap->GetCPUDescriptorHandleForHeapStart() + frameIndex * sharedResources.graphicsEngine.renderTargetViewDescriptorSize;
+	auto renderTargetViewHandle = renderTargetViews[frameIndex];
 	auto constantBufferGPU = constantBufferGpuAddress + bufferSizePS * frameIndex;
 	CameraUtil::bind(first, end, CameraUtil::getViewPort(mWidth, mHeight), CameraUtil::getScissorRect(mWidth, mHeight), constantBufferGPU, &renderTargetViewHandle, &depthSencilView);
 }
 
-void MainCamera::bindFirstThread(SharedResources& sharedResources, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end)
+void MainCamera::bindFirstThread(uint32_t frameIndex, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end)
 {
-	bind(sharedResources, first, end);
-	auto frameIndex = sharedResources.graphicsEngine.frameIndex;
-	auto renderTargetViewHandle = renderTargetViewDescriptorHeap->GetCPUDescriptorHandleForHeapStart() +
-		frameIndex * sharedResources.graphicsEngine.renderTargetViewDescriptorSize;
+	bind(frameIndex, first, end);
+	auto renderTargetViewHandle = renderTargetViews[frameIndex];
 	auto commandList = *first;
 	constexpr float clearColor[] = { 0.0f, 0.0f, 0.0f, 1.0f };
 	commandList->ClearRenderTargetView(renderTargetViewHandle, clearColor, 0u, nullptr);
 	commandList->ClearDepthStencilView(depthSencilView, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0u, nullptr);
 }
 
-D3D12_CPU_DESCRIPTOR_HANDLE MainCamera::getRenderTargetView(SharedResources* sharedResources)
+D3D12_CPU_DESCRIPTOR_HANDLE MainCamera::getRenderTargetView(uint32_t frameIndex)
 {
-	auto frameIndex = sharedResources->graphicsEngine.frameIndex;
-	return renderTargetViewDescriptorHeap->GetCPUDescriptorHandleForHeapStart() +
-		frameIndex * sharedResources->graphicsEngine.renderTargetViewDescriptorSize;
+	return renderTargetViews[frameIndex];
 }

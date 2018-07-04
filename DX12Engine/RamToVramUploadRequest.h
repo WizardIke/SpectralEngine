@@ -28,8 +28,8 @@ public:
 	File file;
 	void* requester;
 	ID3D12Resource* uploadResource;
-	void(*useSubresource)(BaseExecutor* executor, SharedResources& sharedResources, HalfFinishedUploadRequest& useSubresourceRequest);
-	void(*resourceUploadedPointer)(void* const requester, BaseExecutor* const executor, SharedResources& sharedResources);
+	void(*useSubresource)(void* executor, void* sharedResources, HalfFinishedUploadRequest& useSubresourceRequest);
+	void(*resourceUploadedPointer)(void* requester, void* executor, void* sharedResources);
 
 	D3D12_RESOURCE_DIMENSION dimension;
 	union

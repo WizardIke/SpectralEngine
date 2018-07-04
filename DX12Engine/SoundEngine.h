@@ -1,6 +1,8 @@
 #pragma once
 #include <xaudio2.h>
 #include "HresultException.h"
+#undef min
+#undef max
 
 class SoundEngine
 {

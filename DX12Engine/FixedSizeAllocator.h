@@ -1,5 +1,4 @@
 #pragma once
-#include "Mesh.h"
 #include <memory>
 #pragma warning (disable : 4624) // warns about Elements destructor being implicity deleted, but this is fine
 

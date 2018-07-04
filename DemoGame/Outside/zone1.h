@@ -1,4 +1,6 @@
 #pragma once
-#include <BaseZone.h>
+#include <Zone.h>
+class ThreadResources;
+class GlobalResources;
 
-BaseZone Zone1();
+Zone<ThreadResources, GlobalResources> Zone1();

@@ -184,14 +184,14 @@
     <ClInclude Include="AsynchronousFileManager.h" />
     <ClInclude Include="AudioFormatNotSupportedException.h" />
     <ClInclude Include="AudioPlaybackException.h" />
-    <ClInclude Include="BaseZone.h" />
+    <ClInclude Include="Zone.h" />
     <ClInclude Include="Delegate.h" />
     <ClInclude Include="DynamicArray.h" />
     <ClInclude Include="IOCompletionQueue.h" />
+    <ClInclude Include="MultiProducerSingleConsumerQueue.h" />
     <ClInclude Include="PageCache.h" />
     <ClInclude Include="PageDeleter.h" />
     <ClInclude Include="PageProvider.h" />
-    <ClInclude Include="PrimaryWorkStealingQueue.h" />
     <ClInclude Include="ReflectionCamera.h" />
     <ClInclude Include="CameraUtil.h" />
     <ClInclude Include="D3D12PipelineState.h" />
@@ -232,8 +232,11 @@
     <ClInclude Include="Shaders\VtFeedbackMaterialPS.h" />
     <ClInclude Include="Shaders\WaterMaterialPS.h" />
     <ClInclude Include="Shaders\WaterMaterialVS.h" />
+    <ClInclude Include="SingleProducerMultiConsumerQueue.h" />
+    <ClInclude Include="SingleProducerSingleConsumerQueue.h" />
     <ClInclude Include="StableQueue.h" />
     <ClInclude Include="StreamingManager.h" />
+    <ClInclude Include="TaskShedular.h" />
     <ClInclude Include="TemplateFloat.h" />
     <ClInclude Include="TextureResitency.h" />
     <ClInclude Include="ThreadBarrier.h" />
@@ -246,7 +249,6 @@
     <ClInclude Include="FileNotFoundException.h" />
     <ClInclude Include="FormatNotSupportedException.h" />
     <ClInclude Include="HalfFinishedUploadRequset.h" />
-    <ClInclude Include="BaseExecutor.h" />
     <ClInclude Include="BaseSentence.h" />
     <ClInclude Include="MainCamera.h" />
     <ClInclude Include="ID3D12ResourceCreationFailedException.h" />
@@ -259,14 +261,12 @@
     <ClInclude Include="RamToVramUploadRequest.h" />
     <ClInclude Include="File.h" />
     <ClInclude Include="SecurityException.h" />
-    <ClInclude Include="SharedResources.h" />
     <ClInclude Include="D3D12CreateDeviceFailedException.h" />
     <ClInclude Include="DDSFileLoader.h" />
     <ClInclude Include="EventCreationException.h" />
     <ClInclude Include="HresultException.h" />
     <ClInclude Include="IDXGIAdapterNotFoundException.h" />
     <ClInclude Include="InputManager.h" />
-    <ClInclude Include="Job.h" />
     <ClInclude Include="Light.h" />
     <ClInclude Include="D3D12GraphicsEngine.h" />
     <ClInclude Include="d3dx12.h" />
@@ -275,10 +275,8 @@
     <ClInclude Include="Frustum.h" />
     <ClInclude Include="SoundDecoder.h" />
     <ClInclude Include="SoundEngine.h" />
-    <ClInclude Include="Spinlock.h" />
     <ClInclude Include="PointLight.h" />
     <ClInclude Include="PlayerPosition.h" />
-    <ClInclude Include="Queue.h" />
     <ClInclude Include="TextureIndexOutOfRangeException.h" />
     <ClInclude Include="TextureManager.h" />
     <ClInclude Include="Timer.h" />
@@ -286,14 +284,13 @@
     <ClInclude Include="GpuCompletionEventManager.h" />
     <ClInclude Include="Window.h" />
     <ClInclude Include="WindowsFileCreationException.h" />
+    <ClInclude Include="WorkStealingQueue.h" />
     <ClInclude Include="XAudio2SourceVoice.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="AABBSweepTest.cpp" />
     <ClCompile Include="AsynchronousFileManager.cpp" />
-    <ClCompile Include="BaseExecutor.cpp" />
     <ClCompile Include="BaseSentence.cpp" />
-    <ClCompile Include="BaseZone.cpp" />
     <ClCompile Include="CameraUtil.cpp" />
     <ClCompile Include="FeedbackAnalizer.cpp" />
     <ClCompile Include="PageCache.cpp" />
@@ -306,18 +303,17 @@
     <ClCompile Include="PageAllocator.cpp" />
     <ClCompile Include="Quaternion.cpp" />
     <ClCompile Include="File.cpp" />
-    <ClCompile Include="SharedResources.cpp" />
     <ClCompile Include="DDSFileLoader.cpp" />
     <ClCompile Include="D3D12GraphicsEngine.cpp" />
     <ClCompile Include="Frustum.cpp" />
     <ClCompile Include="PlayerPosition.cpp" />
     <ClCompile Include="StreamingManager.cpp" />
     <ClCompile Include="TextureManager.cpp" />
+    <ClCompile Include="ThreadBarrier.cpp" />
     <ClCompile Include="Timer.cpp" />
     <ClCompile Include="Transform.cpp" />
     <ClCompile Include="VirtualPageCamera.cpp" />
     <ClCompile Include="VirtualTextureManager.cpp" />
-    <ClCompile Include="GpuCompletionEventManager.cpp" />
     <ClCompile Include="Window.cpp" />
   </ItemGroup>
   <ItemGroup>

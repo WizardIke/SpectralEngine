@@ -1,9 +1,9 @@
 #pragma once
 #include <Area.h>
 #include <Vector2.h>
-#include <basezone.h>
-class BaseExecutor;
-class SharedResources;
+#include <Zone.h>
+class ThreadResources;
+class GlobalResources;
 
 
 namespace Cave
@@ -19,18 +19,18 @@ namespace Cave
 		constexpr static unsigned int zonesLengthZ = 1u;
 		constexpr static unsigned int numZones = zonesLengthX * zonesLengthZ;
 
-		BaseZone zones[numZones];
+		Zone<ThreadResources, GlobalResources> zones[numZones];
 
 		int currentZoneX, currentZoneZ;
 		float oldPosX, oldPosZ;
 
-		void update(BaseExecutor* const executor, SharedResources& sharedResources);
+		void update(ThreadResources& threadResources, GlobalResources& globalResources);
 	public:
 		CaveArea();
 
-		void start(BaseExecutor* const executor, SharedResources& sharedResources);
-		void setAsCurrentArea(BaseExecutor* const executor, SharedResources& sharedResources);
-		void load(BaseExecutor* const executor, SharedResources& sharedResources, Vector2 position, float distance, Area::VisitedNode* loadedAreas);
+		void start(ThreadResources& threadResources, GlobalResources& globalResources);
+		void setAsCurrentArea(ThreadResources& threadResources, GlobalResources& globalResources);
+		void load(ThreadResources& threadResources, GlobalResources& globalResources, Vector2 position, float distance, Area::VisitedNode* loadedAreas);
 	};
 
 }

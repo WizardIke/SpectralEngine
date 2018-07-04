@@ -13,7 +13,7 @@ struct HeapLocation
 
 struct PageRequestData
 {
-	unsigned int count = 0u;
+	unsigned long long count = 0u;
 };
 
 // pages are stored as x, y, miplevel, textureIdAndSlot

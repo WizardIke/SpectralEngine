@@ -1,10 +1,8 @@
 #include "StreamingManager.h"
 #include "DDSFileLoader.h"
-#include "BaseExecutor.h"
-#include "SharedResources.h"
 
 
-StreamingManager::StreamingManager(ID3D12Device* const graphicsDevice, unsigned long uploadHeapStartingSize) :
+StreamingManager::StreamingManager(ID3D12Device* const graphicsDevice, unsigned long uploadHeapStartingSize, unsigned int threadCount) :
 	copyCommandQueue(graphicsDevice, []()
 {
 	D3D12_COMMAND_QUEUE_DESC commandQueueDesc;
@@ -16,51 +14,49 @@ StreamingManager::StreamingManager(ID3D12Device* const graphicsDevice, unsigned 
 }()),
 	waitingForSpaceRequestBuffer(),
 	processingRequestBuffer(),
-	uploadBufferCapasity(uploadHeapStartingSize)
+	uploadBufferCapasity(uploadHeapStartingSize),
+	threadLocals(new ThreadLocal*[threadCount])
 {
-	if (uploadHeapStartingSize != 0u)
-	{
-		D3D12_HEAP_PROPERTIES uploadHeapProperties;
-		uploadHeapProperties.Type = D3D12_HEAP_TYPE::D3D12_HEAP_TYPE_UPLOAD;
-		uploadHeapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
-		uploadHeapProperties.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
-		uploadHeapProperties.CreationNodeMask = 0u;
-		uploadHeapProperties.VisibleNodeMask = 0u;
+	D3D12_HEAP_PROPERTIES uploadHeapProperties;
+	uploadHeapProperties.Type = D3D12_HEAP_TYPE::D3D12_HEAP_TYPE_UPLOAD;
+	uploadHeapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+	uploadHeapProperties.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+	uploadHeapProperties.CreationNodeMask = 0u;
+	uploadHeapProperties.VisibleNodeMask = 0u;
 
-		D3D12_RESOURCE_DESC uploadResouceDesc;
-		uploadResouceDesc.Dimension = D3D12_RESOURCE_DIMENSION::D3D12_RESOURCE_DIMENSION_BUFFER;
-		uploadResouceDesc.Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
-		uploadResouceDesc.Width = uploadHeapStartingSize;
-		uploadResouceDesc.Height = 1u;
-		uploadResouceDesc.DepthOrArraySize = 1u;
-		uploadResouceDesc.MipLevels = 1u;
-		uploadResouceDesc.Format = DXGI_FORMAT_UNKNOWN;
-		uploadResouceDesc.SampleDesc.Count = 1u;
-		uploadResouceDesc.SampleDesc.Quality = 0u;
-		uploadResouceDesc.Layout = D3D12_TEXTURE_LAYOUT::D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+	D3D12_RESOURCE_DESC uploadResouceDesc;
+	uploadResouceDesc.Dimension = D3D12_RESOURCE_DIMENSION::D3D12_RESOURCE_DIMENSION_BUFFER;
+	uploadResouceDesc.Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
+	uploadResouceDesc.Width = uploadHeapStartingSize;
+	uploadResouceDesc.Height = 1u;
+	uploadResouceDesc.DepthOrArraySize = 1u;
+	uploadResouceDesc.MipLevels = 1u;
+	uploadResouceDesc.Format = DXGI_FORMAT_UNKNOWN;
+	uploadResouceDesc.SampleDesc.Count = 1u;
+	uploadResouceDesc.SampleDesc.Quality = 0u;
+	uploadResouceDesc.Layout = D3D12_TEXTURE_LAYOUT::D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 #ifndef NDEBUG
-		uploadResouceDesc.Flags = D3D12_RESOURCE_FLAGS::D3D12_RESOURCE_FLAG_NONE; //graphics debugger can't handle D3D12_RESOURCE_FLAGS::D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE
+	uploadResouceDesc.Flags = D3D12_RESOURCE_FLAGS::D3D12_RESOURCE_FLAG_NONE; //graphics debugger can't handle D3D12_RESOURCE_FLAGS::D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE
 #else
-		uploadResouceDesc.Flags = D3D12_RESOURCE_FLAGS::D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE;
+	uploadResouceDesc.Flags = D3D12_RESOURCE_FLAGS::D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE;
 #endif
 
-		new(&uploadBuffer) D3D12Resource(graphicsDevice, uploadHeapProperties, D3D12_HEAP_FLAGS::D3D12_HEAP_FLAG_NONE,
-			uploadResouceDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr);
+	new(&uploadBuffer) D3D12Resource(graphicsDevice, uploadHeapProperties, D3D12_HEAP_FLAGS::D3D12_HEAP_FLAG_NONE,
+		uploadResouceDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr);
 
-		D3D12_RANGE Range = { 0u, 0u };
-		uploadBuffer->Map(0u, &Range, reinterpret_cast<void**>(&uploadBufferCpuAddress));
+	D3D12_RANGE Range = { 0u, 0u };
+	uploadBuffer->Map(0u, &Range, reinterpret_cast<void**>(&uploadBufferCpuAddress));
 
 #ifndef NDEBUG
-		uploadBuffer->SetName(L"Streaming upload buffer");
+	uploadBuffer->SetName(L"Streaming upload buffer");
 #endif // NDEBUG
 
-	}
 #ifndef NDEBUG
 	copyCommandQueue->SetName(L"Streaming copy command queue");
 #endif // NDEBUG
 }
 
-void StreamingManager::addUploadToBuffer(BaseExecutor* const executor, SharedResources& sharedResources)
+void StreamingManager::addUploadToBuffer(ID3D12Device* graphicsDevice, void* executor, void* sharedResources)
 {
 	while (!waitingForSpaceRequestBuffer.empty())
 	{
@@ -107,7 +103,8 @@ void StreamingManager::addUploadToBuffer(BaseExecutor* const executor, SharedRes
 				processingRequest.copyFenceValue.store(std::numeric_limits<uint64_t>::max() - 2u, std::memory_order::memory_order_relaxed); //copy not finished
 				processingRequest.numberOfBytesToFree = requiredWriteIndex - startWritePos;
 				processingRequest.requester = uploadRequest.requester;
-				processingRequest.resourceUploadedPointer = uploadRequest.currentArrayIndex == (uploadRequest.arraySize - 1u) && uploadRequest.currentMipLevel == (uploadRequest.mipLevels - 1u) ? uploadRequest.resourceUploadedPointer : nullptr;
+				processingRequest.setSubresourceUploadedCallback(uploadRequest.currentArrayIndex == (uploadRequest.arraySize - 1u) && uploadRequest.currentMipLevel == (uploadRequest.mipLevels - 1u) ? 
+					uploadRequest.resourceUploadedPointer : HalfFinishedUploadRequest::nullFunction);
 				processingRequest.uploadBufferCpuAddressOfCurrentPos = reinterpret_cast<void*>(uploadBufferCpuAddress + newUploadBufferWritePos);
 				processingRequest.uploadResourceOffset = newUploadBufferWritePos;
 				processingRequest.uploadRequest = &uploadRequest;
@@ -161,7 +158,7 @@ void StreamingManager::addUploadToBuffer(BaseExecutor* const executor, SharedRes
 						uploadResouceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 						uploadResouceDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
 
-						uploadBuffer = D3D12Resource(sharedResources.graphicsEngine.graphicsDevice, uploadHeapProperties, D3D12_HEAP_FLAG_NONE, uploadResouceDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr);
+						uploadBuffer = D3D12Resource(graphicsDevice, uploadHeapProperties, D3D12_HEAP_FLAG_NONE, uploadResouceDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr);
 
 						D3D12_RANGE readRange = { 0u, 0u };
 						uploadBuffer->Map(0u, &readRange, reinterpret_cast<void**>(&uploadBufferCpuAddress));
@@ -175,19 +172,7 @@ void StreamingManager::addUploadToBuffer(BaseExecutor* const executor, SharedRes
 	}
 }
 
-void StreamingManager::update(BaseExecutor* const executor, SharedResources& sharedResources)
-{
-	if (finishedUpdating.exchange(false, std::memory_order::memory_order_acquire))
-	{
-		sharedResources.backgroundQueue.push(Job(this, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources)
-		{
-			reinterpret_cast<StreamingManager*>(requester)->backgroundUpdate(executor, sharedResources);
-		}));
-	}
-}
-
-
-void StreamingManager::backgroundUpdate(BaseExecutor* const executor, SharedResources& sharedResources)
+void StreamingManager::backgroundUpdate(unsigned int threadIndex, ID3D12Device* device, void* threadResources, void* GlobalResources)
 {
 	std::lock_guard<decltype(mutex)> lock(mutex);
 	
@@ -197,15 +182,15 @@ void StreamingManager::backgroundUpdate(BaseExecutor* const executor, SharedReso
 		HalfFinishedUploadRequest& processingRequest = processingRequestBuffer.front();
 		//fenceValue must be incremented twice. Once when the copy commands are submited to the GPU and once when the commands are finished on the GPU (The next commands are submited).
 		auto requestCopyFenceValue = processingRequest.copyFenceValue.load(std::memory_order::memory_order_acquire);
-		if (requestCopyFenceValue + 2u > sharedResources.executors[executor->index]->streamingManager.fenceValue()) break;
+		if (requestCopyFenceValue + 2u > threadLocals[threadIndex]->fenceValue()) break;
 		readPos += processingRequest.numberOfBytesToFree; //free CPU memory
-		processingRequest.subresourceUploaded(executor, sharedResources);
+		processingRequest.subresourceUploaded(threadResources, GlobalResources);
 		processingRequestBuffer.pop_front();
 	}
 	uploadBufferReadPos = readPos;
 
 	//load resources into the upload buffer if there is enough space
-	addUploadToBuffer(executor, sharedResources);
+	addUploadToBuffer(device, threadResources, GlobalResources);
 
 	finishedUpdating.store(true, std::memory_order::memory_order_release);
 }
@@ -218,13 +203,13 @@ void StreamingManager::addUploadRequest(const RamToVramUploadRequest& request)
 	waitingForSpaceRequestBuffer.back().uploadResource = uploadBuffer;
 }
 
-void StreamingManager::addCopyCompletionEvent(BaseExecutor* executor, void* requester, void(*event)(void* requester, BaseExecutor* executor, SharedResources& sharedResources))
+void StreamingManager::addCopyCompletionEvent(unsigned int threadIndex, void* requester, void(*event)(void* requester, void* executor, void* sharedResources))
 {
 	std::lock_guard<decltype(mutex)> lock(mutex);
 	processingRequestBuffer.emplace_back();
 	HalfFinishedUploadRequest& processingRequest = processingRequestBuffer.back();
-	processingRequest.copyFenceIndex = executor->index;
-	processingRequest.copyFenceValue = executor->streamingManager.fenceValue();
+	processingRequest.copyFenceIndex = threadIndex;
+	processingRequest.copyFenceValue = threadLocals[threadIndex]->fenceValue();
 	processingRequest.numberOfBytesToFree = 0u;
 	processingRequest.requester = requester;
 	processingRequest.resourceUploadedPointer = event;
@@ -234,13 +219,7 @@ void StreamingManager::addCopyCompletionEvent(BaseExecutor* executor, void* requ
 	//processingRequest.uploadRequest = &uploadRequest;
 }
 
-bool StreamingManager::hasPendingUploads()
-{
-	std::lock_guard<decltype(mutex)> lock(mutex);
-	return !waitingForSpaceRequestBuffer.empty() || !processingRequestBuffer.empty(); 
-}
-
-StreamingManager::ThreadLocal::ThreadLocal(ID3D12Device* const graphicsDevice) :
+StreamingManager::ThreadLocal::ThreadLocal(ID3D12Device* const graphicsDevice, StreamingManager& streamingManager, unsigned int threadIndex) :
 	commandAllocators([graphicsDevice](size_t i, D3D12CommandAllocator& allocator)
 {
 	new(&allocator) D3D12CommandAllocator(graphicsDevice, D3D12_COMMAND_LIST_TYPE::D3D12_COMMAND_LIST_TYPE_COPY);
@@ -259,20 +238,21 @@ StreamingManager::ThreadLocal::ThreadLocal(ID3D12Device* const graphicsDevice) :
 	commandAllocators[1u]->SetName(L"Streaming copy command allocator 1");
 	commandAllocators[0u]->SetName(L"Streaming copy command allocator 0");
 #endif // NDEBUG
+
+	streamingManager.threadLocals[threadIndex] = this;
 }
 
-void StreamingManager::ThreadLocal::update(BaseExecutor* const executor, SharedResources& sharedResources)
+void StreamingManager::ThreadLocal::update(StreamingManager& streamingManager)
 {
 	auto oldFenceValue = mFenceValue.load(std::memory_order::memory_order_relaxed);
 	if (copyFence->GetCompletedValue() == oldFenceValue)
 	{
-		auto& manager = sharedResources.streamingManager;
 		auto hr = currentCommandList->Close();
 		assert(hr == S_OK);
 		ID3D12CommandList* lists = currentCommandList;
-		manager.copyCommandQueue->ExecuteCommandLists(1u, &lists);
+		streamingManager.copyCommandQueue->ExecuteCommandLists(1u, &lists);
 		mFenceValue.store(oldFenceValue + 1u, std::memory_order::memory_order_relaxed);
-		hr = manager.copyCommandQueue->Signal(copyFence, oldFenceValue + 1u);
+		hr = streamingManager.copyCommandQueue->Signal(copyFence, oldFenceValue + 1u);
 		assert(hr == S_OK);
 
 		ID3D12CommandAllocator* currentCommandAllocator;
@@ -294,8 +274,8 @@ void StreamingManager::ThreadLocal::update(BaseExecutor* const executor, SharedR
 	}
 }
 
-void StreamingManager::ThreadLocal::copyStarted(BaseExecutor* const executor, HalfFinishedUploadRequest& processingRequest)
+void StreamingManager::ThreadLocal::copyStarted(unsigned int threadIndex, HalfFinishedUploadRequest& processingRequest)
 {
-	processingRequest.copyFenceIndex = executor->index;
+	processingRequest.copyFenceIndex = threadIndex;
 	processingRequest.copyFenceValue.store(mFenceValue.load(std::memory_order::memory_order_relaxed), std::memory_order::memory_order_release);
 }

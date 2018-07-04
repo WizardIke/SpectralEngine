@@ -6,8 +6,6 @@
 #include "Frustum.h"
 #include "Shaders/CameraConstantBuffer.h"
 #include <cstddef>
-class BaseExecutor;
-class SharedResources;
 
 class ReflectionCamera
 {
@@ -29,22 +27,22 @@ public:
 	constexpr static std::size_t totalConstantBufferRequired = bufferSizePS * frameBufferCount;
 
 	ReflectionCamera() {}
-	ReflectionCamera(SharedResources* sharedResources, ID3D12Resource* image, D3D12_CPU_DESCRIPTOR_HANDLE renderTargetView, D3D12_CPU_DESCRIPTOR_HANDLE depthSencilView,
+	ReflectionCamera(ID3D12Resource* image, D3D12_CPU_DESCRIPTOR_HANDLE renderTargetView, D3D12_CPU_DESCRIPTOR_HANDLE depthSencilView,
 		unsigned int width, unsigned int height, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1, uint8_t*& constantBufferCpuAddress1, float fieldOfView,
 		const Transform& target, uint32_t* backBufferTextures);
 	~ReflectionCamera();
 
-	void update(SharedResources* sharedResources, const DirectX::XMMATRIX& mViewMatrix);
-	bool isInView(SharedResources& sharedResources) const { return true; }
-	void bind(SharedResources& sharedResources, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end);
-	void bindFirstThread(SharedResources& sharedResources, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end);
+	void update(uint32_t frameIndex, const DirectX::XMMATRIX& mViewMatrix);
+	bool isInView() const { return true; }
+	void bind(uint32_t frameIndex, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end);
+	void bindFirstThread(uint32_t frameIndex, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end);
 	ID3D12Resource* getImage() { return mImage; };
 	const ID3D12Resource* getImage() const { return mImage;}
 	DirectX::XMFLOAT3& position() { return mLocation.position; }
 	DirectX::XMMATRIX& projectionMatrix() { return mProjectionMatrix; }
 	Transform& transform() { return mLocation; }
 	const Frustum& frustum() const { return mFrustum; }
-	D3D12_CPU_DESCRIPTOR_HANDLE getRenderTargetView(SharedResources* sharedResources) { return renderTargetView; }
+	D3D12_CPU_DESCRIPTOR_HANDLE getRenderTargetView() { return renderTargetView; }
 	unsigned int width() { return mWidth; }
 	unsigned int height() { return mHeight; }
 };

@@ -1,7 +1,4 @@
 #pragma once
-struct ID3D12Fence;
-class BaseExecutor;
-class SharedResources;
 #include <stdint.h>
 #include <atomic>
 
@@ -12,19 +9,35 @@ public:
 	unsigned int copyFenceIndex;
 	std::atomic<uint64_t> copyFenceValue;
 	void* requester;
-	void(*resourceUploadedPointer)(void* const requester, BaseExecutor* const executor, SharedResources& sharedResources);
+	void(*resourceUploadedPointer)(void* context, void* executor, void* sharedResources);
 	void* uploadBufferCpuAddressOfCurrentPos;
 	uint64_t uploadResourceOffset;
 	RamToVramUploadRequest* uploadRequest;
 	uint16_t currentMipLevel;
 	uint16_t currentArrayIndex;
 
-	void subresourceUploaded(BaseExecutor* executor, SharedResources& sharedResources)
+	static void nullFunction(void* context, void* executor, void* sharedResources) {}
+
+	template<class ThreadResources, class GlobalResources, void(*func)(void*, ThreadResources&, GlobalResources&)>
+	void setSubresourceUploadedCallback()
 	{
-		if(resourceUploadedPointer) resourceUploadedPointer(requester, executor, sharedResources);
+		resourceUploadedPointer = [](void* context, void* executor, void* sharedResources)
+		{
+			func(context, (ThreadResources&)*executor, (GlobalResources&)*sharedResources);
+		}
 	}
 
-	void useSubresource(BaseExecutor* executor, SharedResources& sharedResources)
+	void setSubresourceUploadedCallback(void(*func)(void* context, void* executor, void* sharedResources))
+	{
+		resourceUploadedPointer = func;
+	}
+
+	void subresourceUploaded(void* executor, void* sharedResources)
+	{
+		if(resourceUploadedPointer != &nullFunction) resourceUploadedPointer(requester, executor, sharedResources);
+	}
+
+	void useSubresource(void* executor, void* sharedResources)
 	{
 		uploadRequest->useSubresource(executor, sharedResources, *this);
 	}

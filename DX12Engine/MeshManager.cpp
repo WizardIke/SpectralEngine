@@ -1,9 +1,9 @@
 #include "MeshManager.h"
-#include "SharedResources.h"
-#include "BaseExecutor.h"
 #include "FixedSizeAllocator.h"
+#include "HalfFinishedUploadRequset.h"
+#include <cassert>
 
-void MeshManager::fillUploadRequest(RamToVramUploadRequest& uploadRequest, uint32_t vertexCount, uint32_t indexCount, uint32_t vertexStride, void* filename, File file)
+void MeshManager::fillUploadRequest(RamToVramUploadRequest& uploadRequest, uint32_t vertexCount, uint32_t indexCount, uint32_t vertexStride, void* filename, File file, void(*meshUploaded)(void* storedFilename, void* executor, void* sharedResources))
 {
 	uploadRequest.resourceUploadedPointer = meshUploaded;
 	uploadRequest.requester = filename;
@@ -24,11 +24,9 @@ void MeshManager::fillUploadRequest(RamToVramUploadRequest& uploadRequest, uint3
 	uploadRequest.currentMipLevel = 0u;
 }
 
-Mesh* MeshManager::createMesh(FixedSizeAllocator<Mesh>& meshAllocator, const wchar_t* filename, ID3D12Device* graphicsDevice, uint32_t vertexSizeBytes, uint32_t vertexStrideInBytes,
+void MeshManager::createMesh(Mesh& mesh, const wchar_t* filename, ID3D12Device* graphicsDevice, uint32_t vertexSizeBytes, uint32_t vertexStrideInBytes,
 	uint32_t indexSizeBytes)
 {
-	Mesh* mesh = meshAllocator.allocate();
-
 	uint64_t vertexAlignedSize = (vertexSizeBytes + (uint64_t)D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT - (uint64_t)1u) & 
 		~((uint64_t)D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT - (uint64_t)1u);
 	uint64_t indexAlignedSize = (indexSizeBytes + (uint64_t)D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT - (uint64_t)1u) &
@@ -44,8 +42,10 @@ Mesh* MeshManager::createMesh(FixedSizeAllocator<Mesh>& meshAllocator, const wch
 	heapDesc.Properties.VisibleNodeMask = 1u;
 	heapDesc.SizeInBytes = vertexAlignedSize + indexAlignedSize;
 
-	new(&mesh->buffer) D3D12Heap(graphicsDevice, heapDesc);
-	new(&mesh->vertices) D3D12Resource(graphicsDevice, mesh->buffer, 0u, [vertexSizeBytes]()
+	mesh.buffer.~D3D12Heap();
+	new(&mesh.buffer) D3D12Heap(graphicsDevice, heapDesc);
+	mesh.vertices.~D3D12Resource();
+	new(&mesh.vertices) D3D12Resource(graphicsDevice, mesh.buffer, 0u, [vertexSizeBytes]()
 	{
 		D3D12_RESOURCE_DESC resourceDesc;
 		resourceDesc.Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
@@ -61,7 +61,8 @@ Mesh* MeshManager::createMesh(FixedSizeAllocator<Mesh>& meshAllocator, const wch
 		resourceDesc.Width = vertexSizeBytes;
 		return resourceDesc;
 	}(), D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_COMMON, nullptr);
-	new(&mesh->indices) D3D12Resource(graphicsDevice, mesh->buffer, vertexAlignedSize, [indexSizeBytes]()
+	mesh.indices.~D3D12Resource();
+	new(&mesh.indices) D3D12Resource(graphicsDevice, mesh.buffer, vertexAlignedSize, [indexSizeBytes]()
 	{
 		D3D12_RESOURCE_DESC resourceDesc;
 		resourceDesc.Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
@@ -82,28 +83,25 @@ Mesh* MeshManager::createMesh(FixedSizeAllocator<Mesh>& meshAllocator, const wch
 #ifdef _DEBUG
 	std::wstring name = L"vertex buffer: ";
 	name += filename;
-	mesh->vertices->SetName(name.c_str());
+	mesh.vertices->SetName(name.c_str());
 	name = L"index buffer: ";
 	name += filename;
-	mesh->indices->SetName(name.c_str());
+	mesh.indices->SetName(name.c_str());
 #endif // _DEBUG
 
-	mesh->vertexBufferView.BufferLocation = mesh->vertices->GetGPUVirtualAddress();
-	mesh->vertexBufferView.StrideInBytes = vertexStrideInBytes;
-	mesh->vertexBufferView.SizeInBytes = vertexSizeBytes;
+	mesh.vertexBufferView.BufferLocation = mesh.vertices->GetGPUVirtualAddress();
+	mesh.vertexBufferView.StrideInBytes = vertexStrideInBytes;
+	mesh.vertexBufferView.SizeInBytes = vertexSizeBytes;
 
-	mesh->indexBufferView.BufferLocation = mesh->indices->GetGPUVirtualAddress();
-	mesh->indexBufferView.Format = DXGI_FORMAT_R32_UINT;
-	mesh->indexBufferView.SizeInBytes = indexSizeBytes;
-	mesh->indexCount = indexSizeBytes / 4u;
-
-	return mesh;
+	mesh.indexBufferView.BufferLocation = mesh.indices->GetGPUVirtualAddress();
+	mesh.indexBufferView.Format = DXGI_FORMAT_R32_UINT;
+	mesh.indexBufferView.SizeInBytes = indexSizeBytes;
+	mesh.indexCount = indexSizeBytes / 4u;
 }
 
-void MeshManager::unloadMesh(const wchar_t * const filename, BaseExecutor* const executor)
+void MeshManager::unloadMesh(const wchar_t * const filename)
 {
 	unsigned int oldUserCount;
-	Mesh* mesh = nullptr;
 	{
 		std::lock_guard<decltype(mutex)> lock(mutex);
 		auto& meshInfo = meshInfos[filename];
@@ -111,15 +109,8 @@ void MeshManager::unloadMesh(const wchar_t * const filename, BaseExecutor* const
 		oldUserCount = meshInfo.numUsers;
 		if (oldUserCount == 0u)
 		{
-			mesh = meshInfo.mesh;
 			meshInfos.erase(filename);
 		}
-	}
-	
-	if (oldUserCount == 0u)
-	{
-		mesh->~Mesh();
-		executor->meshAllocator.deallocate(mesh);
 	}
 }
 
@@ -134,248 +125,210 @@ static void createIndices(uint32_t* indexUploadBuffer, Mesh* mesh, ID3D12Resourc
 	copyCommandList->CopyBufferRegion(mesh->indices, 0u, uploadResource, uploadResourceOffset, byteSize);
 }
 
-void MeshManager::meshWithPositionTextureNormalTangentBitangentUseSubresourceHelper(HalfFinishedUploadRequest& useSubresourceRequest, SharedResources& sharedResources, BaseExecutor* executor)
+void MeshManager::meshWithPositionTextureNormalTangentBitangentUseSubresourceHelper(HalfFinishedUploadRequest& useSubresourceRequest, const uint8_t* buffer, MeshManager& meshManager, ID3D12Device* graphicsDevice, 
+	StreamingManager::ThreadLocal& streamingManager, unsigned int threadIndex)
 {
 	auto& uploadRequest = *useSubresourceRequest.uploadRequest;
 	wchar_t* filename = reinterpret_cast<wchar_t*>(uploadRequest.requester);
-	auto sizeOnFile = uploadRequest.meshInfo.verticesSize;
+	constexpr auto vertexStrideInBytes = sizeof(MeshWithPositionTextureNormalTangentBitangent);
+	auto vertexSizeBytes = uploadRequest.meshInfo.verticesSize;
+	auto vertexSizeBytesInFile = vertexSizeBytes / vertexStrideInBytes * sizeof(MeshWithPositionTextureNormal);
+	auto indexSizeBytes = uploadRequest.meshInfo.indicesSize;
 
-	sharedResources.asynchronousFileManager.readFile(executor, sharedResources, filename, sizeof(uint32_t) * 3u, sizeof(uint32_t) * 3u + sizeOnFile, uploadRequest.file, &useSubresourceRequest, 
-		[](void* requester, BaseExecutor* executor, SharedResources& sharedResources, const uint8_t* buffer, File file)
+	Mesh temp;
+	createMesh(temp, filename, graphicsDevice, vertexSizeBytes, vertexStrideInBytes, indexSizeBytes);
+	Mesh* mesh;
 	{
-		auto& useSubresourceRequest = *reinterpret_cast<HalfFinishedUploadRequest*>(requester);
-		auto& uploadRequest = *useSubresourceRequest.uploadRequest;
-		wchar_t* filename = reinterpret_cast<wchar_t*>(uploadRequest.requester);
-		constexpr auto vertexStrideInBytes = sizeof(MeshWithPositionTextureNormalTangentBitangent);
-		auto vertexSizeBytes = uploadRequest.meshInfo.verticesSize;
-		auto vertexSizeBytesInFile = vertexSizeBytes / vertexStrideInBytes * sizeof(MeshWithPositionTextureNormal);
-		auto indexSizeBytes = uploadRequest.meshInfo.indicesSize;
-		
-		MeshManager& meshManager = sharedResources.meshManager;
-		ID3D12Device* graphicsDevice = sharedResources.graphicsEngine.graphicsDevice;
-		FixedSizeAllocator<Mesh>& meshAllocator = executor->meshAllocator;
-		Mesh* mesh = meshManager.createMesh(meshAllocator, filename, graphicsDevice, vertexSizeBytes, vertexStrideInBytes,
-			indexSizeBytes);
+		std::lock_guard<decltype(meshManager.mutex)> lock(meshManager.mutex);
+		auto& meshInfo = meshManager.meshInfos[filename];
+		meshInfo.mesh = std::move(temp);
+		mesh = &meshInfo.mesh;
+	}
 
-		{
-			std::lock_guard<decltype(meshManager.mutex)> lock(meshManager.mutex);
-			auto& meshInfo = meshManager.meshInfos[filename];
-			meshInfo.mesh = mesh;
-		}
-		
-		ID3D12GraphicsCommandList* copyCommandList = executor->streamingManager.copyCommandList();
-		MeshWithPositionTextureNormalTangentBitangent* vertexUploadBuffer = reinterpret_cast<MeshWithPositionTextureNormalTangentBitangent* const>(useSubresourceRequest.uploadBufferCpuAddressOfCurrentPos);
+	ID3D12GraphicsCommandList& copyCommandList = streamingManager.copyCommandList();
+	MeshWithPositionTextureNormalTangentBitangent* vertexUploadBuffer = reinterpret_cast<MeshWithPositionTextureNormalTangentBitangent* const>(useSubresourceRequest.uploadBufferCpuAddressOfCurrentPos);
 
-		uploadRequest.file.close();
-		CalculateTangentBitangent(buffer, buffer + vertexSizeBytesInFile, vertexUploadBuffer);
+	uploadRequest.file.close();
+	CalculateTangentBitangent(buffer, buffer + vertexSizeBytesInFile, vertexUploadBuffer);
 
-		copyCommandList->CopyBufferRegion(mesh->vertices, 0u, uploadRequest.uploadResource, useSubresourceRequest.uploadResourceOffset, vertexSizeBytes);
+	copyCommandList.CopyBufferRegion(mesh->vertices, 0u, uploadRequest.uploadResource, useSubresourceRequest.uploadResourceOffset, vertexSizeBytes);
 
-		createIndices(reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(useSubresourceRequest.uploadBufferCpuAddressOfCurrentPos) + vertexSizeBytes), mesh, uploadRequest.uploadResource,
-			useSubresourceRequest.uploadResourceOffset + vertexSizeBytes, indexSizeBytes, copyCommandList);
+	createIndices(reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(useSubresourceRequest.uploadBufferCpuAddressOfCurrentPos) + vertexSizeBytes), mesh, uploadRequest.uploadResource,
+		useSubresourceRequest.uploadResourceOffset + vertexSizeBytes, indexSizeBytes, &copyCommandList);
 
-		executor->streamingManager.copyStarted(executor, useSubresourceRequest);
-	});
+	streamingManager.copyStarted(threadIndex, useSubresourceRequest);
 }
 
-void MeshManager::meshWithPositionTextureNormalUseSubresourceHelper(HalfFinishedUploadRequest& useSubresourceRequest, SharedResources& sharedResources, BaseExecutor* executor)
+void MeshManager::meshWithPositionTextureNormalUseSubresourceHelper(HalfFinishedUploadRequest& useSubresourceRequest, const uint8_t* buffer, MeshManager& meshManager, ID3D12Device* graphicsDevice,
+	StreamingManager::ThreadLocal& streamingManager, unsigned int threadIndex)
 {
 	auto& uploadRequest = *useSubresourceRequest.uploadRequest;
 	wchar_t* filename = reinterpret_cast<wchar_t*>(uploadRequest.requester);
-	auto sizeOnFile = uploadRequest.meshInfo.verticesSize;
+	auto vertexSizeBytes = uploadRequest.meshInfo.verticesSize;
+	auto indexSizeBytes = uploadRequest.meshInfo.indicesSize;
+	constexpr auto vertexStrideInBytes = sizeof(MeshWithPositionTextureNormal);
 
-	sharedResources.asynchronousFileManager.readFile(executor, sharedResources, filename, sizeof(uint32_t) * 3u, sizeof(uint32_t) * 3u + sizeOnFile, uploadRequest.file, &useSubresourceRequest,
-		[](void* requester, BaseExecutor* executor, SharedResources& sharedResources, const uint8_t* buffer, File file)
+	Mesh temp;
+	createMesh(temp, filename, graphicsDevice, vertexSizeBytes, vertexStrideInBytes, indexSizeBytes);
+	Mesh* mesh;
 	{
-		auto& useSubresourceRequest = *reinterpret_cast<HalfFinishedUploadRequest*>(requester);
-		auto& uploadRequest = *useSubresourceRequest.uploadRequest;
-		wchar_t* filename = reinterpret_cast<wchar_t*>(uploadRequest.requester);
-		auto vertexSizeBytes = uploadRequest.meshInfo.verticesSize;
-		auto indexSizeBytes = uploadRequest.meshInfo.indicesSize;
-		constexpr auto vertexStrideInBytes = sizeof(MeshWithPositionTextureNormal);
-		MeshManager& meshManager = sharedResources.meshManager;
-		ID3D12Device* graphicsDevice = sharedResources.graphicsEngine.graphicsDevice;
-		FixedSizeAllocator<Mesh>& meshAllocator = executor->meshAllocator;
-		Mesh* mesh = meshManager.createMesh(meshAllocator, filename, graphicsDevice, vertexSizeBytes, vertexStrideInBytes,
-			indexSizeBytes);
+		std::lock_guard<decltype(meshManager.mutex)> lock(meshManager.mutex);
+		auto& meshInfo = meshManager.meshInfos[filename];
+		meshInfo.mesh = std::move(temp);
+		mesh = &meshInfo.mesh;
+	}
 
-		{
-			std::lock_guard<decltype(meshManager.mutex)> lock(meshManager.mutex);
-			auto& meshInfo = meshManager.meshInfos[filename];
-			meshInfo.mesh = mesh;
-		}
+	ID3D12GraphicsCommandList& copyCommandList = streamingManager.copyCommandList();
+	MeshWithPositionTextureNormal* vertexUploadBuffer = reinterpret_cast<MeshWithPositionTextureNormal* const>(useSubresourceRequest.uploadBufferCpuAddressOfCurrentPos);
 
-		ID3D12GraphicsCommandList* copyCommandList = executor->streamingManager.copyCommandList();
-		MeshWithPositionTextureNormal* vertexUploadBuffer = reinterpret_cast<MeshWithPositionTextureNormal* const>(useSubresourceRequest.uploadBufferCpuAddressOfCurrentPos);
+	uploadRequest.file.close();
 
-		uploadRequest.file.close();
+	const auto end = buffer + vertexSizeBytes;
+	auto start = buffer;
+	while (start != end)
+	{
+		vertexUploadBuffer->x = *reinterpret_cast<const float*>(start);
+		start += sizeof(float);
+		vertexUploadBuffer->y = *reinterpret_cast<const float*>(start);
+		start += sizeof(float);
+		vertexUploadBuffer->z = *reinterpret_cast<const float*>(start);
+		start += sizeof(float);
 
-		const auto end = buffer + vertexSizeBytes;
-		auto start = buffer;
-		while (start != end)
-		{
-			vertexUploadBuffer->x = *reinterpret_cast<const float*>(start);
-			start += sizeof(float);
-			vertexUploadBuffer->y = *reinterpret_cast<const float*>(start);
-			start += sizeof(float);
-			vertexUploadBuffer->z = *reinterpret_cast<const float*>(start);
-			start += sizeof(float);
+		vertexUploadBuffer->tu = *reinterpret_cast<const float*>(start);
+		start += sizeof(float);
+		vertexUploadBuffer->tv = *reinterpret_cast<const float*>(start);
+		start += sizeof(float);
 
-			vertexUploadBuffer->tu = *reinterpret_cast<const float*>(start);
-			start += sizeof(float);
-			vertexUploadBuffer->tv = *reinterpret_cast<const float*>(start);
-			start += sizeof(float);
+		vertexUploadBuffer->nx = *reinterpret_cast<const float*>(start);
+		start += sizeof(float);
+		vertexUploadBuffer->ny = *reinterpret_cast<const float*>(start);
+		start += sizeof(float);
+		vertexUploadBuffer->nz = *reinterpret_cast<const float*>(start);
+		start += sizeof(float);
+		++vertexUploadBuffer;
+	}
 
-			vertexUploadBuffer->nx = *reinterpret_cast<const float*>(start);
-			start += sizeof(float);
-			vertexUploadBuffer->ny = *reinterpret_cast<const float*>(start);
-			start += sizeof(float);
-			vertexUploadBuffer->nz = *reinterpret_cast<const float*>(start);
-			start += sizeof(float);
-			++vertexUploadBuffer;
-		}
+	copyCommandList.CopyBufferRegion(mesh->vertices, 0u, uploadRequest.uploadResource, useSubresourceRequest.uploadResourceOffset, vertexSizeBytes);
 
-		copyCommandList->CopyBufferRegion(mesh->vertices, 0u, uploadRequest.uploadResource, useSubresourceRequest.uploadResourceOffset, vertexSizeBytes);
+	createIndices(reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(useSubresourceRequest.uploadBufferCpuAddressOfCurrentPos) + vertexSizeBytes), mesh, uploadRequest.uploadResource,
+		useSubresourceRequest.uploadResourceOffset + vertexSizeBytes, indexSizeBytes, &copyCommandList);
 
-		createIndices(reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(useSubresourceRequest.uploadBufferCpuAddressOfCurrentPos) + vertexSizeBytes), mesh, uploadRequest.uploadResource,
-			useSubresourceRequest.uploadResourceOffset + vertexSizeBytes, indexSizeBytes, copyCommandList);
-
-		executor->streamingManager.copyStarted(executor, useSubresourceRequest);
-	});
+	streamingManager.copyStarted(threadIndex, useSubresourceRequest);
 }
 
-void MeshManager::meshWithPositionTextureUseSubresourceHelper(HalfFinishedUploadRequest& useSubresourceRequest, SharedResources& sharedResources, BaseExecutor* executor)
+void MeshManager::meshWithPositionTextureUseSubresourceHelper(HalfFinishedUploadRequest& useSubresourceRequest, const uint8_t* buffer, MeshManager& meshManager, ID3D12Device* graphicsDevice,
+	StreamingManager::ThreadLocal& streamingManager, unsigned int threadIndex)
 {
 	auto& uploadRequest = *useSubresourceRequest.uploadRequest;
 	wchar_t* filename = reinterpret_cast<wchar_t*>(uploadRequest.requester);
-	auto sizeOnFile = uploadRequest.meshInfo.verticesSize;
+	auto vertexSizeBytes = uploadRequest.meshInfo.verticesSize;
+	auto indexSizeBytes = uploadRequest.meshInfo.indicesSize;
+	constexpr auto vertexStrideInBytes = sizeof(MeshWithPositionTexture);
 
-	sharedResources.asynchronousFileManager.readFile(executor, sharedResources, filename, sizeof(uint32_t) * 3u, sizeof(uint32_t) * 3u + sizeOnFile, uploadRequest.file, &useSubresourceRequest,
-		[](void* requester, BaseExecutor* executor, SharedResources& sharedResources, const uint8_t* buffer, File file)
+	Mesh temp;
+	createMesh(temp, filename, graphicsDevice, vertexSizeBytes, vertexStrideInBytes, indexSizeBytes);
+	Mesh* mesh;
 	{
-		auto& useSubresourceRequest = *reinterpret_cast<HalfFinishedUploadRequest*>(requester);
-		auto& uploadRequest = *useSubresourceRequest.uploadRequest;
-		wchar_t* filename = reinterpret_cast<wchar_t*>(uploadRequest.requester);
-		auto vertexSizeBytes = uploadRequest.meshInfo.verticesSize;
-		auto indexSizeBytes = uploadRequest.meshInfo.indicesSize;
-		constexpr auto vertexStrideInBytes = sizeof(MeshWithPositionTexture);
-		MeshManager& meshManager = sharedResources.meshManager;
-		ID3D12Device* graphicsDevice = sharedResources.graphicsEngine.graphicsDevice;
-		FixedSizeAllocator<Mesh>& meshAllocator = executor->meshAllocator;
-		Mesh* mesh = meshManager.createMesh(meshAllocator, filename, graphicsDevice, vertexSizeBytes, vertexStrideInBytes, indexSizeBytes);
+		std::lock_guard<decltype(meshManager.mutex)> lock(meshManager.mutex);
+		auto& meshInfo = meshManager.meshInfos[filename];
+		meshInfo.mesh = std::move(temp);
+		mesh = &meshInfo.mesh;
+	}
 
-		{
-			std::lock_guard<decltype(meshManager.mutex)> lock(meshManager.mutex);
-			auto& meshInfo = meshManager.meshInfos[filename];
-			meshInfo.mesh = mesh;
-		}
+	ID3D12GraphicsCommandList& copyCommandList = streamingManager.copyCommandList();
+	MeshWithPositionTexture* vertexUploadBuffer = reinterpret_cast<MeshWithPositionTexture* const>(useSubresourceRequest.uploadBufferCpuAddressOfCurrentPos);
 
-		ID3D12GraphicsCommandList* copyCommandList = executor->streamingManager.copyCommandList();
-		MeshWithPositionTexture* vertexUploadBuffer = reinterpret_cast<MeshWithPositionTexture* const>(useSubresourceRequest.uploadBufferCpuAddressOfCurrentPos);
+	uploadRequest.file.close();
 
-		uploadRequest.file.close();
+	const auto end = buffer + vertexSizeBytes;
+	auto start = buffer;
+	while (start != end)
+	{
+		vertexUploadBuffer->x = *reinterpret_cast<const float*>(start);
+		start += sizeof(float);
+		vertexUploadBuffer->y = *reinterpret_cast<const float*>(start);
+		start += sizeof(float);
+		vertexUploadBuffer->z = *reinterpret_cast<const float*>(start);
+		start += sizeof(float);
 
-		const auto end = buffer + vertexSizeBytes;
-		auto start = buffer;
-		while (start != end)
-		{
-			vertexUploadBuffer->x = *reinterpret_cast<const float*>(start);
-			start += sizeof(float);
-			vertexUploadBuffer->y = *reinterpret_cast<const float*>(start);
-			start += sizeof(float);
-			vertexUploadBuffer->z = *reinterpret_cast<const float*>(start);
-			start += sizeof(float);
+		vertexUploadBuffer->tu = *reinterpret_cast<const float*>(start);
+		start += sizeof(float);
+		vertexUploadBuffer->tv = *reinterpret_cast<const float*>(start);
+		start += sizeof(float);
 
-			vertexUploadBuffer->tu = *reinterpret_cast<const float*>(start);
-			start += sizeof(float);
-			vertexUploadBuffer->tv = *reinterpret_cast<const float*>(start);
-			start += sizeof(float);
+		++vertexUploadBuffer;
+	}
 
-			++vertexUploadBuffer;
-		}
+	copyCommandList.CopyBufferRegion(mesh->vertices, 0u, uploadRequest.uploadResource, useSubresourceRequest.uploadResourceOffset, vertexSizeBytes);
 
-		copyCommandList->CopyBufferRegion(mesh->vertices, 0u, uploadRequest.uploadResource, useSubresourceRequest.uploadResourceOffset, vertexSizeBytes);
+	createIndices(reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(useSubresourceRequest.uploadBufferCpuAddressOfCurrentPos) + vertexSizeBytes), mesh, uploadRequest.uploadResource,
+		useSubresourceRequest.uploadResourceOffset + vertexSizeBytes, indexSizeBytes, &copyCommandList);
 
-		createIndices(reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(useSubresourceRequest.uploadBufferCpuAddressOfCurrentPos) + vertexSizeBytes), mesh, uploadRequest.uploadResource,
-			useSubresourceRequest.uploadResourceOffset + vertexSizeBytes, indexSizeBytes, copyCommandList);
-
-		executor->streamingManager.copyStarted(executor, useSubresourceRequest);
-	});
+	streamingManager.copyStarted(threadIndex, useSubresourceRequest);
 }
 
-void MeshManager::meshWithPositionUseSubresourceHelper(HalfFinishedUploadRequest& useSubresourceRequest, SharedResources& sharedResources, BaseExecutor* executor)
+void MeshManager::meshWithPositionUseSubresourceHelper(HalfFinishedUploadRequest& useSubresourceRequest, const uint8_t* buffer, MeshManager& meshManager, ID3D12Device* graphicsDevice,
+	StreamingManager::ThreadLocal& streamingManager, unsigned int threadIndex)
 {
 	auto& uploadRequest = *useSubresourceRequest.uploadRequest;
 	wchar_t* filename = reinterpret_cast<wchar_t*>(uploadRequest.requester);
-	auto sizeOnFile = uploadRequest.meshInfo.verticesSize;
+	auto vertexSizeBytes = uploadRequest.meshInfo.verticesSize;
+	auto indexSizeBytes = uploadRequest.meshInfo.indicesSize;
+	constexpr auto vertexStrideInBytes = sizeof(MeshWithPosition);
 
-	sharedResources.asynchronousFileManager.readFile(executor, sharedResources, filename, sizeof(uint32_t) * 3u, sizeof(uint32_t) * 3u + sizeOnFile, uploadRequest.file, &useSubresourceRequest,
-		[](void* requester, BaseExecutor* executor, SharedResources& sharedResources, const uint8_t* buffer, File file)
+	Mesh temp;
+	createMesh(temp, filename, graphicsDevice, vertexSizeBytes, vertexStrideInBytes, indexSizeBytes);
+	Mesh* mesh;
 	{
-		auto& useSubresourceRequest = *reinterpret_cast<HalfFinishedUploadRequest*>(requester);
-		auto& uploadRequest = *useSubresourceRequest.uploadRequest;
-		wchar_t* filename = reinterpret_cast<wchar_t*>(uploadRequest.requester);
-		auto vertexSizeBytes = uploadRequest.meshInfo.verticesSize;
-		auto indexSizeBytes = uploadRequest.meshInfo.indicesSize;
-		constexpr auto vertexStrideInBytes = sizeof(MeshWithPosition);
-		MeshManager& meshManager = sharedResources.meshManager;
-		ID3D12Device* graphicsDevice = sharedResources.graphicsEngine.graphicsDevice;
-		FixedSizeAllocator<Mesh>& meshAllocator = executor->meshAllocator;
-		Mesh* mesh = meshManager.createMesh(meshAllocator, filename, graphicsDevice, vertexSizeBytes, vertexStrideInBytes, indexSizeBytes);
+		std::lock_guard<decltype(meshManager.mutex)> lock(meshManager.mutex);
+		auto& meshInfo = meshManager.meshInfos[filename];
+		meshInfo.mesh = std::move(temp);
+		mesh = &meshInfo.mesh;
+	}
 
-		{
-			std::lock_guard<decltype(meshManager.mutex)> lock(meshManager.mutex);
-			auto& meshInfo = meshManager.meshInfos[filename];
-			meshInfo.mesh = mesh;
-		}
+	ID3D12GraphicsCommandList& copyCommandList = streamingManager.copyCommandList();
+	MeshWithPosition* vertexUploadBuffer = reinterpret_cast<MeshWithPosition* const>(useSubresourceRequest.uploadBufferCpuAddressOfCurrentPos);
 
-		ID3D12GraphicsCommandList* copyCommandList = executor->streamingManager.copyCommandList();
-		MeshWithPosition* vertexUploadBuffer = reinterpret_cast<MeshWithPosition* const>(useSubresourceRequest.uploadBufferCpuAddressOfCurrentPos);
+	const auto end = buffer + vertexSizeBytes;
+	auto start = buffer;
+	while (start != end)
+	{
+		vertexUploadBuffer->x = *reinterpret_cast<const float*>(start);
+		start += sizeof(float);
+		vertexUploadBuffer->y = *reinterpret_cast<const float*>(start);
+		start += sizeof(float);
+		vertexUploadBuffer->z = *reinterpret_cast<const float*>(start);
+		start += sizeof(float);
 
-		const auto end = buffer + vertexSizeBytes;
-		auto start = buffer;
-		while (start != end)
-		{
-			vertexUploadBuffer->x = *reinterpret_cast<const float*>(start);
-			start += sizeof(float);
-			vertexUploadBuffer->y = *reinterpret_cast<const float*>(start);
-			start += sizeof(float);
-			vertexUploadBuffer->z = *reinterpret_cast<const float*>(start);
-			start += sizeof(float);
+		++vertexUploadBuffer;
+	}
 
-			++vertexUploadBuffer;
-		}
+	uploadRequest.file.close();
 
-		uploadRequest.file.close();
-		
-		copyCommandList->CopyBufferRegion(mesh->vertices, 0u, uploadRequest.uploadResource, useSubresourceRequest.uploadResourceOffset, vertexSizeBytes);
+	copyCommandList.CopyBufferRegion(mesh->vertices, 0u, uploadRequest.uploadResource, useSubresourceRequest.uploadResourceOffset, vertexSizeBytes);
 
-		createIndices(reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(useSubresourceRequest.uploadBufferCpuAddressOfCurrentPos) + vertexSizeBytes), mesh, uploadRequest.uploadResource,
-			useSubresourceRequest.uploadResourceOffset + vertexSizeBytes, indexSizeBytes, copyCommandList);
+	createIndices(reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(useSubresourceRequest.uploadBufferCpuAddressOfCurrentPos) + vertexSizeBytes), mesh, uploadRequest.uploadResource,
+		useSubresourceRequest.uploadResourceOffset + vertexSizeBytes, indexSizeBytes, &copyCommandList);
 
-		executor->streamingManager.copyStarted(executor, useSubresourceRequest);
-	});
+	streamingManager.copyStarted(threadIndex, useSubresourceRequest);
 }
 
-void MeshManager::meshUploaded(void* requester, BaseExecutor* executor, SharedResources& sharedResources)
+void MeshManager::meshUploadedHelper(MeshManager& meshManager, void* requester, void* executor, void* sharedResources)
 {
-	MeshManager& meshManager = sharedResources.meshManager;
 	const wchar_t* filename = reinterpret_cast<wchar_t*>(requester);
 	Mesh* mesh;
 	ResizingArray<Request> requests;
 	{
 		std::lock_guard<decltype(meshManager.mutex)> lock(meshManager.mutex);
-		MeshInfo* meshInfo = &meshManager.meshInfos[filename];
-		meshInfo->loaded = true;
+		MeshInfo& meshInfo = meshManager.meshInfos[filename];
+		meshInfo.loaded = true;
 
-		mesh = meshInfo->mesh;
+		mesh = &meshInfo.mesh;
 
 		auto request = meshManager.uploadRequests.find(filename);
-		if (request != meshManager.uploadRequests.end())
-		{
-			requests = std::move(request->second);
-			meshManager.uploadRequests.erase(request);
-		}
+		assert(request != meshManager.uploadRequests.end() && "Mesh loading with no request for it!");
+		requests = std::move(request->second);
+		meshManager.uploadRequests.erase(request);
 	}
 
 	for (const auto& request : requests)
@@ -506,35 +459,3 @@ void MeshManager::CalculateTangentBitangent(const uint8_t* start, const uint8_t*
 
 MeshManager::MeshManager() {}
 MeshManager::~MeshManager() {}
-
-void MeshManager::meshWithPositionTextureNormalTangentBitangentUseSubresource(BaseExecutor* exe, SharedResources& sr, HalfFinishedUploadRequest& useSubresourceRequest)
-{
-	sr.backgroundQueue.push(Job(&useSubresourceRequest, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources)
-	{
-		meshWithPositionTextureNormalTangentBitangentUseSubresourceHelper(*reinterpret_cast<HalfFinishedUploadRequest*>(requester), sharedResources, executor);
-	}));
-}
-
-void MeshManager::meshWithPositionTextureNormalUseSubresource(BaseExecutor* exe, SharedResources& sr, HalfFinishedUploadRequest& useSubresourceRequest)
-{
-	sr.backgroundQueue.push(Job(&useSubresourceRequest, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources)
-	{
-		meshWithPositionTextureNormalUseSubresourceHelper(*reinterpret_cast<HalfFinishedUploadRequest*>(requester), sharedResources, executor);
-	}));
-}
-
-void MeshManager::meshWithPositionTextureUseSubresource(BaseExecutor* exe, SharedResources& sr, HalfFinishedUploadRequest& useSubresourceRequest)
-{
-	sr.backgroundQueue.push(Job(&useSubresourceRequest, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources)
-	{
-		meshWithPositionTextureUseSubresourceHelper(*reinterpret_cast<HalfFinishedUploadRequest*>(requester), sharedResources, executor);
-	}));
-}
-
-void MeshManager::meshWithPositionUseSubresource(BaseExecutor* exe, SharedResources& sr, HalfFinishedUploadRequest& useSubresourceRequest)
-{
-	sr.backgroundQueue.push(Job(&useSubresourceRequest, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources)
-	{
-		meshWithPositionUseSubresourceHelper(*reinterpret_cast<HalfFinishedUploadRequest*>(requester), sharedResources, executor);
-	}));
-}

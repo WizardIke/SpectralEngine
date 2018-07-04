@@ -1,9 +1,9 @@
 #pragma once
 #include <InputManager.h>
 #include <cassert>
-class SharedResources;
+class GlobalResources;
 
-class InputHandler : public BaseInputHandler
+class InputHandler : public BaseInputHandler<GlobalResources>
 {
 	class MouseMotionObverver
 	{
@@ -47,36 +47,36 @@ public:
 
 	void mouseMoved(long x, long y);
 
-	void leftPressed(SharedResources& sharedResources) { leftDown = true; }
-	void rightPressed(SharedResources& sharedResources) { rightDown = true; }
-	void upPressed(SharedResources& sharedResources) { upDown = true; }
-	void downPressed(SharedResources& sharedResources) { downDown = true; }
-	void aPressed(SharedResources& sharedResources) { aDown = true; }
-	void dPressed(SharedResources& sharedResources) { dDown = true; }
-	void sPressed(SharedResources& sharedResources) { sDown = true; }
-	void wPressed(SharedResources& sharedResources) { wDown = true; }
-	void xPressed(SharedResources& sharedResources) { xDown = true; }
-	void zPressed(SharedResources& sharedResources) { zDown = true; }
-	void pageUpPressed(SharedResources& sharedResources) { pageUpDown = true; }
-	void pageDownPressed(SharedResources& sharedResources) { pageDownDown = true; }
-	void spacePressed(SharedResources& sharedResources) { spaceDown = true; }
-	void escapePressed(SharedResources& sharedResources);
-	void f1Pressed(SharedResources& sr);
-	void f2Pressed(SharedResources& sr);
+	void leftPressed(GlobalResources& globalResources) { leftDown = true; }
+	void rightPressed(GlobalResources& globalResources) { rightDown = true; }
+	void upPressed(GlobalResources& globalResources) { upDown = true; }
+	void downPressed(GlobalResources& globalResources) { downDown = true; }
+	void aPressed(GlobalResources& globalResources) { aDown = true; }
+	void dPressed(GlobalResources& globalResources) { dDown = true; }
+	void sPressed(GlobalResources& globalResources) { sDown = true; }
+	void wPressed(GlobalResources& globalResources) { wDown = true; }
+	void xPressed(GlobalResources& globalResources) { xDown = true; }
+	void zPressed(GlobalResources& globalResources) { zDown = true; }
+	void pageUpPressed(GlobalResources& globalResources) { pageUpDown = true; }
+	void pageDownPressed(GlobalResources& globalResources) { pageDownDown = true; }
+	void spacePressed(GlobalResources& globalResources) { spaceDown = true; }
+	void escapePressed(GlobalResources& globalResources);
+	void f1Pressed(GlobalResources& globalResources);
+	void f2Pressed(GlobalResources& globalResources);
 
-	void leftReleased(SharedResources& sharedResources) { leftDown = false; }
-	void rightReleased(SharedResources& sharedResources) { rightDown = false; }
-	void upReleased(SharedResources& sharedResources) { upDown = false; }
-	void downReleased(SharedResources& sharedResources) { downDown = false; }
-	void aReleased(SharedResources& sharedResources) { aDown = false; }
-	void dReleased(SharedResources& sharedResources) { dDown = false; }
-	void sReleased(SharedResources& sharedResources) { sDown = false; }
-	void wReleased(SharedResources& sharedResources) { wDown = false; }
-	void xReleased(SharedResources& sharedResources) { xDown = false; }
-	void zReleased(SharedResources& sharedResources) { zDown = false; }
-	void pageUpReleased(SharedResources& sharedResources) { pageUpDown = false; }
-	void pageDownReleased(SharedResources& sharedResources) { pageDownDown = false; }
-	void spaceReleased(SharedResources& sharedResources) { spaceDown = false; }
-	void f1Released(SharedResources& sr);
-	void f2Released(SharedResources& sr);
+	void leftReleased(GlobalResources& globalResources) { leftDown = false; }
+	void rightReleased(GlobalResources& globalResources) { rightDown = false; }
+	void upReleased(GlobalResources& globalResources) { upDown = false; }
+	void downReleased(GlobalResources& globalResources) { downDown = false; }
+	void aReleased(GlobalResources& globalResources) { aDown = false; }
+	void dReleased(GlobalResources& globalResources) { dDown = false; }
+	void sReleased(GlobalResources& globalResources) { sDown = false; }
+	void wReleased(GlobalResources& globalResources) { wDown = false; }
+	void xReleased(GlobalResources& globalResources) { xDown = false; }
+	void zReleased(GlobalResources& globalResources) { zDown = false; }
+	void pageUpReleased(GlobalResources& globalResources) { pageUpDown = false; }
+	void pageDownReleased(GlobalResources& globalResources) { pageDownDown = false; }
+	void spaceReleased(GlobalResources& globalResources) { spaceDown = false; }
+	void f1Released(GlobalResources& globalResources);
+	void f2Released(GlobalResources& globalResources);
 };

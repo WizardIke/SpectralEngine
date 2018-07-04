@@ -40,9 +40,8 @@ static inline void requestMipLevels(unsigned int mipLevel, const VirtualTextureI
 	}
 }
 
-void FeedbackAnalizerSubPass::readbackTextureReadyHelper(void* requester, VirtualTextureManager& virtualTextureManager, BaseExecutor* executor)
+void FeedbackAnalizerSubPass::gatherUniqueRequests(FeedbackAnalizerSubPass& subPass, VirtualTextureManager& virtualTextureManager)
 {
-	FeedbackAnalizerSubPass& subPass = *reinterpret_cast<FeedbackAnalizerSubPass*>(requester);
 	auto& uniqueRequests = subPass.uniqueRequests;
 	uint8_t* feadBackBuffer;
 
@@ -97,17 +96,11 @@ void FeedbackAnalizerSubPass::readbackTextureReadyHelper(void* requester, Virtua
 	subPass.readbackTexture->Unmap(0u, &writtenRange);
 }
 
-void FeedbackAnalizerSubPass::destruct(SharedResources* sharedResources)
-{
-	//sharedResources->graphicsEngine.descriptorAllocator.deallocate(feadbackTextureGpuDescriptorIndex);
-	D3D12_RANGE writenRange{ 0u, 0u };
-	readbackTexture->Unmap(0u, &writenRange);
-}
+void FeedbackAnalizerSubPass::destruct() {}
 
-void FeedbackAnalizerSubPass::createResources(SharedResources& sharedResources, Transform& mainCameraTransform, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1, uint8_t*& constantBufferCpuAddress1,
+void FeedbackAnalizerSubPass::createResources(D3D12GraphicsEngine& graphicsEngine, Transform& mainCameraTransform, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1, uint8_t*& constantBufferCpuAddress1,
 	uint32_t width, uint32_t height, float fieldOfView)
 {
-	auto& graphicsEngine = sharedResources.graphicsEngine;
 	ID3D12Device* graphicsDevice = graphicsEngine.graphicsDevice;
 
 	D3D12_DESCRIPTOR_HEAP_DESC descriptorHeapDesc;
@@ -192,7 +185,7 @@ void FeedbackAnalizerSubPass::createResources(SharedResources& sharedResources, 
 	auto depthDescriptor = depthStencilDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
 	graphicsDevice->CreateDepthStencilView(depthBuffer, &dsvDesc, depthDescriptor);
 
-	this->mCameras[0].init(&sharedResources, feadbackTextureGpu, rtvdescriptor, depthDescriptor, newWidth, newHeight, constantBufferGpuAddress1, constantBufferCpuAddress1, fieldOfView,
+	this->mCameras[0].init(feadbackTextureGpu, rtvdescriptor, depthDescriptor, newWidth, newHeight, constantBufferGpuAddress1, constantBufferCpuAddress1, fieldOfView,
 		mainCameraTransform);
 
 #ifndef NDEBUG
@@ -203,12 +196,12 @@ void FeedbackAnalizerSubPass::createResources(SharedResources& sharedResources, 
 
 }
 
-void FeedbackAnalizerSubPass::ThreadLocal::update1AfterFirstThread(SharedResources& sharedResources, FeedbackAnalizerSubPass& renderSubPass,
+void FeedbackAnalizerSubPass::ThreadLocal::update1AfterFirstThread(D3D12GraphicsEngine& graphicsEngine, FeedbackAnalizerSubPass& renderSubPass,
 	ID3D12RootSignature* rootSignature, uint32_t barrierCount, D3D12_RESOURCE_BARRIER* barriers)
 {
-	auto frameIndex = sharedResources.graphicsEngine.frameIndex;
+	auto frameIndex = graphicsEngine.frameIndex;
 	resetCommandLists(frameIndex);
-	bindRootArguments(rootSignature, sharedResources.graphicsEngine.mainDescriptorHeap);
+	bindRootArguments(rootSignature, graphicsEngine.mainDescriptorHeap);
 
 
 	auto cameras = renderSubPass.cameras();
@@ -228,9 +221,9 @@ void FeedbackAnalizerSubPass::ThreadLocal::update1AfterFirstThread(SharedResourc
 
 	for (auto& camera : renderSubPass.cameras())
 	{
-		if (camera.isInView(sharedResources))
+		if (camera.isInView())
 		{
-			camera.bindFirstThread(sharedResources, &currentData->commandLists[0u].get(),
+			camera.bindFirstThread(frameIndex, &currentData->commandLists[0u].get(),
 				&currentData->commandLists.data()[currentData->commandLists.size()].get());
 		}
 	}

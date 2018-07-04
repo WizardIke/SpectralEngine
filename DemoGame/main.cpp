@@ -1,4 +1,4 @@
-#include "Assets.h"
+#include "GlobalResources.h"
 #include <memory>
 
 #ifdef _WIN32
@@ -11,5 +11,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR pScmdline,
 int main()
 #endif
 {
-	std::unique_ptr<Assets> game(new Assets());
+	std::unique_ptr<GlobalResources> game(new GlobalResources());
+	game->start();
 }

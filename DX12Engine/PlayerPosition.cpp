@@ -1,7 +1,5 @@
 #include "PlayerPosition.h"
-#include "InputManager.h"
-#include "SharedResources.h"
-#include "BaseExecutor.h"
+#include <cmath>
 
 PlayerPosition::PlayerPosition(const DirectX::XMFLOAT3 position, const DirectX::XMFLOAT3 rotation) : 
 	location{ position, rotation },
@@ -26,7 +24,7 @@ void PlayerPosition::mouseMoved(void * const position, float x, float y)
 	else if (ths->location.rotation.x < -0.5f * 3.14159265359f) ths->location.rotation.x = -0.5f * 3.14159265359f;
 }
 
-void PlayerPosition::updateImpl(BaseExecutor* const executor, SharedResources& sharedResources, bool moveleft, bool moveRight, bool moveForwards, bool moveBackwards, bool moveUp)
+void PlayerPosition::update(float frameTime, bool moveleft, bool moveRight, bool moveForwards, bool moveBackwards, bool moveUp)
 {
 	DirectX::XMVECTOR lookUpVector, lookAtVector;
 	DirectX::XMMATRIX rotationMatrix;
@@ -43,7 +41,7 @@ void PlayerPosition::updateImpl(BaseExecutor* const executor, SharedResources& s
 	
 	float forceX, forceY, forceZ;
 	forceX = forceY = forceZ = 0.0f;
-	float speed = sqrt(velocity.x * velocity.x + velocity.y * velocity.y + velocity.z * velocity.z);
+	float speed = std::sqrt(velocity.x * velocity.x + velocity.y * velocity.y + velocity.z * velocity.z);
 
 	if (velocity.x > 0.0f)
 	{
@@ -78,8 +76,8 @@ void PlayerPosition::updateImpl(BaseExecutor* const executor, SharedResources& s
 
 	if (heightLocked)
 	{
-		float AtLength = sqrt(LookAt.x * LookAt.x + LookAt.z * LookAt.z);
-		float RightLength = sqrt(LookAt.x * LookAt.x + LookAt.z * LookAt.z);
+		float AtLength = std::sqrt(LookAt.x * LookAt.x + LookAt.z * LookAt.z);
+		float RightLength = std::sqrt(LookAt.x * LookAt.x + LookAt.z * LookAt.z);
 		if (moveForwards && moveleft)
 		{
 			forceX = (LookAt.x * power / (velocity.x + 0.01f) / AtLength - LookRight.x * power / (velocity.x + 0.01f) / RightLength) * 0.707106781186547f;
@@ -187,7 +185,6 @@ void PlayerPosition::updateImpl(BaseExecutor* const executor, SharedResources& s
 		}
 	}
 
-	auto frameTime = sharedResources.timer.frameTime();
 	velocity.x += forceX * oneOverMass * frameTime;
 	velocity.y += forceY * oneOverMass * frameTime;
 	velocity.z += forceZ * oneOverMass * frameTime;

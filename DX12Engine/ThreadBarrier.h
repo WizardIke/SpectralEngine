@@ -24,58 +24,27 @@ public:
 		mMutex.unlock();
 	}
 
-	void sync(unsigned int maxThreads)
-	{
-		std::unique_lock<decltype(mMutex)> lock(mMutex);
-		++mWaitingCount;
-		if (mWaitingCount == maxThreads)
-		{
-			mWaitingCount = 0u;
-			++mGeneration;
-			lock.unlock();
-			conditionVariable.notify_all();
-		}
-		else
-		{
-			conditionVariable.wait(lock);
-			lock.unlock();
-		}
-	}
+	void sync(unsigned int maxThreads);
+	void sync(std::unique_lock<std::mutex>&& lock, unsigned int maxThreads);
 
-	void sync(std::unique_lock<std::mutex>&& lock, unsigned int maxThreads)
+	template<class OnLastThread>
+	void sync(unsigned int maxThreads, OnLastThread onLastThread)
 	{
-		++mWaitingCount;
-		if (mWaitingCount == maxThreads)
-		{
-			mWaitingCount = 0u;
-			++mGeneration;
-			lock.unlock();
-			conditionVariable.notify_all();
-		}
-		else
-		{
-			conditionVariable.wait(lock);
-			lock.unlock();
-		}
-	}
-
-	template<class LastThread, class NotLastThread>
-	void sync(std::unique_lock<std::mutex>&& lock, unsigned int maxThreads, LastThread lastThread, NotLastThread notLastThread)
-	{
+		std::unique_lock<std::mutex> lock(mMutex);
 		++mWaitingCount;
 		if (mWaitingCount == maxThreads)
 		{
 			onLastThread();
 			mWaitingCount = 0u;
 			++mGeneration;
+			lock.unlock();
 			conditionVariable.notify_all();
 		}
 		else
 		{
-			notLastThread();
-			conditionVariable.wait(lock);
+			conditionVariable.wait(lock, [&gen = mGeneration, oldGen = mGeneration]() { return gen != oldGen; });
+			lock.unlock();
 		}
-		lock.unlock();
 	}
 
 	void wait(std::unique_lock<decltype(mMutex)>& lock)

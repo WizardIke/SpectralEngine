@@ -5,12 +5,7 @@
 #include "Window.h"
 
 
-D3D12GraphicsEngine::D3D12GraphicsEngine(Window& window, bool enableGpuDebugging) : D3D12GraphicsEngine(window, 
-#ifndef NDEBUG
-	DXGIFactory(true, enableGpuDebugging))
-#else
-	DXGIFactory(false, enableGpuDebugging))
-#endif
+D3D12GraphicsEngine::D3D12GraphicsEngine(Window& window, bool enableGpuDebugging) : D3D12GraphicsEngine(window, DXGIFactory(enableGpuDebugging))
 {}
 
 D3D12GraphicsEngine::D3D12GraphicsEngine(Window& window, DXGIFactory factory) :
@@ -158,7 +153,12 @@ void D3D12GraphicsEngine::waitForPreviousFrame()
 	}
 }
 
-D3D12_CPU_DESCRIPTOR_HANDLE operator+(D3D12_CPU_DESCRIPTOR_HANDLE handle, size_t offset)
+void operator+=(D3D12_CPU_DESCRIPTOR_HANDLE& handle, std::size_t offset)
+{
+	handle.ptr = handle.ptr + offset;
+}
+
+D3D12_CPU_DESCRIPTOR_HANDLE operator+(D3D12_CPU_DESCRIPTOR_HANDLE handle, std::size_t offset)
 {
 	D3D12_CPU_DESCRIPTOR_HANDLE retval;
 	retval.ptr = handle.ptr + offset;

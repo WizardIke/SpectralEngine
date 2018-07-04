@@ -43,9 +43,6 @@
     <Filter Include="Sound">
       <UniqueIdentifier>{8ed13261-c3fa-498e-9e9c-d1173d827c59}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Assets">
-      <UniqueIdentifier>{7c07c87e-0427-4a92-8157-40e4531ea7b1}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Fonts">
       <UniqueIdentifier>{9404683e-a60e-4a49-aba7-800788772e27}</UniqueIdentifier>
     </Filter>
@@ -58,26 +55,17 @@
     <Filter Include="AmbientMusic">
       <UniqueIdentifier>{09e79b3c-09df-4a55-ad80-f7e66f2c888b}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Executor">
-      <UniqueIdentifier>{a2e84a9a-1014-4eba-b21c-0fa8461798ba}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Executor\Executor">
-      <UniqueIdentifier>{0d2530c4-d0d3-49be-9537-9c5401927d5b}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Executor\MainExecutor">
-      <UniqueIdentifier>{a5ba0de0-e762-4dfc-b434-8c3fa0184446}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Executor\PrimaryExecutor">
-      <UniqueIdentifier>{9dd77d3f-58e4-4eb9-aa06-d72e2f65b222}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Executor\BackgroundExecutor">
-      <UniqueIdentifier>{27fc4cf3-a014-4fe9-9c95-0a2fd950e7c1}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Areas\Outside\Models">
       <UniqueIdentifier>{a72817e4-81db-4081-ac17-578ae0c72784}</UniqueIdentifier>
     </Filter>
     <Filter Include="Shaders\Vertex">
       <UniqueIdentifier>{43307102-236a-4ab4-98f4-bb8e2fda6c4b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ThreadResources">
+      <UniqueIdentifier>{3b5bc7e4-d66d-4f2f-a8c5-b19f1c7169c3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="GlobalResources">
+      <UniqueIdentifier>{5bd3483d-e26a-44f5-ad2e-740b9cf78ea7}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -112,9 +100,6 @@
       <Filter>PipelineStateObjects</Filter>
     </ClCompile>
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="Assets.cpp">
-      <Filter>Assets</Filter>
-    </ClCompile>
     <ClCompile Include="TextureNames.cpp">
       <Filter>Textures</Filter>
     </ClCompile>
@@ -134,18 +119,6 @@
       <Filter>AmbientMusic</Filter>
     </ClCompile>
     <ClCompile Include="AmbientMusic.cpp" />
-    <ClCompile Include="Executor.cpp">
-      <Filter>Executor\Executor</Filter>
-    </ClCompile>
-    <ClCompile Include="MainExecutor.cpp">
-      <Filter>Executor\MainExecutor</Filter>
-    </ClCompile>
-    <ClCompile Include="PrimaryExecutor.cpp">
-      <Filter>Executor\PrimaryExecutor</Filter>
-    </ClCompile>
-    <ClCompile Include="BackgroundExecutor.cpp">
-      <Filter>Executor\BackgroundExecutor</Filter>
-    </ClCompile>
     <ClCompile Include="AmbientMusic.cpp">
       <Filter>AmbientMusic</Filter>
     </ClCompile>
@@ -153,6 +126,13 @@
       <Filter>Meshes</Filter>
     </ClCompile>
     <ClCompile Include="InputHandler.cpp" />
+    <ClCompile Include="ThreadResources.cpp">
+      <Filter>ThreadResources</Filter>
+    </ClCompile>
+    <ClCompile Include="GlobalResources.cpp">
+      <Filter>GlobalResources</Filter>
+    </ClCompile>
+    <ClCompile Include="RenderPass1.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Cave\CaveArea.h">
@@ -194,9 +174,6 @@
     <ClInclude Include="PipelineStateObjects.h">
       <Filter>PipelineStateObjects</Filter>
     </ClInclude>
-    <ClInclude Include="Assets.h">
-      <Filter>Assets</Filter>
-    </ClInclude>
     <ClInclude Include="TextureNames.h">
       <Filter>Textures</Filter>
     </ClInclude>
@@ -216,18 +193,6 @@
       <Filter>AmbientMusic</Filter>
     </ClInclude>
     <ClInclude Include="AmbientMusic.h" />
-    <ClInclude Include="Executor.h">
-      <Filter>Executor\Executor</Filter>
-    </ClInclude>
-    <ClInclude Include="MainExecutor.h">
-      <Filter>Executor\MainExecutor</Filter>
-    </ClInclude>
-    <ClInclude Include="PrimaryExecutor.h">
-      <Filter>Executor\PrimaryExecutor</Filter>
-    </ClInclude>
-    <ClInclude Include="BackgroundExecutor.h">
-      <Filter>Executor\BackgroundExecutor</Filter>
-    </ClInclude>
     <ClInclude Include="AmbientMusic.h">
       <Filter>AmbientMusic</Filter>
     </ClInclude>
@@ -259,6 +224,12 @@
     </ClInclude>
     <ClInclude Include="Shaders\VtFeedbackMaterialPS.h">
       <Filter>Shaders\Pixel</Filter>
+    </ClInclude>
+    <ClInclude Include="ThreadResources.h">
+      <Filter>ThreadResources</Filter>
+    </ClInclude>
+    <ClInclude Include="GlobalResources.h">
+      <Filter>GlobalResources</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

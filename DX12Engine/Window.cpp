@@ -88,7 +88,7 @@ void Window::createSwapChain(D3D12GraphicsEngine& graphicsEngine, IDXGIFactory5*
 	swapChain = DXGISwapChain4(dxgiFactory, graphicsEngine.directCommandQueue, windowHandle, &swapChainDesc, fullscreenDescPointer, nullptr);
 
 
-#ifdef _DEBUG
+#ifndef NDEBUG
 	for (auto i = 0u; i < frameBufferCount; ++i)
 	{
 		std::wstring name = L"backbuffer render target ";
@@ -127,4 +127,21 @@ void Window::setWindowed()
 {
 	swapChain->SetFullscreenState(FALSE, nullptr);
 	ChangeDisplaySettingsW(nullptr, 0u);
+}
+
+bool Window::processMessagesForAllWindowsOnCurrentThread()
+{
+	MSG message;
+	BOOL error;
+	while (true)
+	{
+		error = (PeekMessage(&message, nullptr, 0, 0, PM_REMOVE));
+		if (error == 0) { break; } //no messages
+		else if (error < 0) //error reading message
+		{
+			return false;
+		}
+		DispatchMessage(&message);
+	}
+	return true;
 }

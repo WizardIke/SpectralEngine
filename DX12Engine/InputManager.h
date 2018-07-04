@@ -2,12 +2,13 @@
 
 #include "Window.h"
 #include <memory>
-class SharedResources;
 #undef min
 #undef max
 
+template<class SharedResources>
 struct BaseInputHandler
 {
+	using GlobalResources = SharedResources;
 	void leftMousePressed(SharedResources& sharedResources) {}
 	void mouseMoved(long x, long y) {}
 
@@ -72,7 +73,7 @@ public:
 	~InputManager() {}
 
 	template<class InputHandler>
-	void handleRawInput(LPARAM lParam, InputHandler& inputHandler, SharedResources& sharedResources)
+	void handleRawInput(LPARAM lParam, InputHandler& inputHandler, typename InputHandler::GlobalResources& sharedResources)
 	{
 		UINT requiredInputBufferSize = 0u;
 		GetRawInputData((HRAWINPUT)lParam, RID_INPUT, nullptr, &requiredInputBufferSize, sizeof(RAWINPUTHEADER)); //get the required buffer size
@@ -155,6 +156,8 @@ public:
 					inputHandler.f2Pressed(sharedResources);
 					break;
 				default:
+					PRAWINPUT rawInputPtr = &raw;
+					DefRawInputProc(&rawInputPtr, 1u, sizeof(RAWINPUTHEADER));
 					break;
 				}
 			}
@@ -211,6 +214,8 @@ public:
 					inputHandler.f2Released(sharedResources);
 					break;
 				default:
+					PRAWINPUT rawInputPtr = &raw;
+					DefRawInputProc(&rawInputPtr, 1u, sizeof(RAWINPUTHEADER));
 					break;
 				}
 			}

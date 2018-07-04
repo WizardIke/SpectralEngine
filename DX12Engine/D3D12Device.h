@@ -7,7 +7,7 @@ class D3D12Device
 {
 	ID3D12Device* data;
 public:
-	D3D12Device(IDXGIAdapter1* const adapter, const D3D_FEATURE_LEVEL featureLevel) : data(nullptr)
+	D3D12Device(IDXGIAdapter3* adapter, const D3D_FEATURE_LEVEL featureLevel) : data(nullptr)
 	{
 		HRESULT hr = D3D12CreateDevice(adapter, featureLevel, IID_PPV_ARGS(&data));
 		if (FAILED(hr)) throw D3D12CreateDeviceFailedException(hr);

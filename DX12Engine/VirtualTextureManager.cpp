@@ -1,12 +1,8 @@
 #include "VirtualTextureManager.h"
-#include "SharedResources.h"
-#include "BaseExecutor.h"
-#undef min
-#undef max
 
-void VirtualTextureManager::loadTextureUncachedHelper(const wchar_t * filename, File file, BaseExecutor* executor, SharedResources& sharedResources,
-	void(*useSubresource)(BaseExecutor* executor, SharedResources& sharedResources, HalfFinishedUploadRequest& useSubresourceRequest),
-	void(*resourceUploaded)(void* const requester, BaseExecutor* const executor, SharedResources& sharedResources),
+void VirtualTextureManager::loadTextureUncachedHelper(const wchar_t * filename, File file, StreamingManager& streamingManager, D3D12GraphicsEngine& graphicsEngine,
+	void(*useSubresource)(void* executor, void* sharedResources, HalfFinishedUploadRequest& useSubresourceRequest),
+	void(*resourceUploaded)(void* requester, void* executor, void* sharedResources),
 	const DDSFileLoader::DdsHeaderDx12& header)
 {
 	bool valid = DDSFileLoader::validateDdsHeader(header);
@@ -34,9 +30,9 @@ void VirtualTextureManager::loadTextureUncachedHelper(const wchar_t * filename, 
 	}
 	uploadRequest.textureInfo.depth = header.depth;
 
-	createTextureWithResitencyInfo(sharedResources.graphicsEngine, sharedResources.streamingManager.commandQueue(), uploadRequest, filename, file);
+	createTextureWithResitencyInfo(graphicsEngine, streamingManager.commandQueue(), uploadRequest, filename, file);
 
-	sharedResources.streamingManager.addUploadRequest(uploadRequest);
+	streamingManager.addUploadRequest(uploadRequest);
 }
 
 static D3D12Resource createTexture(ID3D12Device* graphicsDevice, const RamToVramUploadRequest& request)
@@ -269,11 +265,10 @@ void VirtualTextureManager::createTextureWithResitencyInfo(D3D12GraphicsEngine& 
 	texturesByID[textureID] = std::move(resitencyInfo);
 }
 
-void VirtualTextureManager::textureUploadedHelper(void* storedFilename, BaseExecutor* executor, SharedResources& sharedResources)
+ResizingArray<VirtualTextureManager::Request> VirtualTextureManager::textureUploadedHelper(void* storedFilename, Texture*& texture)
 {
-	const wchar_t* filename = reinterpret_cast<wchar_t*>(storedFilename);
-	Texture* texture;
 	ResizingArray<Request> requests;
+	const wchar_t* filename = reinterpret_cast<wchar_t*>(storedFilename);
 	{
 		std::lock_guard<decltype(mutex)> lock(mutex);
 		texture = &textures[filename];
@@ -284,9 +279,5 @@ void VirtualTextureManager::textureUploadedHelper(void* storedFilename, BaseExec
 		requests = std::move(request->second);
 		uploadRequests.erase(request);
 	}
-
-	for (auto& request : requests)
-	{
-		request(executor, sharedResources, *texture);
-	}
+	return std::move(requests);
 }

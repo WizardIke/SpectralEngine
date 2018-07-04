@@ -1,6 +1,6 @@
 #include "InputHander.h"
-#include "Assets.h"
-#include "Executor.h"
+#include "GlobalResources.h"
+#include "ThreadResources.h"
 
 
 InputHandler::InputHandler(Window& Window, MouseMotionObverver mouseMotionObverver) : previousMousePosX(0), previousMousePosY(0), screenWidth(Window.width()),
@@ -11,20 +11,19 @@ void InputHandler::mouseMoved(long x, long y)
 	mouseMotionObverver.mouseMoved(static_cast<float>(x) / screenWidth * 10.0f, static_cast<float>(y) / screenWidth * 10.0f);
 }
 
-void InputHandler::escapePressed(SharedResources& sharedResources) { sharedResources.nextPhaseJob = Executor::quit; }
+void InputHandler::escapePressed(GlobalResources& globalResources) { globalResources.taskShedular.setNextPhaseTask(ThreadResources::quit); }
 
-void InputHandler::f1Pressed(SharedResources& sr)
+void InputHandler::f1Pressed(GlobalResources& globalResources)
 {
 	if (!f1Down)
 	{
 		f1Down = true;
-		Assets& sharedResources = reinterpret_cast<Assets&>(sr);
 		f1Toggled = !f1Toggled;
-		sharedResources.userInterface().setDisplayVirtualFeedbackTexture(f1Toggled);
+		globalResources.userInterface.setDisplayVirtualFeedbackTexture(f1Toggled);
 	}
 }
 
-void InputHandler::f1Released(SharedResources& sr)
+void InputHandler::f1Released(GlobalResources& globalResources)
 {
 	if (f1Down)
 	{
@@ -32,17 +31,16 @@ void InputHandler::f1Released(SharedResources& sr)
 	}
 }
 
-void InputHandler::f2Pressed(SharedResources& sr)
+void InputHandler::f2Pressed(GlobalResources& globalResources)
 {
 	if (!f2Down)
 	{
 		f2Down = true;
-		Assets& sharedResources = reinterpret_cast<Assets&>(sr);
-		sharedResources.window.setVSync(!sharedResources.window.getVSync());
+		globalResources.window.setVSync(!globalResources.window.getVSync());
 	}
 }
 
-void InputHandler::f2Released(SharedResources& sr)
+void InputHandler::f2Released(GlobalResources& globalResources)
 {
 	if (f2Down)
 	{

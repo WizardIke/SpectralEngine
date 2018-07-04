@@ -2,9 +2,11 @@
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
-#include <DirectXMath.h>
+#undef min
+#undef max
+#undef WIN32_LEAN_AND_MEAN
 #include "DXGISwapChain4.h"
-#include "Job.h"
+#include <cstdint>
 class D3D12GraphicsEngine;
 struct ID3D12Resource;
 
@@ -50,4 +52,6 @@ public:
 	void setWindowed();
 	void setVSync(bool value) { vSync = value; }
 	bool getVSync() { return vSync; }
+
+	static bool processMessagesForAllWindowsOnCurrentThread();
 };

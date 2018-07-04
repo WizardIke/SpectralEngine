@@ -2,6 +2,8 @@
 #include <xaudio2.h>
 #include "HresultException.h"
 #include <stdint.h>
+#undef min
+#undef max
 
 class XAudio2SourceVoice
 {

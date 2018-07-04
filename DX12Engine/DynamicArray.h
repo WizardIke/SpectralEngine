@@ -11,12 +11,12 @@ public:
 	using allocator_type = Allocator;
 	using size_type = std::size_t;
 	using value_type = Element;
-	using iterator = Element * ;
+	using iterator = Element*;
 	using const_iterator = const Element*;
 	using reverse_iterator = ::std::reverse_iterator<iterator>;
 	using const_reverse_iterator = ::std::reverse_iterator<const_iterator>;
-	using pointer = value_type * ;
-	using reference = value_type & ;
+	using pointer = value_type*;
+	using reference = value_type&;
 	using const_pointer = const value_type*;
 	using const_reference = const value_type&;
 

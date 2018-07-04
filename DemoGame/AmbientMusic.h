@@ -2,8 +2,8 @@
 #include <XAudio2SourceVoice.h>
 #include <memory>
 #include <stdio.h>
-class BaseExecutor;
-class SharedResources;
+class ThreadResources;
+class GlobalResources;
 
 class AmbientMusic : IXAudio2VoiceCallback
 {
@@ -25,9 +25,10 @@ class AmbientMusic : IXAudio2VoiceCallback
 	virtual void STDMETHODCALLTYPE OnVoiceProcessingPassEnd() override;
 	virtual void STDMETHODCALLTYPE OnVoiceProcessingPassStart(UINT32 BytesRequired) override;
 
-	void update(BaseExecutor* const executor, SharedResources& sharedResources);
-	void findNextMusic(BaseExecutor* const executor);
+	void update(ThreadResources& executor, GlobalResources& sharedResources);
+	void findNextMusic(ThreadResources& executor);
 public:
-	AmbientMusic(BaseExecutor* const executor, SharedResources& sharedResources);
+	AmbientMusic(ThreadResources& executor, GlobalResources& sharedResources);
 	~AmbientMusic() {}
+	void start();
 };

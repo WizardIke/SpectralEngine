@@ -1,8 +1,8 @@
 #include "Areas.h"
-#include <BaseExecutor.h>
-#include <SharedResources.h>
+#include "ThreadResources.h"
+#include "GlobalResources.h"
 
-Areas::Areas(BaseExecutor* executor, SharedResources& sharedResources)
+Areas::Areas(ThreadResources& executor, GlobalResources& sharedResources)
 {
 	outside.start(executor, sharedResources);
 }

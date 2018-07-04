@@ -74,5 +74,5 @@ public:
 	void present(Window& window, ID3D12CommandList** ppCommandLists, unsigned int numLists);
 	void waitForPreviousFrame();
 };
-
+void operator+=(D3D12_CPU_DESCRIPTOR_HANDLE& handle, std::size_t offset);
 D3D12_CPU_DESCRIPTOR_HANDLE operator+(D3D12_CPU_DESCRIPTOR_HANDLE handle, size_t offset);

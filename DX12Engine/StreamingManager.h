@@ -15,6 +15,22 @@
 
 class StreamingManager
 {
+public:
+	class ThreadLocal
+	{
+		D3D12FencePointer copyFence;
+		std::atomic<uint64_t> mFenceValue;
+		Array<D3D12CommandAllocator, 2u> commandAllocators;
+		D3D12GraphicsCommandList commandLists[2u];
+		ID3D12GraphicsCommandList* currentCommandList; //Need to handle swapping currentCommandList in a thread safe manner
+	public:
+		ThreadLocal(ID3D12Device* const graphicsDevice, StreamingManager& streamingManager, unsigned int threadIndex);
+		ID3D12GraphicsCommandList& copyCommandList() { return *currentCommandList; }
+		void update(StreamingManager& streamingManager);
+		void copyStarted(unsigned int threadIndex, HalfFinishedUploadRequest& processingRequest);
+		uint64_t fenceValue() { return mFenceValue.load(std::memory_order::memory_order_relaxed); }
+	};
+private:
 	std::mutex mutex;
 	D3D12CommandQueue copyCommandQueue;
 
@@ -28,29 +44,26 @@ class StreamingManager
 	unsigned long uploadBufferReadPos = 0u;
 
 	std::atomic<bool> finishedUpdating = true;
+	std::unique_ptr<ThreadLocal*[]> threadLocals;
 
-	void addUploadToBuffer(BaseExecutor* const executor, SharedResources& sharedResources);
-	void backgroundUpdate(BaseExecutor* const executor, SharedResources& sharedResources);
+	void addUploadToBuffer(ID3D12Device* graphicsDevice, void* executor, void* sharedResources);
+	void backgroundUpdate(unsigned int threadIndex, ID3D12Device* device, void* threadResources, void* GlobalResources);
 public:
-	StreamingManager(ID3D12Device* const graphicsDevice, unsigned long uploadHeapStartingSize);
-	void update(BaseExecutor* const executor, SharedResources& sharedResources);
-	bool hasPendingUploads();
+	StreamingManager(ID3D12Device* const graphicsDevice, unsigned long uploadHeapStartingSize, unsigned int threadCount);
+
+	template<class ThreadResources, class GlobalResources, class TaskShedularThreadLocal>
+	void update(TaskShedularThreadLocal& taskShedular)
+	{
+		if (finishedUpdating.exchange(false, std::memory_order::memory_order_acquire))
+		{
+			taskShedular.backgroundQueue().push({ this, [](void* context, ThreadResources& threadResources, GlobalResources& globalResources)
+			{
+				reinterpret_cast<StreamingManager*>(context)->backgroundUpdate(threadResources.taskShedular.index(), globalResources.graphicsEngine.graphicsDevice, &threadResources, &globalResources);
+			} });
+		}
+	}
+
 	ID3D12CommandQueue* commandQueue() { return copyCommandQueue; }
 	void addUploadRequest(const RamToVramUploadRequest& request);
-	void addCopyCompletionEvent(BaseExecutor* executor, void* requester, void(*event)(void* requester, BaseExecutor* executor, SharedResources& sharedResources));
-
-	class ThreadLocal
-	{
-		D3D12FencePointer copyFence;
-		std::atomic<uint64_t> mFenceValue;
-		Array<D3D12CommandAllocator, 2u> commandAllocators;
-		D3D12GraphicsCommandList commandLists[2u];
-		ID3D12GraphicsCommandList* currentCommandList; //Need to handle swapping currentCommandList in a thread safe manner
-	public:
-		ThreadLocal(ID3D12Device* const graphicsDevice);
-		ID3D12GraphicsCommandList * copyCommandList() { return currentCommandList; }
-		void update(BaseExecutor* const executor, SharedResources& sharedResources);
-		void copyStarted(BaseExecutor* const executor, HalfFinishedUploadRequest& processingRequest);
-		uint64_t fenceValue() { return mFenceValue.load(std::memory_order::memory_order_relaxed); }
-	};
+	void addCopyCompletionEvent(unsigned int threadIndex, void* requester, void(*event)(void* requester, void* executor, void* sharedResources));
 };

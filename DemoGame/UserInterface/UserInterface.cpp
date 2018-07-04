@@ -1,12 +1,12 @@
 #include "UserInterface.h"
 #include <DirectXMath.h>
-#include <BaseExecutor.h>
-#include "../Assets.h"
+#include "../ThreadResources.h"
+#include "../GlobalResources.h"
 
-UserInterface::UserInterface(SharedResources& sharedResources, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, uint8_t*& constantBufferCpuAddress) :
-	CPUUsageSentence(sharedResources.graphicsEngine.graphicsDevice, &((Assets*)&sharedResources)->arial, DirectX::XMFLOAT2(0.01f, 0.01f), DirectX::XMFLOAT2(1.0f, 1.0f),
+UserInterface::UserInterface(GlobalResources& sharedResources, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, uint8_t*& constantBufferCpuAddress) :
+	CPUUsageSentence(sharedResources.graphicsEngine.graphicsDevice, &sharedResources.arial, DirectX::XMFLOAT2(0.01f, 0.01f), DirectX::XMFLOAT2(1.0f, 1.0f),
 		DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f)),
-	FPSSentence(sharedResources.graphicsEngine.graphicsDevice, &((Assets*)&sharedResources)->arial, DirectX::XMFLOAT2(0.01f, 0.07f), DirectX::XMFLOAT2(1.0f, 1.0f)) 
+	FPSSentence(sharedResources.graphicsEngine.graphicsDevice, &sharedResources.arial, DirectX::XMFLOAT2(0.01f, 0.07f), DirectX::XMFLOAT2(1.0f, 1.0f)) 
 {
 	bufferGpu = constantBufferGpuAddress;
 	constantBufferGpuAddress += BasicMaterialPsSize + TexturedQuadMaterialVsSize;
@@ -24,9 +24,7 @@ UserInterface::UserInterface(SharedResources& sharedResources, D3D12_GPU_VIRTUAL
 	BufferVsCpu->texCoords[2] = 1.0f;
 	BufferVsCpu->texCoords[3] = 1.0f;
 
-
-	Assets& assets = reinterpret_cast<Assets&>(sharedResources);
-	auto& camera = (*assets.renderPass.virtualTextureFeedbackSubPass().cameras().begin());
+	auto& camera = (*sharedResources.renderPass.virtualTextureFeedbackSubPass().cameras().begin());
 	D3D12_RESOURCE_DESC resourceDesc;
 	resourceDesc.Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
 	resourceDesc.DepthOrArraySize = 1u;
@@ -68,23 +66,22 @@ UserInterface::UserInterface(SharedResources& sharedResources, D3D12_GPU_VIRTUAL
 	bufferPSCpu->baseColorTexture = descriptorIndex;
 }
 
-void UserInterface::update1(SharedResources& sharedResources)
+void UserInterface::update1(GlobalResources& sharedResources)
 {
 	unsigned int frameIndex = sharedResources.graphicsEngine.frameIndex;
 	CPUUsageSentence.update(sharedResources);
 	FPSSentence.update(frameIndex, sharedResources.timer.frameTime());
 }
 
-void UserInterface::update2(Executor* const executor, SharedResources& sharedResources)
+void UserInterface::update2(ThreadResources& executor, GlobalResources& sharedResources)
 {
-	Assets& assets = (Assets&)sharedResources;
-	auto frameIndex = assets.graphicsEngine.frameIndex;
-	const auto opaqueDirectCommandList = executor->renderPass.colorSubPass().opaqueCommandList();
+	auto frameIndex = sharedResources.graphicsEngine.frameIndex;
+	const auto opaqueDirectCommandList = executor.renderPass.colorSubPass().opaqueCommandList();
 	
 
-	opaqueDirectCommandList->SetPipelineState(assets.pipelineStateObjects.text);
+	opaqueDirectCommandList->SetPipelineState(sharedResources.pipelineStateObjects.text);
 	opaqueDirectCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
-	opaqueDirectCommandList->SetGraphicsRootConstantBufferView(3u, assets.arial.psPerObjectCBVGpuAddress);
+	opaqueDirectCommandList->SetGraphicsRootConstantBufferView(3u, sharedResources.arial.psPerObjectCBVGpuAddress);
 
 	opaqueDirectCommandList->IASetVertexBuffers(0u, 1u, &CPUUsageSentence.textVertexBufferView[frameIndex]);
 	opaqueDirectCommandList->DrawInstanced(4u, static_cast<UINT>(CPUUsageSentence.text.length()), 0u, 0u);
@@ -94,10 +91,10 @@ void UserInterface::update2(Executor* const executor, SharedResources& sharedRes
 
 	if (displayVirtualFeedbackTexture)
 	{
-		auto& subPass = assets.renderPass.virtualTextureFeedbackSubPass();
-		if (subPass.isInView(sharedResources))
+		auto& subPass = sharedResources.renderPass.virtualTextureFeedbackSubPass();
+		if (subPass.isInView())
 		{
-			auto image = (*assets.renderPass.virtualTextureFeedbackSubPass().cameras().begin()).getImage();
+			auto image = (*sharedResources.renderPass.virtualTextureFeedbackSubPass().cameras().begin()).getImage();
 
 			D3D12_RESOURCE_BARRIER barrier[2];
 			barrier[0].Type = D3D12_RESOURCE_BARRIER_TYPE::D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
@@ -124,31 +121,29 @@ void UserInterface::update2(Executor* const executor, SharedResources& sharedRes
 			opaqueDirectCommandList->ResourceBarrier(2u, barrier);
 		}
 		
-		opaqueDirectCommandList->SetPipelineState(assets.pipelineStateObjects.vtDebugDraw);
+		opaqueDirectCommandList->SetPipelineState(sharedResources.pipelineStateObjects.vtDebugDraw);
 		opaqueDirectCommandList->SetGraphicsRootConstantBufferView(2u, bufferGpu);
 		opaqueDirectCommandList->SetGraphicsRootConstantBufferView(3u, bufferGpu + TexturedQuadMaterialVsSize);
 		opaqueDirectCommandList->DrawInstanced(4u, 1u, 0u, 0u);
 	}
 }
 
-void UserInterface::restart(Executor* const executor)
+void UserInterface::restart(ThreadResources& threadResources)
 {
-	executor->updateJobQueue().push(Job(this, [](void*const requester, BaseExecutor*const executor1, SharedResources& sharedResources)
+	threadResources.taskShedular.update1NextQueue().push({this, [](void* requester, ThreadResources& threadResources, GlobalResources& globalResources)
 	{
-		auto executor = reinterpret_cast<Executor*>(executor1);
 		UserInterface* const ui = reinterpret_cast<UserInterface* const>(requester);
-		ui->update1(sharedResources);
-		executor->renderJobQueue().push(Job(requester, [](void*const requester, BaseExecutor*const executor1, SharedResources& sharedResources)
+		ui->update1(globalResources);
+		threadResources.taskShedular.update2NextQueue().push({ requester, [](void*const requester, ThreadResources& threadResources, GlobalResources& globalResources)
 		{
-			auto executor = reinterpret_cast<Executor*>(executor1);
 			UserInterface* const ui = reinterpret_cast<UserInterface* const>(requester);
-			ui->update2(executor, sharedResources);
-			ui->restart(executor);
-		}));
-	}));
+			ui->update2(threadResources, globalResources);
+			ui->restart(threadResources);
+		} });
+	} });
 }
 
-void UserInterface::start(Executor* const executor, SharedResources& sharedResources)
+void UserInterface::start(ThreadResources& threadResources, GlobalResources& sharedResources)
 {
-	restart(executor);
+	restart(threadResources);
 }

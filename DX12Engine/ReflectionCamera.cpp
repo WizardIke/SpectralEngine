@@ -1,8 +1,7 @@
 #include "ReflectionCamera.h"
-#include "SharedResources.h"
 #include "CameraUtil.h"
 
-ReflectionCamera::ReflectionCamera(SharedResources* sharedResources, ID3D12Resource* image, D3D12_CPU_DESCRIPTOR_HANDLE renderTargetView, D3D12_CPU_DESCRIPTOR_HANDLE depthSencilView,
+ReflectionCamera::ReflectionCamera(ID3D12Resource* image, D3D12_CPU_DESCRIPTOR_HANDLE renderTargetView, D3D12_CPU_DESCRIPTOR_HANDLE depthSencilView,
 	unsigned int width, unsigned int height, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1, uint8_t*& constantBufferCpuAddress1, float fieldOfView,
 	const Transform& target, uint32_t* backBufferTextures) :
 	mWidth(width),
@@ -39,25 +38,24 @@ ReflectionCamera::ReflectionCamera(SharedResources* sharedResources, ID3D12Resou
 
 ReflectionCamera::~ReflectionCamera() {}
 
-void ReflectionCamera::update(SharedResources* sharedResources, const DirectX::XMMATRIX& mViewMatrix)
+void ReflectionCamera::update(uint32_t frameIndex, const DirectX::XMMATRIX& mViewMatrix)
 {
-	const auto constantBuffer = reinterpret_cast<CameraConstantBuffer*>(reinterpret_cast<unsigned char*>(constantBufferCpuAddress) + sharedResources->graphicsEngine.frameIndex * bufferSizePS);
+	const auto constantBuffer = reinterpret_cast<CameraConstantBuffer*>(reinterpret_cast<unsigned char*>(constantBufferCpuAddress) + frameIndex * bufferSizePS);
 	constantBuffer->viewProjectionMatrix = mViewMatrix * mProjectionMatrix;;
 	constantBuffer->cameraPosition = mLocation.position;
 
 	mFrustum.update(mProjectionMatrix, mViewMatrix, screenNear, screenDepth);
 }
 
-void ReflectionCamera::bind(SharedResources& sharedResources, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end)
+void ReflectionCamera::bind(uint32_t frameIndex, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end)
 {
-	auto frameIndex = sharedResources.graphicsEngine.frameIndex;
 	auto constantBufferGPU = constantBufferGpuAddress + bufferSizePS * frameIndex;
 	CameraUtil::bind(first, end, CameraUtil::getViewPort(mWidth, mHeight), CameraUtil::getScissorRect(mWidth, mHeight), constantBufferGPU, &renderTargetView, &depthSencilView);
 }
 
-void ReflectionCamera::bindFirstThread(SharedResources& sharedResources, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end)
+void ReflectionCamera::bindFirstThread(uint32_t frameIndex, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end)
 {
-	bind(sharedResources, first, end);
+	bind(frameIndex, first, end);
 	auto commandList = *first;
 	constexpr float clearColor[] = { 0.0f, 0.0f, 0.0f, 1.0f };
 	commandList->ClearRenderTargetView(renderTargetView, clearColor, 0u, nullptr);

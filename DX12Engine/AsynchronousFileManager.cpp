@@ -1,5 +1,4 @@
 #include "AsynchronousFileManager.h"
-#include "SharedResources.h"
 #include <Windows.h>
 
 AsynchronousFileManager::AsynchronousFileManager()
@@ -11,15 +10,8 @@ AsynchronousFileManager::AsynchronousFileManager()
 
 AsynchronousFileManager::~AsynchronousFileManager() {}
 
-File AsynchronousFileManager::openFileForReading(IOCompletionQueue& ioCompletionQueue, const wchar_t* name)
-{
-	File file(name, File::accessRight::genericRead, File::shareMode::readMode, File::creationMode::openExisting, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED | FILE_FLAG_NO_BUFFERING);
-	ioCompletionQueue.associateFile(file.native_handle(), (ULONG_PTR)processIOCompletion);
-	return file;
-}
-
-bool AsynchronousFileManager::readFile(BaseExecutor* executor, SharedResources& sharedResources, const wchar_t* name, size_t start, size_t end, File file,
-	void* requester, void(*completionEvent)(void* requester, BaseExecutor* executor, SharedResources& sharedResources, const uint8_t* data, File file))
+bool AsynchronousFileManager::readFile(void* executor, void* sharedResources, const wchar_t* name, size_t start, size_t end, File file,
+	void* requester, void(*completionEvent)(void* requester, void* executor, void* sharedResources, const uint8_t* data, File file))
 {
 	size_t memoryStart = start & ~(sectorSize - 1u);
 	size_t memoryEnd = (end + sectorSize - 1u) & ~(sectorSize - 1u);
@@ -100,9 +92,8 @@ void AsynchronousFileManager::discard(const wchar_t* name, size_t start, size_t 
 	OfferVirtualMemory(data->second.allocation, data->second.allocationSize, OFFER_PRIORITY::VmOfferPriorityLow);
 }
 
- bool AsynchronousFileManager::processIOCompletion(BaseExecutor* executor, SharedResources& sharedResources, DWORD numberOfBytes, LPOVERLAPPED overlapped)
+ bool AsynchronousFileManager::processIOCompletionHelper(AsynchronousFileManager& fileManager, void* executor, void* sharedResources, DWORD numberOfBytes, LPOVERLAPPED overlapped)
 {
-	AsynchronousFileManager& fileManager = sharedResources.asynchronousFileManager;
 	IORequest* request = reinterpret_cast<IORequest*>(overlapped);
 	request->accumulatedSize += numberOfBytes;
 	if (((request->accumulatedSize & (fileManager.sectorSize - 1u)) == 0) && request->accumulatedSize != request->sizeToRead)

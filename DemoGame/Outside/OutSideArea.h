@@ -1,9 +1,9 @@
 #pragma once
 #include <Area.h>
-#include <BaseZone.h>
+#include <Zone.h>
 #include <Vector2.h>
-class BaseExecutor;
-class SharedResources;
+class ThreadResources;
+class GlobalResources;
 
 class OutSideArea
 {
@@ -15,16 +15,16 @@ class OutSideArea
 	constexpr static unsigned int zonesLengthZ = 11u;
 	constexpr static unsigned int numZones = zonesLengthX * zonesLengthZ;
 
-	BaseZone zones[numZones];
+	Zone<ThreadResources, GlobalResources> zones[numZones];
 
 	int currentZoneX, currentZoneZ;
 	float oldPosX, oldPosZ;
 
-	void update(BaseExecutor* const executor, SharedResources& sharedResources);
+	void update(ThreadResources& executor, GlobalResources& sharedResources);
 public:
 	OutSideArea();
 
-	void load(BaseExecutor* const executor, SharedResources& sharedResources, Vector2 position, float distance, Area::VisitedNode* loadedAreas);
-	void start(BaseExecutor* const executor, SharedResources& sharedResources);
-	void setAsCurrentArea(BaseExecutor* const executor, SharedResources& sharedResources);
+	void load(ThreadResources& executor, GlobalResources& sharedResources, Vector2 position, float distance, Area::VisitedNode* loadedAreas);
+	void start(ThreadResources& executor, GlobalResources& sharedResources);
+	void setAsCurrentArea(ThreadResources& executor, GlobalResources& sharedResources);
 };

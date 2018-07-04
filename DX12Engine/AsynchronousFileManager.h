@@ -6,8 +6,6 @@
 #include "Range.h"
 #include <mutex>
 #include "FixedSizeAllocator.h"
-class BaseExecutor;
-class SharedResources;
 
 class AsynchronousFileManager
 {
@@ -53,7 +51,7 @@ public:
 		size_t memoryStart;
 		File file;
 		void* requester;
-		void(*completionEvent)(void* requester, BaseExecutor* executor, SharedResources& sharedResources, const uint8_t* data, File file);
+		void(*completionEvent)(void* requester, void* executor, void* sharedResources, const uint8_t* data, File file);
 	};
 private:
 	std::mutex mutex;
@@ -64,9 +62,24 @@ private:
 public:
 	AsynchronousFileManager();
 	~AsynchronousFileManager();
-	File openFileForReading(IOCompletionQueue& ioCompletionQueue, const wchar_t* name);
-	bool readFile(BaseExecutor* executor, SharedResources& sharedResources, const wchar_t* name, size_t start, size_t end, File file,
-		void* requester, void(*completionEvent)(void* requester, BaseExecutor* executor, SharedResources& sharedResources, const uint8_t* data, File file));
+
+	static bool processIOCompletionHelper(AsynchronousFileManager& fileManager, void* executor, void* sharedResources, DWORD numberOfBytes, LPOVERLAPPED overlapped);
+	template<class GlobalResources>
+	static bool processIOCompletion(void* executor, void* sharedResources, DWORD numberOfBytes, LPOVERLAPPED overlapped)
+	{
+		GlobalResources& globalResources = *reinterpret_cast<GlobalResources*>(sharedResources);
+		return processIOCompletionHelper(globalResources.asynchronousFileManager, executor, sharedResources, numberOfBytes, overlapped);
+	}
+
+	template<class GlobalResources>
+	File openFileForReading(IOCompletionQueue& ioCompletionQueue, const wchar_t* name)
+	{
+		File file(name, File::accessRight::genericRead, File::shareMode::readMode, File::creationMode::openExisting, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED | FILE_FLAG_NO_BUFFERING);
+		ioCompletionQueue.associateFile(file.native_handle(), (ULONG_PTR)(void*)(processIOCompletion<GlobalResources>));
+		return file;
+	}
+
+	bool readFile(void* executor, void* sharedResources, const wchar_t* name, size_t start, size_t end, File file,
+		void* requester, void(*completionEvent)(void* requester, void* executor, void* sharedResources, const uint8_t* data, File file));
 	void discard(const wchar_t* name, size_t start, size_t end);
-	static bool processIOCompletion(BaseExecutor* executor, SharedResources& sharedResources, DWORD numberOfBytes, LPOVERLAPPED overlapped);
 };

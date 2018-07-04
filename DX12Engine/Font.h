@@ -4,8 +4,8 @@
 #include "FontChar.h"
 #include <memory>
 #include <d3d12.h>
-class BaseExecutor;
-class SharedResources;
+#include "TextureManager.h"
+class D3D12GraphicsEngine;
 
 struct Font
 {
@@ -47,17 +47,18 @@ struct Font
 
 	Font() {}
 
-	template<class Executor>
-	Font(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, uint8_t*& constantBufferCpuAddress, const wchar_t* const filename, const wchar_t* const textureFile, Executor* const executor, SharedResources& sharedResources,
-		void* requester, void(*callback)(void* requester, BaseExecutor* const executor, SharedResources& sharedResources, unsigned int textureID))
+	template<class ThreadResources, class GlobalResources>
+	Font(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, uint8_t*& constantBufferCpuAddress, const wchar_t* const filename, const wchar_t* const textureFile, ThreadResources& executor, GlobalResources& sharedResources,
+		void* requester, void(*callback)(void* requester, void* executor, void* sharedResources, unsigned int textureID))
 	{
-		TextureManager::loadTexture(executor, sharedResources, textureFile, { requester, callback });
+		TextureManager& textureManager = sharedResources.textureManager;
+		textureManager.loadTexture(executor, sharedResources, textureFile, { requester, callback });
 		auto windowWidth = sharedResources.window.width();
 		auto windowHeight = sharedResources.window.height();
 		create(constantBufferGpuAddress, constantBufferCpuAddress, filename, textureFile, windowWidth, windowHeight);
 	}
 
-	void destruct(SharedResources& sharedResources, const wchar_t* const textureFile);
+	void destruct(TextureManager& textureManager, D3D12GraphicsEngine& graphicsEngine, const wchar_t* const textureFile);
 	~Font() {}
 
 	void setDiffuseTexture(uint32_t diffuseTexture, uint8_t* cpuStartAddress, D3D12_GPU_VIRTUAL_ADDRESS gpuStartAddress)

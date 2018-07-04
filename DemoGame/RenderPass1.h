@@ -7,6 +7,8 @@
 #include <tuple>
 #include <Range.h>
 #include <FeedbackAnalizer.h>
+class GlobalResources;
+class ThreadResources;
 
 class RenderPass1
 {
@@ -24,21 +26,14 @@ public:
 	using RenderToTextureSubPass = RenderToTextureSubPass1;
 
 	RenderPass1() {}
-	template<class SharedResources_t>
-	RenderPass1(SharedResources_t& sharedResources, uint32_t virtualTextureFeedbackWidth, uint32_t virtualTextureFeedbackHeight, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpu, uint8_t*& constantBufferCpu, float feedbackFieldOfView) :
-		data(sharedResources)
-	{
-		auto& subPass = std::get<virtualTextureFeedbackSubPassIndex>(data.subPasses);
-		subPass.~FeedbackAnalizerSubPass();
-		new(&subPass) FeedbackAnalizerSubPass{ sharedResources, sharedResources.mainCamera().transform(), virtualTextureFeedbackWidth, virtualTextureFeedbackHeight, this->data,
-			constantBufferGpu, constantBufferCpu, feedbackFieldOfView };
-	}
+	RenderPass1(GlobalResources& globalResources, Transform& mainCameraTransform, uint32_t virtualTextureFeedbackWidth, uint32_t virtualTextureFeedbackHeight,
+		D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpu, uint8_t*& constantBufferCpu, float feedbackFieldOfView);
 
 	class Local
 	{
 		RenderPass11::ThreadLocal data;
 	public:
-		Local(SharedResources& sharedResources) : data(sharedResources) {}
+		Local(D3D12GraphicsEngine& graphicsEngine) : data(graphicsEngine) {}
 
 		class ColorSubPass
 		{
@@ -56,29 +51,24 @@ public:
 		RenderToTextureSubPass::ThreadLocal& renderToTextureSubPass() { return std::get<renderToTextureSubPassIndex>(data.subPassesThreadLocal); }
 		FeedbackAnalizerSubPass::ThreadLocal& virtualTextureFeedbackSubPass() { return std::get<virtualTextureFeedbackSubPassIndex>(data.subPassesThreadLocal); }
 
-		void update1(BaseExecutor* const executor, RenderPass1& renderPass, unsigned int notFirstThread)
+		void update1(ThreadResources& threadResources, D3D12GraphicsEngine& graphicsEngine, RenderPass1& renderPass, bool firstThread)
 		{
-			data.update1(executor, renderPass.data, notFirstThread);
+			data.update1(threadResources, graphicsEngine, renderPass.data, firstThread);
 		}
 
-		void update1After(SharedResources& sharedResources, RenderPass1& renderPass, ID3D12RootSignature* rootSignature, unsigned int index)
+		void update1After(D3D12GraphicsEngine& graphicsEngine, RenderPass1& renderPass, ID3D12RootSignature* rootSignature, bool firstThread)
 		{
-			data.update1After(sharedResources, renderPass.data, rootSignature, index);
+			data.update1After(graphicsEngine, renderPass.data, rootSignature, firstThread);
 		}
-		template<class Executor, class SharedReources>
-		void update2(Executor* const executor, SharedReources& sharedResources, RenderPass1& renderPass) { data.update2(executor, sharedResources, renderPass.data); }
-		template<class Executor, class SharedReources>
-		void update2LastThread(Executor* const executor, SharedReources& sharedResources, RenderPass1& renderPass) { data.update2LastThread(executor, sharedResources, renderPass.data); }
+
+		void update2(ThreadResources& threadResources, GlobalResources& globalResources, RenderPass1& renderPass, unsigned int threadCount) { data.update2(threadResources, globalResources, renderPass.data, threadCount); }
+		
+		void present(unsigned int primaryThreadCount, D3D12GraphicsEngine& graphicsEngine, Window& window, RenderPass1& renderPass) { data.present(primaryThreadCount, graphicsEngine, window, renderPass.data); }
 	};
 
 	ColorSubPass1& colorSubPass() { return std::get<colorSubPassIndex>(data.subPasses); }
 	RenderToTextureSubPass& renderToTextureSubPass() { return std::get<renderToTextureSubPassIndex>(data.subPasses); }
 	FeedbackAnalizerSubPass& virtualTextureFeedbackSubPass() { return std::get<virtualTextureFeedbackSubPassIndex>(data.subPasses); }
-
-	void update1(D3D12GraphicsEngine& graphicsEngine)
-	{
-		data.update1(graphicsEngine);
-	}
 
 	void updateBarrierCount()
 	{

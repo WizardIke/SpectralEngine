@@ -14,14 +14,16 @@ public:
 		for (auto adapterIndex = 0u; factory->EnumAdapters1(adapterIndex, &adapter) != DXGI_ERROR_NOT_FOUND; ++adapterIndex) // we'll start looking for directx 12 compatible graphics devices starting at index 0
 		{
 			adapter->GetDesc1(&desc);
-			if (!(desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE) && SUCCEEDED(D3D12CreateDevice(adapter, featureLevel, _uuidof(ID3D12Device), nullptr))) //this adapter is good
-			{
-
-				adapter->QueryInterface(IID_PPV_ARGS(&data));
-				adapter->Release();
-				return;
-			}
+			auto result = adapter->QueryInterface(IID_PPV_ARGS(&data));
 			adapter->Release();
+			if (result == S_OK)
+			{
+				if (!(desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE) && SUCCEEDED(D3D12CreateDevice(data, featureLevel, _uuidof(ID3D12Device), nullptr))) //this adapter is good
+				{
+					return;
+				}
+				data->Release();
+			}
 		}
 		MessageBoxW(window, L"No DirectX 12 (D3D_FEATURE_LEVEL_11_0 or later) GPU found.", L"Error", MB_OK);
 		throw IDXGIAdapterNotFoundException();

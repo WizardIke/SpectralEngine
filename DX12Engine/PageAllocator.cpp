@@ -38,12 +38,12 @@ void PageAllocator::findOrMakeFirstFreeChunk(ResizingArray<Chunk>& chunks, declt
 }
 
 void PageAllocator::allocatePage(decltype(chunks.begin())& currentChunk, decltype(chunks.end())& chunksEnd, ID3D12Device* graphicsDevice, ID3D12CommandQueue* commandQueue, VirtualTextureInfo& textureInfo,
-	unsigned int& lastIndex, unsigned int currentIndex, D3D12_TILED_RESOURCE_COORDINATE* locations, PageAllocationInfo* pageAllocationInfos, UINT* heapOffsets, UINT* heapTileCounts)
+	size_t& lastIndex, size_t currentIndex, D3D12_TILED_RESOURCE_COORDINATE* locations, PageAllocationInfo* pageAllocationInfos, UINT* heapOffsets, UINT* heapTileCounts)
 {
 	auto streakLength = currentIndex - lastIndex;
 	if (currentChunk->freeList == currentChunk->freeListEnd)
 	{
-		commandQueue->UpdateTileMappings(textureInfo.resource, streakLength, locations + lastIndex, nullptr, currentChunk->data, streakLength,
+		commandQueue->UpdateTileMappings(textureInfo.resource, (UINT)streakLength, locations + lastIndex, nullptr, currentChunk->data, (UINT)streakLength,
 			nullptr, heapOffsets, heapTileCounts, D3D12_TILE_MAPPING_FLAG_NONE);
 		lastIndex = currentIndex;
 		findOrMakeFirstFreeChunk(chunks, currentChunk, chunksEnd, graphicsDevice);
@@ -58,13 +58,13 @@ void PageAllocator::allocatePage(decltype(chunks.begin())& currentChunk, decltyp
 }
 
 void PageAllocator::allocatePinnedPage(decltype(pinnedChunks.begin())& currentChunk, decltype(pinnedChunks.end())& chunksEnd, ID3D12Device* graphicsDevice,
-	ID3D12CommandQueue* commandQueue, VirtualTextureInfo& textureInfo, unsigned int& lastIndex, unsigned int currentIndex, D3D12_TILED_RESOURCE_COORDINATE* locations,
+	ID3D12CommandQueue* commandQueue, VirtualTextureInfo& textureInfo, size_t& lastIndex, size_t currentIndex, D3D12_TILED_RESOURCE_COORDINATE* locations,
 	UINT* heapOffsets, UINT* heapTileCounts)
 {
 	auto streakLength = currentIndex - lastIndex;
 	if (currentChunk->freeList == currentChunk->freeListEnd)
 	{
-		commandQueue->UpdateTileMappings(textureInfo.resource, streakLength, locations + lastIndex, nullptr, currentChunk->data, streakLength,
+		commandQueue->UpdateTileMappings(textureInfo.resource, (UINT)streakLength, locations + lastIndex, nullptr, currentChunk->data, (UINT)streakLength,
 			nullptr, heapOffsets, heapTileCounts, D3D12_TILE_MAPPING_FLAG_NONE);
 		lastIndex = currentIndex;
 		findOrMakeFirstFreeChunk(pinnedChunks, currentChunk, chunksEnd, graphicsDevice);
@@ -79,14 +79,14 @@ void PageAllocator::allocatePinnedPage(decltype(pinnedChunks.begin())& currentCh
 }
 
 void PageAllocator::allocatePagePacked(decltype(pinnedChunks.begin())& currentChunk, decltype(pinnedChunks.end())& chunksEnd, ID3D12Device* graphicsDevice, ID3D12CommandQueue* commandQueue, const VirtualTextureInfo& textureInfo,
-	unsigned int& lastIndex, unsigned int currentIndex, D3D12_TILE_REGION_SIZE& tileRegion, const D3D12_TILED_RESOURCE_COORDINATE& location, HeapLocation* heapLocations, 
+	size_t& lastIndex, size_t currentIndex, D3D12_TILE_REGION_SIZE& tileRegion, const D3D12_TILED_RESOURCE_COORDINATE& location, HeapLocation* heapLocations,
 	UINT* heapOffsets, UINT* heapTileCounts)
 {
 	auto streakLength = currentIndex - lastIndex;
 	if (currentChunk->freeList == currentChunk->freeListEnd)
 	{
-		tileRegion.NumTiles = streakLength;
-		commandQueue->UpdateTileMappings(textureInfo.resource, 1u, &location, &tileRegion, currentChunk->data, streakLength,
+		tileRegion.NumTiles = (UINT)streakLength;
+		commandQueue->UpdateTileMappings(textureInfo.resource, (UINT)1u, &location, &tileRegion, currentChunk->data, (UINT)streakLength,
 			nullptr, heapOffsets, heapTileCounts, D3D12_TILE_MAPPING_FLAG_NONE);
 		lastIndex = currentIndex;
 		findOrMakeFirstFreeChunk(pinnedChunks, currentChunk, chunksEnd, graphicsDevice);
@@ -100,7 +100,7 @@ void PageAllocator::allocatePagePacked(decltype(pinnedChunks.begin())& currentCh
 	heapLocation.heapOffsetInPages = heapOffsets[streakLength];
 }
 
-void PageAllocator::addPages(D3D12_TILED_RESOURCE_COORDINATE* locations, unsigned int pageCount, VirtualTextureInfo& textureInfo, ID3D12CommandQueue* commandQueue,
+void PageAllocator::addPages(D3D12_TILED_RESOURCE_COORDINATE* locations, size_t pageCount, VirtualTextureInfo& textureInfo, ID3D12CommandQueue* commandQueue,
 	ID3D12Device* graphicsDevice, PageAllocationInfo* pageAllocationInfos)
 {
 	UINT heapOffsets[heapSizeInPages];
@@ -109,19 +109,19 @@ void PageAllocator::addPages(D3D12_TILED_RESOURCE_COORDINATE* locations, unsigne
 	auto chunksEnd = chunks.end();
 	findOrMakeFirstFreeChunk(chunks, currentChunk, chunksEnd, graphicsDevice);
 
-	unsigned int lastIndex = 0u;
-	for (auto i = 0u; i < pageCount; ++i)
+	size_t lastIndex = 0u;
+	for (size_t i = 0u; i != pageCount; ++i)
 	{
 		heapTileCounts[i] = 1u;
 		allocatePage(currentChunk, chunksEnd, graphicsDevice, commandQueue, textureInfo, lastIndex, i, locations, pageAllocationInfos, heapOffsets, heapTileCounts);
 	}
 
 	auto streakLength = pageCount - lastIndex;
-	commandQueue->UpdateTileMappings(textureInfo.resource, streakLength, locations + lastIndex, nullptr, currentChunk->data, streakLength,
+	commandQueue->UpdateTileMappings(textureInfo.resource, (UINT)streakLength, locations + lastIndex, nullptr, currentChunk->data, (UINT)streakLength,
 		nullptr, heapOffsets, heapTileCounts, D3D12_TILE_MAPPING_FLAG_NONE);
 }
 
-void PageAllocator::addPackedPages(const VirtualTextureInfo& textureInfo, unsigned int numPages, ID3D12CommandQueue* commandQueue, ID3D12Device* graphicsDevice)
+void PageAllocator::addPackedPages(const VirtualTextureInfo& textureInfo, size_t numPages, ID3D12CommandQueue* commandQueue, ID3D12Device* graphicsDevice)
 {
 	assert(numPages <= heapSizeInPages && "All packed pages of a resource must go in the same heap");
 	UINT heapOffsets[heapSizeInPages];
@@ -130,7 +130,7 @@ void PageAllocator::addPackedPages(const VirtualTextureInfo& textureInfo, unsign
 	auto currentChunk = pinnedChunks.begin();
 	auto chunksEnd = pinnedChunks.end();
 	findOrMakeFirstFreeChunk(pinnedChunks, currentChunk, chunksEnd, graphicsDevice);
-	while (currentChunk->freeListEnd - currentChunk->freeList < numPages)
+	while ((size_t)(currentChunk->freeListEnd - currentChunk->freeList) < numPages)
 	{
 		++currentChunk;
 		findOrMakeFirstFreeChunk(pinnedChunks, currentChunk, chunksEnd, graphicsDevice);
@@ -143,7 +143,7 @@ void PageAllocator::addPackedPages(const VirtualTextureInfo& textureInfo, unsign
 	location.Subresource = textureInfo.lowestPinnedMip;
 
 	D3D12_TILE_REGION_SIZE tileRegion;
-	tileRegion.NumTiles = numPages;
+	tileRegion.NumTiles = (UINT)numPages;
 	tileRegion.UseBox = FALSE;
 
 	auto heapLocations = textureInfo.pinnedHeapLocations;
@@ -158,11 +158,11 @@ void PageAllocator::addPackedPages(const VirtualTextureInfo& textureInfo, unsign
 		heapLocation.heapIndex = (unsigned int)(currentChunk - pinnedChunks.begin());
 		heapLocation.heapOffsetInPages = heapOffsets[i];
 	}
-	commandQueue->UpdateTileMappings(textureInfo.resource, 1u, &location, &tileRegion, currentChunk->data, numPages,
+	commandQueue->UpdateTileMappings(textureInfo.resource, (UINT)1u, &location, &tileRegion, currentChunk->data, (UINT)numPages,
 		nullptr, heapOffsets, heapTileCounts, D3D12_TILE_MAPPING_FLAG_NONE);
 }
 
-void PageAllocator::addPinnedPages(D3D12_TILED_RESOURCE_COORDINATE* locations, unsigned int pageCount, VirtualTextureInfo& textureInfo, ID3D12CommandQueue* commandQueue,
+void PageAllocator::addPinnedPages(D3D12_TILED_RESOURCE_COORDINATE* locations, size_t pageCount, VirtualTextureInfo& textureInfo, ID3D12CommandQueue* commandQueue,
 	ID3D12Device* graphicsDevice)
 {
 	UINT heapOffsets[heapSizeInPages];
@@ -172,15 +172,15 @@ void PageAllocator::addPinnedPages(D3D12_TILED_RESOURCE_COORDINATE* locations, u
 	auto chunksEnd = pinnedChunks.end();
 	findOrMakeFirstFreeChunk(pinnedChunks, currentChunk, chunksEnd, graphicsDevice);
 
-	unsigned int lastIndex = 0u;
-	for (auto i = 0u; i < pageCount; ++i)
+	size_t lastIndex = 0u;
+	for (size_t i = 0u; i != pageCount; ++i)
 	{
 		heapTileCounts[i] = 1u;
 		allocatePinnedPage(currentChunk, chunksEnd, graphicsDevice, commandQueue, textureInfo, lastIndex, i, locations, heapOffsets, heapTileCounts);
 	}
 
-	auto streakLength = pageCount - lastIndex;
-	commandQueue->UpdateTileMappings(textureInfo.resource, streakLength, locations + lastIndex, nullptr, currentChunk->data, streakLength,
+	size_t streakLength = pageCount - lastIndex;
+	commandQueue->UpdateTileMappings(textureInfo.resource, (UINT)streakLength, locations + lastIndex, nullptr, currentChunk->data, (UINT)streakLength,
 		nullptr, heapOffsets, heapTileCounts, D3D12_TILE_MAPPING_FLAG_NONE);
 }
 
@@ -195,11 +195,11 @@ void PageAllocator::removePages(const PageAllocationInfo* locations, size_t page
 	}
 }
 
-void PageAllocator::removePinnedPages(const HeapLocation* pinnedHeapLocations, unsigned int numPinnedPages)
+void PageAllocator::removePinnedPages(const HeapLocation* pinnedHeapLocations, size_t numPinnedPages)
 {
 	//free unused heap pages
 	mPinnedPageCount -= numPinnedPages;
-	for (auto i = 0u; i != numPinnedPages; ++i)
+	for (size_t i = 0u; i != numPinnedPages; ++i)
 	{
 		auto& heapLocation = pinnedHeapLocations[i];
 		*pinnedChunks[heapLocation.heapIndex].freeListEnd = heapLocation.heapOffsetInPages;

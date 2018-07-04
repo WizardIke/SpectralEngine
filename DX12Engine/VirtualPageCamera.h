@@ -6,8 +6,7 @@
 #include "Frustum.h"
 #include "Shaders/VtFeedbackCameraMaterial.h"
 #include <new>
-class BaseExecutor;
-class SharedResources;
+#include "CameraUtil.h"
 
 class VirtualPageCamera
 {
@@ -27,27 +26,47 @@ public:
 	constexpr static float screenNear = 0.1f;
 
 	VirtualPageCamera() {}
-	VirtualPageCamera(SharedResources* sharedResources, ID3D12Resource* image, D3D12_CPU_DESCRIPTOR_HANDLE renderTargetView, D3D12_CPU_DESCRIPTOR_HANDLE depthSencilView,
+	VirtualPageCamera(ID3D12Resource* image, D3D12_CPU_DESCRIPTOR_HANDLE renderTargetView, D3D12_CPU_DESCRIPTOR_HANDLE depthSencilView,
 		unsigned int width, unsigned int height, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1, uint8_t*& constantBufferCpuAddress1, float fieldOfView,
 		Transform& target);
-	void init(SharedResources* sharedResources, ID3D12Resource* image, D3D12_CPU_DESCRIPTOR_HANDLE renderTargetView, D3D12_CPU_DESCRIPTOR_HANDLE depthSencilView,
+	void init(ID3D12Resource* image, D3D12_CPU_DESCRIPTOR_HANDLE renderTargetView, D3D12_CPU_DESCRIPTOR_HANDLE depthSencilView,
 		unsigned int width, unsigned int height, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1, uint8_t*& constantBufferCpuAddress1, float fieldOfView,
 		Transform& target)
 	{
 		this->~VirtualPageCamera();
-		new(this) VirtualPageCamera(sharedResources, image, renderTargetView, depthSencilView, width, height, constantBufferGpuAddress1, constantBufferCpuAddress1, fieldOfView, target);
+		new(this) VirtualPageCamera(image, renderTargetView, depthSencilView, width, height, constantBufferGpuAddress1, constantBufferCpuAddress1, fieldOfView, target);
 	}
 	~VirtualPageCamera();
 
-	void update(SharedResources* sharedResources, float mipBias);
-	bool isInView(SharedResources& sharedResources) const { return true; }
-	void bind(SharedResources& sharedResources, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end);
-	void bindFirstThread(SharedResources& sharedResources, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end);
+	template<class GlobalResources>
+	void update(const GlobalResources& globalResources, float mipBias)
+	{
+		const auto constantBuffer = reinterpret_cast<VtFeedbackCameraMaterial*>(reinterpret_cast<unsigned char*>(constantBufferCpuAddress) + globalResources.graphicsEngine.frameIndex * bufferSizePS);
+		DirectX::XMMATRIX mViewMatrix = mTransform->toMatrix();
+		constantBuffer->viewProjectionMatrix = mViewMatrix * mProjectionMatrix;
+		constantBuffer->feedbackBias = mipBias;
+	}
+	bool isInView() const { return true; }
+	void bind(uint32_t frameIndex, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end)
+	{
+		auto constantBufferGPU = constantBufferGpuAddress + bufferSizePS * frameIndex;
+		CameraUtil::bind(first, end, CameraUtil::getViewPort(mWidth, mHeight), CameraUtil::getScissorRect(mWidth, mHeight), constantBufferGPU, &renderTargetView, &depthSencilView);
+	}
+	
+	void bindFirstThread(uint32_t frameIndex, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end)
+	{
+		bind(frameIndex, first, end);
+		auto commandList = *first;
+		constexpr float clearColor[] = { 0.0f, 0.0f, 65280.0f, 65535.0f };
+		commandList->ClearRenderTargetView(renderTargetView, clearColor, 0u, nullptr);
+		commandList->ClearDepthStencilView(depthSencilView, D3D12_CLEAR_FLAG_DEPTH, 1.0f, (uint8_t)0u, 0u, nullptr);
+	}
 	D3D12_CPU_DESCRIPTOR_HANDLE getRenderTargetView() { return renderTargetView; }
-	ID3D12Resource* getImage() { return mImage; };
+	ID3D12Resource* getImage() { return mImage; }
 	const ID3D12Resource* getImage() const { return mImage; }
 	DirectX::XMMATRIX& projectionMatrix() { return mProjectionMatrix; }
-	D3D12_CPU_DESCRIPTOR_HANDLE getRenderTargetView(SharedResources* sharedResources) { return renderTargetView; }
+	template<class Void>
+	D3D12_CPU_DESCRIPTOR_HANDLE getRenderTargetView(Void& notUsed) { return renderTargetView; }
 	unsigned int width() { return mWidth; }
 	unsigned int height() { return mHeight; }
 };

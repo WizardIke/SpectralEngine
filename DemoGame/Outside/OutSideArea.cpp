@@ -1,6 +1,6 @@
 #include "OutSideArea.h"
-#include <BaseExecutor.h>
-#include <SharedResources.h>
+#include "../ThreadResources.h"
+#include "../GlobalResources.h"
 #include "zone1.h"
 #include "../TestZone.h"
 
@@ -21,7 +21,7 @@ OutSideArea::OutSideArea() :
 		TestZone<0u, 9u>(), TestZone<1u, 9u>(), TestZone<2u, 9u>(), TestZone<3u, 9u>(), TestZone<4u, 9u>(), TestZone<5u, 9u>(), TestZone<6u, 9u>(), TestZone<7u, 9u>(), TestZone<8u, 9u>(), TestZone<9u, 9u>()
 	} {}
 
-void OutSideArea::load(BaseExecutor* const executor, SharedResources& sharedResources, Vector2 position, float distance, Area::VisitedNode* loadedAreas)
+void OutSideArea::load(ThreadResources& executor, GlobalResources& sharedResources, Vector2 position, float distance, Area::VisitedNode* loadedAreas)
 {
 	Area::VisitedNode thisArea;
 	thisArea.thisArea = this;
@@ -90,9 +90,8 @@ void OutSideArea::load(BaseExecutor* const executor, SharedResources& sharedReso
 	}
 }
 
-void OutSideArea::update(BaseExecutor* const executor, SharedResources& sr)
+void OutSideArea::update(ThreadResources& executor, GlobalResources& sharedResources)
 {
-	auto& sharedResources = reinterpret_cast<Assets&>(sr);
 	auto& position = sharedResources.mainCamera().position();
 	Vector2 zonePosition{ currentZoneX * Area::zoneDiameter + 0.5f * Area::zoneDiameter, currentZoneZ * Area::zoneDiameter + 0.5f * Area::zoneDiameter };
 	if (position.x > zonePosition.x + 0.5f * Area::zoneDiameter)
@@ -135,19 +134,15 @@ void OutSideArea::update(BaseExecutor* const executor, SharedResources& sr)
 	oldPosX = position.x;
 	oldPosZ = position.z;
 
-	executor->renderJobQueue().push(Job(this, [](void*const requester, BaseExecutor*const executor, SharedResources& sharedResources)
+	executor.taskShedular.update1NextQueue().push({this, [](void*const requester, ThreadResources& executor, GlobalResources& sharedResources)
 	{
-		executor->updateJobQueue().push(Job(requester, [](void*const requester, BaseExecutor*const executor, SharedResources& sharedResources)
-		{
-			const auto ths = reinterpret_cast<OutSideArea* const>(requester);
-			ths->update(executor, sharedResources);
-		}));
-	}));
+		const auto ths = reinterpret_cast<OutSideArea* const>(requester);
+		ths->update(executor, sharedResources);
+	} });
 }
 
-void OutSideArea::setAsCurrentArea(BaseExecutor* const executor, SharedResources& sr)
+void OutSideArea::setAsCurrentArea(ThreadResources& executor, GlobalResources& sharedResources)
 {
-	auto& sharedResources = reinterpret_cast<Assets&>(sr);
 	auto& position = sharedResources.mainCamera().position();
 	oldPosX = position.x;
 	oldPosZ = position.z;
@@ -155,19 +150,15 @@ void OutSideArea::setAsCurrentArea(BaseExecutor* const executor, SharedResources
 	currentZoneX = static_cast<int>(position.x / (Area::zoneDiameter / 2.0f));
 	currentZoneZ = static_cast<int>(position.z / (Area::zoneDiameter / 2.0f));
 
-	executor->renderJobQueue().push(Job(this, [](void*const requester, BaseExecutor*const executor, SharedResources& sharedResources)
+	executor.taskShedular.update1NextQueue().push({ this, [](void*const requester, ThreadResources& executor, GlobalResources& sharedResources)
 	{
-		executor->updateJobQueue().push(Job(requester, [](void*const requester, BaseExecutor*const executor, SharedResources& sharedResources)
-		{
-			const auto ths = reinterpret_cast<OutSideArea* const>(requester);
-			ths->update(executor, sharedResources);
-		}));
-	}));
+		const auto ths = reinterpret_cast<OutSideArea* const>(requester);
+		ths->update(executor, sharedResources);
+	} });
 }
 
-void OutSideArea::start(BaseExecutor* const executor, SharedResources& sr)
+void OutSideArea::start(ThreadResources& executor, GlobalResources& sharedResources)
 {
-	auto& sharedResources = reinterpret_cast<Assets&>(sr);
 	Vector2 position{ currentZoneX * Area::zoneDiameter, currentZoneZ * Area::zoneDiameter };
 	
 	load(executor, sharedResources, position, 0.0f, nullptr);
@@ -177,9 +168,9 @@ void OutSideArea::start(BaseExecutor* const executor, SharedResources& sr)
 	oldPosX = cameraPosition.x;
 	oldPosZ = cameraPosition.z;
 
-	executor->updateJobQueue().push(Job(this, [](void*const requester, BaseExecutor*const executor, SharedResources& sharedResources)
+	executor.taskShedular.update1NextQueue().push({ this, [](void*const requester, ThreadResources& executor, GlobalResources& sharedResources)
 	{
 		const auto ths = reinterpret_cast<OutSideArea* const>(requester);
 		ths->update(executor, sharedResources);
-	}));
+	} });
 }

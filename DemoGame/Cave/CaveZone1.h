@@ -1,7 +1,9 @@
 #pragma once
-#include <basezone.h>
+#include <Zone.h>
+class ThreadResources;
+class GlobalResources;
 
 namespace Cave
 {
-	BaseZone Zone1();
+	Zone<ThreadResources, GlobalResources> Zone1();
 }

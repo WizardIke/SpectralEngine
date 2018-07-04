@@ -7,26 +7,42 @@ class DXGIFactory
 {
 	IDXGIFactory5* data;
 public:
-	DXGIFactory(bool enableCpuDebugging, bool enableGpuDebugging) : data(nullptr)
+	DXGIFactory(bool enableGpuDebugging) : data(nullptr)
 	{
-		if (enableCpuDebugging)
+#ifndef ndebug
+		D3D12Debug debugController;
+		debugController->EnableDebugLayer();
+		if (enableGpuDebugging)
+		{
+			ID3D12Debug1* debug1Controller;
+			debugController->QueryInterface<ID3D12Debug1>(&debug1Controller);
+			debug1Controller->SetEnableGPUBasedValidation(true);
+			debug1Controller->Release();
+		}
+#else
+		if (enableGpuDebugging)
 		{
 			D3D12Debug debugController;
 			debugController->EnableDebugLayer();
-			if (enableGpuDebugging)
-			{
-				ID3D12Debug1* debug1Controller;
-				debugController->QueryInterface<ID3D12Debug1>(&debug1Controller);
-				debug1Controller->SetEnableGPUBasedValidation(true);
-				debug1Controller->Release();
-			}
+			ID3D12Debug1* debug1Controller;
+			debugController->QueryInterface<ID3D12Debug1>(&debug1Controller);
+			debug1Controller->SetEnableGPUBasedValidation(true);
+			debug1Controller->Release();
 		}
+#endif
 		HRESULT hr;
-#ifdef _DEBUG
+#ifndef ndebug
 		hr = CreateDXGIFactory2(DXGI_CREATE_FACTORY_DEBUG, IID_PPV_ARGS(&data));
 #else
-		hr = CreateDXGIFactory2(0u, IID_PPV_ARGS(&data));
-#endif // _DEBUG
+		if (enableGpuDebugging)
+		{
+			hr = CreateDXGIFactory2(DXGI_CREATE_FACTORY_DEBUG, IID_PPV_ARGS(&data));
+		}
+		else
+		{
+			hr = CreateDXGIFactory2(0u, IID_PPV_ARGS(&data));
+		}
+#endif
 		if (FAILED(hr)) throw HresultException(hr);
 	}
 	DXGIFactory(DXGIFactory&& other) : data(other.data)

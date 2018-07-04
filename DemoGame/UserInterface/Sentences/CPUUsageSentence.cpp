@@ -1,6 +1,5 @@
 #include "CPUUsageSentence.h"
-#include <BaseExecutor.h>
-#include <SharedResources.h>
+#include "../../GlobalResources.h"
 
 CPUUsageSentence::CPUUsageSentence(ID3D12Device* const Device, Font* const Font, const DirectX::XMFLOAT2 Position, const DirectX::XMFLOAT2 Size, const DirectX::XMFLOAT4 color) : 
 	BaseSentence(8u, Device, Font, L"Cpu 0%", Position, Size, color)
@@ -31,7 +30,7 @@ CPUUsageSentence::~CPUUsageSentence()
 	if(queryHandle) PdhCloseQuery(queryHandle);
 }
 
-void CPUUsageSentence::update(SharedResources& sharedResources)
+void CPUUsageSentence::update(GlobalResources& sharedResources)
 {
 	auto frameTime = sharedResources.timer.frameTime();
 	timeSinceLastUpdate += frameTime;

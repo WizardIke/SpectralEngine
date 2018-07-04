@@ -1,8 +1,7 @@
 #pragma once
-#include <BaseZone.h>
-#include <Job.h>
-#include "Executor.h"
-#include "Assets.h"
+#include <Zone.h>
+#include "ThreadResources.h"
+#include "GlobalResources.h"
 #include "HighResPlane.h"
 #include <Light.h>
 #include "TextureNames.h"
@@ -24,9 +23,9 @@ class TestZoneFunctions
 		constexpr static unsigned int numTextures = 1u;
 		constexpr static unsigned int numComponents = 1u + numMeshes + numTextures;
 
-		static void componentUploaded(void* requester, BaseExecutor* executor, SharedResources& sharedResources)
+		static void componentUploaded(void* requester, ThreadResources& executor, GlobalResources& sharedResources)
 		{
-			const auto zone = reinterpret_cast<BaseZone* const>(requester);
+			const auto zone = reinterpret_cast<Zone<ThreadResources, GlobalResources>*>(requester);
 			zone->componentUploaded(executor, numComponents);
 		}
 
@@ -41,9 +40,9 @@ class TestZoneFunctions
 		HighResPlane<x, z> highResPlaneModel;
 
 
-		HDResources(Executor* const executor, SharedResources& sr, void* zone) :
+		HDResources(ThreadResources& threadResources, GlobalResources& globalResources, Zone<ThreadResources, GlobalResources>& zone) :
 			light(DirectX::XMFLOAT4(0.05f, 0.05f, 0.05f, 1.0f), DirectX::XMFLOAT4(0.5f, 0.5f, 0.5f, 1.0f), DirectX::XMFLOAT3(0.0f, -0.894427191f, 0.447213595f)),
-			perObjectConstantBuffers(sr.graphicsEngine.graphicsDevice, []()
+			perObjectConstantBuffers(globalResources.graphicsEngine.graphicsDevice, []()
 		{
 			D3D12_HEAP_PROPERTIES heapProperties;
 			heapProperties.Type = D3D12_HEAP_TYPE_UPLOAD;
@@ -68,8 +67,6 @@ class TestZoneFunctions
 			return resourceDesc;
 		}(), D3D12_RESOURCE_STATE_GENERIC_READ, nullptr)
 		{
-			auto& sharedResources = reinterpret_cast<Assets&>(sr);
-
 			D3D12_RANGE readRange{ 0u, 0u };
 			HRESULT hr = perObjectConstantBuffers->Map(0u, &readRange, reinterpret_cast<void**>(&perObjectConstantBuffersCpuAddress));
 			if (FAILED(hr)) throw ID3D12ResourceMapFailedException();
@@ -82,18 +79,20 @@ class TestZoneFunctions
 			PerObjectConstantBuffersGpuAddress += vtFeedbackMaterialPsSize;
 			cpuConstantBuffer += vtFeedbackMaterialPsSize;
 
-			VirtualTextureManager::loadTexture(executor, sharedResources, TextureNames::stone04, { zone , [](void* requester, BaseExecutor* executor,
-				SharedResources& sr, const VirtualTextureManager::Texture& texture)
+			VirtualTextureManager& virtualTextureManager = globalResources.virtualTextureManager;
+			virtualTextureManager.loadTexture(threadResources, globalResources, TextureNames::stone04, { &zone , [](void* context, void* tr,
+				void* gr, const VirtualTextureManager::Texture& texture)
 			{
-				auto& sharedResources = reinterpret_cast<Assets&>(sr);
-				const auto zone = reinterpret_cast<BaseZone*>(requester);
-				auto resources = ((HDResources*)zone->newData);
+				ThreadResources& threadResources = *reinterpret_cast<ThreadResources*>(tr);
+				GlobalResources& globalResources = *reinterpret_cast<GlobalResources*>(gr);
+				auto& zone = *reinterpret_cast<Zone<ThreadResources, GlobalResources>*>(context);
+				auto resources = ((HDResources*)zone.newData);
 				const auto cpuStartAddress = resources->perObjectConstantBuffersCpuAddress;
 				const auto gpuStartAddress = resources->perObjectConstantBuffers->GetGPUVirtualAddress();
 				resources->highResPlaneModel.setDiffuseTexture(texture.descriptorIndex, cpuStartAddress, gpuStartAddress);
 
 				//stone4FeedbackBufferPs = create virtual feedback materialPS
-				auto& textureInfo = sharedResources.virtualTextureManager.texturesByID[texture.textureID];
+				auto& textureInfo = globalResources.virtualTextureManager.texturesByID[texture.textureID];
 				auto stone4FeedbackBufferPsCpu = reinterpret_cast<VtFeedbackMaterialPS*>(cpuStartAddress + (resources->stone4FeedbackBufferPs - gpuStartAddress));
 				stone4FeedbackBufferPsCpu->virtualTextureID1 = (float)(texture.textureID << 8u);
 				stone4FeedbackBufferPsCpu->virtualTextureID2And3 = (float)0xffff;
@@ -102,15 +101,18 @@ class TestZoneFunctions
 				stone4FeedbackBufferPsCpu->usefulTextureHeight = (float)(textureInfo.height);
 				stone4FeedbackBufferPsCpu->usefulTextureWidth = (float)(textureInfo.width);
 
-				componentUploaded(requester, executor, sharedResources);
+				componentUploaded(&zone, threadResources, globalResources);
 			} });
 
-			MeshManager::loadMeshWithPositionTextureNormal(MeshNames::HighResMesh1, zone, executor, sharedResources, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources, Mesh* mesh)
+			MeshManager& meshManager = globalResources.meshManager;
+			meshManager.loadMeshWithPositionTextureNormal(MeshNames::HighResMesh1, &zone, threadResources, globalResources, [](void* context, void* tr, void* gr, Mesh* mesh)
 			{
-				const auto zone = reinterpret_cast<BaseZone* const>(requester);
-				const auto resources = ((HDResources*)zone->newData);
+				ThreadResources& threadResources = *reinterpret_cast<ThreadResources*>(tr);
+				GlobalResources& globalResources = *reinterpret_cast<GlobalResources*>(gr);
+				auto& zone = *reinterpret_cast<Zone<ThreadResources, GlobalResources>*>(context);
+				auto resources = ((HDResources*)zone.newData);
 				resources->highResPlaneModel.mesh = mesh;
-				componentUploaded(requester, executor, sharedResources);
+				componentUploaded(&zone, threadResources, globalResources);
 			});
 
 			constexpr uint64_t pointLightConstantBufferAlignedSize = (sizeof(LightConstantBuffer) + (uint64_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (uint64_t)1u) & ~((uint64_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (uint64_t)1u);
@@ -140,26 +142,23 @@ class TestZoneFunctions
 			perObjectConstantBuffers->Unmap(0u, nullptr);
 		}
 
-		void update1(BaseExecutor* const executor, SharedResources& sharedResources) {}
+		void update1(ThreadResources& threadResources, GlobalResources& globalResources) {}
 
-		void update2(BaseExecutor* const executor1, SharedResources& sr)
+		void update2(ThreadResources& threadResources, GlobalResources& globalResources)
 		{
-			auto& sharedResources = reinterpret_cast<Assets&>(sr);
-			const auto executor = reinterpret_cast<Executor* const>(executor1);
-			const auto frameIndex = sharedResources.graphicsEngine.frameIndex;
-			const auto commandList = executor->renderPass.colorSubPass().opaqueCommandList();
-			const auto vtFeedbackCommandList = executor->renderPass.virtualTextureFeedbackSubPass().firstCommandList();
-			Assets* const assets = (Assets*)&sharedResources;
+			const auto frameIndex = globalResources.graphicsEngine.frameIndex;
+			const auto commandList = threadResources.renderPass.colorSubPass().opaqueCommandList();
+			const auto vtFeedbackCommandList = threadResources.renderPass.virtualTextureFeedbackSubPass().firstCommandList();
 
 			commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-			if (highResPlaneModel.isInView(assets->mainCamera().frustum()))
+			if (highResPlaneModel.isInView(globalResources.mainCamera().frustum()))
 			{
-				if (sharedResources.renderPass.virtualTextureFeedbackSubPass().isInView(sharedResources))
+				if (globalResources.renderPass.virtualTextureFeedbackSubPass().isInView())
 				{
 					vtFeedbackCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-					vtFeedbackCommandList->SetPipelineState(assets->pipelineStateObjects.vtFeedbackWithNormals);
+					vtFeedbackCommandList->SetPipelineState(globalResources.pipelineStateObjects.vtFeedbackWithNormals);
 					vtFeedbackCommandList->IASetVertexBuffers(0u, 1u, &highResPlaneModel.mesh->vertexBufferView);
 					vtFeedbackCommandList->IASetIndexBuffer(&highResPlaneModel.mesh->indexBufferView);
 					vtFeedbackCommandList->SetGraphicsRootConstantBufferView(2u, highResPlaneModel.vsBufferGpu());
@@ -168,7 +167,7 @@ class TestZoneFunctions
 				}
 
 				commandList->SetGraphicsRootConstantBufferView(1u, pointLightConstantBufferGpuAddress);
-				commandList->SetPipelineState(assets->pipelineStateObjects.directionalLightVt);
+				commandList->SetPipelineState(globalResources.pipelineStateObjects.directionalLightVt);
 				commandList->IASetVertexBuffers(0u, 1u, &highResPlaneModel.mesh->vertexBufferView);
 				commandList->IASetIndexBuffer(&highResPlaneModel.mesh->indexBufferView);
 				commandList->SetGraphicsRootConstantBufferView(2u, highResPlaneModel.vsBufferGpu());
@@ -177,95 +176,92 @@ class TestZoneFunctions
 			}
 		}
 
-		static void create(void*const zone1, BaseExecutor*const exe, SharedResources& sharedResources)
+		static void create(void* context, ThreadResources& threadResources, GlobalResources& globalResources)
 		{
-			const auto executor = reinterpret_cast<Executor* const>(exe);
-			const auto zone = reinterpret_cast<BaseZone*const>(zone1);
-			zone->newData = malloc(sizeof(HDResources));
-			new(zone->newData) HDResources(executor, sharedResources, zone);
-			componentUploaded(zone, executor, sharedResources);
+			auto& zone = *reinterpret_cast<Zone<ThreadResources, GlobalResources>*>(context);
+			zone.newData = malloc(sizeof(HDResources));
+			new(zone.newData) HDResources(threadResources, globalResources, zone);
+			componentUploaded(&zone, threadResources, globalResources);
 		}
 
-		void destruct(BaseExecutor*const executor, SharedResources& sr)
+		void destruct(ThreadResources& threadResources, GlobalResources& globalResources)
 		{
-			auto& sharedResources = reinterpret_cast<Assets&>(sr);
-			auto& meshManager = sharedResources.meshManager;
-			VirtualTextureManager& virtualTextureManager = sharedResources.virtualTextureManager;
+			MeshManager& meshManager = globalResources.meshManager;
+			VirtualTextureManager& virtualTextureManager = globalResources.virtualTextureManager;
 
-			virtualTextureManager.unloadTexture(TextureNames::stone04, sharedResources);
+			virtualTextureManager.unloadTexture(TextureNames::stone04, globalResources);
 
-			meshManager.unloadMesh(MeshNames::HighResMesh1, executor);
+			meshManager.unloadMesh(MeshNames::HighResMesh1);
 		}
 	};
 
-	static void update1(void* requester, BaseExecutor* executor, SharedResources& sharedResources)
+	static void update1(void* context, ThreadResources& threadResources, GlobalResources& globalResources)
 	{
-		auto zone = reinterpret_cast<BaseZone*>(requester);
-		zone->lastUsedData = zone->currentData;
-		zone->lastUsedState = zone->currentState;
+		auto& zone = *reinterpret_cast<Zone<ThreadResources, GlobalResources>*>(context);
+		zone.lastUsedData = zone.currentData;
+		zone.lastUsedState = zone.currentState;
 
-		switch (zone->currentState)
+		switch (zone.currentState)
 		{
 		case 0u:
-			reinterpret_cast<HDResources*>(zone->currentData)->update1(executor, sharedResources);
-			executor->renderJobQueue().push(Job(zone, update2));
+			reinterpret_cast<HDResources*>(zone.currentData)->update1(threadResources, globalResources);
+			threadResources.taskShedular.update2NextQueue().push({ &zone, update2 });
 			break;
 		}
 	}
 
-	static void update2(void* requester, BaseExecutor* executor, SharedResources& sharedResources)
+	static void update2(void* context, ThreadResources& threadResources, GlobalResources& globalResources)
 	{
-		auto zone = reinterpret_cast<BaseZone*>(requester);
+		auto& zone = *reinterpret_cast<Zone<ThreadResources, GlobalResources>*>(context);
 
-		switch (zone->lastUsedState)
+		switch (zone.lastUsedState)
 		{
 		case 0u:
-			reinterpret_cast<HDResources*>(zone->lastUsedData)->update2(executor, sharedResources);
+			reinterpret_cast<HDResources*>(zone.lastUsedData)->update2(threadResources, globalResources);
 			break;
 		}
-
-		executor->updateJobQueue().push(Job(zone, update1));
+		threadResources.taskShedular.update1NextQueue().push({ &zone, update1 });
 	}
 public:
-	static void createNewStateData(BaseZone* zone, BaseExecutor* executor, SharedResources& sharedResources)
+	static void createNewStateData(Zone<ThreadResources, GlobalResources>& zone, ThreadResources& threadResources, GlobalResources& globalResources)
 	{
-		switch (zone->newState)
+		switch (zone.newState)
 		{
 		case 0u:
-			sharedResources.backgroundQueue.push(Job(zone, &HDResources::create));
+			threadResources.taskShedular.backgroundQueue().push({ &zone, &HDResources::create });
 			break;
 		}
 	}
 
-	static void deleteOldStateData(BaseZone* zone, BaseExecutor* executor, SharedResources& sharedResources)
+	static void deleteOldStateData(Zone<ThreadResources, GlobalResources>& zone, ThreadResources& threadResources, GlobalResources& globalResources)
 	{
-		switch (zone->oldState)
+		switch (zone.oldState)
 		{
 		case 0u:
-			sharedResources.backgroundQueue.push(Job(zone, [](void*const highDetailResource, BaseExecutor*const executor, SharedResources& sharedResources)
+			threadResources.taskShedular.backgroundQueue().push({ &zone, [](void* context, ThreadResources& threadResources, GlobalResources& globalResources)
 			{
-				const auto zone = reinterpret_cast<BaseZone*const>(highDetailResource);
-				auto resource = reinterpret_cast<HDResources*>(zone->oldData);
-				resource->destruct(executor, sharedResources);
+				auto& zone = *reinterpret_cast<Zone<ThreadResources, GlobalResources>*>(context);
+				auto resource = reinterpret_cast<HDResources*>(zone.oldData);
+				resource->destruct(threadResources, globalResources);
 				resource->~HDResources();
 				free(resource);
-				zone->finishedDeletingOldState(executor);
-			}));
+				zone.finishedDeletingOldState(threadResources);
+			} });
 			break;
 		}
 	}
 	
-	static void start(BaseZone* zone, BaseExecutor* const executor, SharedResources& sharedResources)
+	static void start(Zone<ThreadResources, GlobalResources>& zone, ThreadResources& threadResources, GlobalResources& globalResources)
 	{
-		executor->updateJobQueue().push(Job(zone, update1));
+		threadResources.taskShedular.update1NextQueue().push({ &zone, update1 });
 	}
 
-	static void loadConnectedAreas(BaseZone* zone, BaseExecutor* const executor, SharedResources& sharedResources, float distanceSquared, Area::VisitedNode* loadedAreas) {}
-	static bool changeArea(BaseZone* zone, BaseExecutor* const executor, SharedResources& sharedResources) { return false; }
+	static void loadConnectedAreas(Zone<ThreadResources, GlobalResources>& zone, ThreadResources& threadResources, GlobalResources& globalResources, float distanceSquared, Area::VisitedNode* loadedAreas) {}
+	static bool changeArea(Zone<ThreadResources, GlobalResources>& zone, ThreadResources& threadResources, GlobalResources& globalResources) { return false; }
 };
 
 template<unsigned int x, unsigned int z>
-static BaseZone TestZone()
+static Zone<ThreadResources, GlobalResources> TestZone()
 {
-	return BaseZone::create<TestZoneFunctions<x, z>>(1u);
+	return Zone<ThreadResources, GlobalResources>::create<TestZoneFunctions<x, z>>(1u);
 }

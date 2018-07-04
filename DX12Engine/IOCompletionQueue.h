@@ -3,8 +3,6 @@
 #undef max
 #undef min
 #include <limits>
-class BaseExecutor;
-class SharedResources;
 
 struct IOCompletionPacket
 {
@@ -12,9 +10,9 @@ struct IOCompletionPacket
 	ULONG_PTR completionKey;
 	OVERLAPPED* overlapped;
 
-	bool operator()(BaseExecutor* executor, SharedResources& sharedResources)
+	bool operator()(void* executor, void* sharedResources)
 	{
-		return ((bool(*)(BaseExecutor* executor, SharedResources& sharedResources, DWORD numberOfBytes, LPOVERLAPPED overlapped))(completionKey))(executor, sharedResources, numberOfBytesTransfered, overlapped);
+		return ((bool(*)(void* executor, void* sharedResources, DWORD numberOfBytes, LPOVERLAPPED overlapped))(completionKey))(executor, sharedResources, numberOfBytesTransfered, overlapped);
 	}
 };
 
@@ -44,12 +42,12 @@ public:
 	 * Retrieves an IOCompletionPacket from this IOCompletionQueue if one is queued.
 	 * Also associates the current thread with this IOCompletionQueue. A thread can only be associated with one IOCompletionQueue
 	 */
-	bool removeIOCompletionPacket(IOCompletionPacket& completionPacket, unsigned long timeoutInMilliseconds = 0u)
+	bool pop(IOCompletionPacket& completionPacket, unsigned long timeoutInMilliseconds = 0u)
 	{
 		return GetQueuedCompletionStatus(queueHandle, &completionPacket.numberOfBytesTransfered, &completionPacket.completionKey, &completionPacket.overlapped, timeoutInMilliseconds) == TRUE;
 	}
 
-	bool addIOCompletionPacket(const IOCompletionPacket& completionPacket)
+	bool push(const IOCompletionPacket& completionPacket)
 	{
 		return PostQueuedCompletionStatus(queueHandle, completionPacket.numberOfBytesTransfered, completionPacket.completionKey, completionPacket.overlapped) == TRUE;
 	}

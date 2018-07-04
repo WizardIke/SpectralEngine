@@ -1,15 +1,13 @@
 #include "TextureManager.h"
 #include "DDSFileLoader.h"
 #include "TextureIndexOutOfRangeException.h"
-#include "SharedResources.h"
-#include "BaseExecutor.h"
 #include <d3d12.h>
 #include "D3D12GraphicsEngine.h"
 
 TextureManager::TextureManager() {}
 TextureManager::~TextureManager() {}
 
-void TextureManager::unloadTexture(const wchar_t * filename, D3D12GraphicsEngine& graphicsEngine)
+void TextureManager::unloadTexture(const wchar_t* filename, D3D12GraphicsEngine& graphicsEngine)
 {
 	unsigned int descriptorIndex = std::numeric_limits<unsigned int>::max();
 	{
@@ -28,72 +26,9 @@ void TextureManager::unloadTexture(const wchar_t * filename, D3D12GraphicsEngine
 	}
 }
 
-void TextureManager::loadTextureUncached(BaseExecutor* executor, SharedResources& sharedResources, const wchar_t * filename)
-{
-	File file = sharedResources.asynchronousFileManager.openFileForReading(sharedResources.ioCompletionQueue, filename);
-
-	sharedResources.asynchronousFileManager.readFile(executor, sharedResources, filename, 0u, sizeof(DDSFileLoader::DdsHeaderDx12), file, reinterpret_cast<void*>(const_cast<wchar_t *>(filename)),
-		[](void* requester, BaseExecutor* executor, SharedResources& sharedResources, const uint8_t* buffer, File file)
-	{
-		const DDSFileLoader::DdsHeaderDx12& header = *reinterpret_cast<const DDSFileLoader::DdsHeaderDx12*>(buffer);
-		bool valid = DDSFileLoader::validateDdsHeader(header);
-		if (!valid) throw false;
-		RamToVramUploadRequest uploadRequest;
-		uploadRequest.file = file;
-		uploadRequest.useSubresource = textureUseSubresource;
-		uploadRequest.requester = requester; //Actually the filename
-		uploadRequest.resourceUploadedPointer = textureUploaded;
-		uploadRequest.textureInfo.width = header.width;
-		uploadRequest.textureInfo.height = header.height;
-		uploadRequest.textureInfo.format = header.dxgiFormat;
-		uploadRequest.mipLevels = header.mipMapCount;
-		uploadRequest.currentArrayIndex = 0u;
-		uploadRequest.currentMipLevel = 0u;
-		uploadRequest.mostDetailedMip = 0u;
-		uploadRequest.dimension = (D3D12_RESOURCE_DIMENSION)header.dimension;
-		if (header.miscFlag & 0x4L)
-		{
-			uploadRequest.arraySize = header.arraySize * 6u; //The texture is a cubemap
-		}
-		else
-		{
-			uploadRequest.arraySize = header.arraySize;
-		}
-		uploadRequest.textureInfo.depth = header.depth;
-
-		sharedResources.streamingManager.addUploadRequest(uploadRequest);
-	});
-}
-
-void TextureManager::textureUploaded(void* storedFilename, BaseExecutor* executor, SharedResources& sharedResources)
-{
-	const wchar_t* filename = reinterpret_cast<wchar_t*>(storedFilename);
-	auto& textureManager = sharedResources.textureManager;
-
-	unsigned int descriptorIndex;
-	ResizingArray<Request> requests;
-	{
-		std::lock_guard<decltype(textureManager.mutex)> lock(textureManager.mutex);
-		auto& texture = textureManager.textures[filename];
-		texture.loaded = true;
-		descriptorIndex = texture.descriptorIndex;
-
-		auto requestsPos = textureManager.uploadRequests.find(filename);
-		assert(requestsPos != textureManager.uploadRequests.end() && "A texture is loading with no requests for it");
-		requests = std::move(requestsPos->second);
-		textureManager.uploadRequests.erase(requestsPos);
-	}
-
-	for (auto& request : requests)
-	{
-		request(executor, sharedResources, descriptorIndex);
-	}
-}
-
-ID3D12Resource* TextureManager::createOrLookupTexture(const HalfFinishedUploadRequest& useSubresourceRequest, SharedResources& sharedResources, const wchar_t* filename)
+ID3D12Resource* TextureManager::createOrLookupTexture(const HalfFinishedUploadRequest& useSubresourceRequest, TextureManager& textureManager, D3D12GraphicsEngine& graphicsEngine, const wchar_t* filename)
 {
 	ID3D12Resource* texture;
-	TextureManager& textureManager = sharedResources.textureManager;
 	auto& uploadRequest = *useSubresourceRequest.uploadRequest;
 	if (useSubresourceRequest.currentArrayIndex == 0u && useSubresourceRequest.currentMipLevel == 0u)
 	{
@@ -117,7 +52,6 @@ ID3D12Resource* TextureManager::createOrLookupTexture(const HalfFinishedUploadRe
 		textureDesc.SampleDesc.Quality = 0u;
 		textureDesc.Width = uploadRequest.textureInfo.width;
 
-		auto& graphicsEngine = sharedResources.graphicsEngine;
 		D3D12Resource resource(graphicsEngine.graphicsDevice, textureHeapProperties, D3D12_HEAP_FLAGS::D3D12_HEAP_FLAG_NONE, textureDesc,
 			D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_COMMON, nullptr);
 
@@ -198,94 +132,4 @@ ID3D12Resource* TextureManager::createOrLookupTexture(const HalfFinishedUploadRe
 	}
 
 	return texture;
-}
-
-void TextureManager::textureUseSubresourceHelper(BaseExecutor* executor, SharedResources& sharedResources, HalfFinishedUploadRequest& useSubresourceRequest)
-{
-	auto& uploadRequest = *useSubresourceRequest.uploadRequest;
-	const wchar_t* filename = reinterpret_cast<wchar_t*>(uploadRequest.requester);
-
-	size_t subresouceWidth = uploadRequest.textureInfo.width;
-	size_t subresourceHeight = uploadRequest.textureInfo.height;
-	size_t subresourceDepth = uploadRequest.textureInfo.depth;
-	size_t fileOffset = sizeof(DDSFileLoader::DdsHeaderDx12);
-	size_t currentMip = 0u;
-	while (currentMip != useSubresourceRequest.currentMipLevel)
-	{
-		size_t numBytes, numRows, rowBytes;
-		DDSFileLoader::surfaceInfo(subresouceWidth, subresourceHeight, uploadRequest.textureInfo.format, numBytes, rowBytes, numRows);
-		fileOffset += numBytes * subresourceDepth;
-
-		subresouceWidth >>= 1u;
-		if (subresouceWidth == 0u) subresouceWidth = 1u;
-		subresourceHeight >>= 1u;
-		if (subresourceHeight == 0u) subresourceHeight = 1u;
-		subresourceDepth >>= 1u;
-		if (subresourceDepth == 0u) subresourceDepth = 1u;
-
-		++currentMip;
-	}
-	
-	size_t numBytes, numRows, rowBytes;
-	DDSFileLoader::surfaceInfo(subresouceWidth, subresourceHeight, uploadRequest.textureInfo.format, numBytes, rowBytes, numRows);
-	size_t subresourceSize = numBytes * subresourceDepth;
-
-	bool result = sharedResources.asynchronousFileManager.readFile(executor, sharedResources, filename, fileOffset, fileOffset + subresourceSize, uploadRequest.file, &useSubresourceRequest,
-		[](void* requester, BaseExecutor* executor, SharedResources& sharedResources, const uint8_t* buffer, File file)
-	{
-		HalfFinishedUploadRequest& useSubresourceRequest = *reinterpret_cast<HalfFinishedUploadRequest*>(requester);
-		auto& uploadRequest = *useSubresourceRequest.uploadRequest;
-		const wchar_t* filename = reinterpret_cast<wchar_t*>(uploadRequest.requester);
-		auto& streamingManager = executor->streamingManager;
-		ID3D12Resource* destResource = createOrLookupTexture(useSubresourceRequest, sharedResources, filename);
-
-		DDSFileLoader::copySubresourceToGpu(destResource, uploadRequest.uploadResource, useSubresourceRequest.uploadResourceOffset, uploadRequest.textureInfo.width, uploadRequest.textureInfo.height,
-			uploadRequest.textureInfo.depth, useSubresourceRequest.currentMipLevel, uploadRequest.mipLevels, useSubresourceRequest.currentArrayIndex, uploadRequest.textureInfo.format, 
-			(uint8_t*)useSubresourceRequest.uploadBufferCpuAddressOfCurrentPos, buffer, streamingManager.copyCommandList());
-
-		streamingManager.copyStarted(executor, useSubresourceRequest);
-	});
-#ifndef ndebug
-	if (!result)
-	{
-		throw false;
-	}
-#endif
-}
-
-void TextureManager::textureUseSubresource(BaseExecutor* executor, SharedResources& sharedResources, HalfFinishedUploadRequest& useSubresourceRequest)
-{
-	sharedResources.backgroundQueue.push(Job(&useSubresourceRequest, [](void* requester, BaseExecutor* executor, SharedResources& sharedResources)
-	{
-		auto& textureManager = sharedResources.textureManager;
-		textureManager.textureUseSubresourceHelper(executor, sharedResources, *reinterpret_cast<HalfFinishedUploadRequest*>(requester));
-	}));
-}
-
-void TextureManager::loadTexture(BaseExecutor* executor, SharedResources& sharedResources, const wchar_t * filename, Request callback)
-{
-	auto& textureManager = sharedResources.textureManager;
-
-	std::unique_lock<decltype(textureManager.mutex)> lock(textureManager.mutex);
-	Texture& texture = textureManager.textures[filename];
-	texture.numUsers += 1u;
-	if (texture.numUsers == 1u)
-	{
-		textureManager.uploadRequests[filename].push_back(callback);
-		lock.unlock();
-
-		textureManager.loadTextureUncached(executor, sharedResources, filename);
-		return;
-	}
-	//the resource is loaded or loading
-	if (texture.loaded)
-	{
-		unsigned int textureIndex = texture.descriptorIndex;
-		lock.unlock();
-		callback(executor, sharedResources, textureIndex);
-		return;
-	}
-
-	textureManager.uploadRequests[filename].push_back(callback);
-	return;
 }
