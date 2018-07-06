@@ -1,21 +1,28 @@
 #pragma once
 #include <XAudio2SourceVoice.h>
-#include <memory>
-#include <stdio.h>
+#include <File.h>
+#include <atomic>
+#include <stdint.h>
 class ThreadResources;
 class GlobalResources;
 
-class AmbientMusic : IXAudio2VoiceCallback
+class AmbientMusic : private IXAudio2VoiceCallback
 {
 	//The total size of front plus back buffer
-	constexpr static size_t rawSoundDataBufferSize = 352800u; //2000 ms of data
+	constexpr static size_t rawSoundDataBufferSize = 1310720u; //3364.6 ms of data
 
+	alignas(4u) uint8_t rawSoundData[rawSoundDataBufferSize];
 	XAudio2SourceVoice musicPlayer;
-	unsigned long long previousTrack;
-	FILE* currentFile;
+	std::atomic<unsigned int> bufferLoadingAndIsFirstBuffer = 0u;
+	const wchar_t* const * files;
+	size_t fileCount;
+	size_t previousTrack;
+	File file;
+	size_t filePosition;
 	size_t bytesRemaining;
-	uint8_t rawSoundData[rawSoundDataBufferSize];
-	bool firstBuffer = true;
+	size_t bytesNeeded;
+	uint8_t* currentBuffer;
+	void(*callback)(AmbientMusic& music, ThreadResources& threadResources, GlobalResources& globalResources);
 
 	virtual void STDMETHODCALLTYPE OnBufferEnd(void* pBufferContext) override;
 	virtual void STDMETHODCALLTYPE OnBufferStart(void* pBufferContext) override;
@@ -26,9 +33,11 @@ class AmbientMusic : IXAudio2VoiceCallback
 	virtual void STDMETHODCALLTYPE OnVoiceProcessingPassStart(UINT32 BytesRequired) override;
 
 	void update(ThreadResources& executor, GlobalResources& sharedResources);
-	void findNextMusic(ThreadResources& executor);
+	void findNextMusic(ThreadResources& threadResources, GlobalResources& globalResources, void(*callback)(AmbientMusic& music, ThreadResources& threadResources, GlobalResources& globalResources));
+	static void loadSoundData(AmbientMusic& music, ThreadResources& threadResources, GlobalResources& globalResources);
+	static void onSoundDataLoadingFinished(AmbientMusic& music, ThreadResources& threadResources, GlobalResources& globalResources);
 public:
-	AmbientMusic(ThreadResources& executor, GlobalResources& sharedResources);
-	~AmbientMusic() {}
+	AmbientMusic(ThreadResources& executor, GlobalResources& sharedResources, const wchar_t* const * files, size_t fileCount);
+	~AmbientMusic();
 	void start();
 };

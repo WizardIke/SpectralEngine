@@ -7,7 +7,7 @@
 class SoundDecoder
 {
 public:
-	class WaveFileInfo
+	class UncompressedFileInfo
 	{
 	public:
 		uint16_t audioFormat;
@@ -19,9 +19,9 @@ public:
 		uint32_t dataSize;
 	};
 
-	static WaveFileInfo getWaveFileInfo(FILE* const file)
+	static UncompressedFileInfo getWaveFileInfo(FILE* const file)
 	{
-		WaveFileInfo waveFileInfo;
+		UncompressedFileInfo waveFileInfo;
 		size_t count;
 
 		union

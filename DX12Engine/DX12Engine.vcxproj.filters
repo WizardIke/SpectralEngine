@@ -52,9 +52,6 @@
     <Filter Include="Sound">
       <UniqueIdentifier>{69db3b22-7b90-401d-bf71-ddb1279ac137}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Sound\SoundDecoder">
-      <UniqueIdentifier>{54ac0dca-4025-4f40-a835-caca72c3ef11}</UniqueIdentifier>
-    </Filter>
     <Filter Include="StreamingManager">
       <UniqueIdentifier>{f7afdca9-ea2e-4355-bc7b-66c095dcd45d}</UniqueIdentifier>
     </Filter>
@@ -212,9 +209,6 @@
     </ClInclude>
     <ClInclude Include="SoundEngine.h">
       <Filter>Sound</Filter>
-    </ClInclude>
-    <ClInclude Include="SoundDecoder.h">
-      <Filter>Sound\SoundDecoder</Filter>
     </ClInclude>
     <ClInclude Include="XAudio2SourceVoice.h">
       <Filter>Sound</Filter>
@@ -379,6 +373,9 @@
     <ClInclude Include="MultiProducerSingleConsumerQueue.h" />
     <ClInclude Include="GpuCompletionEventManager.h" />
     <ClInclude Include="Zone.h" />
+    <ClInclude Include="SoundDecoder.h">
+      <Filter>Sound</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DDSFileLoader.cpp">

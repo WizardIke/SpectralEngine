@@ -66,7 +66,13 @@ static void loadingResourceCallback(void* data, void* tr, void* gr, unsigned int
 	globalResources.taskShedular.setNextPhaseTask(ThreadResources::initialize2);
 }
 
-GlobalResources::GlobalResources() : GlobalResources(std::thread::hardware_concurrency(), false, false, true) {}
+static const wchar_t* const musicFiles[] = 
+{
+	L"../DemoGame/Music/Heroic_Demise_New.sound",
+	L"../DemoGame/Music/Tropic_Strike.sound"
+};
+
+GlobalResources::GlobalResources() : GlobalResources(std::thread::hardware_concurrency(), false, false, false) {}
 
 GlobalResources::GlobalResources(const unsigned int numberOfThreads, bool fullScreen, bool vSync, bool enableGpuDebugging) :
 	window(this, windowCallback, [fullScreen]() {if (fullScreen) { return GetSystemMetrics(SM_CXVIRTUALSCREEN); } else return GetSystemMetrics(SM_CXSCREEN) / 2; }(),
@@ -113,7 +119,7 @@ GlobalResources::GlobalResources(const unsigned int numberOfThreads, bool fullSc
 		return resourceDesc;
 	}(), D3D12_RESOURCE_STATE_GENERIC_READ, nullptr),
 	areas(mainThreadResources, *this),
-	ambientMusic(mainThreadResources, *this),
+	ambientMusic(mainThreadResources, *this, musicFiles, sizeof(musicFiles) / sizeof(musicFiles[0])),
 	playerPosition(DirectX::XMFLOAT3(59.0f, 4.0f, 10.0f), DirectX::XMFLOAT3(0.0f, 0.2f, 0.0f)),
 	warpTexture(graphicsEngine.graphicsDevice, []()
 	{
