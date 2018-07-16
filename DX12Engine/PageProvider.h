@@ -1,7 +1,7 @@
 #pragma once
 #include "PageAllocator.h"
 #include "PageCache.h"
-#include "TextureResitency.h"
+#include "PageAllocationInfo.h"
 #include "Range.h"
 #include <atomic>
 #include "ResizingArray.h"
@@ -14,6 +14,7 @@ class StreamingManager;
 struct IDXGIAdapter3;
 class HalfFinishedUploadRequest;
 class D3D12GraphicsEngine;
+class FeedbackAnalizerSubPass;
 #undef min
 #undef max
 
@@ -133,12 +134,10 @@ class PageProvider
 	};
 public:
 	PageAllocator pageAllocator;
-	float mipBias;
 private:
 	PageCache pageCache;
 	unsigned long long memoryUsage;
 	signed long long maxPages; //total number of pages that can be used for non-pinned virtual texture pages. Can be negative when too much memory is being used for other things
-	float desiredMipBias;
 
 	struct PageLoadRequest
 	{
@@ -156,7 +155,7 @@ private:
 	};
 
 	PageLoadRequest pageLoadRequests[maxPagesLoading];
-	ResizingArray<std::pair<textureLocation, unsigned long long>> posableLoadRequests;
+	ResizingArray<std::pair<TextureLocation, unsigned long long>> posableLoadRequests;
 	PageAllocationInfo newPages[maxPagesLoading];
 	unsigned long newPageOffsetsInLoadRequests[maxPagesLoading];
 	size_t newPageCount;
@@ -177,20 +176,25 @@ private:
 			addPageLoadRequestHelper(pageRequest, virtualTextureManager, streamingManager, [](void* executor, void* sharedResources, HalfFinishedUploadRequest& useSubresourceRequest)
 			{
 				auto& uploadRequest = *useSubresourceRequest.uploadRequest;
-				const size_t length = uploadRequest.meshInfo.indicesSize * uploadRequest.meshInfo.verticesSize;
+				const size_t length = uploadRequest.meshInfo.sizeInBytes;
 				PageLoadRequest& pageRequest = *reinterpret_cast<PageLoadRequest*>(uploadRequest.requester);
 				GlobalResources& globalResources = *reinterpret_cast<GlobalResources*>(sharedResources);
 				globalResources.asynchronousFileManager.readFile(executor, sharedResources, pageRequest.filename, pageRequest.offsetInFile, pageRequest.offsetInFile + length, uploadRequest.file, &useSubresourceRequest,
 					[](void* requester, void* executor, void* sharedResources, const uint8_t* data, File file)
 				{
-					copyPageToUploadBuffer(*reinterpret_cast<HalfFinishedUploadRequest*>(requester), data);
+					HalfFinishedUploadRequest& useSubresourceRequest = *reinterpret_cast<HalfFinishedUploadRequest*>(requester);
+					copyPageToUploadBuffer(useSubresourceRequest, data);
+
+					RamToVramUploadRequest& uploadRequest = *useSubresourceRequest.uploadRequest;
+					PageLoadRequest& pageRequest = *reinterpret_cast<PageLoadRequest*>(uploadRequest.requester);
+					pageRequest.state.store(PageProvider::PageLoadRequest::State::finished, std::memory_order::memory_order_release);
 				});
 			});
 		} });
 	}
 
-	unsigned int recalculateCacheSize(IDXGIAdapter3* adapter, size_t totalPagesNeeded);
-	void workoutIfPageNeededInCache(unsigned int mipBiasIncrease, std::pair<const textureLocation, PageRequestData>& request, VirtualTextureManager& virtualTextureManager, size_t& numRequiredPagesInCache);
+	unsigned int recalculateCacheSize(FeedbackAnalizerSubPass& feedbackAnalizerSubPass, IDXGIAdapter3* adapter, size_t totalPagesNeeded);
+	void workoutIfPageNeededInCache(unsigned int mipBiasIncrease, std::pair<const TextureLocation, PageRequestData>& request, VirtualTextureManager& virtualTextureManager, size_t& numRequiredPagesInCache);
 	size_t findLoadedTexturePages();
 
 	template<class ThreadResources, class GlobalResources>
@@ -264,7 +268,7 @@ private:
 
 	static void addNewPagesToResources(PageProvider& pageProvider, D3D12GraphicsEngine& graphicsEngine, VirtualTextureManager& virtualTextureManager, GpuCompletionEventManager& gpuCompletionEventManager, ID3D12GraphicsCommandList* commandList);
 public:
-	PageProvider(float desiredMipBias, IDXGIAdapter3* adapter, ID3D12Device* graphicsDevice);
+	PageProvider(IDXGIAdapter3* adapter, ID3D12Device* graphicsDevice);
 
 	template<class ThreadResources, class GlobalResources, class HashMap>
 	void processPageRequests(HashMap& pageRequests, VirtualTextureManager& virtualTextureManager,
@@ -272,9 +276,10 @@ public:
 	{
 		IDXGIAdapter3* adapter = sharedResources.graphicsEngine.adapter;
 		ID3D12Device* graphicsDevice = sharedResources.graphicsEngine.graphicsDevice;
+		FeedbackAnalizerSubPass& feedbackAnalizerSubPass = sharedResources.renderPass.virtualTextureFeedbackSubPass();
 
 		//Work out memory budget, grow or shrink cache as required and change mip bias if required
-		const unsigned int mipBiasIncrease = recalculateCacheSize(adapter, pageRequests.size());
+		const unsigned int mipBiasIncrease = recalculateCacheSize(feedbackAnalizerSubPass, adapter, pageRequests.size());
 
 		//work out which pages are in the cache, which pages need loading and the number that are required in the cache
 		size_t numRequiredPagesInCache = 0u;
@@ -305,10 +310,18 @@ public:
 		//work out which newly loaded pages have to be dropped based on the number of pages that can be dropped from the cache
 		dropNewPagesIfTooMany(pageRequests, numRequiredPagesInCache, mipBiasIncrease);
 
-		executor.taskShedular.update2NextQueue().concurrentPush({ this, [](void* requester, ThreadResources& executor, GlobalResources& sharedResources)
+		executor.taskShedular.update2NextQueue().concurrentPush({ this, [](void* requester, ThreadResources& threadResources, GlobalResources& sharedResources)
 		{
-			addNewPagesToResources(*reinterpret_cast<PageProvider*>(requester), sharedResources.graphicsEngine, sharedResources.virtualTextureManager, executor.gpuCompletionEventManager,
-				executor.renderPass.virtualTextureFeedbackSubPass().firstCommandList());
+			addNewPagesToResources(*reinterpret_cast<PageProvider*>(requester), sharedResources.graphicsEngine, sharedResources.virtualTextureManager, threadResources.gpuCompletionEventManager,
+				threadResources.renderPass.virtualTextureFeedbackSubPass().firstCommandList());
+
+			// we have finished with the readback resources so we can render again
+			FeedbackAnalizerSubPass& feedbackAnalizerSubPass = sharedResources.renderPass.virtualTextureFeedbackSubPass();
+			threadResources.taskShedular.update1NextQueue().push({ &feedbackAnalizerSubPass, [](void* requester, ThreadResources& executor, GlobalResources& sharedResources)
+			{
+				FeedbackAnalizerSubPass& subPass = *reinterpret_cast<FeedbackAnalizerSubPass*>(requester);
+				subPass.setInView();
+			} });
 		} });
 	}
 

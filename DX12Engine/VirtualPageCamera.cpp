@@ -1,5 +1,6 @@
 #include "VirtualPageCamera.h"
 #include "CameraUtil.h"
+#include "D3D12GraphicsEngine.h"
 
 VirtualPageCamera::VirtualPageCamera(ID3D12Resource* image, D3D12_CPU_DESCRIPTOR_HANDLE renderTargetView, D3D12_CPU_DESCRIPTOR_HANDLE depthSencilView,
 	unsigned int width, unsigned int height, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1, uint8_t*& constantBufferCpuAddress1, float fieldOfView,
@@ -30,3 +31,11 @@ VirtualPageCamera::VirtualPageCamera(ID3D12Resource* image, D3D12_CPU_DESCRIPTOR
 }
 
 VirtualPageCamera::~VirtualPageCamera() {}
+
+void VirtualPageCamera::update(const D3D12GraphicsEngine& graphicsEngine, float mipBias)
+{
+	const auto constantBuffer = reinterpret_cast<VtFeedbackCameraMaterial*>(reinterpret_cast<unsigned char*>(constantBufferCpuAddress) + graphicsEngine.frameIndex * bufferSizePS);
+	DirectX::XMMATRIX mViewMatrix = mTransform->toMatrix();
+	constantBuffer->viewProjectionMatrix = mViewMatrix * mProjectionMatrix;
+	constantBuffer->feedbackBias = mipBias;
+}

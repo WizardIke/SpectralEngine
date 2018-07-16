@@ -1,4 +1,5 @@
 #include "FeedbackAnalizer.h"
+#include "VirtualTextureInfo.h"
 #include <chrono>
 /*
 #include <Windows.h>
@@ -14,7 +15,7 @@
 */
 
 template<class HashMap>
-static inline void requestMipLevels(unsigned int mipLevel, const VirtualTextureInfo* textureInfo, textureLocation feedbackData, HashMap& uniqueRequests)
+static inline void requestMipLevels(unsigned int mipLevel, const VirtualTextureInfo* textureInfo, TextureLocation feedbackData, HashMap& uniqueRequests)
 {
 	if (mipLevel < textureInfo->lowestPinnedMip)
 	{
@@ -56,7 +57,7 @@ void FeedbackAnalizerSubPass::gatherUniqueRequests(FeedbackAnalizerSubPass& subP
 	const auto feadBackBufferEnd = feadBackBuffer + totalSize;
 	for (; feadBackBuffer != feadBackBufferEnd; feadBackBuffer += 8u)
 	{
-		textureLocation feedbackData{*reinterpret_cast<uint64_t*>(feadBackBuffer)};
+		TextureLocation feedbackData{*reinterpret_cast<uint64_t*>(feadBackBuffer)};
 
 		auto textureId = feedbackData.textureId1();
 		unsigned int nextMipLevel = (unsigned int)feedbackData.mipLevel();
@@ -113,9 +114,11 @@ void FeedbackAnalizerSubPass::createResources(D3D12GraphicsEngine& graphicsEngin
 	descriptorHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE::D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
 	rtvDescriptorHeap = D3D12DescriptorHeap(graphicsDevice, descriptorHeapDesc);
 
-	uint32_t newWidth = (width + 31u) & ~31;
+	uint32_t newWidth = ((width / 4u) + 31u) & ~31;
 	double widthMult = (double)newWidth / (double)width;
 	uint32_t newHeight = (uint32_t)(height * widthMult);
+	desiredMipBias = (float)std::log2(widthMult) - 1.0f;
+	mipBias = desiredMipBias;
 	D3D12_RESOURCE_DESC resourceDesc;
 	resourceDesc.Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
 	resourceDesc.DepthOrArraySize = 1u;
@@ -203,7 +206,6 @@ void FeedbackAnalizerSubPass::ThreadLocal::update1AfterFirstThread(D3D12Graphics
 	resetCommandLists(frameIndex);
 	bindRootArguments(rootSignature, graphicsEngine.mainDescriptorHeap);
 
-
 	auto cameras = renderSubPass.cameras();
 	auto camerasEnd = cameras.end();
 	for (auto cam = cameras.begin(); cam != camerasEnd; ++cam)
@@ -216,6 +218,8 @@ void FeedbackAnalizerSubPass::ThreadLocal::update1AfterFirstThread(D3D12Graphics
 		barriers[barrierCount].Transition.StateBefore = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_COMMON;
 		barriers[barrierCount].Transition.StateAfter = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET;
 		++barrierCount;
+
+		camera.update(graphicsEngine, renderSubPass.mipBias);
 	}
 	currentData->commandLists[0u]->ResourceBarrier(barrierCount, barriers);
 

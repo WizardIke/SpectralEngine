@@ -307,9 +307,6 @@
     <ClInclude Include="VirtualTextureManager.h">
       <Filter>VirtualTexturing</Filter>
     </ClInclude>
-    <ClInclude Include="TextureResitency.h">
-      <Filter>VirtualTexturing</Filter>
-    </ClInclude>
     <ClInclude Include="FixedSizeAllocator.h" />
     <ClInclude Include="FeedbackAnalizer.h">
       <Filter>VirtualTexturing</Filter>
@@ -375,6 +372,16 @@
     <ClInclude Include="Zone.h" />
     <ClInclude Include="SoundDecoder.h">
       <Filter>Sound</Filter>
+    </ClInclude>
+    <ClInclude Include="PageAllocationInfo.h">
+      <Filter>VirtualTexturing</Filter>
+    </ClInclude>
+    <ClInclude Include="VirtualTextureInfo.h">
+      <Filter>VirtualTexturing</Filter>
+    </ClInclude>
+    <ClInclude Include="HashMultiSet.h" />
+    <ClInclude Include="VirtualTextureInfoByID.h">
+      <Filter>VirtualTexturing</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -455,6 +462,9 @@
       <Filter>ScopedFile</Filter>
     </ClCompile>
     <ClCompile Include="ThreadBarrier.cpp" />
+    <ClCompile Include="PageDeleter.cpp">
+      <Filter>VirtualTexturing</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Shaders\WaterPS.hlsl">

@@ -7,6 +7,7 @@
 #include "Shaders/VtFeedbackCameraMaterial.h"
 #include <new>
 #include "CameraUtil.h"
+class D3D12GraphicsEngine;
 
 class VirtualPageCamera
 {
@@ -38,14 +39,7 @@ public:
 	}
 	~VirtualPageCamera();
 
-	template<class GlobalResources>
-	void update(const GlobalResources& globalResources, float mipBias)
-	{
-		const auto constantBuffer = reinterpret_cast<VtFeedbackCameraMaterial*>(reinterpret_cast<unsigned char*>(constantBufferCpuAddress) + globalResources.graphicsEngine.frameIndex * bufferSizePS);
-		DirectX::XMMATRIX mViewMatrix = mTransform->toMatrix();
-		constantBuffer->viewProjectionMatrix = mViewMatrix * mProjectionMatrix;
-		constantBuffer->feedbackBias = mipBias;
-	}
+	void update(const D3D12GraphicsEngine& graphicsEngine, float mipBias);
 	bool isInView() const { return true; }
 	void bind(uint32_t frameIndex, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end)
 	{

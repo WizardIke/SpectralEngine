@@ -184,6 +184,9 @@
     <ClInclude Include="AsynchronousFileManager.h" />
     <ClInclude Include="AudioFormatNotSupportedException.h" />
     <ClInclude Include="AudioPlaybackException.h" />
+    <ClInclude Include="HashMultiSet.h" />
+    <ClInclude Include="PageAllocationInfo.h" />
+    <ClInclude Include="VirtualTextureInfoByID.h" />
     <ClInclude Include="Zone.h" />
     <ClInclude Include="Delegate.h" />
     <ClInclude Include="DynamicArray.h" />
@@ -238,7 +241,7 @@
     <ClInclude Include="StreamingManager.h" />
     <ClInclude Include="TaskShedular.h" />
     <ClInclude Include="TemplateFloat.h" />
-    <ClInclude Include="TextureResitency.h" />
+    <ClInclude Include="VirtualTextureInfo.h" />
     <ClInclude Include="ThreadBarrier.h" />
     <ClInclude Include="Vector2.h" />
     <ClInclude Include="Vector4.h" />
@@ -294,6 +297,7 @@
     <ClCompile Include="CameraUtil.cpp" />
     <ClCompile Include="FeedbackAnalizer.cpp" />
     <ClCompile Include="PageCache.cpp" />
+    <ClCompile Include="PageDeleter.cpp" />
     <ClCompile Include="PageProvider.cpp" />
     <ClCompile Include="ReflectionCamera.cpp" />
     <ClCompile Include="MainCamera.cpp" />

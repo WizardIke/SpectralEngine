@@ -1,6 +1,5 @@
 #pragma once
-#include <d3d12.h>
-#include "File.h"
+#include <cstdint>
 
 struct HeapLocation
 {
@@ -17,7 +16,7 @@ struct PageRequestData
 };
 
 // pages are stored as x, y, miplevel, textureIdAndSlot
-class textureLocation
+class TextureLocation
 {
 public:
 	uint64_t value;
@@ -85,7 +84,7 @@ public:
 
 	void setTextureId3(uint64_t idAndSlot)
 	{
-		value = (idAndSlot ) | (value & 0xffffffffffffff00);
+		value = (idAndSlot) | (value & 0xffffffffffffff00);
 	}
 #else
 	uint64_t x() const
@@ -154,7 +153,7 @@ public:
 	}
 #endif
 
-	bool operator==(const textureLocation& other) const
+	bool operator==(const TextureLocation& other) const
 	{
 		return value == other.value;
 	}
@@ -162,21 +161,6 @@ public:
 
 struct PageAllocationInfo
 {
-	HeapLocation heapLocations;
-	textureLocation textureLocation; //value == std::numeric_limits<uint64_t>::max() when the page is invalid
-};
-
-struct VirtualTextureInfo
-{
-	ID3D12Resource* resource;
-	unsigned int widthInPages;
-	unsigned int heightInPages;
-	unsigned int numMipLevels;
-	unsigned int lowestPinnedMip;
-	DXGI_FORMAT format;
-	unsigned int width;
-	unsigned int height;
-	File file;
-	const wchar_t* filename;
-	HeapLocation* pinnedHeapLocations;
+	HeapLocation heapLocation;
+	TextureLocation textureLocation; //value == std::numeric_limits<uint64_t>::max() when the page is invalid
 };

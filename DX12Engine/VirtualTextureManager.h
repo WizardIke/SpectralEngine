@@ -7,9 +7,9 @@
 #include "StreamingManager.h"
 #include "DDSFileLoader.h"
 #include "D3D12GraphicsEngine.h"
-#include "TextureResitency.h"
-#include "FixedSizeAllocator.h"
+#include "VirtualTextureInfo.h"
 #include "PageProvider.h"
+#include "VirtualTextureInfoByID.h"
 #undef min
 #undef max
 
@@ -27,69 +27,11 @@ public:
 	};
 	using Request = Delegate<void(void* executor, void* sharedResources, const Texture& texture)>;
 private:
-	class TextureInfoAllocator
-	{
-		union Element
-		{
-			std::aligned_storage_t<sizeof(VirtualTextureInfo), alignof(VirtualTextureInfo)> data;
-			Element* next;
-		};
-		Element mData[255]; //index 255 is reserved for invalid texture ids
-		Element* freeList;
-	public:
-		TextureInfoAllocator()
-		{
-			Element* newFreeList = nullptr;
-			for (auto i = 255u; i != 0u;)
-			{
-				--i;
-				mData[i].next = newFreeList;
-				newFreeList = &mData[i];
-			}
-			freeList = newFreeList;
-		}
-
-		~TextureInfoAllocator() 
-		{
-#ifndef NDEBUG
-			unsigned int freeListLength = 0u;
-			for (auto i = freeList; i != nullptr; i = i->next)
-			{
-				++freeListLength;
-			}
-			assert(freeListLength == 255u && "cannot destruct a TextureInfoAllocator while it is still in use");
-#endif
-		}
-
-		unsigned int allocate()
-		{
-			Element* element = freeList;
-			freeList = freeList->next;
-			return (unsigned int)(element - mData);
-		}
-
-		void deallocate(unsigned int index)
-		{
-			mData[index].next = freeList;
-			freeList = &mData[index];
-		}
-
-		VirtualTextureInfo& operator[](size_t index)
-		{
-			return reinterpret_cast<VirtualTextureInfo&>(mData[index].data);
-		}
-
-		const VirtualTextureInfo& operator[](size_t index) const
-		{
-			return reinterpret_cast<const VirtualTextureInfo&>(mData[index].data);
-		}
-	};
-
 	std::mutex mutex;
 	std::unordered_map<const wchar_t * const, ResizingArray<Request>, std::hash<const wchar_t *>> uploadRequests;
 	std::unordered_map<const wchar_t * const, Texture, std::hash<const wchar_t *>> textures;
 public:
-	TextureInfoAllocator texturesByID;
+	VirtualTextureInfoByID texturesByID;
 	PageProvider pageProvider;
 private:
 
@@ -197,7 +139,7 @@ private:
 
 	void unloadTextureHelper(const wchar_t * filename, D3D12GraphicsEngine& graphicsEngine, StreamingManager& streamingManager);
 public:
-	VirtualTextureManager(D3D12GraphicsEngine& graphicsEngine) : pageProvider(-3.0f, graphicsEngine.adapter, graphicsEngine.graphicsDevice) {}
+	VirtualTextureManager(D3D12GraphicsEngine& graphicsEngine) : pageProvider(graphicsEngine.adapter, graphicsEngine.graphicsDevice) {}
 	~VirtualTextureManager() {}
 
 	template<class ThreadResources, class GlobalResources>

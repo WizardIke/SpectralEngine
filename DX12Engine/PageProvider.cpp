@@ -4,17 +4,15 @@
 #include <d3d12.h>
 #include "File.h"
 #include "D3D12GraphicsEngine.h"
+#include "FeedbackAnalizer.h"
 
-PageProvider::PageProvider(float desiredMipBias, IDXGIAdapter3* adapter, ID3D12Device* graphicsDevice)
+PageProvider::PageProvider(IDXGIAdapter3* adapter, ID3D12Device* graphicsDevice)
 {
 	DXGI_QUERY_VIDEO_MEMORY_INFO videoMemoryInfo;
 	auto result = adapter->QueryVideoMemoryInfo(0u, DXGI_MEMORY_SEGMENT_GROUP::DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &videoMemoryInfo);
 	assert(result == S_OK);
 	maxPages = ((signed long long)videoMemoryInfo.Budget - (signed long long)videoMemoryInfo.CurrentUsage) / (64 * 1024);
 	memoryUsage = videoMemoryInfo.CurrentUsage;
-
-	mipBias = desiredMipBias;
-	this->desiredMipBias = desiredMipBias;
 
 	D3D12_HEAP_PROPERTIES uploadHeapProperties;
 	uploadHeapProperties.Type = D3D12_HEAP_TYPE::D3D12_HEAP_TYPE_UPLOAD;
@@ -83,7 +81,6 @@ void PageProvider::addPageLoadRequestHelper(PageLoadRequest& pageRequest, Virtua
 		filePos += pageSize * pageX;
 		if (pageX < widthInPages)
 		{
-			streamingManager.addUploadRequest(request);
 			request.meshInfo.indicesSize = pageWidthInBytes;
 			request.meshInfo.verticesSize = pageHeightInTexels;
 		}
@@ -117,20 +114,19 @@ void PageProvider::addPageLoadRequestHelper(PageLoadRequest& pageRequest, Virtua
 	request.meshInfo.padding = pageWidthInBytes;
 	request.arraySize = 1u;
 	request.currentArrayIndex = 0u;
-	request.currentMipLevel = 0u;
+	request.currentMipLevel = (uint16_t)mipLevel;
+	request.mostDetailedMip = (uint16_t)mipLevel;
+	request.mipLevels = (uint16_t)mipLevel + 1u;
 	request.dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
 	request.file = resourceInfo.file;
-	request.meshInfo.sizeInBytes = pageSize;
-	request.mostDetailedMip = 0u;
+	request.meshInfo.sizeInBytes = request.meshInfo.indicesSize * request.meshInfo.verticesSize;
 	request.requester = &pageRequest;
 
-	request.resourceUploadedPointer = [](void* requester, void* executor, void* sharedResources)
-	{
-		PageLoadRequest& pageRequest = *reinterpret_cast<PageLoadRequest*>(requester);
-		pageRequest.state.store(PageProvider::PageLoadRequest::State::finished, std::memory_order::memory_order_release);
-	};
+	request.resourceUploadedPointer = &HalfFinishedUploadRequest::nullFunction;
 
 	request.useSubresource = useSubresource;
+
+	streamingManager.addUploadRequest(request);
 }
 
 void PageProvider::addPageDataToResource(ID3D12Resource* resource, D3D12_TILED_RESOURCE_COORDINATE* newPageCoordinates, size_t pageCount,
@@ -198,7 +194,7 @@ void PageProvider::copyPageToUploadBuffer(HalfFinishedUploadRequest& useSubresou
 	pageRequest.subresourceRequest = &useSubresourceRequest;
 }
 
-unsigned int PageProvider::recalculateCacheSize(IDXGIAdapter3* adapter, size_t totalPagesNeeded)
+unsigned int PageProvider::recalculateCacheSize(FeedbackAnalizerSubPass& feedbackAnalizerSubPass, IDXGIAdapter3* adapter, size_t totalPagesNeeded)
 {
 	DXGI_QUERY_VIDEO_MEMORY_INFO videoMemoryInfo;
 	adapter->QueryVideoMemoryInfo(0u, DXGI_MEMORY_SEGMENT_GROUP::DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &videoMemoryInfo);
@@ -213,7 +209,7 @@ unsigned int PageProvider::recalculateCacheSize(IDXGIAdapter3* adapter, size_t t
 	if (pageCache.capacity() < pagesFullLowerBound)
 	{
 		//we can allocate more memory
-		if (mipBias > desiredMipBias)
+		if (feedbackAnalizerSubPass.mipBias > feedbackAnalizerSubPass.desiredMipBias)
 		{
 			//cache size needs increasing
 			newCacheSize = static_cast<size_t>(maxPagesMinZero * ((memoryFullLowerBound + memoryFullUpperBound) / 2u));
@@ -221,7 +217,7 @@ unsigned int PageProvider::recalculateCacheSize(IDXGIAdapter3* adapter, size_t t
 			if (totalPagesNeeded * 4 < pageCache.capacity())
 			{
 				// mipBias needs decreasing
-				--mipBias;
+				--feedbackAnalizerSubPass.mipBias;
 			}
 		}
 		else
@@ -251,7 +247,7 @@ unsigned int PageProvider::recalculateCacheSize(IDXGIAdapter3* adapter, size_t t
 			if (totalPagesNeeded > pagesFullUpperBound)
 			{
 				//need to increase mipBias
-				++mipBias;
+				++feedbackAnalizerSubPass.mipBias;
 				mipBiasIncrease = 1u;
 				totalPagesNeeded /= 4u; //mgiht not reduce by exactly the right amount but should be close enough
 			}
@@ -270,7 +266,7 @@ unsigned int PageProvider::recalculateCacheSize(IDXGIAdapter3* adapter, size_t t
 			else if (totalPagesNeeded > pageCache.capacity())
 			{
 				//need to increase mipBias
-				++mipBias;
+				++feedbackAnalizerSubPass.mipBias;
 				mipBiasIncrease = 1u;
 				totalPagesNeeded /= 4u; //mgiht not reduce by exactly the right amount but should be close enough
 			}
@@ -279,9 +275,9 @@ unsigned int PageProvider::recalculateCacheSize(IDXGIAdapter3* adapter, size_t t
 	return mipBiasIncrease;
 }
 
-void PageProvider::workoutIfPageNeededInCache(unsigned int mipBiasIncrease, std::pair<const textureLocation, PageRequestData>& request, VirtualTextureManager& virtualTextureManager, size_t& numRequiredPagesInCache)
+void PageProvider::workoutIfPageNeededInCache(unsigned int mipBiasIncrease, std::pair<const TextureLocation, PageRequestData>& request, VirtualTextureManager& virtualTextureManager, size_t& numRequiredPagesInCache)
 {
-	textureLocation location;
+	TextureLocation location;
 	location.value = request.first.value;
 	auto textureId = request.first.textureId1();
 	const unsigned int mipLevel = static_cast<unsigned int>(request.first.mipLevel()) + mipBiasIncrease;
@@ -299,7 +295,7 @@ void PageProvider::workoutIfPageNeededInCache(unsigned int mipBiasIncrease, std:
 	else
 	{
 		const unsigned int nextMipLevel = mipLevel + 1u;
-		textureLocation nextMipLocation;
+		TextureLocation nextMipLocation;
 		nextMipLocation.setX(newX >> 1u);
 		nextMipLocation.setY(newY >> 1u);
 		nextMipLocation.setMipLevel(nextMipLevel);
@@ -357,7 +353,7 @@ void PageProvider::addNewPagesToResources(PageProvider& pageProvider, D3D12Graph
 	ID3D12Device* graphicsDevice = graphicsEngine.graphicsDevice;
 	PageAllocator& pageAllocator = pageProvider.pageAllocator;
 	PageCache& pageCache = pageProvider.pageCache;
-	PageDeleter<decltype(virtualTextureManager.texturesByID)> pageDeleter(pageAllocator, virtualTextureManager.texturesByID, commandQueue);
+	PageDeleter pageDeleter(pageAllocator, virtualTextureManager.texturesByID, commandQueue);
 	size_t newCacheSize = pageProvider.newCacheSize;
 	size_t newPageCount = pageProvider.newPageCount;
 	PageAllocationInfo* newPages = pageProvider.newPages;
@@ -408,6 +404,7 @@ void PageProvider::addNewPagesToResources(PageProvider& pageProvider, D3D12Graph
 		pageAllocator.addPages(newPageCoordinates + lastIndex, pageCount, *previousResourceInfo, commandQueue, graphicsDevice, newPages + lastIndex);
 		pageProvider.addPageDataToResource(previousResourceInfo->resource, &newPageCoordinates[lastIndex], pageCount, tileSize, &newPageOffsetsInLoadRequests[lastIndex],
 			commandList, gpuCompletionEventManager, frameIndex);
+
 		pageCache.addPages(newPages, newPageCount, pageDeleter);
 	}
 	pageDeleter.finish();

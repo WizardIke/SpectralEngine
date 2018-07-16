@@ -120,7 +120,7 @@ void ThreadResources::primaryEndUpdate2(ThreadResources& threadResources, Global
 	threadResources.renderPass.update2(threadResources, globalResources, globalResources.renderPass, primaryThreadCount);
 
 	unsigned int presentIndex = globalResources.readyToPresentCount.fetch_add(1u, std::memory_order::memory_order_acq_rel);
-	if (presentIndex == globalResources.taskShedular.primaryThreadCount() - 2u)
+	if (presentIndex == primaryThreadCount - 2u)
 	{
 		globalResources.readyToPresentEvent.notify();
 		globalResources.readyToPresentCount.store(0u, std::memory_order::memory_order_relaxed);

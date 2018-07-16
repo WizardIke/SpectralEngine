@@ -151,7 +151,7 @@ GlobalResources::GlobalResources(const unsigned int numberOfThreads, bool fullSc
 	auto constantBuffersGpuAddress = sharedConstantBuffer->GetGPUVirtualAddress();
 
 	renderPass.~RenderPass1();
-	new(&renderPass) RenderPass1(*this, playerPosition.location, window.width() / 4, window.height() / 4, constantBuffersGpuAddress, cpuConstantBuffer, 0.25f * 3.141f);
+	new(&renderPass) RenderPass1(*this, playerPosition.location, window.width(), window.height(), constantBuffersGpuAddress, cpuConstantBuffer, 0.25f * 3.141f);
 	mainCamera().init(window, graphicsEngine, window.width(), window.height(), constantBuffersGpuAddress, cpuConstantBuffer, 0.25f * 3.141f, playerPosition.location);
 	userInterface.~UserInterface();
 	new(&userInterface) UserInterface(*this, constantBuffersGpuAddress, cpuConstantBuffer);
@@ -201,7 +201,6 @@ void GlobalResources::update(ThreadResources& threadResources)
 	timer.update();
 	playerPosition.update(timer.frameTime(), inputHandler.aDown, inputHandler.dDown, inputHandler.wDown, inputHandler.sDown, inputHandler.spaceDown);
 	mainCamera().update(window, graphicsEngine, playerPosition.location);
-	renderPass.virtualTextureFeedbackSubPass().cameras().begin()->update(*this, virtualTextureManager.pageProvider.mipBias);
 	streamingManager.update<ThreadResources, GlobalResources>(threadResources.taskShedular);
 	//soundEngine.SetListenerPosition(playerPosition.location.position, DS3D_IMMEDIATE);
 }

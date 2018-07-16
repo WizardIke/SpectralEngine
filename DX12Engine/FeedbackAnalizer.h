@@ -8,6 +8,7 @@
 #include "StreamingManager.h"
 #include "VirtualTextureManager.h"
 #include "PageProvider.h"
+#include "PageAllocationInfo.h"
 #undef min
 #undef max
 
@@ -27,14 +28,14 @@ class FeedbackAnalizerSubPass : public RenderSubPass<VirtualPageCamera, D3D12_RE
 
 	struct TextureLocationHasher : std::hash<uint64_t>
 	{
-		size_t operator()(textureLocation location) const
+		size_t operator()(TextureLocation location) const
 		{
 			return (*(std::hash<uint64_t>*)(this))(location.value);
 		}
 	};
 
 	//contains all unique valid pages needed
-	std::unordered_map<textureLocation, PageRequestData, TextureLocationHasher> uniqueRequests;
+	std::unordered_map<TextureLocation, PageRequestData, TextureLocationHasher> uniqueRequests;
 
 	bool inView = true;
 
@@ -51,18 +52,14 @@ class FeedbackAnalizerSubPass : public RenderSubPass<VirtualPageCamera, D3D12_RE
 		//find needed pages and start them loading from disk if they aren't in the cache
 		virtualTextureManager.pageProvider.processPageRequests(analyser.uniqueRequests, virtualTextureManager, threadResources, globalResources);
 		analyser.uniqueRequests.clear();
-
-		// we have finished with the readback resources so we can render again
-		threadResources.taskShedular.update1NextQueue().concurrentPush({ &analyser, [](void* requester, ThreadResources& executor, GlobalResources& sharedResources)
-		{
-			FeedbackAnalizerSubPass& subPass = *reinterpret_cast<FeedbackAnalizerSubPass*>(requester);
-			subPass.inView = true;
-		} });
 	}
 
 	static void gatherUniqueRequests(FeedbackAnalizerSubPass& subPass, VirtualTextureManager& virtualTextureManager);
 	void createResources(D3D12GraphicsEngine& graphicsEngine, Transform& mainCameraTransform, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1, uint8_t*& constantBufferCpuAddress1, uint32_t width, uint32_t height, float fieldOfView);
 public:
+	float mipBias;
+	float desiredMipBias;
+
 	FeedbackAnalizerSubPass() {}
 	FeedbackAnalizerSubPass(D3D12GraphicsEngine& graphicsEngine, Transform& mainCameraTransform, uint32_t width, uint32_t height, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1,
 		uint8_t*& constantBufferCpuAddress1, float fieldOfView)
@@ -75,6 +72,11 @@ public:
 	bool isInView()
 	{
 		return inView;
+	}
+
+	void setInView()
+	{
+		inView = true;
 	}
 
 	class ThreadLocal : public Base::ThreadLocal
@@ -133,7 +135,7 @@ public:
 			for (auto cam = cameras.begin(); cam != camerasEnd; ++cam)
 			{
 				assert(barrierCount != 1u);
-				auto camera = *cam;
+				auto& camera = *cam;
 				barriers[barrierCount].Flags = D3D12_RESOURCE_BARRIER_FLAGS::D3D12_RESOURCE_BARRIER_FLAG_NONE;
 				barriers[barrierCount].Type = D3D12_RESOURCE_BARRIER_TYPE::D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
 				barriers[barrierCount].Transition.pResource = camera.getImage();
