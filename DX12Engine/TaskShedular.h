@@ -168,16 +168,14 @@ public:
 		void endUpdate2End(TaskShedular& taskShedular, const unsigned int primaryThreadCount, const unsigned int updateIndex)
 		{
 			taskShedular.mBarrier.sync(primaryThreadCount, [&mUpdateIndexAndPrimaryThreadCount = taskShedular.mUpdateIndexAndPrimaryThreadCount,
-				amount = taskShedular.mPrimaryThreadCountDefferedDecrease.load(std::memory_order::memory_order_relaxed)]()
+				&primaryThreadCountDefferedDecrease = taskShedular.mPrimaryThreadCountDefferedDecrease]()
 			{
+				unsigned int amount = primaryThreadCountDefferedDecrease.load(std::memory_order::memory_order_relaxed);
 				unsigned long oldUpdateIndexAndPrimaryThreadCount = mUpdateIndexAndPrimaryThreadCount.load(std::memory_order::memory_order_relaxed);
 				mUpdateIndexAndPrimaryThreadCount.store((oldUpdateIndexAndPrimaryThreadCount - amount) & 0xffff, std::memory_order::memory_order_release);
+				primaryThreadCountDefferedDecrease.store(0u, std::memory_order::memory_order_relaxed);
 			});
 
-			if (updateIndex == primaryThreadCount - 1u)
-			{
-				taskShedular.mPrimaryThreadCountDefferedDecrease.store(0u, std::memory_order::memory_order_relaxed);
-			}
 			mUpdate2CurrentQueue->reset();
 			auto temp = mUpdate1CurrentQueue;
 			mUpdate1CurrentQueue = mUpdate1NextQueue;
@@ -289,16 +287,14 @@ public:
 				{
 					taskShedular.mPrimaryThreadCountDefferedDecrease.fetch_add(1u, std::memory_order::memory_order_relaxed);
 					taskShedular.mBarrier.sync(primaryThreadCount, [&mUpdateIndexAndPrimaryThreadCount = taskShedular.mUpdateIndexAndPrimaryThreadCount,
-						amount = taskShedular.mPrimaryThreadCountDefferedDecrease.load(std::memory_order::memory_order_relaxed)]()
+						&primaryThreadCountDefferedDecrease = taskShedular.mPrimaryThreadCountDefferedDecrease]()
 					{
+						unsigned int amount = primaryThreadCountDefferedDecrease.load(std::memory_order::memory_order_relaxed);
 						unsigned long oldUpdateIndexAndPrimaryThreadCount = mUpdateIndexAndPrimaryThreadCount.load(std::memory_order::memory_order_relaxed);
 						mUpdateIndexAndPrimaryThreadCount.store((oldUpdateIndexAndPrimaryThreadCount - amount) & 0xffff, std::memory_order::memory_order_release);
+						primaryThreadCountDefferedDecrease.store(0u, std::memory_order::memory_order_relaxed);
 					});
 
-					if (updateIndex == primaryThreadCount - 1u)
-					{
-						taskShedular.mPrimaryThreadCountDefferedDecrease.store(0u, std::memory_order::memory_order_relaxed);
-					}
 					mUpdate2CurrentQueue->reset();
 
 					endUpdate(threadResources, globalResoureces);
@@ -322,16 +318,14 @@ public:
 				{
 					taskShedular.mPrimaryThreadCountDefferedDecrease.fetch_add(1u, std::memory_order::memory_order_relaxed);
 					taskShedular.mBarrier.sync(primaryThreadCount, [&mUpdateIndexAndPrimaryThreadCount = taskShedular.mUpdateIndexAndPrimaryThreadCount,
-						amount = taskShedular.mPrimaryThreadCountDefferedDecrease.load(std::memory_order::memory_order_relaxed)]()
+						&primaryThreadCountDefferedDecrease = taskShedular.mPrimaryThreadCountDefferedDecrease]()
 					{
+						unsigned int amount = primaryThreadCountDefferedDecrease.load(std::memory_order::memory_order_relaxed);
 						unsigned long oldUpdateIndexAndPrimaryThreadCount = mUpdateIndexAndPrimaryThreadCount.load(std::memory_order::memory_order_relaxed);
 						mUpdateIndexAndPrimaryThreadCount.store((oldUpdateIndexAndPrimaryThreadCount - amount) & 0xffff, std::memory_order::memory_order_release);
+						primaryThreadCountDefferedDecrease.store(0u, std::memory_order::memory_order_relaxed);
 					});
 
-					if (updateIndex == primaryThreadCount - 1u)
-					{
-						taskShedular.mPrimaryThreadCountDefferedDecrease.store(0u, std::memory_order::memory_order_relaxed);
-					}
 					mUpdate2CurrentQueue->reset();
 
 					endUpdate(threadResources, globalResoureces);

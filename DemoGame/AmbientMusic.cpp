@@ -174,6 +174,7 @@ void AmbientMusic::onSoundDataLoadingFinished(AmbientMusic& music, ThreadResourc
 void AmbientMusic::loadSoundData(AmbientMusic& music, ThreadResources& threadResources, GlobalResources& globalResources)
 {
 	size_t bytesToCopy = std::min(music.bytesNeeded, music.bytesRemaining);
+	assert(bytesToCopy != 0u);
 	globalResources.asynchronousFileManager.readFile(&threadResources, &globalResources, music.files[music.previousTrack], music.filePosition, music.filePosition + bytesToCopy, music.file, &music,
 		[](void* requester, void* executor, void* sharedResources, const uint8_t* data, File file)
 	{
@@ -201,7 +202,7 @@ void AmbientMusic::loadSoundData(AmbientMusic& music, ThreadResources& threadRes
 			}
 			music.findNextMusic(threadResources, globalResources, callback);
 		}
-		if (music.bytesNeeded == 0u)
+		else if (music.bytesNeeded == 0u)
 		{
 			onSoundDataLoadingFinished(music, threadResources, globalResources);
 		}
