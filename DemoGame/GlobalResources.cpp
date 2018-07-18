@@ -142,7 +142,7 @@ GlobalResources::GlobalResources(const unsigned int numberOfThreads, bool fullSc
 	}()),
 	readyToPresentEvent(nullptr, FALSE, FALSE, nullptr)
 {
-	ambientMusic.start();
+	ambientMusic.start(mainThreadResources, *this);
 
 	D3D12_RANGE readRange{ 0u, 0u };
 	HRESULT hr = sharedConstantBuffer->Map(0u, &readRange, reinterpret_cast<void**>(&constantBuffersCpuAddress));
