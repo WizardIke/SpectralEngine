@@ -745,7 +745,10 @@ namespace
 		uint8_t* perObjectConstantBuffersCpuAddress;
 
 		BathModel2 bathModel;
+
 		Light light;
+		LightConstantBuffer* pointLightConstantBufferCpuAddress;
+		D3D12_GPU_VIRTUAL_ADDRESS pointLightConstantBufferGpuAddress;
 
 
 		MDResources(ThreadResources& threadResources, GlobalResources& globalResources, Zone<ThreadResources, GlobalResources>& zone) :
@@ -804,6 +807,14 @@ namespace
 				resources->bathModel.mesh = mesh;
 				callback(zone, threadResources, globalResources);
 			});
+
+			constexpr uint64_t pointLightConstantBufferAlignedSize = (sizeof(LightConstantBuffer) + (uint64_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (uint64_t)1u) &
+				~((uint64_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (uint64_t)1u);
+			pointLightConstantBufferCpuAddress = reinterpret_cast<LightConstantBuffer*>(cpuConstantBuffer);
+			cpuConstantBuffer += pointLightConstantBufferAlignedSize;
+
+			pointLightConstantBufferGpuAddress = PerObjectConstantBuffersGpuAddress;
+			PerObjectConstantBuffersGpuAddress += pointLightConstantBufferAlignedSize;
 		}
 
 		void destruct(ThreadResources& threadResources, GlobalResources& globalResources)
@@ -821,12 +832,25 @@ namespace
 
 		~MDResources() {}
 
+		void update1(ThreadResources& threadResources, GlobalResources& globalResources) 
+		{
+			auto pointLightConstantBuffer = reinterpret_cast<LightConstantBuffer*>(pointLightConstantBufferCpuAddress);
+
+			pointLightConstantBuffer->ambientLight = light.ambientLight;
+			pointLightConstantBuffer->directionalLight = light.directionalLight;
+			pointLightConstantBuffer->lightDirection = light.direction;
+
+			pointLightConstantBuffer->pointLightCount = 0u;
+		}
+
 		void update2(ThreadResources& threadResources, GlobalResources& globalResources)
 		{
 			uint32_t frameIndex = globalResources.graphicsEngine.frameIndex;
 			const auto commandList = threadResources.renderPass.colorSubPass().opaqueCommandList();
 
 			commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+			commandList->SetGraphicsRootConstantBufferView(1u, pointLightConstantBufferGpuAddress);
 
 			if (bathModel.isInView(globalResources.mainCamera().frustum()))
 			{
@@ -839,8 +863,6 @@ namespace
 				commandList->DrawIndexedInstanced(bathModel.mesh->indexCount, 1u, 0u, 0, 0u);
 			}
 		}
-
-		void update1(ThreadResources& threadResources, GlobalResources& globalResources) {}
 
 		static void create(void* context, ThreadResources& threadResources, GlobalResources& globalResources)
 		{

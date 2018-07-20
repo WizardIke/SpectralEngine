@@ -99,10 +99,6 @@ public:
 		threadResources.taskShedular.update2NextQueue().concurrentPush({ this, [](void* context, ThreadResources& threadResources, GlobalResources& globalResources)
 		{
 			Zone& zone = *(Zone*)(context);
-			if (zone.currentState >= zone.highestSupportedState)
-			{
-				zone.start(threadResources, globalResources);
-			}
 			unsigned int oldState = zone.currentState;
 			void* oldData = zone.currentData;
 			zone.currentState = zone.newState;
@@ -110,7 +106,24 @@ public:
 			zone.newData = oldData;
 			zone.newState = oldState;
 
-			threadResources.gpuCompletionEventManager.addRequest(&zone, zone.vTable->deleteOldStateData, globalResources.graphicsEngine.frameIndex);//wait for cpu and gpu to stop using old state
+			if (oldState >= zone.highestSupportedState)
+			{
+				zone.start(threadResources, globalResources);
+				unsigned int currentState = zone.currentState;
+				if (zone.nextState != currentState)
+				{
+					zone.newState = zone.nextState;
+					zone.vTable->createNewStateData(zone, threadResources, globalResources);
+				}
+				else
+				{
+					zone.nextState = undefinedState;
+				}
+			}
+			else
+			{
+				threadResources.gpuCompletionEventManager.addRequest(&zone, zone.vTable->deleteOldStateData, globalResources.graphicsEngine.frameIndex);//wait for cpu and gpu to stop using old state
+			}
 		} });
 	}
 
@@ -121,10 +134,9 @@ public:
 		threadResources.taskShedular.update2NextQueue().concurrentPush({ this, [](void* context, ThreadResources& threadResources, GlobalResources& globalResources)
 		{
 			Zone& zone = *(Zone*)(context);
-			unsigned int newState = zone.currentState;
-			if (zone.nextState != newState)
+			unsigned int currentState = zone.currentState;
+			if (zone.nextState != currentState)
 			{
-				zone.nextState = newState;
 				zone.newState = zone.nextState;
 				zone.vTable->createNewStateData(zone, threadResources, globalResources);
 			}
