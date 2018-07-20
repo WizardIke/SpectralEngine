@@ -22,44 +22,20 @@ bool ThreadResources::initialize1(ThreadResources& threadResources, GlobalResour
 	threadResources.taskShedular.runBackgroundTasks(globalResources.taskShedular, threadResources, globalResources);
 	threadResources.streamingManager.update(globalResources.streamingManager);
 
-	std::unique_lock<std::mutex> lock(globalResources.taskShedular.barrier().mutex());
-	if (globalResources.taskShedular.barrier().waiting_count() == globalResources.taskShedular.primaryThreadCount() - 1u)
+	globalResources.taskShedular.barrier().sync(globalResources.taskShedular.threadCount(), [&streamingManager = globalResources.streamingManager, &taskShedular = threadResources.taskShedular]()
 	{
-		globalResources.streamingManager.update<ThreadResources, GlobalResources>(threadResources.taskShedular);
-		
-		globalResources.taskShedular.barrier().waiting_count() = 0u;
-		++(globalResources.taskShedular.barrier().generation());
-		lock.unlock();
-		globalResources.taskShedular.barrier().notify_all();
-	}
-	else
-	{
-		++(globalResources.taskShedular.barrier().waiting_count());
-		globalResources.taskShedular.barrier().wait(lock, [&generation = globalResources.taskShedular.barrier().generation(), gen = globalResources.taskShedular.barrier().generation()]() {return gen != generation; });
-		lock.unlock();
-	}
+		streamingManager.update<ThreadResources, GlobalResources>(taskShedular);
+	});
 
 	return false;
 }
 
 bool ThreadResources::initialize2(ThreadResources& threadResources, GlobalResources& globalResources)
 {
-	std::unique_lock<std::mutex> lock(globalResources.taskShedular.barrier().mutex());
-	if (globalResources.taskShedular.barrier().waiting_count() == globalResources.taskShedular.primaryThreadCount() - 1u)
+	globalResources.taskShedular.barrier().sync(globalResources.taskShedular.threadCount(), [&taskShedular = globalResources.taskShedular]()
 	{
-		globalResources.taskShedular.setNextPhaseTask(initialize3);
-
-		globalResources.taskShedular.barrier().waiting_count() = 0u;
-		++(globalResources.taskShedular.barrier().generation());
-		lock.unlock();
-		globalResources.taskShedular.barrier().notify_all();
-	}
-	else
-	{
-		++(globalResources.taskShedular.barrier().waiting_count());
-		globalResources.taskShedular.barrier().wait(lock, [&generation = globalResources.taskShedular.barrier().generation(), gen = globalResources.taskShedular.barrier().generation()]() {return gen != generation; });
-		lock.unlock();
-	}
+		taskShedular.setNextPhaseTask(initialize3);
+	});
 
 	return false;
 }
@@ -74,11 +50,12 @@ bool ThreadResources::initialize3(ThreadResources& threadResources, GlobalResour
 
 bool ThreadResources::endUpdate1(ThreadResources& threadResources, GlobalResources& globalResources)
 {
-	const unsigned int updateIndex = globalResources.taskShedular.incrementUpdateIndex();
+	unsigned int primaryThreadCount;
+	const unsigned int updateIndex = globalResources.taskShedular.incrementUpdateIndex(primaryThreadCount);
 	const bool isFirstThread = updateIndex == 0u;
 	threadResources.renderPass.update1(threadResources, globalResources.graphicsEngine, globalResources.renderPass, isFirstThread);
 
-	threadResources.taskShedular.endUpdate1(globalResources.taskShedular, endUpdate2, updateIndex);
+	threadResources.taskShedular.endUpdate1(globalResources.taskShedular, endUpdate2, updateIndex, primaryThreadCount);
 
 	threadResources.renderPass.update1After(globalResources.graphicsEngine, globalResources.renderPass, globalResources.rootSignatures.rootSignature, isFirstThread);
 

@@ -205,7 +205,7 @@ public:
 
 		void sync(TaskShedular& taskShedular)
 		{
-			taskShedular.mBarrier.sync(taskShedular.primaryThreadCount());
+			taskShedular.mBarrier.sync(taskShedular.threadCount());
 		}
 		
 		WorkStealingQueue<Task>& update1CurrentQueue()
@@ -236,9 +236,8 @@ public:
 			return mIndex;
 		}
 		
-		void endUpdate1(TaskShedular& taskShedular, NonAtomicNextPhaseTask nextPhaseTask, const unsigned int updateIndex)
+		void endUpdate1(TaskShedular& taskShedular, NonAtomicNextPhaseTask nextPhaseTask, const unsigned int updateIndex, const unsigned int primaryThreadCount)
 		{
-			const unsigned int primaryThreadCount = taskShedular.primaryThreadCount();
 			if (updateIndex == primaryThreadCount - 1u)
 			{
 				taskShedular.mNextPhaseTask.store(nextPhaseTask, std::memory_order::memory_order_relaxed);
@@ -412,11 +411,6 @@ private:
 		return false;
 	}
 
-	void mIncrementPrimaryThreadCount()
-	{
-		mUpdateIndexAndPrimaryThreadCount.fetch_add(1u, std::memory_order::memory_order_relaxed);
-	}
-
 	void mResetUpdateIndex()
 	{
 		unsigned long oldUpdateIndexAndPrimaryThreadCount = mUpdateIndexAndPrimaryThreadCount.load(std::memory_order::memory_order_relaxed);
@@ -455,17 +449,6 @@ public:
 	unsigned int threadCount()
 	{
 		return mThreadCount;
-	}
-
-	unsigned int primaryThreadCount()
-	{
-		return mUpdateIndexAndPrimaryThreadCount.load(std::memory_order::memory_order_relaxed) & 0xffff;
-	}
-
-	unsigned int incrementUpdateIndex()
-	{
-		unsigned long newUpdateIndexAndPrimaryThreadCount = mUpdateIndexAndPrimaryThreadCount.fetch_add(1ul << 16ul, std::memory_order::memory_order_relaxed);
-		return (unsigned int)(newUpdateIndexAndPrimaryThreadCount >> 16ul);
 	}
 
 	unsigned int incrementUpdateIndex(unsigned int& primaryThreadCount)
