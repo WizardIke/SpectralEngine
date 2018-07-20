@@ -14,17 +14,17 @@ class Zone
 		void(*start)(Zone& zone, ThreadResources& threadResources, GlobalResources& globalResources);
 		void (*createNewStateData)(Zone& zone, ThreadResources& threadResources, GlobalResources& globalResources);
 		void(*deleteOldStateData)(void* zone, void* threadResources, void* GlobalResources);
-		void(*loadConnectedAreas)(Zone& zone, ThreadResources& threadResources, GlobalResources& globalResources, float distanceSquared, Area::VisitedNode* loadedAreas);
+		void(*loadConnectedAreas)(Zone& zone, ThreadResources& threadResources, GlobalResources& globalResources, float distanceFromAreaEntrance, Area::VisitedNode* loadedAreas);
 		bool(*changeArea)(Zone& zone, ThreadResources& threadResources, GlobalResources& globalResources);
 	};
 	const VTable* const vTable;
 
 	constexpr static unsigned int undefinedState = std::numeric_limits<unsigned int>::max();
 	
-	Zone(const VTable* const vTable, unsigned int highestSupportedState) : vTable(vTable), highestSupportedState(highestSupportedState) {}
+	Zone(const VTable* const vTable, unsigned int highestSupportedState) : vTable(vTable), highestSupportedState(highestSupportedState), currentState(highestSupportedState), nextState(undefinedState) {}
 public:
 	Zone(std::nullptr_t) : vTable(nullptr) {}
-	Zone(Zone&& other) : vTable(other.vTable) {} // should be deleted when c++17 becomes common. Only used for return from factory methods
+	Zone(Zone&& other) : vTable(other.vTable), highestSupportedState(other.highestSupportedState), currentState(other.currentState), nextState(other.nextState) {} // should be deleted when c++17 becomes common. Only used for return from factory methods
 
 	template<class ZoneFunctions>
 	static Zone create(unsigned int numberOfStates)
@@ -52,9 +52,9 @@ public:
 		void* oldData;
 	};
 	
-	unsigned int currentState = undefinedState; //the state that is currenly getting used
+	unsigned int currentState; //the state that is currenly getting used
 	unsigned int lastUsedState;
-	unsigned int nextState = undefinedState; //the state that we want to be in
+	unsigned int nextState; //the state that we want to be in
 	union //state waiting to be used or deleted
 	{
 		unsigned int newState;
@@ -74,9 +74,25 @@ public:
 		}
 	}
 
+	void finishMovingToUnloadedState(ThreadResources& threadResources)
+	{
+		threadResources.taskShedular.update2NextQueue().push({ this, [](void* context, ThreadResources& threadResources, GlobalResources& globalResources)
+		{
+			Zone& zone = *(Zone*)(context);
+			unsigned int oldState = zone.currentState;
+			void* oldData = zone.currentData;
+			zone.currentState = zone.newState;
+			zone.oldData = oldData;
+			zone.oldState = oldState;
+
+			threadResources.gpuCompletionEventManager.addRequest(&zone, zone.vTable->deleteOldStateData, globalResources.graphicsEngine.frameIndex);//wait for cpu and gpu to stop using old state
+		} });
+	}
+
 	void setState(unsigned int newState, ThreadResources& threadResources, GlobalResources& globalResources)
 	{
-		unsigned int actualNewState = newState > this->highestSupportedState ? this->highestSupportedState : newState;
+		const unsigned int highestSupportedState = this->highestSupportedState;
+		unsigned int actualNewState = newState > highestSupportedState ? highestSupportedState : newState;
 		if (this->nextState == undefinedState)
 		{
 			//we aren't currently changing state
@@ -84,7 +100,14 @@ public:
 			{
 				this->nextState = actualNewState;
 				this->newState = actualNewState;
-				this->vTable->createNewStateData(*this, threadResources, globalResources);
+				if (actualNewState == highestSupportedState)
+				{
+					finishMovingToUnloadedState(threadResources);
+				}
+				else
+				{
+					this->vTable->createNewStateData(*this, threadResources, globalResources);
+				}
 			}
 		}
 		else
@@ -103,20 +126,29 @@ public:
 			void* oldData = zone.currentData;
 			zone.currentState = zone.newState;
 			zone.currentData = zone.newData;
-			zone.newData = oldData;
-			zone.newState = oldState;
+			zone.oldData = oldData;
+			zone.oldState = oldState;
 
 			if (oldState >= zone.highestSupportedState)
 			{
-				zone.start(threadResources, globalResources);
 				unsigned int currentState = zone.currentState;
 				if (zone.nextState != currentState)
 				{
 					zone.newState = zone.nextState;
-					zone.vTable->createNewStateData(zone, threadResources, globalResources);
+					if (zone.nextState == zone.highestSupportedState)
+					{
+						zone.currentState = zone.highestSupportedState;
+						zone.nextState = undefinedState;
+					}
+					else
+					{
+						zone.start(threadResources, globalResources);
+						zone.vTable->createNewStateData(zone, threadResources, globalResources);
+					}
 				}
 				else
 				{
+					zone.start(threadResources, globalResources);
 					zone.nextState = undefinedState;
 				}
 			}
@@ -129,6 +161,7 @@ public:
 
 	void finishedDeletingOldState(ThreadResources& threadResources)
 	{
+		numComponentsLoaded.store(0u, std::memory_order::memory_order_relaxed);
 		//Not garantied to be next queue. Could be current queue.
 		//wait for zone to start using new state
 		threadResources.taskShedular.update2NextQueue().concurrentPush({ this, [](void* context, ThreadResources& threadResources, GlobalResources& globalResources)
@@ -138,7 +171,14 @@ public:
 			if (zone.nextState != currentState)
 			{
 				zone.newState = zone.nextState;
-				zone.vTable->createNewStateData(zone, threadResources, globalResources);
+				if (zone.nextState == zone.highestSupportedState)
+				{
+					zone.finishMovingToUnloadedState(threadResources);
+				}
+				else
+				{
+					zone.vTable->createNewStateData(zone, threadResources, globalResources);
+				}
 			}
 			else
 			{
@@ -152,9 +192,9 @@ public:
 		vTable->start(*this, threadResources, globalResources);
 	}
 
-	void loadConnectedAreas(ThreadResources& threadResources, GlobalResources& globalResources, float distanceSquared, Area::VisitedNode* loadedAreas)
+	void loadConnectedAreas(ThreadResources& threadResources, GlobalResources& globalResources, float distanceFromAreaEntrance, Area::VisitedNode* loadedAreas)
 	{
-		vTable->loadConnectedAreas(*this, threadResources, globalResources, distanceSquared, loadedAreas);
+		vTable->loadConnectedAreas(*this, threadResources, globalResources, distanceFromAreaEntrance, loadedAreas);
 	}
 
 	bool changeArea(ThreadResources& threadResources, GlobalResources& globalResources)

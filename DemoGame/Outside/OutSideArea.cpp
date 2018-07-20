@@ -21,24 +21,21 @@ OutSideArea::OutSideArea() :
 		TestZone<0u, 9u>(), TestZone<1u, 9u>(), TestZone<2u, 9u>(), TestZone<3u, 9u>(), TestZone<4u, 9u>(), TestZone<5u, 9u>(), TestZone<6u, 9u>(), TestZone<7u, 9u>(), TestZone<8u, 9u>(), TestZone<9u, 9u>()
 	} {}
 
-void OutSideArea::load(ThreadResources& executor, GlobalResources& sharedResources, Vector2 position, float distance, Area::VisitedNode* loadedAreas)
+void OutSideArea::load(ThreadResources& executor, GlobalResources& sharedResources, Vector2 position, float distanceToAreaEntrance, Area::VisitedNode* loadedAreas)
 {
 	Area::VisitedNode thisArea;
 	thisArea.thisArea = this;
-	if (!loadedAreas)
+	thisArea.next = loadedAreas;
+	while (loadedAreas != nullptr)
 	{
-		thisArea.next = nullptr;
-		loadedAreas = &thisArea;
+		if (loadedAreas->thisArea == this) return; //this area has already been loaded
+		loadedAreas = loadedAreas->next;
 	}
-	else
-	{
-		thisArea.next = loadedAreas;
-		do
-		{
-			if (loadedAreas->thisArea == this) return; //this area has already been loaded
-			loadedAreas = loadedAreas->next;
-		} while (loadedAreas);
-	}
+
+	float currentHighDetailRadius = highDetailRadius - distanceToAreaEntrance;
+	float currentMediumDetailRadiusSquared = mediumDetailRadius - distanceToAreaEntrance;
+	float currentLowDetailRadiusSquared = lowDetailRadius - distanceToAreaEntrance;
+	if (currentLowDetailRadiusSquared <= 0.0f) return; //this area is too far away to load
 
 	constexpr int numZonesRadius = Area::constexprCeil(lowDetailRadius / Area::zoneDiameter);
 	unsigned int minX, maxX, minZ, maxZ;
@@ -46,15 +43,6 @@ void OutSideArea::load(ThreadResources& executor, GlobalResources& sharedResourc
 	maxX = currentZoneX + numZonesRadius < zonesLengthX - 1u ? currentZoneX + numZonesRadius : zonesLengthX - 1u;
 	minZ = currentZoneZ > numZonesRadius ? currentZoneZ - numZonesRadius : 0u;
 	maxZ = currentZoneZ + numZonesRadius < zonesLengthZ - 1u ? currentZoneZ + numZonesRadius : zonesLengthZ - 1u;
-
-	float highDetailRadiusSquared = highDetailRadius - distance;
-	highDetailRadiusSquared *= highDetailRadiusSquared;
-
-	float mediumDetailRadiusSquared = mediumDetailRadius - distance;
-	mediumDetailRadiusSquared *= mediumDetailRadiusSquared;
-
-	float lowDetailRadiusSquared = lowDetailRadius - distance;
-	lowDetailRadiusSquared *= lowDetailRadiusSquared;
 
 	for (auto z = minZ; z <= maxZ; ++z)
 	{
@@ -66,25 +54,27 @@ void OutSideArea::load(ThreadResources& executor, GlobalResources& sharedResourc
 			Vector2 zonePosition{ x * Area::zoneDiameter, z * Area::zoneDiameter };
 			difX = position.x - zonePosition.x;
 			difZ = position.y - zonePosition.y;
-			float distanceSquared = difX * difX + difZ * difZ;
+			float distanceFromAreaEntrance = std::sqrt(difX * difX + difZ * difZ);
 
-			if (distanceSquared < highDetailRadiusSquared)
+			if (distanceFromAreaEntrance < currentHighDetailRadius)
 			{
 				zone.setState(0u, executor, sharedResources);
-				zone.loadConnectedAreas(executor, sharedResources, distanceSquared, &thisArea);
+				zone.loadConnectedAreas(executor, sharedResources, distanceFromAreaEntrance + distanceToAreaEntrance, &thisArea);
 			}
-			else if (distanceSquared < mediumDetailRadiusSquared)
+			else if (distanceFromAreaEntrance < currentMediumDetailRadiusSquared)
 			{
 				zone.setState(1u, executor, sharedResources);
-				zone.loadConnectedAreas(executor, sharedResources, distanceSquared, &thisArea);
+				zone.loadConnectedAreas(executor, sharedResources, distanceFromAreaEntrance + distanceToAreaEntrance, &thisArea);
 			}
-			else if (distanceSquared < lowDetailRadiusSquared)
+			else if (distanceFromAreaEntrance < currentLowDetailRadiusSquared)
 			{
 				zone.setState(2u, executor, sharedResources);
+				zone.loadConnectedAreas(executor, sharedResources, distanceFromAreaEntrance + distanceToAreaEntrance, &thisArea);
 			}
 			else
 			{
 				zone.setState(3u, executor, sharedResources);
+				zone.loadConnectedAreas(executor, sharedResources, distanceFromAreaEntrance + distanceToAreaEntrance, &thisArea);
 			}
 		}
 	}

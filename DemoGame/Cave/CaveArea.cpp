@@ -13,23 +13,15 @@ namespace Cave
 		}
 	{}
 
-	void CaveArea::load(ThreadResources& threadResources, GlobalResources& globalResources, Vector2 position, float distance, Area::VisitedNode* loadedAreas)
+	void CaveArea::load(ThreadResources& threadResources, GlobalResources& globalResources, Vector2 position, float distanceToAreaEntrance, Area::VisitedNode* loadedAreas)
 	{
 		Area::VisitedNode thisArea;
 		thisArea.thisArea = this;
-		if (!loadedAreas)
+		thisArea.next = loadedAreas;
+		while (loadedAreas != nullptr)
 		{
-			thisArea.next = nullptr;
-			loadedAreas = &thisArea;
-		}
-		else
-		{
-			thisArea.next = loadedAreas;
-			do
-			{
-				if (loadedAreas->thisArea == this) return; //this area has already been loaded
-				loadedAreas = loadedAreas->next;
-			} while (loadedAreas);
+			if (loadedAreas->thisArea == this) return; //this area has already been loaded
+			loadedAreas = loadedAreas->next;
 		}
 
 		constexpr int numZonesRadius = Area::constexprCeil(mediumDetailRadius / Area::zoneDiameter);
@@ -39,12 +31,9 @@ namespace Cave
 		minZ = currentZoneZ > numZonesRadius ? currentZoneZ - numZonesRadius : 0u;
 		maxZ = currentZoneZ + numZonesRadius < zonesLengthZ - 1u ? currentZoneZ + numZonesRadius : zonesLengthZ - 1u;
 
-		float highDetailRadiusSquared = highDetailRadius - distance;
-		if (highDetailRadiusSquared <= 0.0f) return;
-		highDetailRadiusSquared *= highDetailRadiusSquared;
-
-		float mediumDetailRadiusSquared = mediumDetailRadius - distance;
-		mediumDetailRadiusSquared *= mediumDetailRadiusSquared;
+		float currentHighDetailRadius = highDetailRadius - distanceToAreaEntrance;
+		float currentMediumDetailRadius = mediumDetailRadius - distanceToAreaEntrance;
+		if (currentMediumDetailRadius <= 0.0f) return;
 
 		for (auto z = minZ; z <= maxZ; ++z)
 		{
@@ -56,21 +45,22 @@ namespace Cave
 				Vector2 zonePosition{ x * Area::zoneDiameter, z * Area::zoneDiameter };
 				difX = position.x - zonePosition.x;
 				difZ = position.y - zonePosition.y;
-				float distanceSquared = difX * difX + difZ * difZ;
+				float distanceFromAreaEntrance = std::sqrt(difX * difX + difZ * difZ);
 
-				if (distanceSquared < highDetailRadiusSquared)
+				if (distanceFromAreaEntrance < currentHighDetailRadius)
 				{
 					zone.setState(0u, threadResources, globalResources);
-					zone.loadConnectedAreas(threadResources, globalResources, std::sqrt(distanceSquared) + distance, &thisArea);
+					zone.loadConnectedAreas(threadResources, globalResources, distanceFromAreaEntrance + distanceToAreaEntrance, &thisArea);
 				}
-				else if (distanceSquared < mediumDetailRadiusSquared)
+				else if (distanceFromAreaEntrance < currentMediumDetailRadius)
 				{
 					zone.setState(1u, threadResources, globalResources);
-					zone.loadConnectedAreas(threadResources, globalResources, std::sqrt(distanceSquared) + distance, &thisArea);
+					zone.loadConnectedAreas(threadResources, globalResources, distanceFromAreaEntrance + distanceToAreaEntrance, &thisArea);
 				}
 				else
 				{
 					zone.setState(2u, threadResources, globalResources);
+					zone.loadConnectedAreas(threadResources, globalResources, distanceFromAreaEntrance + distanceToAreaEntrance, &thisArea);
 				}
 			}
 		}
