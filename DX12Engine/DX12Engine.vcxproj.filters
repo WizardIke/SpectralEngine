@@ -383,6 +383,7 @@
     <ClInclude Include="VirtualTextureInfoByID.h">
       <Filter>VirtualTexturing</Filter>
     </ClInclude>
+    <ClInclude Include="StartableIOCompletionQueue.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DDSFileLoader.cpp">

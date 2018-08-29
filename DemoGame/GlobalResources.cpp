@@ -41,10 +41,6 @@ static LRESULT CALLBACK windowCallback(HWND hwnd, UINT message, WPARAM wParam, L
 			}
 			return DefWindowProc(hwnd, message, wParam, lParam);
 		}
-	case 0x8000: //do a task
-		using Task = Delegate<void(ThreadResources& threadResources, GlobalResources& globalresources)>;
-		Task((void*)wParam, (void(*)(void* context, ThreadResources& threadResources, GlobalResources& globalresources))lParam)(globalResources.mainThreadResources, globalResources);
-		break;
 	case WM_DESTROY:
 		PostQuitMessage(0);
 		return 0;
@@ -143,6 +139,7 @@ GlobalResources::GlobalResources(const unsigned int numberOfThreads, bool fullSc
 	readyToPresentEvent(nullptr, FALSE, FALSE, nullptr)
 {
 	ambientMusic.start(mainThreadResources, *this);
+	ioCompletionQueue.start(mainThreadResources, *this);
 
 	D3D12_RANGE readRange{ 0u, 0u };
 	HRESULT hr = sharedConstantBuffer->Map(0u, &readRange, reinterpret_cast<void**>(&constantBuffersCpuAddress));

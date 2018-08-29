@@ -3,9 +3,9 @@
 #include <cstdint>
 #include "File.h"
 #include "IOCompletionQueue.h"
-#include "Range.h"
 #include <mutex>
 #include "FixedSizeAllocator.h"
+#include "Delegate.h"
 
 class AsynchronousFileManager
 {
@@ -25,8 +25,6 @@ public:
 	struct FileData
 	{
 		uint8_t* allocation;
-		uint8_t* data;
-		std::size_t allocationSize;
 	};
 
 	struct Hasher
@@ -42,16 +40,17 @@ public:
 
 	struct IORequest : OVERLAPPED
 	{
+		//location to read
+		File file;
 		const wchar_t* name;
-		uint8_t* buffer;
 		size_t start;
 		size_t end;
-		size_t sizeToRead;
+		//location to put the result
+		uint8_t* buffer;
+		//amount read
 		size_t accumulatedSize;
-		size_t memoryStart;
-		File file;
-		void* requester;
-		void(*completionEvent)(void* requester, void* executor, void* sharedResources, const uint8_t* data, File file);
+		//what to do with the result
+		Delegate<void(void* executor, void* sharedResources, const uint8_t* data, File file)> callback;
 	};
 private:
 	std::mutex mutex;

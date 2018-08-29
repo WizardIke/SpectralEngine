@@ -22,9 +22,14 @@ bool ThreadResources::initialize1(ThreadResources& threadResources, GlobalResour
 	threadResources.taskShedular.runBackgroundTasks(globalResources.taskShedular, threadResources, globalResources);
 	threadResources.streamingManager.update(globalResources.streamingManager);
 
-	globalResources.taskShedular.barrier().sync(globalResources.taskShedular.threadCount(), [&streamingManager = globalResources.streamingManager, &taskShedular = threadResources.taskShedular]()
+	globalResources.taskShedular.barrier().sync(globalResources.taskShedular.threadCount(), [&globalResources = globalResources, &threadResources = threadResources]()
 	{
-		streamingManager.update<ThreadResources, GlobalResources>(taskShedular);
+		globalResources.streamingManager.update<ThreadResources, GlobalResources>(threadResources.taskShedular);
+		IOCompletionPacket task;
+		while (globalResources.ioCompletionQueue.pop(task))
+		{
+			task(&threadResources, &globalResources);
+		}
 	});
 
 	return false;

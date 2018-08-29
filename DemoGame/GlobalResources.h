@@ -5,6 +5,7 @@
 #include <Window.h>
 #include <D3D12GraphicsEngine.h>
 #include <StreamingManager.h>
+#include <StartableIOCompletionQueue.h>
 #include <AsynchronousFileManager.h>
 #include <TextureManager.h>
 #include <MeshManager.h>
@@ -37,6 +38,7 @@ public:
 	StreamingManager streamingManager; //thread safe
 	TaskShedular<ThreadResources, GlobalResources> taskShedular;
 	ThreadResources mainThreadResources;
+	StartableIOCompletionQueue ioCompletionQueue;
 	AsynchronousFileManager asynchronousFileManager;
 	TextureManager textureManager; //thread safe
 	MeshManager meshManager; //thread safe

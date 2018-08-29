@@ -119,7 +119,7 @@ private:
 	template<class ThreadResources, class GlobalResources>
 	void loadTextureUncached(const wchar_t* filename, ThreadResources& executor, GlobalResources& sharedResources)
 	{
-		File file = sharedResources.asynchronousFileManager.openFileForReading<GlobalResources>(sharedResources.taskShedular.ioCompletionQueue(), filename);
+		File file = sharedResources.asynchronousFileManager.openFileForReading<GlobalResources>(sharedResources.ioCompletionQueue, filename);
 
 		sharedResources.asynchronousFileManager.readFile(&executor, &sharedResources, filename, 0u, sizeof(DDSFileLoader::DdsHeaderDx12), file, reinterpret_cast<void*>(const_cast<wchar_t *>(filename)),
 			[](void* requester, void* executor, void* sharedResources, const uint8_t* buffer, File file)

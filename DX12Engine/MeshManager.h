@@ -221,7 +221,7 @@ class MeshManager
 	template<class VertexType_t, class ThreadResources, class GlobalResources>
 	void loadMeshUncached(ThreadResources& executor, GlobalResources& sharedResources, const wchar_t* filename)
 	{
-		File file = sharedResources.asynchronousFileManager.openFileForReading<GlobalResources>(sharedResources.taskShedular.ioCompletionQueue(), filename);
+		File file = sharedResources.asynchronousFileManager.openFileForReading<GlobalResources>(sharedResources.ioCompletionQueue, filename);
 		sharedResources.asynchronousFileManager.readFile(&executor, &sharedResources, filename, 0u, sizeof(uint32_t) * 3u, file, reinterpret_cast<void*>(const_cast<wchar_t *>(filename)),
 			[](void* requester, void* executor, void* sharedResources, const uint8_t* buffer, File file)
 		{

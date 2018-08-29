@@ -172,7 +172,7 @@ public:
 			uploadRequests[filename].push_back(callback);
 			lock.unlock();
 
-			loadTextureUncached(sharedResources.asynchronousFileManager, sharedResources.taskShedular.ioCompletionQueue(), executor, sharedResources, filename);
+			loadTextureUncached(sharedResources.asynchronousFileManager, sharedResources.ioCompletionQueue, executor, sharedResources, filename);
 			return;
 		}
 		//the resource is loaded or loading
