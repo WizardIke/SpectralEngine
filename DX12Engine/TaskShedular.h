@@ -2,7 +2,6 @@
 #include "Delegate.h"
 #include "WorkStealingQueue.h"
 #include "ThreadBarrier.h"
-#include "IOCompletionQueue.h"
 #include "SingleProducerSingleConsumerQueue.h"
 
 template<class ThreadResources, class GlobalResources>
@@ -49,51 +48,20 @@ public:
 			while (true)
 			{
 				++currentIndex;
-				if (currentIndex == threadCount + 1u) { currentIndex = 0u; }
-				if (currentIndex == threadCount) { return currentIndex; }
+				if (currentIndex == threadCount) { currentIndex = 0u; }
 				if (backgroundQueues[currentIndex]->try_lock()) { return currentIndex; }
 			}
 		}
 
 		void runBackgroundTasks(TaskShedular& taskShedular, ThreadResources& threadResources, GlobalResources& globalResoureces, unsigned int currentBackgroundQueueIndex)
 		{
-			if (currentBackgroundQueueIndex == taskShedular.mThreadCount)
+			Task task;
+			auto& queue = *taskShedular.mBackgroundQueues[currentBackgroundQueueIndex];
+			while (queue.pop(task))
 			{
-				bool found;
-				IOCompletionPacket task;
-				auto& queue = taskShedular.mIoCompletionQueue;
-				while (true)
-				{
-					found = queue.pop(task);
-					if (found)
-					{
-						task(&threadResources, &globalResoureces);
-					}
-					else
-					{
-						break;
-					}
-				}
+				task(threadResources, globalResoureces);
 			}
-			else
-			{
-				bool found;
-				Task task;
-				auto& queue = *taskShedular.mBackgroundQueues[currentBackgroundQueueIndex];
-				while (true)
-				{
-					found = queue.pop(task);
-					if (found)
-					{
-						task(threadResources, globalResoureces);
-					}
-					else
-					{
-						break;
-					}
-				}
-				queue.unlock();
-			}
+			queue.unlock();
 		}
 
 		template<void(*prepairForUpdate2)(ThreadResources& threadResources, GlobalResources& globalResoureces)>
@@ -278,68 +246,34 @@ public:
 
 			unsigned int currentQueueIndex = lockAndGetNextBackgroundQueue(mCurrentBackgroundQueueIndex, taskShedular.mThreadCount, taskShedular.mBackgroundQueues);
 			mCurrentBackgroundQueueIndex = currentQueueIndex;
-			if (currentQueueIndex == taskShedular.mThreadCount)
+			
+			Task task;
+			if (taskShedular.mBackgroundQueues[currentQueueIndex]->pop(task))
 			{
-				IOCompletionPacket task;
-				bool found = taskShedular.mIoCompletionQueue.pop(task);
-				if (found)
+				taskShedular.mPrimaryThreadCountDefferedDecrease.fetch_add(1u, std::memory_order::memory_order_relaxed);
+				taskShedular.mBarrier.sync(primaryThreadCount, [&mUpdateIndexAndPrimaryThreadCount = taskShedular.mUpdateIndexAndPrimaryThreadCount,
+					&primaryThreadCountDefferedDecrease = taskShedular.mPrimaryThreadCountDefferedDecrease]()
 				{
-					taskShedular.mPrimaryThreadCountDefferedDecrease.fetch_add(1u, std::memory_order::memory_order_relaxed);
-					taskShedular.mBarrier.sync(primaryThreadCount, [&mUpdateIndexAndPrimaryThreadCount = taskShedular.mUpdateIndexAndPrimaryThreadCount,
-						&primaryThreadCountDefferedDecrease = taskShedular.mPrimaryThreadCountDefferedDecrease]()
-					{
-						unsigned int amount = primaryThreadCountDefferedDecrease.load(std::memory_order::memory_order_relaxed);
-						unsigned long oldUpdateIndexAndPrimaryThreadCount = mUpdateIndexAndPrimaryThreadCount.load(std::memory_order::memory_order_relaxed);
-						mUpdateIndexAndPrimaryThreadCount.store((oldUpdateIndexAndPrimaryThreadCount - amount) & 0xffff, std::memory_order::memory_order_release);
-						primaryThreadCountDefferedDecrease.store(0u, std::memory_order::memory_order_relaxed);
-					});
+					unsigned int amount = primaryThreadCountDefferedDecrease.load(std::memory_order::memory_order_relaxed);
+					unsigned long oldUpdateIndexAndPrimaryThreadCount = mUpdateIndexAndPrimaryThreadCount.load(std::memory_order::memory_order_relaxed);
+					mUpdateIndexAndPrimaryThreadCount.store((oldUpdateIndexAndPrimaryThreadCount - amount) & 0xffff, std::memory_order::memory_order_release);
+					primaryThreadCountDefferedDecrease.store(0u, std::memory_order::memory_order_relaxed);
+				});
 
-					mUpdate2CurrentQueue->reset();
+				mUpdate2CurrentQueue->reset();
 
-					endUpdate(threadResources, globalResoureces);
+				endUpdate(threadResources, globalResoureces);
 
-					task(&threadResources, &globalResoureces);
+				task(threadResources, globalResoureces);
 
-					runBackgroundTasks(taskShedular, threadResources, globalResoureces, currentQueueIndex);
-					getIntoCorrectStateAfterDoingBackgroundTasks<prepairForUpdate2>(taskShedular, threadResources, globalResoureces);
-				}
-				else
-				{
-					endUpdate2End(taskShedular, primaryThreadCount, updateIndex);
-					endUpdate(threadResources, globalResoureces);
-				}
+				runBackgroundTasks(taskShedular, threadResources, globalResoureces, currentQueueIndex);
+				getIntoCorrectStateAfterDoingBackgroundTasks<prepairForUpdate2>(taskShedular, threadResources, globalResoureces);
 			}
 			else
 			{
-				Task task;
-				bool found = taskShedular.mBackgroundQueues[currentQueueIndex]->pop(task);
-				if (found)
-				{
-					taskShedular.mPrimaryThreadCountDefferedDecrease.fetch_add(1u, std::memory_order::memory_order_relaxed);
-					taskShedular.mBarrier.sync(primaryThreadCount, [&mUpdateIndexAndPrimaryThreadCount = taskShedular.mUpdateIndexAndPrimaryThreadCount,
-						&primaryThreadCountDefferedDecrease = taskShedular.mPrimaryThreadCountDefferedDecrease]()
-					{
-						unsigned int amount = primaryThreadCountDefferedDecrease.load(std::memory_order::memory_order_relaxed);
-						unsigned long oldUpdateIndexAndPrimaryThreadCount = mUpdateIndexAndPrimaryThreadCount.load(std::memory_order::memory_order_relaxed);
-						mUpdateIndexAndPrimaryThreadCount.store((oldUpdateIndexAndPrimaryThreadCount - amount) & 0xffff, std::memory_order::memory_order_release);
-						primaryThreadCountDefferedDecrease.store(0u, std::memory_order::memory_order_relaxed);
-					});
-
-					mUpdate2CurrentQueue->reset();
-
-					endUpdate(threadResources, globalResoureces);
-
-					task(threadResources, globalResoureces);
-
-					runBackgroundTasks(taskShedular, threadResources, globalResoureces, currentQueueIndex);
-					getIntoCorrectStateAfterDoingBackgroundTasks<prepairForUpdate2>(taskShedular, threadResources, globalResoureces);
-				}
-				else
-				{
-					taskShedular.mBackgroundQueues[currentQueueIndex]->unlock();
-					endUpdate2End(taskShedular, primaryThreadCount, updateIndex);
-					endUpdate(threadResources, globalResoureces);
-				}
+				taskShedular.mBackgroundQueues[currentQueueIndex]->unlock();
+				endUpdate2End(taskShedular, primaryThreadCount, updateIndex);
+				endUpdate(threadResources, globalResoureces);
 			}
 		}
 		
@@ -392,7 +326,6 @@ private:
 	WorkStealingQueue<Task>** mWorkStealingQueuesArray;
 	WorkStealingQueue<Task>** mCurrentWorkStealingQueues;
 	BackgroundQueue** mBackgroundQueues;
-	IOCompletionQueue mIoCompletionQueue;
 	unsigned int mThreadCount;
 	std::atomic<unsigned long> mUpdateIndexAndPrimaryThreadCount;
 	std::atomic<unsigned int> mPrimaryThreadCountDefferedDecrease = 0u;
@@ -439,11 +372,6 @@ public:
 		mThreadCount = numberOfThreads;
 		mUpdateIndexAndPrimaryThreadCount.store(numberOfThreads, std::memory_order::memory_order_relaxed);
 		mNextPhaseTask.store(nextPhaseTask, std::memory_order::memory_order_relaxed);
-	}
-
-	IOCompletionQueue& ioCompletionQueue()
-	{
-		return mIoCompletionQueue;
 	}
 
 	unsigned int threadCount()
