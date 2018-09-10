@@ -44,7 +44,7 @@ class AmbientMusic : private IXAudio2VoiceCallback
 	static void loadSoundData(AmbientMusic& music, ThreadResources& threadResources, GlobalResources& globalResources);
 	static void loadSoundDataPart2(AmbientMusic& music, ThreadResources& threadResources, GlobalResources& globalResources);
 	static void onSoundDataLoadingFinished(AmbientMusic& music, ThreadResources& threadResources, GlobalResources& globalResources);
-	static void submitBuffer(IXAudio2SourceVoice* musicPlayer, void* context, const uint8_t* data, std::size_t length);
+	static void submitBuffer(IXAudio2SourceVoice* musicPlayer, void* context, const unsigned char* data, std::size_t length);
 	void startImpl(ThreadResources& executor, GlobalResources& sharedResources);
 	static void onFirstBufferFinishedLoading(AmbientMusic& music, ThreadResources& threadResources, GlobalResources& globalResources);
 public:

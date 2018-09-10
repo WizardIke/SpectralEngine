@@ -111,7 +111,7 @@ void AmbientMusic::findNextMusic(ThreadResources& threadResources, GlobalResourc
 	file = globalResources.asynchronousFileManager.openFileForReading<GlobalResources>(globalResources.ioCompletionQueue, filename);
 	filePosition = 4 * 1024u;
 	globalResources.asynchronousFileManager.readFile(&threadResources, &globalResources, filename, 0, 4 * 1024u, file,
-		this, [](void* requester, void* executor, void* sharedResources, const uint8_t* data, File file)
+		this, [](void* requester, void* executor, void* sharedResources, const unsigned char* data, File file)
 	{
 		const SoundDecoder::UncompressedFileInfo& headerInfo = *reinterpret_cast<const SoundDecoder::UncompressedFileInfo*>(data);
 		auto& music = *reinterpret_cast<AmbientMusic*>(requester);
@@ -166,7 +166,7 @@ void AmbientMusic::loadSoundData(AmbientMusic& music, ThreadResources& threadRes
 	std::size_t bytesToCopy = std::min(music.bytesNeeded, music.bytesRemaining);
 	assert(bytesToCopy != 0u);
 	globalResources.asynchronousFileManager.readFile(&threadResources, &globalResources, music.files[music.previousTrack], music.filePosition, music.filePosition + bytesToCopy, music.file, &music,
-		[](void* requester, void* executor, void* sharedResources, const uint8_t* data, File file)
+		[](void* requester, void* executor, void* sharedResources, const unsigned char* data, File file)
 	{
 		ThreadResources& threadResources = *reinterpret_cast<ThreadResources*>(executor);
 		GlobalResources& globalResources = *reinterpret_cast<GlobalResources*>(sharedResources);
@@ -217,7 +217,7 @@ void AmbientMusic::loadSoundDataPart2(AmbientMusic& music, ThreadResources& thre
 	std::size_t bytesToCopy = std::min(music.bytesNeeded, music.bytesRemaining);
 	assert(bytesToCopy != 0u);
 	globalResources.asynchronousFileManager.readFile(&threadResources, &globalResources, music.files[music.previousTrack], music.filePosition, music.filePosition + bytesToCopy, music.file, &music,
-		[](void* requester, void* executor, void* sharedResources, const uint8_t* data, File file)
+		[](void* requester, void* executor, void* sharedResources, const unsigned char* data, File file)
 	{
 		ThreadResources& threadResources = *reinterpret_cast<ThreadResources*>(executor);
 		GlobalResources& globalResources = *reinterpret_cast<GlobalResources*>(sharedResources);
@@ -264,7 +264,7 @@ void AmbientMusic::startImpl(ThreadResources& threadResources, GlobalResources& 
 	std::size_t bytesToCopy = std::min(bytesNeeded, bytesRemaining);
 	assert(bytesToCopy != 0u);
 	globalResources.asynchronousFileManager.readFile(&threadResources, &globalResources, files[previousTrack], filePosition, filePosition + bytesToCopy, file, this,
-		[](void* requester, void* executor, void* sharedResources, const uint8_t* data, File file)
+		[](void* requester, void* executor, void* sharedResources, const unsigned char* data, File file)
 	{
 		auto& threadResources = *reinterpret_cast<ThreadResources*>(executor);
 		auto& globalResources = *reinterpret_cast<GlobalResources*>(sharedResources);
@@ -314,7 +314,7 @@ void AmbientMusic::onFirstBufferFinishedLoading(AmbientMusic& music, ThreadResou
 	music.update(threadResources, globalResources);
 }
 
-void AmbientMusic::submitBuffer(IXAudio2SourceVoice* musicPlayer, void* context, const uint8_t* data, std::size_t length)
+void AmbientMusic::submitBuffer(IXAudio2SourceVoice* musicPlayer, void* context, const unsigned char* data, std::size_t length)
 {
 	XAUDIO2_BUFFER buffer;
 	buffer.AudioBytes = (UINT32)length;
