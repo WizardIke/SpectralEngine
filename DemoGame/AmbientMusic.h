@@ -10,7 +10,7 @@ class AmbientMusic : private IXAudio2VoiceCallback
 {
 	struct BufferDescriptor
 	{
-		const uint8_t* data;
+		const unsigned char* data;
 		std::atomic<const wchar_t*> filename = nullptr;
 		std::size_t filePositionStart;
 		std::size_t filePositionEnd;

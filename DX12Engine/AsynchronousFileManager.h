@@ -24,7 +24,7 @@ public:
 
 	struct FileData
 	{
-		uint8_t* allocation;
+		unsigned char* allocation;
 	};
 
 	struct Hasher
@@ -46,11 +46,11 @@ public:
 		size_t start;
 		size_t end;
 		//location to put the result
-		uint8_t* buffer;
+		unsigned char* buffer;
 		//amount read
 		size_t accumulatedSize;
 		//what to do with the result
-		Delegate<void(void* executor, void* sharedResources, const uint8_t* data, File file)> callback;
+		Delegate<void(void* executor, void* sharedResources, const unsigned char* data, File file)> callback;
 	};
 private:
 	std::mutex mutex;
@@ -79,6 +79,6 @@ public:
 	}
 
 	bool readFile(void* executor, void* sharedResources, const wchar_t* name, size_t start, size_t end, File file,
-		void* requester, void(*completionEvent)(void* requester, void* executor, void* sharedResources, const uint8_t* data, File file));
+		void* requester, void(*completionEvent)(void* requester, void* executor, void* sharedResources, const unsigned char* data, File file));
 	void discard(const wchar_t* name, size_t start, size_t end);
 };

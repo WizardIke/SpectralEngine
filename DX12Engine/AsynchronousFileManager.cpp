@@ -11,13 +11,13 @@ AsynchronousFileManager::AsynchronousFileManager()
 AsynchronousFileManager::~AsynchronousFileManager() {}
 
 bool AsynchronousFileManager::readFile(void* executor, void* sharedResources, const wchar_t* name, size_t start, size_t end, File file,
-	void* requester, void(*completionEvent)(void* requester, void* executor, void* sharedResources, const uint8_t* data, File file))
+	void* requester, void(*completionEvent)(void* requester, void* executor, void* sharedResources, const unsigned char* data, File file))
 {
 	size_t memoryStart = start & ~(sectorSize - 1u);
 	size_t memoryEnd = (end + sectorSize - 1u) & ~(sectorSize - 1u);
 	size_t memoryNeeded = memoryEnd - memoryStart;
 
-	uint8_t* allocation;
+	unsigned char* allocation;
 	bool dataFound = false;
 	Key key{ name, start, end };
 	{
@@ -31,7 +31,7 @@ bool AsynchronousFileManager::readFile(void* executor, void* sharedResources, co
 		}
 		else
 		{
-			allocation = (uint8_t*)VirtualAlloc(nullptr, memoryNeeded, MEM_COMMIT, PAGE_READWRITE);
+			allocation = (unsigned char*)VirtualAlloc(nullptr, memoryNeeded, MEM_COMMIT, PAGE_READWRITE);
 			auto data = allocation + start - memoryStart;
 			files.insert(std::pair<const Key, FileData>(key, FileData{ allocation }));
 		}

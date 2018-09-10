@@ -1168,7 +1168,7 @@ namespace DDSFileLoader
 
 
 		std::unique_ptr<D3D12_SUBRESOURCE_DATA[]> initData(new D3D12_SUBRESOURCE_DATA[TextureDesc.MipLevels * arraySize]);
-		std::unique_ptr<uint8_t[]> ByteData(new uint8_t[FileByteSize]);
+		std::unique_ptr<unsigned char[]> ByteData(new unsigned char[FileByteSize]);
 		DWORD BytesRead;
 		bool result = ReadFile(TextureFile, ByteData.get(), static_cast<DWORD>(FileByteSize), &BytesRead, nullptr);
 		if (BytesRead != FileByteSize || !result) throw IOException();
@@ -1176,8 +1176,8 @@ namespace DDSFileLoader
 		size_t NumBytes = 0u;
 		size_t RowBytes = 0u;
 		size_t NumRows = 0u;
-		uint8_t* sourceBits = ByteData.get();
-		const uint8_t* sourceBitsEnd = sourceBits + FileByteSize;
+		unsigned char* sourceBits = ByteData.get();
+		const unsigned char* sourceBitsEnd = sourceBits + FileByteSize;
 
 
 		size_t index = 0u;
@@ -1439,7 +1439,7 @@ namespace DDSFileLoader
 	}
 
 	void copySubresourceToGpu(ID3D12Resource* destResource, ID3D12Resource* uploadResource, uint64_t uploadBufferOffset, uint32_t width, uint32_t height, uint32_t depth, uint32_t currentMipLevel, uint32_t mipLevels,
-		uint32_t currentArrayIndex, DXGI_FORMAT format, uint8_t* uploadBufferAddress, const uint8_t* sourceBuffer, ID3D12GraphicsCommandList* copyCommandList)
+		uint32_t currentArrayIndex, DXGI_FORMAT format, unsigned char* uploadBufferAddress, const unsigned char* sourceBuffer, ID3D12GraphicsCommandList* copyCommandList)
 	{
 		uint32_t subresouceWidth = (width >> currentMipLevel);
 		if (subresouceWidth == 0u) subresouceWidth = 1u;
@@ -1461,8 +1461,8 @@ namespace DDSFileLoader
 		{
 			//something is wrong here, textures with less than D3D12_TEXTURE_DATA_PITCH_ALIGNMENT width and/or height look bad
 
-			const uint8_t* source = sourceBuffer;
-			uint8_t* dest = uploadBufferAddress;
+			const unsigned char* source = sourceBuffer;
+			unsigned char* dest = uploadBufferAddress;
 			for (uint32_t i = 0u; i != subresourceDepth; ++i)
 			{
 				for (size_t j = 0u; j != numRows; ++j)
@@ -1493,7 +1493,7 @@ namespace DDSFileLoader
 	}
 
 	void copySubresourceToGpuTiled(ID3D12Resource* destResource, ID3D12Resource* uploadResource, uint64_t uploadBufferOffset, uint32_t width, uint32_t height, uint32_t depth, uint32_t currentMipLevel, uint32_t mipLevels,
-		uint32_t currentArrayIndex, DXGI_FORMAT format, uint8_t* uploadBufferAddress, const uint8_t* sourceBuffer, ID3D12GraphicsCommandList* copyCommandList)
+		uint32_t currentArrayIndex, DXGI_FORMAT format, unsigned char* uploadBufferAddress, const unsigned char* sourceBuffer, ID3D12GraphicsCommandList* copyCommandList)
 	{
 		uint32_t subresouceWidth = (width >> currentMipLevel);
 		if (subresouceWidth == 0u) subresouceWidth = 1u;
@@ -1513,8 +1513,8 @@ namespace DDSFileLoader
 		const size_t partialColumnBytes = sourceRowPitch % tileWidthBytes;
 		const size_t rowPadding = destRowPitch - sourceRowPitch;
 
-		uint8_t* currentUploadBuffer = uploadBufferAddress;
-		const uint8_t* currentDepthSourceStart = sourceBuffer;
+		unsigned char* currentUploadBuffer = uploadBufferAddress;
+		const unsigned char* currentDepthSourceStart = sourceBuffer;
 		for (size_t currentDepth = 0u; currentDepth != subresourceDepth; ++currentDepth)
 		{
 			size_t rowsDown = 0u;
@@ -1530,24 +1530,14 @@ namespace DDSFileLoader
 					for (size_t column = 0u; column != numColumns; ++column)
 					{
 						//copy row of current column
-						const uint8_t* currentSourceTileRowStart = currentDepthSourceStart + rowsDown * sourceRowPitch + tileSizeOnDisk * column + tileWidthBytes * row;
-						const uint8_t* const currentSourceTileRowEnd = currentSourceTileRowStart + tileWidthBytes;
-						for (; currentSourceTileRowStart != currentSourceTileRowEnd;)
-						{
-							*reinterpret_cast<uint32_t*>(currentUploadBuffer) = *reinterpret_cast<const uint32_t*>(currentSourceTileRowStart);
-							currentUploadBuffer += sizeof(uint32_t);
-							currentSourceTileRowStart += sizeof(uint32_t);
-						}
+						const unsigned char* currentSourceTileRowStart = currentDepthSourceStart + rowsDown * sourceRowPitch + tileSizeOnDisk * column + tileWidthBytes * row;
+						memcpy(currentUploadBuffer, currentSourceTileRowStart, tileWidthBytes);
+						currentUploadBuffer += tileWidthBytes;
 					}
 					//copy part of row of cuurent column, length partialColumnBytes
-					const uint8_t* currentSourceTileRowStart = currentDepthSourceStart + rowsDown * sourceRowPitch + tileSizeOnDisk * numColumns + partialColumnBytes * +row;
-					const uint8_t* const currentSourceTileRowEnd = currentSourceTileRowStart + partialColumnBytes;
-					for (; currentSourceTileRowStart != currentSourceTileRowEnd;)
-					{
-						*reinterpret_cast<uint32_t*>(currentUploadBuffer) = *reinterpret_cast<const uint32_t*>(currentSourceTileRowStart);
-						currentUploadBuffer += sizeof(uint32_t);
-						currentSourceTileRowStart += sizeof(uint32_t);
-					}
+					const unsigned char* currentSourceTileRowStart = currentDepthSourceStart + rowsDown * sourceRowPitch + tileSizeOnDisk * numColumns + partialColumnBytes * +row;
+					memcpy(currentUploadBuffer, currentSourceTileRowStart, partialColumnBytes);
+					currentUploadBuffer += partialColumnBytes;
 					currentUploadBuffer += rowPadding; //Padding added to align destination rows to D3D12_TEXTURE_DATA_PITCH_ALIGNMENT bytes
 				}
 
