@@ -1459,8 +1459,6 @@ namespace DDSFileLoader
 		}
 		else
 		{
-			//something is wrong here, textures with less than D3D12_TEXTURE_DATA_PITCH_ALIGNMENT width and/or height look bad
-
 			const unsigned char* source = sourceBuffer;
 			unsigned char* dest = uploadBufferAddress;
 			for (uint32_t i = 0u; i != subresourceDepth; ++i)

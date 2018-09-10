@@ -75,9 +75,10 @@ void StreamingManager::addUploadToBuffer(ID3D12Device* graphicsDevice, void* exe
 				size_t subresourceDepth = uploadRequest.textureInfo.depth >> uploadRequest.currentMipLevel;
 				if (subresourceDepth == 0u) subresourceDepth = 1u;
 
-				size_t numBytes, numRows, rowBytes;
-				DDSFileLoader::surfaceInfo(subresouceWidth, subresourceHeight, uploadRequest.textureInfo.format, numBytes, rowBytes, numRows);
-				subresourceSize = numBytes * subresourceDepth;
+				size_t numBytesOnDisk, numRows, sourceRowPitch;
+				DDSFileLoader::surfaceInfo(subresouceWidth, subresourceHeight, uploadRequest.textureInfo.format, numBytesOnDisk, sourceRowPitch, numRows);
+				size_t destRowPitch = (sourceRowPitch + (size_t)D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - (size_t)1u) & ~((size_t)D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - (size_t)1u);
+				subresourceSize = destRowPitch * numRows * subresourceDepth;
 			}
 			else
 			{
