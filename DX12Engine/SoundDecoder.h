@@ -117,7 +117,7 @@ public:
 		return waveFileInfo;
 	}
 
-	static void loadWaveFileChunk(FILE* const file, uint8_t* buffer, size_t numBytesToRead)
+	static void loadWaveFileChunk(FILE* const file, unsigned char* buffer, size_t numBytesToRead)
 	{
 		size_t count = fread(buffer, numBytesToRead, 1u, file);
 		if (count != 1u) throw IOException();

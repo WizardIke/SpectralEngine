@@ -92,7 +92,7 @@ private:
 			size_t subresourceSize = numBytes * subresourceDepth;
 
 			globalResources.asynchronousFileManager.readFile(&threadResources, &globalResources, filename, fileOffset, fileOffset + subresourceSize, uploadRequest.file, &useSubresourceRequest,
-				[](void* context, void* executor, void* sharedResources, const uint8_t* buffer, File file)
+				[](void* context, void* executor, void* sharedResources, const unsigned char* buffer, File file)
 			{
 				ThreadResources& threadResources = *reinterpret_cast<ThreadResources*>(executor);
 				GlobalResources& globalResources = *reinterpret_cast<GlobalResources*>(sharedResources);
@@ -109,7 +109,7 @@ private:
 
 				DDSFileLoader::copySubresourceToGpuTiled(destResource, uploadRequest.uploadResource, useSubresourceRequest.uploadResourceOffset, uploadRequest.textureInfo.width, uploadRequest.textureInfo.height,
 					uploadRequest.textureInfo.depth, useSubresourceRequest.currentMipLevel, uploadRequest.mipLevels, useSubresourceRequest.currentArrayIndex, uploadRequest.textureInfo.format,
-					(uint8_t*)useSubresourceRequest.uploadBufferCpuAddressOfCurrentPos, buffer, &streamingManager.copyCommandList());
+					(unsigned char*)useSubresourceRequest.uploadBufferCpuAddressOfCurrentPos, buffer, &streamingManager.copyCommandList());
 
 				streamingManager.copyStarted(threadResources.taskShedular.index(), useSubresourceRequest);
 			});

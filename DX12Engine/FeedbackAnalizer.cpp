@@ -44,7 +44,7 @@ static inline void requestMipLevels(unsigned int mipLevel, const VirtualTextureI
 void FeedbackAnalizerSubPass::gatherUniqueRequests(FeedbackAnalizerSubPass& subPass, VirtualTextureManager& virtualTextureManager)
 {
 	auto& uniqueRequests = subPass.uniqueRequests;
-	uint8_t* feadBackBuffer;
+	unsigned char* feadBackBuffer;
 
 	const auto width = subPass.width;
 	const auto height = subPass.height;
@@ -99,7 +99,7 @@ void FeedbackAnalizerSubPass::gatherUniqueRequests(FeedbackAnalizerSubPass& subP
 
 void FeedbackAnalizerSubPass::destruct() {}
 
-void FeedbackAnalizerSubPass::createResources(D3D12GraphicsEngine& graphicsEngine, Transform& mainCameraTransform, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1, uint8_t*& constantBufferCpuAddress1,
+void FeedbackAnalizerSubPass::createResources(D3D12GraphicsEngine& graphicsEngine, Transform& mainCameraTransform, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1, unsigned char*& constantBufferCpuAddress1,
 	uint32_t width, uint32_t height, float fieldOfView)
 {
 	ID3D12Device* graphicsDevice = graphicsEngine.graphicsDevice;

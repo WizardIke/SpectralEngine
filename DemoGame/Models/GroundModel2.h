@@ -37,7 +37,7 @@ public:
 	Mesh* mesh;
 
 	GroundModel2() {}
-	GroundModel2(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, uint8_t*& constantBufferCpuAddress)
+	GroundModel2(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, unsigned char*& constantBufferCpuAddress)
 	{
 		gpuBuffer = constantBufferGpuAddress;
 		constantBufferGpuAddress += vsBufferSize + psBufferSize;
@@ -54,7 +54,7 @@ public:
 		return Frustum.checkCuboid2(positionX + 20.0f, positionY, positionZ + 20.0f, positionX - 20.0f, positionY, positionZ - 20.0f);
 	}
 
-	void setDiffuseTexture(uint32_t diffuseTexture, uint8_t* cpuStartAddress, D3D12_GPU_VIRTUAL_ADDRESS gpuStartAddress)
+	void setDiffuseTexture(uint32_t diffuseTexture, unsigned char* cpuStartAddress, D3D12_GPU_VIRTUAL_ADDRESS gpuStartAddress)
 	{
 		auto buffer = reinterpret_cast<PSPerObjectConstantBuffer*>(cpuStartAddress + (gpuBuffer - gpuStartAddress + vsBufferSize));
 		buffer->baseColorTexture = diffuseTexture;

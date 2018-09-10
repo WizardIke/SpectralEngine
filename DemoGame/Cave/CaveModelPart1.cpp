@@ -4,7 +4,7 @@
 #include <Quaternion.h>
 #include <Frustum.h>
 
-CaveModelPart1::CaveModelPart1(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, uint8_t*& constantBufferCpuAddress)
+CaveModelPart1::CaveModelPart1(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, unsigned char*& constantBufferCpuAddress)
 {
 
 	gpuBuffer = constantBufferGpuAddress;

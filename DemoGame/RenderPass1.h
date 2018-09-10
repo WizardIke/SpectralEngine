@@ -27,7 +27,7 @@ public:
 
 	RenderPass1() {}
 	RenderPass1(GlobalResources& globalResources, Transform& mainCameraTransform, uint32_t virtualTextureFeedbackWidth, uint32_t virtualTextureFeedbackHeight,
-		D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpu, uint8_t*& constantBufferCpu, float feedbackFieldOfView);
+		D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpu, unsigned char*& constantBufferCpu, float feedbackFieldOfView);
 
 	class Local
 	{

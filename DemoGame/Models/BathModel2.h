@@ -32,7 +32,7 @@ public:
 	Mesh* mesh;
 
 	BathModel2() {}
-	BathModel2(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, uint8_t*& constantBufferCpuAddress)
+	BathModel2(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, unsigned char*& constantBufferCpuAddress)
 	{
 		gpuBuffer = constantBufferGpuAddress;
 		constantBufferGpuAddress += psBufferSize + vsBufferSize;
@@ -57,7 +57,7 @@ public:
 		return Frustum.checkCuboid2(positionX + 5.f, positionY + 1.f, positionZ + 5.f, positionX - 5.f, positionY - 1.f, positionZ - 5.f);
 	}
 
-	void setDiffuseTexture(uint32_t diffuseTexture, uint8_t* cpuStartAddress, D3D12_GPU_VIRTUAL_ADDRESS gpuStartAddress)
+	void setDiffuseTexture(uint32_t diffuseTexture, unsigned char* cpuStartAddress, D3D12_GPU_VIRTUAL_ADDRESS gpuStartAddress)
 	{
 		auto buffer = reinterpret_cast<DirectionalLightMaterialPS*>(cpuStartAddress + (gpuBuffer - gpuStartAddress + vsBufferSize));
 		buffer->baseColorTexture = diffuseTexture;

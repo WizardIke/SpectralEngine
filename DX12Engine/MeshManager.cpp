@@ -117,7 +117,7 @@ void MeshManager::unloadMesh(const wchar_t * const filename)
 static void createIndices(uint32_t* indexUploadBuffer, Mesh* mesh, ID3D12Resource* uploadResource,
 	uint64_t uploadResourceOffset, uint32_t byteSize, ID3D12GraphicsCommandList* copyCommandList)
 {
-	const auto end = reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(indexUploadBuffer) + byteSize);
+	const auto end = reinterpret_cast<uint32_t*>(reinterpret_cast<unsigned char*>(indexUploadBuffer) + byteSize);
 	for (uint32_t i = 0u; indexUploadBuffer != end; ++indexUploadBuffer, ++i)
 	{
 		*indexUploadBuffer = i;
@@ -125,7 +125,7 @@ static void createIndices(uint32_t* indexUploadBuffer, Mesh* mesh, ID3D12Resourc
 	copyCommandList->CopyBufferRegion(mesh->indices, 0u, uploadResource, uploadResourceOffset, byteSize);
 }
 
-void MeshManager::meshWithPositionTextureNormalTangentBitangentUseSubresourceHelper(HalfFinishedUploadRequest& useSubresourceRequest, const uint8_t* buffer, MeshManager& meshManager, ID3D12Device* graphicsDevice, 
+void MeshManager::meshWithPositionTextureNormalTangentBitangentUseSubresourceHelper(HalfFinishedUploadRequest& useSubresourceRequest, const unsigned char* buffer, MeshManager& meshManager, ID3D12Device* graphicsDevice,
 	StreamingManager::ThreadLocal& streamingManager, unsigned int threadIndex)
 {
 	auto& uploadRequest = *useSubresourceRequest.uploadRequest;
@@ -153,13 +153,13 @@ void MeshManager::meshWithPositionTextureNormalTangentBitangentUseSubresourceHel
 
 	copyCommandList.CopyBufferRegion(mesh->vertices, 0u, uploadRequest.uploadResource, useSubresourceRequest.uploadResourceOffset, vertexSizeBytes);
 
-	createIndices(reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(useSubresourceRequest.uploadBufferCpuAddressOfCurrentPos) + vertexSizeBytes), mesh, uploadRequest.uploadResource,
+	createIndices(reinterpret_cast<uint32_t*>(reinterpret_cast<unsigned char*>(useSubresourceRequest.uploadBufferCpuAddressOfCurrentPos) + vertexSizeBytes), mesh, uploadRequest.uploadResource,
 		useSubresourceRequest.uploadResourceOffset + vertexSizeBytes, indexSizeBytes, &copyCommandList);
 
 	streamingManager.copyStarted(threadIndex, useSubresourceRequest);
 }
 
-void MeshManager::meshWithPositionTextureNormalUseSubresourceHelper(HalfFinishedUploadRequest& useSubresourceRequest, const uint8_t* buffer, MeshManager& meshManager, ID3D12Device* graphicsDevice,
+void MeshManager::meshWithPositionTextureNormalUseSubresourceHelper(HalfFinishedUploadRequest& useSubresourceRequest, const unsigned char* buffer, MeshManager& meshManager, ID3D12Device* graphicsDevice,
 	StreamingManager::ThreadLocal& streamingManager, unsigned int threadIndex)
 {
 	auto& uploadRequest = *useSubresourceRequest.uploadRequest;
@@ -210,13 +210,13 @@ void MeshManager::meshWithPositionTextureNormalUseSubresourceHelper(HalfFinished
 
 	copyCommandList.CopyBufferRegion(mesh->vertices, 0u, uploadRequest.uploadResource, useSubresourceRequest.uploadResourceOffset, vertexSizeBytes);
 
-	createIndices(reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(useSubresourceRequest.uploadBufferCpuAddressOfCurrentPos) + vertexSizeBytes), mesh, uploadRequest.uploadResource,
+	createIndices(reinterpret_cast<uint32_t*>(reinterpret_cast<unsigned char*>(useSubresourceRequest.uploadBufferCpuAddressOfCurrentPos) + vertexSizeBytes), mesh, uploadRequest.uploadResource,
 		useSubresourceRequest.uploadResourceOffset + vertexSizeBytes, indexSizeBytes, &copyCommandList);
 
 	streamingManager.copyStarted(threadIndex, useSubresourceRequest);
 }
 
-void MeshManager::meshWithPositionTextureUseSubresourceHelper(HalfFinishedUploadRequest& useSubresourceRequest, const uint8_t* buffer, MeshManager& meshManager, ID3D12Device* graphicsDevice,
+void MeshManager::meshWithPositionTextureUseSubresourceHelper(HalfFinishedUploadRequest& useSubresourceRequest, const unsigned char* buffer, MeshManager& meshManager, ID3D12Device* graphicsDevice,
 	StreamingManager::ThreadLocal& streamingManager, unsigned int threadIndex)
 {
 	auto& uploadRequest = *useSubresourceRequest.uploadRequest;
@@ -261,13 +261,13 @@ void MeshManager::meshWithPositionTextureUseSubresourceHelper(HalfFinishedUpload
 
 	copyCommandList.CopyBufferRegion(mesh->vertices, 0u, uploadRequest.uploadResource, useSubresourceRequest.uploadResourceOffset, vertexSizeBytes);
 
-	createIndices(reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(useSubresourceRequest.uploadBufferCpuAddressOfCurrentPos) + vertexSizeBytes), mesh, uploadRequest.uploadResource,
+	createIndices(reinterpret_cast<uint32_t*>(reinterpret_cast<unsigned char*>(useSubresourceRequest.uploadBufferCpuAddressOfCurrentPos) + vertexSizeBytes), mesh, uploadRequest.uploadResource,
 		useSubresourceRequest.uploadResourceOffset + vertexSizeBytes, indexSizeBytes, &copyCommandList);
 
 	streamingManager.copyStarted(threadIndex, useSubresourceRequest);
 }
 
-void MeshManager::meshWithPositionUseSubresourceHelper(HalfFinishedUploadRequest& useSubresourceRequest, const uint8_t* buffer, MeshManager& meshManager, ID3D12Device* graphicsDevice,
+void MeshManager::meshWithPositionUseSubresourceHelper(HalfFinishedUploadRequest& useSubresourceRequest, const unsigned char* buffer, MeshManager& meshManager, ID3D12Device* graphicsDevice,
 	StreamingManager::ThreadLocal& streamingManager, unsigned int threadIndex)
 {
 	auto& uploadRequest = *useSubresourceRequest.uploadRequest;
@@ -307,7 +307,7 @@ void MeshManager::meshWithPositionUseSubresourceHelper(HalfFinishedUploadRequest
 
 	copyCommandList.CopyBufferRegion(mesh->vertices, 0u, uploadRequest.uploadResource, useSubresourceRequest.uploadResourceOffset, vertexSizeBytes);
 
-	createIndices(reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(useSubresourceRequest.uploadBufferCpuAddressOfCurrentPos) + vertexSizeBytes), mesh, uploadRequest.uploadResource,
+	createIndices(reinterpret_cast<uint32_t*>(reinterpret_cast<unsigned char*>(useSubresourceRequest.uploadBufferCpuAddressOfCurrentPos) + vertexSizeBytes), mesh, uploadRequest.uploadResource,
 		useSubresourceRequest.uploadResourceOffset + vertexSizeBytes, indexSizeBytes, &copyCommandList);
 
 	streamingManager.copyStarted(threadIndex, useSubresourceRequest);
@@ -337,7 +337,7 @@ void MeshManager::meshUploadedHelper(MeshManager& meshManager, void* requester, 
 	}
 }
 
-void MeshManager::CalculateTangentBitangent(const uint8_t* start, const uint8_t* end, MeshWithPositionTextureNormalTangentBitangent* Mesh)
+void MeshManager::CalculateTangentBitangent(const unsigned char* start, const unsigned char* end, MeshWithPositionTextureNormalTangentBitangent* Mesh)
 {
 	float vector1[3], vector2[3];
 	float tuVector[2], tvVector[2];

@@ -10,7 +10,7 @@
 template<class X, class Y, class Z>
 class FireModel
 {
-	uint8_t* constantBufferCpu;
+	unsigned char* constantBufferCpu;
 	D3D12_GPU_VIRTUAL_ADDRESS constantBufferGpu;
 	float flameTime = 0.0f;
 
@@ -32,7 +32,7 @@ public:
 
 	FireModel() {}
 
-	FireModel(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, uint8_t*& constantBufferCpuAddress)
+	FireModel(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, unsigned char*& constantBufferCpuAddress)
 	{
 		constantBufferCpu = constantBufferCpuAddress;
 		constantBufferGpu = constantBufferGpuAddress;
@@ -73,19 +73,19 @@ public:
 		constantBuffer->flameTime = flameTime;
 	}
 
-	void setNormalTexture(uint32_t normalTexture, uint8_t* cpuStartAddress, D3D12_GPU_VIRTUAL_ADDRESS gpuStartAddress)
+	void setNormalTexture(uint32_t normalTexture, unsigned char* cpuStartAddress, D3D12_GPU_VIRTUAL_ADDRESS gpuStartAddress)
 	{
 		auto buffer = reinterpret_cast<FireMaterialPS*>(cpuStartAddress + (constantBufferGpu - gpuStartAddress + VSPerObjectConstantBufferSize * frameBufferCount));
 		buffer->noiseTexture = normalTexture;
 	}
 
-	void setDiffuseTexture(uint32_t diffuseTexture, uint8_t* cpuStartAddress, D3D12_GPU_VIRTUAL_ADDRESS gpuStartAddress)
+	void setDiffuseTexture(uint32_t diffuseTexture, unsigned char* cpuStartAddress, D3D12_GPU_VIRTUAL_ADDRESS gpuStartAddress)
 	{
 		auto buffer = reinterpret_cast<FireMaterialPS*>(cpuStartAddress + (constantBufferGpu - gpuStartAddress + VSPerObjectConstantBufferSize * frameBufferCount));
 		buffer->fireTexture = diffuseTexture;
 	}
 
-	void setAlphaTexture(uint32_t alphaTexture, uint8_t* cpuStartAddress, D3D12_GPU_VIRTUAL_ADDRESS gpuStartAddress)
+	void setAlphaTexture(uint32_t alphaTexture, unsigned char* cpuStartAddress, D3D12_GPU_VIRTUAL_ADDRESS gpuStartAddress)
 	{
 		auto buffer = reinterpret_cast<FireMaterialPS*>(cpuStartAddress + (constantBufferGpu - gpuStartAddress + VSPerObjectConstantBufferSize * frameBufferCount));
 		buffer->alphaTexture = alphaTexture;

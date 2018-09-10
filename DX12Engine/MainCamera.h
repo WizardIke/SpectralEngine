@@ -33,9 +33,9 @@ public:
 
 	MainCamera() {}
 	MainCamera(Window& window, D3D12GraphicsEngine& graphicsEngine, unsigned int width, unsigned int height, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1,
-		uint8_t*& constantBufferCpuAddress1, float fieldOfView, const Transform& target);
+		unsigned char*& constantBufferCpuAddress1, float fieldOfView, const Transform& target);
 	void init(Window& window, D3D12GraphicsEngine& graphicsEngine, unsigned int width, unsigned int height, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1,
-		uint8_t*& constantBufferCpuAddress1, float fieldOfView, const Transform& target)
+		unsigned char*& constantBufferCpuAddress1, float fieldOfView, const Transform& target)
 	{
 		this->~MainCamera();
 		new(this) MainCamera(window, graphicsEngine, width, height, constantBufferGpuAddress1, constantBufferCpuAddress1, fieldOfView, target);

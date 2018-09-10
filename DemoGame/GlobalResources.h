@@ -17,7 +17,6 @@
 #include "PipelineStateObjects.h"
 #include <VirtualTextureManager.h>
 #include <D3D12Resource.h>
-#include <cstdint>
 #include "RenderPass1.h"
 #include <Font.h>
 #include "UserInterface/UserInterface.h"
@@ -50,7 +49,7 @@ public:
 	PipelineStateObjects pipelineStateObjects; //Immutable
 	VirtualTextureManager virtualTextureManager;
 	D3D12Resource sharedConstantBuffer;
-	uint8_t* constantBuffersCpuAddress;
+	unsigned char* constantBuffersCpuAddress;
 	RenderPass1 renderPass;
 	Font arial; //Immutable
 	UserInterface userInterface;

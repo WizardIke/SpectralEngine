@@ -72,7 +72,7 @@ class MeshManager
 		meshUploadedHelper(meshManager, storedFilename, executor, sharedResources);
 	}
 
-	static void meshWithPositionTextureNormalTangentBitangentUseSubresourceHelper(HalfFinishedUploadRequest& useSubresourceRequest, const uint8_t* buffer, MeshManager& meshManager, ID3D12Device* graphicsDevice,
+	static void meshWithPositionTextureNormalTangentBitangentUseSubresourceHelper(HalfFinishedUploadRequest& useSubresourceRequest, const unsigned char* buffer, MeshManager& meshManager, ID3D12Device* graphicsDevice,
 		StreamingManager::ThreadLocal& streamingManager, unsigned int threadIndex);
 	template<class ThreadResources, class GlobalResources>
 	static void meshWithPositionTextureNormalTangentBitangentUseSubresource(void* tr, void* gr, HalfFinishedUploadRequest& useSubresourceRequest)
@@ -86,7 +86,7 @@ class MeshManager
 			auto sizeOnFile = uploadRequest.meshInfo.verticesSize;
 
 			globalResources.asynchronousFileManager.readFile(&threadResources, &globalResources, filename, sizeof(uint32_t) * 3u, sizeof(uint32_t) * 3u + sizeOnFile, uploadRequest.file, &useSubresourceRequest,
-				[](void* requester, void* tr, void* gr, const uint8_t* buffer, File file)
+				[](void* requester, void* tr, void* gr, const unsigned char* buffer, File file)
 			{
 				ThreadResources& threadResources = *reinterpret_cast<ThreadResources*>(tr);
 				GlobalResources& globalResources = *reinterpret_cast<GlobalResources*>(gr);
@@ -96,7 +96,7 @@ class MeshManager
 		} });
 	}
 
-	static void meshWithPositionTextureNormalUseSubresourceHelper(HalfFinishedUploadRequest& useSubresourceRequest, const uint8_t* buffer, MeshManager& meshManager, ID3D12Device* graphicsDevice,
+	static void meshWithPositionTextureNormalUseSubresourceHelper(HalfFinishedUploadRequest& useSubresourceRequest, const unsigned char* buffer, MeshManager& meshManager, ID3D12Device* graphicsDevice,
 		StreamingManager::ThreadLocal& streamingManager, unsigned int threadIndex);
 	template<class ThreadResources, class GlobalResources>
 	static void meshWithPositionTextureNormalUseSubresource(void* tr, void* gr, HalfFinishedUploadRequest& useSubresourceRequest)
@@ -110,7 +110,7 @@ class MeshManager
 			auto sizeOnFile = uploadRequest.meshInfo.verticesSize;
 
 			globalResources.asynchronousFileManager.readFile(&threadResources, &globalResources, filename, sizeof(uint32_t) * 3u, sizeof(uint32_t) * 3u + sizeOnFile, uploadRequest.file, &useSubresourceRequest,
-				[](void* requester, void* tr, void* gr, const uint8_t* buffer, File file)
+				[](void* requester, void* tr, void* gr, const unsigned char* buffer, File file)
 			{
 				ThreadResources& threadResources = *reinterpret_cast<ThreadResources*>(tr);
 				GlobalResources& globalResources = *reinterpret_cast<GlobalResources*>(gr);
@@ -120,7 +120,7 @@ class MeshManager
 		} });
 	}
 
-	static void meshWithPositionTextureUseSubresourceHelper(HalfFinishedUploadRequest& useSubresourceRequest, const uint8_t* buffer, MeshManager& meshManager, ID3D12Device* graphicsDevice,
+	static void meshWithPositionTextureUseSubresourceHelper(HalfFinishedUploadRequest& useSubresourceRequest, const unsigned char* buffer, MeshManager& meshManager, ID3D12Device* graphicsDevice,
 		StreamingManager::ThreadLocal& streamingManager, unsigned int threadIndex);
 	template<class ThreadResources, class GlobalResources>
 	static void meshWithPositionTextureUseSubresource(void* tr, void* gr, HalfFinishedUploadRequest& useSubresourceRequest)
@@ -134,7 +134,7 @@ class MeshManager
 			auto sizeOnFile = uploadRequest.meshInfo.verticesSize;
 
 			globalResources.asynchronousFileManager.readFile(&threadResources, &globalResources, filename, sizeof(uint32_t) * 3u, sizeof(uint32_t) * 3u + sizeOnFile, uploadRequest.file, &useSubresourceRequest,
-				[](void* requester, void* tr, void* gr, const uint8_t* buffer, File file)
+				[](void* requester, void* tr, void* gr, const unsigned char* buffer, File file)
 			{
 				ThreadResources& threadResources = *reinterpret_cast<ThreadResources*>(tr);
 				GlobalResources& globalResources = *reinterpret_cast<GlobalResources*>(gr);
@@ -144,7 +144,7 @@ class MeshManager
 		} });
 	}
 
-	static void meshWithPositionUseSubresourceHelper(HalfFinishedUploadRequest& useSubresourceRequest, const uint8_t* buffer, MeshManager& meshManager, ID3D12Device* graphicsDevice,
+	static void meshWithPositionUseSubresourceHelper(HalfFinishedUploadRequest& useSubresourceRequest, const unsigned char* buffer, MeshManager& meshManager, ID3D12Device* graphicsDevice,
 		StreamingManager::ThreadLocal& streamingManager, unsigned int threadIndex);
 	template<class ThreadResources, class GlobalResources>
 	static void meshWithPositionUseSubresource(void* tr, void* gr, HalfFinishedUploadRequest& useSubresourceRequest)
@@ -158,7 +158,7 @@ class MeshManager
 			auto sizeOnFile = uploadRequest.meshInfo.verticesSize;
 
 			globalResources.asynchronousFileManager.readFile(&threadResources, &globalResources, filename, sizeof(uint32_t) * 3u, sizeof(uint32_t) * 3u + sizeOnFile, uploadRequest.file, &useSubresourceRequest,
-				[](void* requester, void* tr, void* gr, const uint8_t* buffer, File file)
+				[](void* requester, void* tr, void* gr, const unsigned char* buffer, File file)
 			{
 				ThreadResources& threadResources = *reinterpret_cast<ThreadResources*>(tr);
 				GlobalResources& globalResources = *reinterpret_cast<GlobalResources*>(gr);
@@ -223,7 +223,7 @@ class MeshManager
 	{
 		File file = sharedResources.asynchronousFileManager.openFileForReading<GlobalResources>(sharedResources.ioCompletionQueue, filename);
 		sharedResources.asynchronousFileManager.readFile(&executor, &sharedResources, filename, 0u, sizeof(uint32_t) * 3u, file, reinterpret_cast<void*>(const_cast<wchar_t *>(filename)),
-			[](void* requester, void* executor, void* sharedResources, const uint8_t* buffer, File file)
+			[](void* requester, void* executor, void* sharedResources, const unsigned char* buffer, File file)
 		{
 			const uint32_t* data = reinterpret_cast<const uint32_t*>(buffer);
 			uint32_t vertexType2 = data[0];
@@ -263,7 +263,7 @@ class MeshManager
 		}
 	}
 
-	static void CalculateTangentBitangent(const uint8_t* start, const uint8_t* end, MeshWithPositionTextureNormalTangentBitangent* Mesh);
+	static void CalculateTangentBitangent(const unsigned char* start, const unsigned char* end, MeshWithPositionTextureNormalTangentBitangent* Mesh);
 
 	static void createMesh(Mesh& mesh, const wchar_t* filename, ID3D12Device* graphicsDevice, uint32_t vertexSizeBytes, uint32_t vertexStrideInBytes,
 		uint32_t indexSizeBytes);

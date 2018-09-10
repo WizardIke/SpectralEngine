@@ -36,7 +36,7 @@ public:
 
 	CaveModelPart1() {}
 
-	CaveModelPart1(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, uint8_t*& constantBufferCpuAddress);
+	CaveModelPart1(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, unsigned char*& constantBufferCpuAddress);
 	~CaveModelPart1() {}
 
 	bool CaveModelPart1::isInView(const Frustum& Frustum);
@@ -44,7 +44,7 @@ public:
 	void render(ID3D12GraphicsCommandList* const directCommandList);
 	void renderVirtualFeedback(ID3D12GraphicsCommandList* const commandList);
 
-	void setDiffuseTexture(uint32_t diffuseTexture, uint8_t* cpuStartAddress, D3D12_GPU_VIRTUAL_ADDRESS gpuStartAddress)
+	void setDiffuseTexture(uint32_t diffuseTexture, unsigned char* cpuStartAddress, D3D12_GPU_VIRTUAL_ADDRESS gpuStartAddress)
 	{
 		auto buffer = reinterpret_cast<DirectionalLightMaterialPS*>(cpuStartAddress + (gpuBuffer - gpuStartAddress + vSPerObjectConstantBufferAlignedSize * numSquares));
 		buffer->baseColorTexture = diffuseTexture;

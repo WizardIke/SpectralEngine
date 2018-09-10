@@ -4,7 +4,7 @@
 #include "D3D12GraphicsEngine.h"
 
 MainCamera::MainCamera(Window& window, D3D12GraphicsEngine& graphicsEngine, unsigned int width, unsigned int height, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1,
-	uint8_t*& constantBufferCpuAddress1, float fieldOfView, const Transform& target) :
+	unsigned char*& constantBufferCpuAddress1, float fieldOfView, const Transform& target) :
 	renderTargetViewDescriptorHeap(graphicsEngine.graphicsDevice, []()
 {
 	D3D12_DESCRIPTOR_HEAP_DESC renderTargetViewHeapDesc;

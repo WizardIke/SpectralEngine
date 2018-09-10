@@ -27,7 +27,7 @@ namespace Cave
 		}
 
 		D3D12Resource perObjectConstantBuffers;
-		uint8_t* perObjectConstantBuffersCpuAddress;
+		unsigned char* perObjectConstantBuffersCpuAddress;
 	public:
 		Light light;
 		LightConstantBuffer* pointLightConstantBufferCpuAddress;

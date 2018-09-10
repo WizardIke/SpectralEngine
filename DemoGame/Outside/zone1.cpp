@@ -48,7 +48,7 @@ namespace
 		Mesh* squareWithPos;
 		Mesh* cubeWithPos;
 		D3D12Resource perObjectConstantBuffers;
-		uint8_t* perObjectConstantBuffersCpuAddress;
+		unsigned char* perObjectConstantBuffersCpuAddress;
 		Array<D3D12Resource, numRenderTargetTextures> renderTargetTextures;
 		D3D12_RESOURCE_STATES waterRenderTargetTextureState;
 		D3D12DescriptorHeap renderTargetTexturesDescriptorHeap;
@@ -122,7 +122,7 @@ namespace
 			HRESULT hr = perObjectConstantBuffers->Map(0u, &readRange, reinterpret_cast<void**>(&perObjectConstantBuffersCpuAddress));
 			if (FAILED(hr)) throw HresultException(hr);
 			auto PerObjectConstantBuffersGpuAddress = perObjectConstantBuffers->GetGPUVirtualAddress();
-			uint8_t* cpuConstantBuffer = perObjectConstantBuffersCpuAddress;
+			unsigned char* cpuConstantBuffer = perObjectConstantBuffersCpuAddress;
 
 			D3D12_HEAP_PROPERTIES heapProperties;
 			heapProperties.Type = D3D12_HEAP_TYPE_DEFAULT;
@@ -395,7 +395,7 @@ namespace
 				auto tempRenderTargetTexturesCpuDescriptorHandle = resource->renderTargetTexturesDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
 				auto depthStencilHandle = globalResources.graphicsEngine.depthStencilDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
 				Transform transform = globalResources.mainCamera().transform().reflection(resource->waterModel.reflectionHeight());
-				uint8_t* cpuConstantBuffer = resource->perObjectConstantBuffersCpuAddress;
+				unsigned char* cpuConstantBuffer = resource->perObjectConstantBuffersCpuAddress;
 				D3D12_GPU_VIRTUAL_ADDRESS PerObjectConstantBuffersGpuAddress = resource->perObjectConstantBuffers->GetGPUVirtualAddress();
 
 				for (auto i = 0u; i < numRenderTargetTextures; ++i)
@@ -452,7 +452,7 @@ namespace
 			auto rotationMatrix = DirectX::XMMatrixTranslation(-64.0f, -5.0f, -64.0f) * DirectX::XMMatrixRotationAxis(DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f), frameTime) * DirectX::XMMatrixTranslation(64.0f, 5.0f, 64.0f);
 
 			constexpr uint64_t pointLightConstantBufferAlignedSize = (sizeof(LightConstantBuffer) + D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull) & ~(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull);
-			auto pointLightConstantBuffer = reinterpret_cast<LightConstantBuffer*>(reinterpret_cast<uint8_t*>(pointLightConstantBufferCpuAddress) + frameIndex * pointLightConstantBufferAlignedSize);
+			auto pointLightConstantBuffer = reinterpret_cast<LightConstantBuffer*>(reinterpret_cast<unsigned char*>(pointLightConstantBufferCpuAddress) + frameIndex * pointLightConstantBufferAlignedSize);
 
 			pointLightConstantBuffer->ambientLight = light.ambientLight;
 			pointLightConstantBuffer->directionalLight = light.directionalLight;
@@ -742,7 +742,7 @@ namespace
 		}
 	public:
 		D3D12Resource perObjectConstantBuffers;
-		uint8_t* perObjectConstantBuffersCpuAddress;
+		unsigned char* perObjectConstantBuffersCpuAddress;
 
 		BathModel2 bathModel;
 

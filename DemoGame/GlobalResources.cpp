@@ -144,7 +144,7 @@ GlobalResources::GlobalResources(const unsigned int numberOfThreads, bool fullSc
 	D3D12_RANGE readRange{ 0u, 0u };
 	HRESULT hr = sharedConstantBuffer->Map(0u, &readRange, reinterpret_cast<void**>(&constantBuffersCpuAddress));
 	if (FAILED(hr)) throw HresultException(hr);
-	uint8_t* cpuConstantBuffer = constantBuffersCpuAddress;
+	unsigned char* cpuConstantBuffer = constantBuffersCpuAddress;
 	auto constantBuffersGpuAddress = sharedConstantBuffer->GetGPUVirtualAddress();
 
 	renderPass.~RenderPass1();

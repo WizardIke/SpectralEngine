@@ -161,7 +161,7 @@ private:
 	size_t newPageCount;
 	size_t newCacheSize;
 
-	static void copyPageToUploadBuffer(HalfFinishedUploadRequest& useSubresourceRequest, const uint8_t* data);
+	static void copyPageToUploadBuffer(HalfFinishedUploadRequest& useSubresourceRequest, const unsigned char* data);
 	static void addPageLoadRequestHelper(PageLoadRequest& pageRequest, VirtualTextureManager& virtualTextureManager, StreamingManager& streamingManager, 
 		void(*useSubresource)(void* executor, void* sharedResources, HalfFinishedUploadRequest& useSubresourceRequest));
 
@@ -180,7 +180,7 @@ private:
 				PageLoadRequest& pageRequest = *reinterpret_cast<PageLoadRequest*>(uploadRequest.requester);
 				GlobalResources& globalResources = *reinterpret_cast<GlobalResources*>(sharedResources);
 				globalResources.asynchronousFileManager.readFile(executor, sharedResources, pageRequest.filename, pageRequest.offsetInFile, pageRequest.offsetInFile + length, uploadRequest.file, &useSubresourceRequest,
-					[](void* requester, void* executor, void* sharedResources, const uint8_t* data, File file)
+					[](void* requester, void* executor, void* sharedResources, const unsigned char* data, File file)
 				{
 					HalfFinishedUploadRequest& useSubresourceRequest = *reinterpret_cast<HalfFinishedUploadRequest*>(requester);
 					copyPageToUploadBuffer(useSubresourceRequest, data);

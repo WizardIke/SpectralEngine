@@ -67,7 +67,7 @@ private:
 			size_t subresourceSize = numBytes * subresourceDepth;
 
 			bool result = globalResources.asynchronousFileManager.readFile(&threadResources, &globalResources, filename, fileOffset, fileOffset + subresourceSize, uploadRequest.file, &useSubresourceRequest,
-				[](void* requester, void* executor, void* sharedResources, const uint8_t* buffer, File file)
+				[](void* requester, void* executor, void* sharedResources, const unsigned char* buffer, File file)
 			{
 				HalfFinishedUploadRequest& useSubresourceRequest = *reinterpret_cast<HalfFinishedUploadRequest*>(requester);
 				auto& uploadRequest = *useSubresourceRequest.uploadRequest;
@@ -79,7 +79,7 @@ private:
 				ID3D12Resource* destResource = createOrLookupTexture(useSubresourceRequest, globalResources.textureManager, globalResources.graphicsEngine, filename);
 				DDSFileLoader::copySubresourceToGpu(destResource, uploadRequest.uploadResource, useSubresourceRequest.uploadResourceOffset, uploadRequest.textureInfo.width, uploadRequest.textureInfo.height,
 					uploadRequest.textureInfo.depth, useSubresourceRequest.currentMipLevel, uploadRequest.mipLevels, useSubresourceRequest.currentArrayIndex, uploadRequest.textureInfo.format,
-					(uint8_t*)useSubresourceRequest.uploadBufferCpuAddressOfCurrentPos, buffer, &streamingManager.copyCommandList());
+					(unsigned char*)useSubresourceRequest.uploadBufferCpuAddressOfCurrentPos, buffer, &streamingManager.copyCommandList());
 				streamingManager.copyStarted(threadResources.taskShedular.index(), useSubresourceRequest);
 			});
 			assert(result);
@@ -113,7 +113,7 @@ private:
 		}
 	}
 
-	static void loadTextureFromMemory(StreamingManager& streamingManager, const uint8_t* buffer, File file, void* requester, void (*textureUseSubresource)(void*, void*, HalfFinishedUploadRequest&), 
+	static void loadTextureFromMemory(StreamingManager& streamingManager, const unsigned char* buffer, File file, void* requester, void (*textureUseSubresource)(void*, void*, HalfFinishedUploadRequest&),
 		void (*textureUploaded)(void*, void*, void*))
 	{
 		const DDSFileLoader::DdsHeaderDx12& header = *reinterpret_cast<const DDSFileLoader::DdsHeaderDx12*>(buffer);
@@ -151,7 +151,7 @@ private:
 		File file = asynchronousFileManager.openFileForReading<GlobalResources>(ioCompletionQueue, filename);
 
 		asynchronousFileManager.readFile(nullptr, &globalResources, filename, 0u, sizeof(DDSFileLoader::DdsHeaderDx12), file, reinterpret_cast<void*>(const_cast<wchar_t *>(filename)),
-			[](void* requester, void* tr, void* gr, const uint8_t* buffer, File file)
+			[](void* requester, void* tr, void* gr, const unsigned char* buffer, File file)
 		{
 			GlobalResources& globalResources = *reinterpret_cast<GlobalResources*>(gr);
 			loadTextureFromMemory(globalResources.streamingManager, buffer, file, requester, textureUseSubresource<ThreadResources, GlobalResources>, textureUploaded<GlobalResources>);

@@ -32,7 +32,7 @@ public:
 	Mesh* mesh;
 
 	HighResPlane() {}
-	HighResPlane(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, uint8_t*& constantBufferCpuAddress)
+	HighResPlane(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, unsigned char*& constantBufferCpuAddress)
 	{
 		gpuBuffer = constantBufferGpuAddress;
 		constantBufferGpuAddress += vsBufferSize + psBufferSize;
@@ -54,7 +54,7 @@ public:
 		return frustum.checkCuboid2(positionX + 128.0f, positionY, positionZ + 128.0f, positionX, positionY, positionZ);
 	}
 
-	void setDiffuseTexture(uint32_t diffuseTexture, uint8_t* cpuStartAddress, D3D12_GPU_VIRTUAL_ADDRESS gpuStartAddress)
+	void setDiffuseTexture(uint32_t diffuseTexture, unsigned char* cpuStartAddress, D3D12_GPU_VIRTUAL_ADDRESS gpuStartAddress)
 	{
 		auto buffer = reinterpret_cast<DirectionalLightMaterialPS*>(cpuStartAddress + (gpuBuffer - gpuStartAddress + vsBufferSize));
 		buffer->baseColorTexture = diffuseTexture;

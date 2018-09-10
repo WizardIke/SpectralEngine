@@ -48,7 +48,7 @@ struct Font
 	Font() {}
 
 	template<class ThreadResources, class GlobalResources>
-	Font(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, uint8_t*& constantBufferCpuAddress, const wchar_t* const filename, const wchar_t* const textureFile, ThreadResources& executor, GlobalResources& sharedResources,
+	Font(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, unsigned char*& constantBufferCpuAddress, const wchar_t* const filename, const wchar_t* const textureFile, ThreadResources& executor, GlobalResources& sharedResources,
 		void* requester, void(*callback)(void* requester, void* executor, void* sharedResources, unsigned int textureID))
 	{
 		TextureManager& textureManager = sharedResources.textureManager;
@@ -61,12 +61,12 @@ struct Font
 	void destruct(TextureManager& textureManager, D3D12GraphicsEngine& graphicsEngine, const wchar_t* const textureFile);
 	~Font() {}
 
-	void setDiffuseTexture(uint32_t diffuseTexture, uint8_t* cpuStartAddress, D3D12_GPU_VIRTUAL_ADDRESS gpuStartAddress)
+	void setDiffuseTexture(uint32_t diffuseTexture, unsigned char* cpuStartAddress, D3D12_GPU_VIRTUAL_ADDRESS gpuStartAddress)
 	{
 		auto buffer = reinterpret_cast<PSPerObjectConstantBuffer*>(cpuStartAddress + (psPerObjectCBVGpuAddress - gpuStartAddress));
 		buffer->diffuseTexture = diffuseTexture;
 	}
 private:
-	void create(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, uint8_t*& constantBufferCpuAddress, const wchar_t* const filename, const wchar_t* const textureFile,
+	void create(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, unsigned char*& constantBufferCpuAddress, const wchar_t* const filename, const wchar_t* const textureFile,
 		unsigned int windowWidth, unsigned int windowHeight);
 };

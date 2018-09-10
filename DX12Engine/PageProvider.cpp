@@ -168,7 +168,7 @@ bool PageProvider::NewPageIterator::NewPage::operator<(const NewPage& other)
 	return resourceInfo < otherResourceInfo;
 }
 
-void PageProvider::copyPageToUploadBuffer(HalfFinishedUploadRequest& useSubresourceRequest, const uint8_t* data)
+void PageProvider::copyPageToUploadBuffer(HalfFinishedUploadRequest& useSubresourceRequest, const unsigned char* data)
 {
 	auto& uploadRequest = *useSubresourceRequest.uploadRequest;
 	size_t widthInBytes = uploadRequest.meshInfo.indicesSize;
@@ -180,8 +180,8 @@ void PageProvider::copyPageToUploadBuffer(HalfFinishedUploadRequest& useSubresou
 	}
 	else
 	{
-		const uint8_t* source = data;
-		uint8_t* destination = (uint8_t*)useSubresourceRequest.uploadBufferCpuAddressOfCurrentPos;
+		const unsigned char* source = data;
+		unsigned char* destination = (unsigned char*)useSubresourceRequest.uploadBufferCpuAddressOfCurrentPos;
 		for (std::size_t i = 0u; i != heightInTexels; ++i)
 		{
 			memcpy(destination, source, widthInBytes);

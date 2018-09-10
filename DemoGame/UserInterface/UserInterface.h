@@ -24,7 +24,7 @@ class UserInterface
 	D3D12Resource virtualFeedbackTextureCopy;
 public:
 	UserInterface() {}
-	UserInterface(GlobalResources& sharedResources, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, uint8_t*& constantBufferCpuAddress);
+	UserInterface(GlobalResources& sharedResources, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, unsigned char*& constantBufferCpuAddress);
 	~UserInterface() {}
 
 	void start(ThreadResources& executor, GlobalResources& sharedResources);

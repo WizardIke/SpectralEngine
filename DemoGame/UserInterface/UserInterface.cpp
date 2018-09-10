@@ -3,7 +3,7 @@
 #include "../ThreadResources.h"
 #include "../GlobalResources.h"
 
-UserInterface::UserInterface(GlobalResources& sharedResources, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, uint8_t*& constantBufferCpuAddress) :
+UserInterface::UserInterface(GlobalResources& sharedResources, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, unsigned char*& constantBufferCpuAddress) :
 	CPUUsageSentence(sharedResources.graphicsEngine.graphicsDevice, &sharedResources.arial, DirectX::XMFLOAT2(0.01f, 0.01f), DirectX::XMFLOAT2(1.0f, 1.0f),
 		DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f)),
 	FPSSentence(sharedResources.graphicsEngine.graphicsDevice, &sharedResources.arial, DirectX::XMFLOAT2(0.01f, 0.07f), DirectX::XMFLOAT2(1.0f, 1.0f)) 

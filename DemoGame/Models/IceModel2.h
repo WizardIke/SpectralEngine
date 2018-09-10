@@ -31,7 +31,7 @@ public:
 
 	IceModel2() {}
 
-	IceModel2(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, uint8_t*& constantBufferCpuAddress, unsigned int refractionTextureIndex)
+	IceModel2(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, unsigned char*& constantBufferCpuAddress, unsigned int refractionTextureIndex)
 	{
 		constantBufferGpu = constantBufferGpuAddress;
 		constantBufferGpuAddress += vsConstantBufferSize + vsConstantBufferSize + psConstantBufferSize;
@@ -54,13 +54,13 @@ public:
 		return Frustum.checkCuboid2(positionX + 5.0f, positionY + 5.0f, positionZ + 5.0f, positionX - 5.0f, positionY - 5.0f, positionZ - 5.0f);
 	}
 
-	void setDiffuseTexture(uint32_t diffuseTexture, uint8_t* cpuStartAddress, D3D12_GPU_VIRTUAL_ADDRESS gpuStartAddress)
+	void setDiffuseTexture(uint32_t diffuseTexture, unsigned char* cpuStartAddress, D3D12_GPU_VIRTUAL_ADDRESS gpuStartAddress)
 	{
 		auto buffer = reinterpret_cast<GlassMaterialPS*>(cpuStartAddress + (constantBufferGpu - gpuStartAddress + vsConstantBufferSize));
 		buffer->diffuseTexture = diffuseTexture;
 	}
 
-	void setNormalTexture(uint32_t normalTexture, uint8_t* cpuStartAddress, D3D12_GPU_VIRTUAL_ADDRESS gpuStartAddress)
+	void setNormalTexture(uint32_t normalTexture, unsigned char* cpuStartAddress, D3D12_GPU_VIRTUAL_ADDRESS gpuStartAddress)
 	{
 		auto buffer = reinterpret_cast<GlassMaterialPS*>(cpuStartAddress + (constantBufferGpu - gpuStartAddress + vsConstantBufferSize));
 		buffer->normalTexture = normalTexture;
