@@ -1168,7 +1168,7 @@ namespace DDSFileLoader
 
 
 		std::unique_ptr<D3D12_SUBRESOURCE_DATA[]> initData(new D3D12_SUBRESOURCE_DATA[TextureDesc.MipLevels * arraySize]);
-		std::unique_ptr<unsigned char[]> ByteData(new unsigned char[FileByteSize]);
+		std::unique_ptr<unsigned char[]> ByteData(new unsigned char[FileByteSize]); //TODO align
 		DWORD BytesRead;
 		bool result = ReadFile(TextureFile, ByteData.get(), static_cast<DWORD>(FileByteSize), &BytesRead, nullptr);
 		if (BytesRead != FileByteSize || !result) throw IOException();
@@ -1250,7 +1250,7 @@ namespace DDSFileLoader
 		else
 		{
 			//something is wrong here, textures with less than D3D12_TEXTURE_DATA_PITCH_ALIGNMENT width and/or height look bad
-			std::unique_ptr<unsigned char[]> buffer(new unsigned char[sourceSlicePitch * subresourceDepth]);
+			std::unique_ptr<unsigned char[]> buffer(new unsigned char[sourceSlicePitch * subresourceDepth]);  //TODO align
 			TextureFile.read(buffer.get(), static_cast<DWORD>(sourceSlicePitch * subresourceDepth));
 			
 			unsigned char* source = buffer.get();

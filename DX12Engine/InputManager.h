@@ -79,7 +79,7 @@ public:
 		GetRawInputData((HRAWINPUT)lParam, RID_INPUT, nullptr, &requiredInputBufferSize, sizeof(RAWINPUTHEADER)); //get the required buffer size
 		if (requiredInputBufferSize > rawInputBuffersize)
 		{
-			rawInputBuffer.reset(new unsigned char[requiredInputBufferSize]);
+			rawInputBuffer.reset(new unsigned char[requiredInputBufferSize]); //TODO align
 			rawInputBuffersize = requiredInputBufferSize;
 		}
 

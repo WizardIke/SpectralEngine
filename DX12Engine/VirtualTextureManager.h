@@ -122,7 +122,7 @@ private:
 		File file = sharedResources.asynchronousFileManager.openFileForReading<GlobalResources>(sharedResources.ioCompletionQueue, filename);
 
 		sharedResources.asynchronousFileManager.readFile(&executor, &sharedResources, filename, 0u, sizeof(DDSFileLoader::DdsHeaderDx12), file, reinterpret_cast<void*>(const_cast<wchar_t *>(filename)),
-			[](void* requester, void* executor, void* sharedResources, const uint8_t* buffer, File file)
+			[](void* requester, void* executor, void* sharedResources, const unsigned char* buffer, File file)
 		{
 			const wchar_t* filename = reinterpret_cast<const wchar_t*>(requester);
 			ThreadResources& threadResources = *reinterpret_cast<ThreadResources*>(executor);
