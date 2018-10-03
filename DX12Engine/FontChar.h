@@ -1,6 +1,6 @@
 #pragma once
 
-struct FontChar
+class FontChar
 {
 	wchar_t id;
 
@@ -13,9 +13,8 @@ struct FontChar
 
 	float width; // width of character in screen coords
 	float height; // height of character in screen coords
-
-				  // these need to be normalized based on size of font
-	float xoffset; // offset from current cursor pos to left side of character
-	float yoffset; // offset from top of line to top of character
-	float xadvance; // how far to move to right for next character
+	
+	float xoffset; // offset from current cursor pos to left side of character in screen coords
+	float yoffset; // offset from top of line to top of character in screen coords
+	float xadvance; // how far to move to right for next character in screen coords
 };
