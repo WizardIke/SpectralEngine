@@ -15,7 +15,7 @@ void InputHandler::escapePressed(GlobalResources& globalResources) { globalResou
 
 void InputHandler::f1Pressed(GlobalResources& globalResources)
 {
-	if (!f1Down)
+	if(!f1Down)
 	{
 		f1Down = true;
 		f1Toggled = !f1Toggled;
@@ -25,7 +25,7 @@ void InputHandler::f1Pressed(GlobalResources& globalResources)
 
 void InputHandler::f1Released(GlobalResources& globalResources)
 {
-	if (f1Down)
+	if(f1Down)
 	{
 		f1Down = false;
 	}
@@ -33,7 +33,7 @@ void InputHandler::f1Released(GlobalResources& globalResources)
 
 void InputHandler::f2Pressed(GlobalResources& globalResources)
 {
-	if (!f2Down)
+	if(!f2Down)
 	{
 		f2Down = true;
 		globalResources.window.setVSync(!globalResources.window.getVSync());
@@ -42,7 +42,7 @@ void InputHandler::f2Pressed(GlobalResources& globalResources)
 
 void InputHandler::f2Released(GlobalResources& globalResources)
 {
-	if (f2Down)
+	if(f2Down)
 	{
 		f2Down = false;
 	}
