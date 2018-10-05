@@ -2,6 +2,7 @@
 
 class FontChar
 {
+public:
 	wchar_t id;
 
 	// these need to be converted to texture coordinates 

@@ -6,7 +6,7 @@
 #include <frameBufferCount.h>
 #include <cstdint>
 struct WaterMaterialVS;
-struct Mesh;
+class Mesh;
 class D3D12GraphicsEngine;
 class Timer;
 

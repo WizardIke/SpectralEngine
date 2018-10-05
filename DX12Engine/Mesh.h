@@ -2,8 +2,9 @@
 #include "D3D12Resource.h"
 #include "D3D12Heap.h"
 
-struct Mesh
+class Mesh
 {
+public:
 	D3D12Resource vertices;
 	D3D12Resource indices;
 	D3D12Heap buffer;

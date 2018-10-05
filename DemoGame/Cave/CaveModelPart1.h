@@ -3,7 +3,7 @@
 #include <DirectXMath.h>
 #include "../Shaders/DirectionalLightMaterialPS.h"
 class Frustum;
-struct Mesh;
+class Mesh;
 
 class CaveModelPart1
 {
