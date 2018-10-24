@@ -51,6 +51,7 @@ struct BaseInputHandler
 {
 	using GlobalResources = SharedResources;
 	void mouseMoved(long x, long y) {}
+	void leftMousePressed(SharedResources& sharedResources) {}
 	//return true to skip default proccessing
 	bool keyDown(UINT keyCode, UINT scanCode, SharedResources& sharedResources) {}
 	bool keyUp(UINT keyCode, UINT scanCode, SharedResources& sharedResources) {}
@@ -215,7 +216,21 @@ public:
 			}
 			if(!handled)
 			{
-				DefRawInputProc(&rawInput, 1, sizeof(RAWINPUTHEADER));
+				PRAWINPUT pRawInput = &rawInput;
+				DefRawInputProc(&pRawInput, 1, sizeof(RAWINPUTHEADER));
+			}
+		}
+		if(rawInput.header.dwType == RIM_TYPEMOUSE)
+		{
+			switch(rawInput.data.mouse.usButtonFlags)
+			{
+			case RI_MOUSE_LEFT_BUTTON_DOWN:
+				inputHandler.leftMousePressed(sharedResources);
+				break;
+			}
+			if(rawInput.data.mouse.lLastX | rawInput.data.mouse.lLastY)
+			{
+				inputHandler.mouseMoved(rawInput.data.mouse.lLastX, rawInput.data.mouse.lLastY);
 			}
 		}
 	}
