@@ -46,9 +46,6 @@
     <Filter Include="RenderPass">
       <UniqueIdentifier>{4a0d2e67-25c8-4650-95d9-11ca3150361e}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ScopedFile">
-      <UniqueIdentifier>{16679715-85ea-4032-b0fd-76176515a8e4}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Sound">
       <UniqueIdentifier>{69db3b22-7b90-401d-bf71-ddb1279ac137}</UniqueIdentifier>
     </Filter>
@@ -90,6 +87,9 @@
     </Filter>
     <Filter Include="TaskShedular">
       <UniqueIdentifier>{49351cba-9129-44c5-8694-3aea37bda5f4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="File">
+      <UniqueIdentifier>{16679715-85ea-4032-b0fd-76176515a8e4}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -356,7 +356,7 @@
     <ClInclude Include="DynamicArray.h" />
     <ClInclude Include="Array.h" />
     <ClInclude Include="File.h">
-      <Filter>ScopedFile</Filter>
+      <Filter>File</Filter>
     </ClInclude>
     <ClInclude Include="Delegate.h" />
     <ClInclude Include="TaskShedular.h">
@@ -460,7 +460,7 @@
       <Filter>AsynchronousFileManager</Filter>
     </ClCompile>
     <ClCompile Include="File.cpp">
-      <Filter>ScopedFile</Filter>
+      <Filter>File</Filter>
     </ClCompile>
     <ClCompile Include="ThreadBarrier.cpp" />
     <ClCompile Include="PageDeleter.cpp">

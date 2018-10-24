@@ -14,8 +14,10 @@ static LRESULT CALLBACK windowCallback(HWND hwnd, UINT message, WPARAM wParam, L
 	switch (message)
 	{
 	case WM_INPUT:
+	{
 		globalResources.inputManager.handleRawInput(lParam, globalResources.inputHandler, globalResources);
 		return 0;
+	}
 	case WM_SYSCOMMAND:
 		if ((wParam & 0xFFF0) == SC_MINIMIZE)
 		{

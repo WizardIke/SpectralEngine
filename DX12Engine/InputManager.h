@@ -5,55 +5,61 @@
 #undef min
 #undef max
 
+namespace Keys
+{
+	constexpr UINT left = VK_LEFT;
+	constexpr UINT right = VK_RIGHT;
+	constexpr UINT up = VK_UP;
+	constexpr UINT down = VK_DOWN;
+	constexpr UINT a = 0x41;
+	constexpr UINT d = 0x44;
+	constexpr UINT s = 0x53;
+	constexpr UINT w = 0x57;
+	constexpr UINT x = 0x58;
+	constexpr UINT z = 0x5A;
+	constexpr UINT pageUp = VK_PRIOR;
+	constexpr UINT pageDown = VK_NEXT;
+	constexpr UINT space = VK_SPACE;
+	constexpr UINT escape = VK_ESCAPE;
+	constexpr UINT f1 = VK_F1;
+	constexpr UINT f2 = VK_F2;
+	constexpr UINT leftMouse = VK_LBUTTON;
+	constexpr UINT rightMouse = VK_RBUTTON;
+	constexpr UINT middleMouse = VK_MBUTTON;
+	constexpr UINT leftShift = VK_LSHIFT;
+	constexpr UINT rightShift = VK_RSHIFT;
+	constexpr UINT leftControl = VK_LCONTROL;
+	constexpr UINT rightControl = VK_RCONTROL;
+	constexpr UINT numpad0 = VK_NUMPAD0;
+	constexpr UINT numpad1 = VK_NUMPAD1;
+	constexpr UINT numpad2 = VK_NUMPAD2;
+	constexpr UINT numpad3 = VK_NUMPAD3;
+	constexpr UINT numpad4 = VK_NUMPAD4;
+	constexpr UINT numpad5 = VK_NUMPAD5;
+	constexpr UINT numpad6 = VK_NUMPAD6;
+	constexpr UINT numpad7 = VK_NUMPAD7;
+	constexpr UINT numpad8 = VK_NUMPAD8;
+	constexpr UINT numpad9 = VK_NUMPAD9;
+	constexpr UINT rightAlt = VK_RMENU;
+	constexpr UINT leftAlt = VK_LMENU;
+	constexpr UINT numpadEnter = VK_SEPARATOR;
+	constexpr UINT numpadDecimal = VK_DECIMAL;
+}
+
 template<class SharedResources>
 struct BaseInputHandler
 {
 	using GlobalResources = SharedResources;
-	void leftMousePressed(SharedResources& sharedResources) {}
 	void mouseMoved(long x, long y) {}
-
-	void leftPressed(SharedResources& sharedResources) {}
-	void rightPressed(SharedResources& sharedResources) {}
-	void upPressed(SharedResources& sharedResources) {}
-	void downPressed(SharedResources& sharedResources) {}
-	void aPressed(SharedResources& sharedResources) {}
-	void dPressed(SharedResources& sharedResources) {}
-	void sPressed(SharedResources& sharedResources) {}
-	void wPressed(SharedResources& sharedResources) {}
-	void xPressed(SharedResources& sharedResources) {}
-	void zPressed(SharedResources& sharedResources) {}
-	void pageUpPressed(SharedResources& sharedResources) {}
-	void pageDownPressed(SharedResources& sharedResources) {}
-	void spacePressed(SharedResources& sharedResources) {}
-	void escapePressed(SharedResources& sharedResources) {}
-	void f1Pressed(SharedResources& sharedResources) {}
-	void f2Pressed(SharedResources& sharedResources) {}
-
-	void leftReleased(SharedResources& sharedResources) {}
-	void rightReleased(SharedResources& sharedResources) {}
-	void upReleased(SharedResources& sharedResources) {}
-	void downReleased(SharedResources& sharedResources) {}
-	void aReleased(SharedResources& sharedResources) {}
-	void dReleased(SharedResources& sharedResources) {}
-	void sReleased(SharedResources& sharedResources) {}
-	void wReleased(SharedResources& sharedResources) {}
-	void xReleased(SharedResources& sharedResources) {}
-	void zReleased(SharedResources& sharedResources) {}
-	void pageUpReleased(SharedResources& sharedResources) {}
-	void pageDownReleased(SharedResources& sharedResources) {}
-	void spaceReleased(SharedResources& sharedResources) {}
-	void escapeReleased(SharedResources& sharedResources) {}
-	void f1Released(SharedResources& sr) {}
-	void f2Released(SharedResources& sr) {}
+	//return true to skip default proccessing
+	bool keyDown(UINT keyCode, UINT scanCode, SharedResources& sharedResources) {}
+	bool keyUp(UINT keyCode, UINT scanCode, SharedResources& sharedResources) {}
 };
 
 class InputManager
 {
-	unsigned long rawInputBuffersize = 0u;
-	std::unique_ptr<unsigned char[]> rawInputBuffer;
 public:
-	InputManager() :
-		rawInputBuffer(nullptr)
+	InputManager()
 	{
 		RAWINPUTDEVICE inputDevices[2];
 		inputDevices[0].usUsagePage = 0x01;
@@ -68,157 +74,161 @@ public:
 
 
 		BOOL success = RegisterRawInputDevices(inputDevices, sizeof(inputDevices) / sizeof(inputDevices[0]), sizeof(RAWINPUTDEVICE));
-		if (!success) { throw false; }
+		if (success == FALSE) { throw false; }
 	}
 	~InputManager() {}
 
 	template<class InputHandler>
 	void handleRawInput(LPARAM lParam, InputHandler& inputHandler, typename InputHandler::GlobalResources& sharedResources)
 	{
-		UINT requiredInputBufferSize = 0u;
-		GetRawInputData((HRAWINPUT)lParam, RID_INPUT, nullptr, &requiredInputBufferSize, sizeof(RAWINPUTHEADER)); //get the required buffer size
-		if (requiredInputBufferSize > rawInputBuffersize)
+		RAWINPUT rawInput;
+		UINT size = sizeof(RAWINPUT);
+		GetRawInputData((HRAWINPUT)(lParam), RID_INPUT, (void*)&rawInput, &size,
+			sizeof(RAWINPUTHEADER));
+		if(rawInput.header.dwType == RIM_TYPEKEYBOARD)
 		{
-			rawInputBuffer.reset(new unsigned char[requiredInputBufferSize]); //TODO align
-			rawInputBuffersize = requiredInputBufferSize;
-		}
-
-		GetRawInputData((HRAWINPUT)lParam, RID_INPUT, rawInputBuffer.get(), &requiredInputBufferSize, sizeof(RAWINPUTHEADER));
-
-		RAWINPUT& raw = (RAWINPUT&)*rawInputBuffer.get();
-
-
-		if (raw.header.dwType == RIM_TYPEMOUSE)
-		{
-			switch (raw.data.mouse.usButtonFlags)
+			const RAWKEYBOARD& rawKeyboard = rawInput.data.keyboard;
+			UINT virtualKey = rawKeyboard.VKey;
+			UINT scanCode = rawKeyboard.MakeCode;
+			UINT flags = rawKeyboard.Flags;
+			if(virtualKey == 255)
 			{
-			case RI_MOUSE_LEFT_BUTTON_DOWN:
-				inputHandler.leftMousePressed(sharedResources);
+				// discard "fake keys" which are part of an escaped sequence
+				return;
+			}
+			else if(virtualKey == VK_SHIFT)
+			{
+				// correct left-hand / right-hand SHIFT
+				virtualKey = MapVirtualKey(scanCode, MAPVK_VSC_TO_VK_EX);
+			}
+			else if(virtualKey == VK_NUMLOCK)
+			{
+				// correct PAUSE/BREAK and NUM LOCK silliness, and set the extended bit
+				scanCode = (MapVirtualKey(virtualKey, MAPVK_VK_TO_VSC) | 0x100);
+			}
+			const bool isE0 = ((flags & RI_KEY_E0) != 0);
+			const bool isE1 = ((flags & RI_KEY_E1) != 0);
+
+			if(isE1)
+			{
+				// for escaped sequences, turn the virtual key into the correct scan code using MapVirtualKey.
+				// however, MapVirtualKey is unable to map VK_PAUSE (this is a known bug), hence we map that by hand.
+				if(virtualKey == VK_PAUSE)
+					scanCode = 0x45;
+				else
+					scanCode = MapVirtualKey(virtualKey, MAPVK_VK_TO_VSC);
+			}
+			switch(virtualKey)
+			{
+				// right-hand CONTROL and ALT have their e0 bit set
+			case VK_CONTROL:
+				if(isE0)
+					virtualKey = Keys::rightControl;
+				else
+					virtualKey = Keys::leftControl;
+				break;
+
+			case VK_MENU:
+				if(isE0)
+					virtualKey = Keys::rightAlt;
+				else
+					virtualKey = Keys::leftAlt;
+				break;
+
+				// NUMPAD ENTER has its e0 bit set
+			case VK_RETURN:
+				if(isE0)
+					virtualKey = Keys::numpadEnter;
+				break;
+
+				// the standard INSERT, DELETE, HOME, END, PRIOR and NEXT keys will always have their e0 bit set, but the
+				// corresponding keys on the NUMPAD will not.
+			case VK_INSERT:
+				if(!isE0)
+					virtualKey = Keys::numpad0;
+				break;
+
+			case VK_DELETE:
+				if(!isE0)
+					virtualKey = Keys::numpadDecimal;
+				break;
+
+			case VK_HOME:
+				if(!isE0)
+					virtualKey = Keys::numpad7;
+				break;
+
+			case VK_END:
+				if(!isE0)
+					virtualKey = Keys::numpad1;
+				break;
+
+			case VK_PRIOR:
+				if(!isE0)
+					virtualKey = Keys::numpad9;
+				break;
+
+			case VK_NEXT:
+				if(!isE0)
+					virtualKey = Keys::numpad3;
+				break;
+
+				// the standard arrow keys will always have their e0 bit set, but the
+				// corresponding keys on the NUMPAD will not.
+			case VK_LEFT:
+				if(!isE0)
+					virtualKey = Keys::numpad4;
+				break;
+
+			case VK_RIGHT:
+				if(!isE0)
+					virtualKey = Keys::numpad6;
+				break;
+
+			case VK_UP:
+				if(!isE0)
+					virtualKey = Keys::numpad8;
+				break;
+
+			case VK_DOWN:
+				if(!isE0)
+					virtualKey = Keys::numpad2;
+				break;
+
+				// NUMPAD 5 doesn't have its e0 bit set
+			case VK_CLEAR:
+				if(!isE0)
+					virtualKey = Keys::numpad5;
 				break;
 			}
-			if (raw.data.mouse.lLastX | raw.data.mouse.lLastY)
+			const bool released = ((flags & RI_KEY_BREAK) != 0);
+			scanCode |= ((UINT)isE0) << 8u;
+
+			bool handled;
+			if(released)
 			{
-				inputHandler.mouseMoved(raw.data.mouse.lLastX, raw.data.mouse.lLastY);
+				handled = inputHandler.keyUp(virtualKey, scanCode, sharedResources);
+			}
+			else
+			{
+				handled = inputHandler.keyDown(virtualKey, scanCode, sharedResources);
+			}
+			if(!handled)
+			{
+				DefRawInputProc(&rawInput, 1, sizeof(RAWINPUTHEADER));
 			}
 		}
-		else if (raw.header.dwType == RIM_TYPEKEYBOARD)
-		{
-			if (raw.data.keyboard.Flags == RI_KEY_MAKE)
-			{
-				switch (raw.data.keyboard.VKey)
-				{
-				case VK_LEFT:
-					inputHandler.leftPressed(sharedResources);
-					break;
-				case VK_RIGHT:
-					inputHandler.rightPressed(sharedResources);
-					break;
-				case VK_UP:
-					inputHandler.upPressed(sharedResources);
-					break;
-				case VK_DOWN:
-					inputHandler.downPressed(sharedResources);
-					break;
-				case 0x41: // A
-					inputHandler.aPressed(sharedResources);
-					break;
-				case 0x44: // D
-					inputHandler.dPressed(sharedResources);
-					break;
-				case 0x53: // S
-					inputHandler.sPressed(sharedResources);
-					break;
-				case 0x57: // W
-					inputHandler.wPressed(sharedResources);
-					break;
-				case 0x58: // X
-					inputHandler.xPressed(sharedResources);
-					break;
-				case 0x5A: // Z
-					inputHandler.zPressed(sharedResources);
-					break;
-				case VK_PRIOR: // Page up
-					inputHandler.pageUpPressed(sharedResources);
-					break;
-				case VK_NEXT: // Page Down
-					inputHandler.pageDownPressed(sharedResources);
-					break;
-				case VK_SPACE:
-					inputHandler.spacePressed(sharedResources);
-					break;
-				case VK_ESCAPE:
-					inputHandler.escapePressed(sharedResources);
-					break;
-				case VK_F1:
-					inputHandler.f1Pressed(sharedResources);
-					break;
-				case VK_F2:
-					inputHandler.f2Pressed(sharedResources);
-					break;
-				default:
-					PRAWINPUT rawInputPtr = &raw;
-					DefRawInputProc(&rawInputPtr, 1u, sizeof(RAWINPUTHEADER));
-					break;
-				}
-			}
-			else if (raw.data.keyboard.Flags == RI_KEY_BREAK)
-			{
-				switch (raw.data.keyboard.VKey)
-				{
-				case VK_LEFT:
-					inputHandler.leftReleased(sharedResources);
-					break;
-				case VK_RIGHT:
-					inputHandler.rightReleased(sharedResources);
-					break;
-				case VK_UP:
-					inputHandler.upReleased(sharedResources);
-					break;
-				case VK_DOWN:
-					inputHandler.downReleased(sharedResources);
-					break;
-				case 0x41: // A
-					inputHandler.aReleased(sharedResources);
-					break;
-				case 0x44: // D
-					inputHandler.dReleased(sharedResources);
-					break;
-				case 0x53: // S
-					inputHandler.sReleased(sharedResources);
-					break;
-				case 0x57: // W
-					inputHandler.wReleased(sharedResources);
-					break;
-				case 0x58: // X
-					inputHandler.xReleased(sharedResources);
-					break;
-				case 0x5A: // Z
-					inputHandler.zReleased(sharedResources);
-					break;
-				case VK_PRIOR: // Page up
-					inputHandler.pageUpReleased(sharedResources);
-					break;
-				case VK_NEXT: // Page Down
-					inputHandler.pageDownReleased(sharedResources);
-					break;
-				case VK_SPACE:
-					inputHandler.spaceReleased(sharedResources);
-					break;
-				case VK_ESCAPE:
-					inputHandler.escapeReleased(sharedResources);
-					break;
-				case VK_F1:
-					inputHandler.f1Released(sharedResources);
-					break;
-				case VK_F2:
-					inputHandler.f2Released(sharedResources);
-					break;
-				default:
-					PRAWINPUT rawInputPtr = &raw;
-					DefRawInputProc(&rawInputPtr, 1u, sizeof(RAWINPUTHEADER));
-					break;
-				}
-			}
-		}
+	}
+
+	static void getKeyName(unsigned long scanCode, char* buffer, unsigned int bufferLength)
+	{
+		LONG key = (LONG)(((UINT)scanCode << 16));
+		GetKeyNameTextA(key, buffer, bufferLength);
+	}
+
+	static void getKeyName(unsigned long scanCode, wchar_t* buffer, unsigned int bufferLength)
+	{
+		LONG key = (LONG)(((UINT)scanCode << 16));
+		GetKeyNameTextW(key, buffer, bufferLength);
 	}
 };
