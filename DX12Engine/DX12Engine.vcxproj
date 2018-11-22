@@ -214,11 +214,13 @@
     <ClInclude Include="Area.h" />
     <ClInclude Include="Array.h" />
     <ClInclude Include="AsynchronousFileManager.h" />
+    <ClInclude Include="AtomicSinglyLinked.h" />
     <ClInclude Include="AudioFormatNotSupportedException.h" />
     <ClInclude Include="AudioPlaybackException.h" />
     <ClInclude Include="HashMultiSet.h" />
     <ClInclude Include="PageAllocationInfo.h" />
     <ClInclude Include="StartableIOCompletionQueue.h" />
+    <ClInclude Include="StreamingRequest.h" />
     <ClInclude Include="VirtualTextureInfoByID.h" />
     <ClInclude Include="Zone.h" />
     <ClInclude Include="Delegate.h" />
@@ -284,7 +286,6 @@
     <ClInclude Include="Exception.h" />
     <ClInclude Include="FileNotFoundException.h" />
     <ClInclude Include="FormatNotSupportedException.h" />
-    <ClInclude Include="HalfFinishedUploadRequset.h" />
     <ClInclude Include="BaseSentence.h" />
     <ClInclude Include="MainCamera.h" />
     <ClInclude Include="ID3D12ResourceCreationFailedException.h" />
@@ -294,7 +295,6 @@
     <ClInclude Include="IOException.h" />
     <ClInclude Include="Transform.h" />
     <ClInclude Include="Quaternion.h" />
-    <ClInclude Include="RamToVramUploadRequest.h" />
     <ClInclude Include="File.h" />
     <ClInclude Include="SecurityException.h" />
     <ClInclude Include="D3D12CreateDeviceFailedException.h" />
@@ -347,6 +347,7 @@
     <ClCompile Include="StreamingManager.cpp" />
     <ClCompile Include="TextureManager.cpp" />
     <ClCompile Include="ThreadBarrier.cpp" />
+    <ClCompile Include="ThreadsafePoolAllocator.cpp" />
     <ClCompile Include="Timer.cpp" />
     <ClCompile Include="Transform.cpp" />
     <ClCompile Include="VirtualPageCamera.cpp" />

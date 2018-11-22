@@ -256,12 +256,6 @@
     <ClInclude Include="StreamingManager.h">
       <Filter>StreamingManager</Filter>
     </ClInclude>
-    <ClInclude Include="HalfFinishedUploadRequset.h">
-      <Filter>StreamingManager</Filter>
-    </ClInclude>
-    <ClInclude Include="RamToVramUploadRequest.h">
-      <Filter>StreamingManager</Filter>
-    </ClInclude>
     <ClInclude Include="d3dx12.h" />
     <ClInclude Include="for_each.h" />
     <ClInclude Include="TemplateFloat.h" />
@@ -384,6 +378,10 @@
       <Filter>VirtualTexturing</Filter>
     </ClInclude>
     <ClInclude Include="StartableIOCompletionQueue.h" />
+    <ClInclude Include="StreamingRequest.h">
+      <Filter>StreamingManager</Filter>
+    </ClInclude>
+    <ClInclude Include="AtomicSinglyLinked.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DDSFileLoader.cpp">
@@ -466,6 +464,7 @@
     <ClCompile Include="PageDeleter.cpp">
       <Filter>VirtualTexturing</Filter>
     </ClCompile>
+    <ClCompile Include="ThreadsafePoolAllocator.cpp" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Shaders\WaterPS.hlsl">

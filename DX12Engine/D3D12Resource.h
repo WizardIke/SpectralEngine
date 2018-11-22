@@ -57,7 +57,7 @@ public:
 		return data;
 	}
 
-	ID3D12Resource* release()
+	ID3D12Resource* steal()
 	{
 		auto ret = data;
 		data = nullptr;

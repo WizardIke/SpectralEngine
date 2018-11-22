@@ -6,12 +6,12 @@
 #include "D3D12GraphicsCommandList.h"
 #include <memory>
 #include <cassert>
-#include "RamToVramUploadRequest.h"
-#include "HalfFinishedUploadRequset.h"
+#include "StreamingRequest.h"
 #include "D3D12Resource.h"
 #include <mutex>
 #include <atomic>
-#include "StableQueue.h"
+#include "MultiProducerSingleConsumerQueue.h"
+#include "GpuCompletionEventManager.h"
 
 class StreamingManager
 {
@@ -22,20 +22,25 @@ public:
 		std::atomic<uint64_t> mFenceValue;
 		Array<D3D12CommandAllocator, 2u> commandAllocators;
 		D3D12GraphicsCommandList commandLists[2u];
-		ID3D12GraphicsCommandList* currentCommandList; //Need to handle swapping currentCommandList in a thread safe manner
+		ID3D12GraphicsCommandList* currentCommandList;
+		GpuCompletionEventManager<2> completionEventManager;
+
+		friend class StreamingManager;
+		uint64_t fenceValue() { return mFenceValue.load(std::memory_order::memory_order_relaxed); }
 	public:
 		ThreadLocal(ID3D12Device* const graphicsDevice, StreamingManager& streamingManager, unsigned int threadIndex);
 		ID3D12GraphicsCommandList& copyCommandList() { return *currentCommandList; }
-		void update(StreamingManager& streamingManager);
-		void copyStarted(unsigned int threadIndex, HalfFinishedUploadRequest& processingRequest);
-		uint64_t fenceValue() { return mFenceValue.load(std::memory_order::memory_order_relaxed); }
+		void update(StreamingManager& streamingManager, void* threadResources, void* globalResources);
+		void copyStarted(unsigned int threadIndex, StreamingRequest& processingRequest);
+		void addCopyCompletionEvent(void* requester, void(*unloadCallback)(void* const requester, void* executor, void* sharedResources), std::size_t bufferIndex);
 	};
 private:
-	std::mutex mutex;
 	D3D12CommandQueue copyCommandQueue;
 
-	StableQueue<RamToVramUploadRequest> waitingForSpaceRequestBuffer; //Needs to be a StableQueue so pointers into in other threads remain valid when it resizes.
-	StableQueue<HalfFinishedUploadRequest> processingRequestBuffer; //Needs to be a StableQueue so pointers into in other threads remain valid when it resizes.
+	static StreamingRequest stubRequest;
+	StreamingRequest* currentRequest;
+	MultiProducerSingleConsumerQueue waitingForSpaceRequests;
+	StreamingRequest* processingRequests;
 
 	D3D12Resource uploadBuffer;
 	unsigned char* uploadBufferCpuAddress;
@@ -46,10 +51,10 @@ private:
 	std::atomic<bool> finishedUpdating = true;
 	std::unique_ptr<ThreadLocal*[]> threadLocals;
 
-	void addUploadToBuffer(ID3D12Device* graphicsDevice, void* executor, void* sharedResources);
-	void backgroundUpdate(unsigned int threadIndex, ID3D12Device* device, void* threadResources, void* GlobalResources);
+	void addUploadToBuffer(ID3D12Device& graphicsDevice, void* executor, void* sharedResources);
+	void backgroundUpdate(unsigned int threadIndex, ID3D12Device& device, void* threadResources, void* GlobalResources);
 public:
-	StreamingManager(ID3D12Device* const graphicsDevice, unsigned long uploadHeapStartingSize, unsigned int threadCount);
+	StreamingManager(ID3D12Device& graphicsDevice, unsigned long uploadHeapStartingSize, unsigned int threadCount);
 
 	template<class ThreadResources, class GlobalResources, class TaskShedularThreadLocal>
 	void update(TaskShedularThreadLocal& taskShedular)
@@ -58,12 +63,11 @@ public:
 		{
 			taskShedular.backgroundQueue().push({ this, [](void* context, ThreadResources& threadResources, GlobalResources& globalResources)
 			{
-				reinterpret_cast<StreamingManager*>(context)->backgroundUpdate(threadResources.taskShedular.index(), globalResources.graphicsEngine.graphicsDevice, &threadResources, &globalResources);
+				reinterpret_cast<StreamingManager*>(context)->backgroundUpdate(threadResources.taskShedular.index(), *globalResources.graphicsEngine.graphicsDevice, &threadResources, &globalResources);
 			} });
 		}
 	}
 
 	ID3D12CommandQueue* commandQueue() { return copyCommandQueue; }
-	void addUploadRequest(const RamToVramUploadRequest& request);
-	void addCopyCompletionEvent(unsigned int threadIndex, void* requester, void(*event)(void* requester, void* executor, void* sharedResources));
+	void addUploadRequest(StreamingRequest* request);
 };

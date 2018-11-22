@@ -1,16 +1,35 @@
 #pragma once
 #include "Mesh.h"
-#include "RamToVramUploadRequest.h"
-#include "ResizingArray.h"
 #include <unordered_map>
 #include <mutex>
-#include "FixedSizeAllocator.h"
-#include "Delegate.h"
 #include "StreamingManager.h"
-class HalfFinishedUploadRequest;
+#include "StreamingRequest.h"
+#include "File.h"
+#include "AsynchronousFileManager.h"
 
 class MeshManager
 {
+public:
+	class MeshStreamingRequest : public StreamingRequest, public AsynchronousFileManager::IORequest
+	{
+	public:
+		uint32_t sizeOnFile;
+		uint32_t verticesSize;
+		uint32_t indicesSize;
+
+		void(*meshLoaded)(MeshStreamingRequest& request, void* tr, void* gr, Mesh& mesh);
+		MeshStreamingRequest* nextMeshRequest;
+
+		MeshStreamingRequest(void(*meshLoaded)(MeshStreamingRequest& request, void* tr, void* gr, Mesh& mesh),
+			void(*deallocateNode)(StreamingRequest* request, void* threadResources, void* globalResources),
+			const wchar_t * filename) :
+			meshLoaded(meshLoaded),
+			StreamingRequest(deallocateNode)
+		{
+			this->filename = filename;
+		}
+	};
+private:
 	enum VertexType : uint32_t
 	{
 		position3f = 0u,
@@ -48,8 +67,6 @@ class MeshManager
 		float x, y, z;
 	};
 
-	using Request = Delegate<void(void* executor, void* sharedResources, Mesh* mesh)>;
-
 	struct MeshInfo
 	{
 		MeshInfo() : numUsers(0u), loaded(false) {}
@@ -59,207 +76,215 @@ class MeshManager
 	};
 
 	std::mutex mutex;
-	std::unordered_map<const wchar_t * const, ResizingArray<Request>, std::hash<const wchar_t *>> uploadRequests;
+	std::unordered_map<const wchar_t * const, MeshStreamingRequest*, std::hash<const wchar_t *>> uploadRequests;
 	std::unordered_map<const wchar_t * const, MeshInfo, std::hash<const wchar_t *>> meshInfos;
 
-	static void meshUploadedHelper(MeshManager& MeshManager, void* storedFilename, void* executor, void* sharedResources);
+	static void meshUploadedHelper(MeshManager& MeshManager, const wchar_t* storedFilename, void* executor, void* sharedResources);
 
 	template<class GlobalResources>
-	static void meshUploaded(void* storedFilename, void* executor, void* sharedResources)
+	static void meshUploaded(StreamingRequest* request, void* executor, void* sharedResources)
 	{
 		GlobalResources& globalResources = *reinterpret_cast<GlobalResources*>(sharedResources);
 		MeshManager& meshManager = globalResources.meshManager;
-		meshUploadedHelper(meshManager, storedFilename, executor, sharedResources);
+		meshUploadedHelper(meshManager, reinterpret_cast<MeshStreamingRequest*>(request)->filename, executor, sharedResources);
 	}
 
-	static void meshWithPositionTextureNormalTangentBitangentUseSubresourceHelper(HalfFinishedUploadRequest& useSubresourceRequest, const unsigned char* buffer, MeshManager& meshManager, ID3D12Device* graphicsDevice,
+	static void meshWithPositionTextureNormalTangentBitangentUseResourceHelper(MeshStreamingRequest& useSubresourceRequest, const unsigned char* buffer, MeshManager& meshManager, ID3D12Device* graphicsDevice,
 		StreamingManager::ThreadLocal& streamingManager, unsigned int threadIndex);
 	template<class ThreadResources, class GlobalResources>
-	static void meshWithPositionTextureNormalTangentBitangentUseSubresource(void* tr, void* gr, HalfFinishedUploadRequest& useSubresourceRequest)
+	static void meshWithPositionTextureNormalTangentBitangentUseResource(StreamingRequest* useSubresourceRequest, void* tr, void* gr)
 	{
 		ThreadResources& threadResources = *reinterpret_cast<ThreadResources*>(tr);
 		threadResources.taskShedular.backgroundQueue().push({ &useSubresourceRequest, [](void* requester, ThreadResources& threadResources, GlobalResources& globalResources)
 		{
-			auto& useSubresourceRequest = *reinterpret_cast<HalfFinishedUploadRequest*>(requester);
-			auto& uploadRequest = *useSubresourceRequest.uploadRequest;
-			wchar_t* filename = reinterpret_cast<wchar_t*>(uploadRequest.requester);
-			auto sizeOnFile = uploadRequest.meshInfo.verticesSize;
+			auto& uploadRequest = *reinterpret_cast<MeshStreamingRequest*>(requester);
+			const auto sizeOnFile = uploadRequest.sizeOnFile;
 
-			globalResources.asynchronousFileManager.readFile(&threadResources, &globalResources, filename, sizeof(uint32_t) * 3u, sizeof(uint32_t) * 3u + sizeOnFile, uploadRequest.file, &useSubresourceRequest,
-				[](void* requester, void* tr, void* gr, const unsigned char* buffer, File file)
+			uploadRequest.start = sizeof(uint32_t) * 3u;
+			uploadRequest.end = sizeof(uint32_t) * 3u + sizeOnFile;
+			uploadRequest.fileLoadedCallback = [](AsynchronousFileManager::IORequest& request, void* tr, void* gr, const unsigned char* buffer)
 			{
 				ThreadResources& threadResources = *reinterpret_cast<ThreadResources*>(tr);
 				GlobalResources& globalResources = *reinterpret_cast<GlobalResources*>(gr);
-				meshWithPositionTextureNormalTangentBitangentUseSubresourceHelper(*reinterpret_cast<HalfFinishedUploadRequest*>(requester), buffer, globalResources.meshManager, globalResources.graphicsEngine.graphicsDevice,
+				meshWithPositionTextureNormalTangentBitangentUseResourceHelper(static_cast<MeshStreamingRequest&>(request), buffer, globalResources.meshManager, globalResources.graphicsEngine.graphicsDevice,
 					threadResources.streamingManager, threadResources.taskShedular.index());
-			});
+			};
+			globalResources.asynchronousFileManager.readFile(&threadResources, &globalResources, &uploadRequest);
 		} });
 	}
 
-	static void meshWithPositionTextureNormalUseSubresourceHelper(HalfFinishedUploadRequest& useSubresourceRequest, const unsigned char* buffer, MeshManager& meshManager, ID3D12Device* graphicsDevice,
+	static void meshWithPositionTextureNormalUseResourceHelper(MeshStreamingRequest& useSubresourceRequest, const unsigned char* buffer, MeshManager& meshManager, ID3D12Device* graphicsDevice,
 		StreamingManager::ThreadLocal& streamingManager, unsigned int threadIndex);
 	template<class ThreadResources, class GlobalResources>
-	static void meshWithPositionTextureNormalUseSubresource(void* tr, void* gr, HalfFinishedUploadRequest& useSubresourceRequest)
+	static void meshWithPositionTextureNormalUseSubresource(StreamingRequest* useSubresourceRequest, void* tr, void* gr)
 	{
 		ThreadResources& threadResources = *reinterpret_cast<ThreadResources*>(tr);
 		threadResources.taskShedular.backgroundQueue().push({ &useSubresourceRequest, [](void* requester, ThreadResources& threadResources, GlobalResources& globalResources)
 		{
-			auto& useSubresourceRequest = *reinterpret_cast<HalfFinishedUploadRequest*>(requester);
-			auto& uploadRequest = *useSubresourceRequest.uploadRequest;
-			wchar_t* filename = reinterpret_cast<wchar_t*>(uploadRequest.requester);
-			auto sizeOnFile = uploadRequest.meshInfo.verticesSize;
+			auto& uploadRequest = *reinterpret_cast<MeshStreamingRequest*>(requester);
+			const auto sizeOnFile = uploadRequest.sizeOnFile;
 
-			globalResources.asynchronousFileManager.readFile(&threadResources, &globalResources, filename, sizeof(uint32_t) * 3u, sizeof(uint32_t) * 3u + sizeOnFile, uploadRequest.file, &useSubresourceRequest,
-				[](void* requester, void* tr, void* gr, const unsigned char* buffer, File file)
+			uploadRequest.start = sizeof(uint32_t) * 3u;
+			uploadRequest.end = sizeof(uint32_t) * 3u + sizeOnFile;
+			uploadRequest.fileLoadedCallback = [](AsynchronousFileManager::IORequest& request, void* tr, void* gr, const unsigned char* buffer)
 			{
 				ThreadResources& threadResources = *reinterpret_cast<ThreadResources*>(tr);
 				GlobalResources& globalResources = *reinterpret_cast<GlobalResources*>(gr);
-				meshWithPositionTextureNormalUseSubresourceHelper(*reinterpret_cast<HalfFinishedUploadRequest*>(requester), buffer, globalResources.meshManager, globalResources.graphicsEngine.graphicsDevice,
+				meshWithPositionTextureNormalUseResourceHelper(static_cast<MeshStreamingRequest&>(request), buffer, globalResources.meshManager, globalResources.graphicsEngine.graphicsDevice,
 					threadResources.streamingManager, threadResources.taskShedular.index());
-			});
+			};
+			globalResources.asynchronousFileManager.readFile(&threadResources, &globalResources, &uploadRequest);
 		} });
 	}
 
-	static void meshWithPositionTextureUseSubresourceHelper(HalfFinishedUploadRequest& useSubresourceRequest, const unsigned char* buffer, MeshManager& meshManager, ID3D12Device* graphicsDevice,
+	static void meshWithPositionTextureUseResourceHelper(MeshStreamingRequest& useSubresourceRequest, const unsigned char* buffer, MeshManager& meshManager, ID3D12Device* graphicsDevice,
 		StreamingManager::ThreadLocal& streamingManager, unsigned int threadIndex);
 	template<class ThreadResources, class GlobalResources>
-	static void meshWithPositionTextureUseSubresource(void* tr, void* gr, HalfFinishedUploadRequest& useSubresourceRequest)
+	static void meshWithPositionTextureUseSubresource(StreamingRequest* useSubresourceRequest, void* tr, void* gr)
 	{
 		ThreadResources& threadResources = *reinterpret_cast<ThreadResources*>(tr);
 		threadResources.taskShedular.backgroundQueue().push({ &useSubresourceRequest, [](void* requester, ThreadResources& threadResources, GlobalResources& globalResources)
 		{
-			auto& useSubresourceRequest = *reinterpret_cast<HalfFinishedUploadRequest*>(requester);
-			auto& uploadRequest = *useSubresourceRequest.uploadRequest;
-			wchar_t* filename = reinterpret_cast<wchar_t*>(uploadRequest.requester);
-			auto sizeOnFile = uploadRequest.meshInfo.verticesSize;
+			auto& uploadRequest = *reinterpret_cast<MeshStreamingRequest*>(requester);
+			const auto sizeOnFile = uploadRequest.sizeOnFile;
 
-			globalResources.asynchronousFileManager.readFile(&threadResources, &globalResources, filename, sizeof(uint32_t) * 3u, sizeof(uint32_t) * 3u + sizeOnFile, uploadRequest.file, &useSubresourceRequest,
-				[](void* requester, void* tr, void* gr, const unsigned char* buffer, File file)
+			uploadRequest.start = sizeof(uint32_t) * 3u;
+			uploadRequest.end = sizeof(uint32_t) * 3u + sizeOnFile;
+			uploadRequest.fileLoadedCallback = [](AsynchronousFileManager::IORequest& request, void* tr, void* gr, const unsigned char* buffer)
 			{
 				ThreadResources& threadResources = *reinterpret_cast<ThreadResources*>(tr);
 				GlobalResources& globalResources = *reinterpret_cast<GlobalResources*>(gr);
-				meshWithPositionTextureUseSubresourceHelper(*reinterpret_cast<HalfFinishedUploadRequest*>(requester), buffer, globalResources.meshManager, globalResources.graphicsEngine.graphicsDevice,
+				meshWithPositionTextureUseResourceHelper(static_cast<MeshStreamingRequest&>(request), buffer, globalResources.meshManager, globalResources.graphicsEngine.graphicsDevice,
 					threadResources.streamingManager, threadResources.taskShedular.index());
-			});
+			};
+			globalResources.asynchronousFileManager.readFile(&threadResources, &globalResources, &uploadRequest);
 		} });
 	}
 
-	static void meshWithPositionUseSubresourceHelper(HalfFinishedUploadRequest& useSubresourceRequest, const unsigned char* buffer, MeshManager& meshManager, ID3D12Device* graphicsDevice,
+	static void meshWithPositionUseResourceHelper(MeshStreamingRequest& useSubresourceRequest, const unsigned char* buffer, MeshManager& meshManager, ID3D12Device* graphicsDevice,
 		StreamingManager::ThreadLocal& streamingManager, unsigned int threadIndex);
 	template<class ThreadResources, class GlobalResources>
-	static void meshWithPositionUseSubresource(void* tr, void* gr, HalfFinishedUploadRequest& useSubresourceRequest)
+	static void meshWithPositionUseSubresource(StreamingRequest* useSubresourceRequest, void* tr, void* gr)
 	{
 		ThreadResources& threadResources = *reinterpret_cast<ThreadResources*>(tr);
 		threadResources.taskShedular.backgroundQueue().push({ &useSubresourceRequest, [](void* requester, ThreadResources& threadResources, GlobalResources& globalResources)
 		{
-			auto& useSubresourceRequest = *reinterpret_cast<HalfFinishedUploadRequest*>(requester);
-			auto& uploadRequest = *useSubresourceRequest.uploadRequest;
-			wchar_t* filename = reinterpret_cast<wchar_t*>(uploadRequest.requester);
-			auto sizeOnFile = uploadRequest.meshInfo.verticesSize;
+			auto& uploadRequest = *reinterpret_cast<MeshStreamingRequest*>(requester);
+			const auto sizeOnFile = uploadRequest.sizeOnFile;
 
-			globalResources.asynchronousFileManager.readFile(&threadResources, &globalResources, filename, sizeof(uint32_t) * 3u, sizeof(uint32_t) * 3u + sizeOnFile, uploadRequest.file, &useSubresourceRequest,
-				[](void* requester, void* tr, void* gr, const unsigned char* buffer, File file)
+			uploadRequest.start = sizeof(uint32_t) * 3u;
+			uploadRequest.end = sizeof(uint32_t) * 3u + sizeOnFile;
+			uploadRequest.fileLoadedCallback = [](AsynchronousFileManager::IORequest& request, void* tr, void* gr, const unsigned char* buffer)
 			{
 				ThreadResources& threadResources = *reinterpret_cast<ThreadResources*>(tr);
 				GlobalResources& globalResources = *reinterpret_cast<GlobalResources*>(gr);
-				meshWithPositionUseSubresourceHelper(*reinterpret_cast<HalfFinishedUploadRequest*>(requester), buffer, globalResources.meshManager, globalResources.graphicsEngine.graphicsDevice,
+				meshWithPositionUseResourceHelper(static_cast<MeshStreamingRequest&>(request), buffer, globalResources.meshManager, globalResources.graphicsEngine.graphicsDevice,
 					threadResources.streamingManager, threadResources.taskShedular.index());
-			});
+			};
+			globalResources.asynchronousFileManager.readFile(&threadResources, &globalResources, &uploadRequest);
 		} });
 	}
 
-	static void fillUploadRequest(RamToVramUploadRequest& uploadRequest, uint32_t vertexCount, uint32_t indexCount, uint32_t vertexStride, void* filename, File file, void(*meshUploaded)(void* storedFilename, void* executor, void* sharedResources));
+	static void fillUploadRequest(MeshStreamingRequest& uploadRequest, uint32_t vertexCount, uint32_t indexCount, uint32_t vertexStride,
+		void(*meshUploaded)(StreamingRequest* useSubresourceRequest, void* executor, void* sharedResources));
 
 	template<class VertexType_t, class ThreadResources, class GlobalResources>
-	static std::enable_if_t<std::is_same_v<VertexType_t, MeshWithPositionTextureNormalTangentBitangent>, void> fillUploadRequestUseSubresourceCallback(RamToVramUploadRequest& uploadRequest, uint32_t indexCount, uint32_t vertexType2)
+	static std::enable_if_t<std::is_same_v<VertexType_t, MeshWithPositionTextureNormalTangentBitangent>, void> fillUploadRequestUseResourceCallback(MeshStreamingRequest& uploadRequest, uint32_t indexCount, uint32_t vertexType2)
 	{
 		if (indexCount == 0u)
 		{
 			if (vertexType2 == VertexType::position3f_texCoords2f_normal3f)
 			{
-				uploadRequest.useSubresource = meshWithPositionTextureNormalTangentBitangentUseSubresource<ThreadResources, GlobalResources>;
+				uploadRequest.data.streamResource = meshWithPositionTextureNormalTangentBitangentUseResource<ThreadResources, GlobalResources>;
 			}
 		}
 	}
 
 	template<class VertexType_t, class ThreadResources, class GlobalResources>
-	static std::enable_if_t<std::is_same_v<VertexType_t, MeshWithPositionTextureNormal>, void> fillUploadRequestUseSubresourceCallback(RamToVramUploadRequest& uploadRequest, uint32_t indexCount, uint32_t vertexType2)
+	static std::enable_if_t<std::is_same_v<VertexType_t, MeshWithPositionTextureNormal>, void> fillUploadRequestUseResourceCallback(MeshStreamingRequest& uploadRequest, uint32_t indexCount, uint32_t vertexType2)
 	{
 		if (indexCount == 0u)
 		{
 			if (vertexType2 == VertexType::position3f_texCoords2f_normal3f)
 			{
-				uploadRequest.useSubresource = meshWithPositionTextureNormalUseSubresource<ThreadResources, GlobalResources>;
+				uploadRequest.data.streamResource = meshWithPositionTextureNormalUseResource<ThreadResources, GlobalResources>;
 			}
 		}
 	}
 
 	template<class VertexType_t, class ThreadResources, class GlobalResources>
-	static std::enable_if_t<std::is_same_v<VertexType_t, MeshWithPositionTexture>, void> fillUploadRequestUseSubresourceCallback(RamToVramUploadRequest& uploadRequest, uint32_t indexCount, uint32_t vertexType2)
+	static std::enable_if_t<std::is_same_v<VertexType_t, MeshWithPositionTexture>, void> fillUploadRequestUseResourceCallback(MeshStreamingRequest& uploadRequest, uint32_t indexCount, uint32_t vertexType2)
 	{
 		if (indexCount == 0u)
 		{
 			if (vertexType2 == VertexType::position3f_texCoords2f)
 			{
-				uploadRequest.useSubresource = meshWithPositionTextureUseSubresource<ThreadResources, GlobalResources>;
+				uploadRequest.data.streamResource = meshWithPositionTextureUseResource<ThreadResources, GlobalResources>;
 			}
 		}
 	}
 
 	template<class VertexType_t, class ThreadResources, class GlobalResources>
-	static std::enable_if_t<std::is_same_v<VertexType_t, MeshWithPosition>, void> fillUploadRequestUseSubresourceCallback(RamToVramUploadRequest& uploadRequest, uint32_t indexCount, uint32_t vertexType2)
+	static std::enable_if_t<std::is_same_v<VertexType_t, MeshWithPosition>, void> fillUploadRequestUseResourceCallback(MeshStreamingRequest& uploadRequest, uint32_t indexCount, uint32_t vertexType2)
 	{
 		if (indexCount == 0u)
 		{
 			if (vertexType2 == VertexType::position3f)
 			{
-				uploadRequest.useSubresource = meshWithPositionUseSubresource<ThreadResources, GlobalResources>;
+				uploadRequest.data.streamResource = meshWithPositionUseResource<ThreadResources, GlobalResources>;
 			}
 		}
 	}
 
 	template<class VertexType_t, class ThreadResources, class GlobalResources>
-	void loadMeshUncached(ThreadResources& executor, GlobalResources& sharedResources, const wchar_t* filename)
+	void loadMeshUncached(ThreadResources& executor, GlobalResources& sharedResources, MeshStreamingRequest& request)
 	{
-		File file = sharedResources.asynchronousFileManager.openFileForReading<GlobalResources>(sharedResources.ioCompletionQueue, filename);
-		sharedResources.asynchronousFileManager.readFile(&executor, &sharedResources, filename, 0u, sizeof(uint32_t) * 3u, file, reinterpret_cast<void*>(const_cast<wchar_t *>(filename)),
-			[](void* requester, void* executor, void* sharedResources, const unsigned char* buffer, File file)
+		request.file = sharedResources.asynchronousFileManager.openFileForReading<GlobalResources>(sharedResources.ioCompletionQueue, request.filename);
+		request.start = 0u;
+		request.end = sizeof(uint32_t) * 3u;
+		request.fileLoadedCallback = [](AsynchronousFileManager::IORequest& request, void* tr, void* gr, const unsigned char* buffer)
 		{
+			MeshStreamingRequest& uploadRequest = reinterpret_cast<MeshStreamingRequest&>(request);
 			const uint32_t* data = reinterpret_cast<const uint32_t*>(buffer);
 			uint32_t vertexType2 = data[0];
 			uint32_t vertexCount = data[1];
 			uint32_t indexCount = data[2];
-			RamToVramUploadRequest uploadRequest;
-			fillUploadRequest(uploadRequest, vertexCount, indexCount, sizeof(VertexType_t), requester, file, meshUploaded<GlobalResources>);
-			fillUploadRequestUseSubresourceCallback<VertexType_t, ThreadResources, GlobalResources>(uploadRequest, indexCount, vertexType2);
+
+			fillUploadRequest(uploadRequest, vertexCount, indexCount, sizeof(VertexType_t), meshUploaded<GlobalResources>);
+			fillUploadRequestUseResourceCallback<VertexType_t, ThreadResources, GlobalResources>(uploadRequest, indexCount, vertexType2);
 			GlobalResources& globalResources = *reinterpret_cast<GlobalResources*>(sharedResources);
 			globalResources.streamingManager.addUploadRequest(uploadRequest);
-		});
+		};
+		globalResources.asynchronousFileManager.readFile(&threadResources, &globalResources, &request);
 	}
 
 	template<class VertexType_t, class ThreadResources, class GlobalResources>
-	void loadMesh(const wchar_t * filename, void* requester, ThreadResources& executor, GlobalResources& sharedResources,
-		void(*resourceUploadedCallback)(void* requester, void* executor, void* sharedResources, Mesh* mesh))
+	void loadMesh(ThreadResources& executor, GlobalResources& sharedResources, MeshStreamingRequest* request)
 	{
+		const wchar_t * filename = request->filename;
 		std::unique_lock<decltype(mutex)> lock(mutex);
 		MeshInfo& meshInfo = meshInfos[filename];
 		meshInfo.numUsers += 1u;
 		if (meshInfo.numUsers == 1u)
 		{
-			uploadRequests[filename].push_back(Request{ requester, resourceUploadedCallback });
+			auto& requests = uploadRequests[filename];
+			request->nextMeshRequest = requests;
+			requests = request;
 			lock.unlock();
 
-			loadMeshUncached<VertexType_t>(executor, sharedResources, filename);
+			loadMeshUncached<VertexType_t>(executor, sharedResources, *request);
 		}
 		else if (meshInfo.loaded)
 		{
 			Mesh* mesh = &meshInfo.mesh;
 			lock.unlock();
-			resourceUploadedCallback(requester, &executor, &sharedResources, mesh);
+			request->meshLoaded(*request, &executor, &sharedResources, *mesh);
 		}
 		else
 		{
-			uploadRequests[filename].push_back(Request{ requester, resourceUploadedCallback });
+			auto& requests = uploadRequests[filename];
+			request->nextMeshRequest = requests;
+			requests = request;
 		}
 	}
 

@@ -1,67 +1,55 @@
 #include "VirtualTextureManager.h"
 
-void VirtualTextureManager::loadTextureUncachedHelper(const wchar_t * filename, File file, StreamingManager& streamingManager, D3D12GraphicsEngine& graphicsEngine,
-	void(*useSubresource)(void* executor, void* sharedResources, HalfFinishedUploadRequest& useSubresourceRequest),
-	void(*resourceUploaded)(void* requester, void* executor, void* sharedResources),
+void VirtualTextureManager::loadTextureUncachedHelper(TextureStreamingRequest& uploadRequest, StreamingManager& streamingManager, D3D12GraphicsEngine& graphicsEngine,
+	void(*useSubresource)(StreamingRequest* request, void* threadResources, void* globalResources),
+	void(*resourceUploaded)(StreamingRequest* request, void* threadResources, void* globalResources),
 	const DDSFileLoader::DdsHeaderDx12& header)
 {
 	bool valid = DDSFileLoader::validateDdsHeader(header);
 	if (!valid) throw false;
 
-	RamToVramUploadRequest uploadRequest;
-	uploadRequest.useSubresource = useSubresource;
-	uploadRequest.requester = reinterpret_cast<void*>(const_cast<wchar_t *>(filename));
-	uploadRequest.resourceUploadedPointer = resourceUploaded;
-	uploadRequest.textureInfo.width = header.width;
-	uploadRequest.textureInfo.height = header.height;
-	uploadRequest.textureInfo.format = header.dxgiFormat;
+	uploadRequest.streamResource = useSubresource;
+	uploadRequest.resourceUploaded = resourceUploaded;
+	uploadRequest.width = header.width;
+	uploadRequest.height = header.height;
+	uploadRequest.format = header.dxgiFormat;
 	uploadRequest.mipLevels = header.mipMapCount;
 	uploadRequest.dimension = (D3D12_RESOURCE_DIMENSION)header.dimension;
-	uploadRequest.currentArrayIndex = 0u;
-	uploadRequest.file = file;
+	uploadRequest.depth = header.depth;
+	assert(header.arraySize == 1u);
 
-	if (header.miscFlag & 0x4L)
-	{
-		uploadRequest.arraySize = header.arraySize * 6u; //The texture is a cubemap
-	}
-	else
-	{
-		uploadRequest.arraySize = header.arraySize;
-	}
-	uploadRequest.textureInfo.depth = header.depth;
+	uploadRequest.destResource = createTextureWithResitencyInfo(graphicsEngine, streamingManager.commandQueue(), uploadRequest);
 
-	createTextureWithResitencyInfo(graphicsEngine, streamingManager.commandQueue(), uploadRequest, filename, file);
-
-	streamingManager.addUploadRequest(uploadRequest);
+	streamingManager.addUploadRequest(&uploadRequest);
 }
 
-static D3D12Resource createTexture(ID3D12Device* graphicsDevice, const RamToVramUploadRequest& request)
+D3D12Resource VirtualTextureManager::createTexture(ID3D12Device* graphicsDevice, const TextureStreamingRequest& request)
 {
 	D3D12_RESOURCE_DESC textureDesc;
 	textureDesc.Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
-	textureDesc.DepthOrArraySize = std::max((uint16_t)request.textureInfo.depth, request.arraySize);
+	textureDesc.DepthOrArraySize = request.depth;
 	textureDesc.Dimension = request.dimension;
 	textureDesc.Flags = D3D12_RESOURCE_FLAGS::D3D12_RESOURCE_FLAG_NONE;
-	textureDesc.Format = request.textureInfo.format;
-	textureDesc.Height = request.textureInfo.height;
+	textureDesc.Format = request.format;
+	textureDesc.Height = request.height;
 	textureDesc.Layout = D3D12_TEXTURE_LAYOUT::D3D12_TEXTURE_LAYOUT_64KB_UNDEFINED_SWIZZLE;
 		
 	textureDesc.MipLevels = request.mipLevels;
 	textureDesc.SampleDesc.Count = 1u;
 	textureDesc.SampleDesc.Quality = 0u;
-	textureDesc.Width = request.textureInfo.width;
+	textureDesc.Width = request.width;
 
 	return D3D12Resource(graphicsDevice, textureDesc, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_COMMON, nullptr);
 }
 
-static unsigned int createTextureDescriptor(D3D12GraphicsEngine& graphicsEngine, ID3D12Resource* texture, const RamToVramUploadRequest& request)
+unsigned int VirtualTextureManager::createTextureDescriptor(D3D12GraphicsEngine& graphicsEngine, ID3D12Resource* texture, const TextureStreamingRequest& request)
 {
 	auto discriptorIndex = graphicsEngine.descriptorAllocator.allocate();
 	D3D12_CPU_DESCRIPTOR_HANDLE discriptorHandle = graphicsEngine.mainDescriptorHeap->GetCPUDescriptorHandleForHeapStart() +
 		discriptorIndex * graphicsEngine.constantBufferViewAndShaderResourceViewAndUnordedAccessViewDescriptorSize;
 
 	D3D12_SHADER_RESOURCE_VIEW_DESC srv;
-	srv.Format = request.textureInfo.format;
+	srv.Format = request.format;
 	srv.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 	switch (request.dimension)
 	{
@@ -72,42 +60,17 @@ static unsigned int createTextureDescriptor(D3D12GraphicsEngine& graphicsEngine,
 		srv.Texture3D.ResourceMinLODClamp = 0u;
 		break;
 	case D3D12_RESOURCE_DIMENSION::D3D12_RESOURCE_DIMENSION_TEXTURE2D:
-		if (request.arraySize > 1u)
-		{
-			srv.ViewDimension = D3D12_SRV_DIMENSION::D3D12_SRV_DIMENSION_TEXTURE2DARRAY;
-			srv.Texture2DArray.MipLevels = request.mipLevels;
-			srv.Texture2DArray.MostDetailedMip = 0u;
-			srv.Texture2DArray.ResourceMinLODClamp = 0u;
-			srv.Texture2DArray.ArraySize = request.arraySize;
-			srv.Texture2DArray.FirstArraySlice = 0u;
-			srv.Texture2DArray.PlaneSlice = 0u;
-		}
-		else
-		{
-			srv.ViewDimension = D3D12_SRV_DIMENSION::D3D12_SRV_DIMENSION_TEXTURE2D;
-			srv.Texture2D.MipLevels = request.mipLevels;
-			srv.Texture2D.MostDetailedMip = 0u;
-			srv.Texture2D.ResourceMinLODClamp = 0u;
-			srv.Texture2D.PlaneSlice = 0u;
-		}
+		srv.ViewDimension = D3D12_SRV_DIMENSION::D3D12_SRV_DIMENSION_TEXTURE2D;
+		srv.Texture2D.MipLevels = request.mipLevels;
+		srv.Texture2D.MostDetailedMip = 0u;
+		srv.Texture2D.ResourceMinLODClamp = 0u;
+		srv.Texture2D.PlaneSlice = 0u;
 		break;
 	case D3D12_RESOURCE_DIMENSION::D3D12_RESOURCE_DIMENSION_TEXTURE1D:
-		if (request.arraySize > 1u)
-		{
-			srv.ViewDimension = D3D12_SRV_DIMENSION::D3D12_SRV_DIMENSION_TEXTURE1DARRAY;
-			srv.Texture1DArray.MipLevels = request.mipLevels;
-			srv.Texture1DArray.MostDetailedMip = 0u;
-			srv.Texture1DArray.ResourceMinLODClamp = 0u;
-			srv.Texture1DArray.ArraySize = request.arraySize;
-			srv.Texture1DArray.FirstArraySlice = 0u;
-		}
-		else
-		{
-			srv.ViewDimension = D3D12_SRV_DIMENSION::D3D12_SRV_DIMENSION_TEXTURE1D;
-			srv.Texture1D.MipLevels = request.mipLevels;
-			srv.Texture1D.MostDetailedMip = 0u;
-			srv.Texture1D.ResourceMinLODClamp = 0u;
-		}
+		srv.ViewDimension = D3D12_SRV_DIMENSION::D3D12_SRV_DIMENSION_TEXTURE1D;
+		srv.Texture1D.MipLevels = request.mipLevels;
+		srv.Texture1D.MostDetailedMip = 0u;
+		srv.Texture1D.ResourceMinLODClamp = 0u;
 		break;
 	}
 
@@ -186,16 +149,19 @@ void VirtualTextureManager::unloadTextureHelper(const wchar_t * filename, D3D12G
 		
 		delete[] resitencyInfo.pinnedHeapLocations;
 		resitencyInfo.resource->Release();
-		texturesByID.deallocate(textureID);
+		{
+			std::lock_guard<decltype(mutex)> lock(mutex);
+			texturesByID.deallocate(textureID);
+		}
 	}
 }
 
-void VirtualTextureManager::createTextureWithResitencyInfo(D3D12GraphicsEngine& graphicsEngine, ID3D12CommandQueue* commandQueue, RamToVramUploadRequest& vramRequest, const wchar_t* filename, File file)
+ID3D12Resource* VirtualTextureManager::createTextureWithResitencyInfo(D3D12GraphicsEngine& graphicsEngine, ID3D12CommandQueue* commandQueue, TextureStreamingRequest& vramRequest)
 {
 	D3D12Resource resource = createTexture(graphicsEngine.graphicsDevice, vramRequest);
 #ifndef NDEBUG
 	std::wstring name = L"virtual texture ";
-	name += filename;
+	name += vramRequest.filename;
 	resource->SetName(name.c_str());
 #endif
 	D3D12_PACKED_MIP_INFO packedMipInfo;
@@ -206,17 +172,19 @@ void VirtualTextureManager::createTextureWithResitencyInfo(D3D12GraphicsEngine& 
 	unsigned int textureDescriptorIndex = createTextureDescriptor(graphicsEngine, resource, vramRequest);
 
 	VirtualTextureInfo resitencyInfo;
-	resitencyInfo.width = vramRequest.textureInfo.width;
-	resitencyInfo.height = vramRequest.textureInfo.height;
-	resitencyInfo.file = file;
-	resitencyInfo.filename = filename;
+	resitencyInfo.width = vramRequest.width;
+	resitencyInfo.height = vramRequest.height;
+	resitencyInfo.file = vramRequest.file;
+	resitencyInfo.filename = vramRequest.filename;
 	resitencyInfo.widthInPages = subresourceTiling.WidthInTiles;
 	resitencyInfo.heightInPages = subresourceTiling.HeightInTiles;
 	resitencyInfo.numMipLevels = vramRequest.mipLevels;
 	resitencyInfo.resource = resource;
-	resitencyInfo.format = vramRequest.textureInfo.format;
+	resitencyInfo.format = vramRequest.format;
 	if (packedMipInfo.NumPackedMips == 0u)
 	{
+		//Pin lowest mip
+
 		resitencyInfo.lowestPinnedMip = vramRequest.mipLevels - 1u;
 
 		D3D12_TILED_RESOURCE_COORDINATE resourceTileCoords[64];
@@ -252,23 +220,26 @@ void VirtualTextureManager::createTextureWithResitencyInfo(D3D12GraphicsEngine& 
 		resitencyInfo.lowestPinnedMip = vramRequest.mipLevels - packedMipInfo.NumPackedMips;
 		pageProvider.pageAllocator.addPackedPages(resitencyInfo, packedMipInfo.NumTilesForPackedMips, commandQueue, graphicsEngine.graphicsDevice);
 	}
-	
 	vramRequest.mostDetailedMip = resitencyInfo.lowestPinnedMip;
-	vramRequest.currentMipLevel = resitencyInfo.lowestPinnedMip;
-		
-	std::lock_guard<decltype(mutex)> lock(mutex);
-	auto& textureInfo = textures[filename];
-	textureInfo.resource = resource.release();
-	textureInfo.descriptorIndex = textureDescriptorIndex;
-	unsigned int textureID = texturesByID.allocate();
-	textureInfo.textureID = textureID;
-	texturesByID[textureID] = std::move(resitencyInfo);
+	ID3D12Resource* resourcePtr = resource;
+
+	{
+		std::lock_guard<decltype(mutex)> lock(mutex);
+		auto& textureInfo = textures[vramRequest.filename];
+		textureInfo.resource = resource.steal();
+		textureInfo.descriptorIndex = textureDescriptorIndex;
+		unsigned int textureID = texturesByID.allocate();
+		textureInfo.textureID = textureID;
+		texturesByID[textureID] = std::move(resitencyInfo);
+	}
+
+	return resourcePtr;
 }
 
-ResizingArray<VirtualTextureManager::Request> VirtualTextureManager::textureUploadedHelper(void* storedFilename, Texture*& texture)
+void VirtualTextureManager::textureUploadedHelper(const wchar_t* filename, void* tr, void* gr)
 {
-	ResizingArray<Request> requests;
-	const wchar_t* filename = reinterpret_cast<wchar_t*>(storedFilename);
+	TextureStreamingRequest* requests;
+	Texture* texture;
 	{
 		std::lock_guard<decltype(mutex)> lock(mutex);
 		texture = &textures[filename];
@@ -279,5 +250,8 @@ ResizingArray<VirtualTextureManager::Request> VirtualTextureManager::textureUplo
 		requests = std::move(request->second);
 		uploadRequests.erase(request);
 	}
-	return std::move(requests);
+	for(TextureStreamingRequest* current = requests; current != nullptr; current = current->nextTextureRequest)
+	{
+		current->textureLoaded(*current, tr, gr, *texture);
+	}
 }

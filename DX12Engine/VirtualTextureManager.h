@@ -2,14 +2,14 @@
 #include "D3D12Resource.h"
 #include <unordered_map>
 #include <mutex>
-#include "ResizingArray.h"
-#include "Delegate.h"
 #include "StreamingManager.h"
 #include "DDSFileLoader.h"
 #include "D3D12GraphicsEngine.h"
 #include "VirtualTextureInfo.h"
 #include "PageProvider.h"
 #include "VirtualTextureInfoByID.h"
+#include "StreamingRequest.h"
+#include "AsynchronousFileManager.h"
 #undef min
 #undef max
 
@@ -25,56 +25,71 @@ public:
 		unsigned int numUsers;
 		bool loaded;
 	};
-	using Request = Delegate<void(void* executor, void* sharedResources, const Texture& texture)>;
+
+	class TextureStreamingRequest : public StreamingRequest, public AsynchronousFileManager::IORequest
+	{
+	public:
+		DXGI_FORMAT format;
+		D3D12_RESOURCE_DIMENSION dimension;
+		ID3D12Resource* destResource;
+		uint32_t width;
+		uint32_t height;
+		uint16_t depth;
+		uint16_t mipLevels;
+		uint16_t mostDetailedMip;
+
+		void(*textureLoaded)(TextureStreamingRequest& request, void* tr, void* gr, const Texture& texture);
+		TextureStreamingRequest* nextTextureRequest;
+
+		TextureStreamingRequest(void(*textureLoaded)(TextureStreamingRequest& request, void* tr, void* gr, const Texture& texture),
+			void(*deallocateNode)(StreamingRequest* request, void* threadResources, void* globalResources),
+			const wchar_t * filename) :
+			textureLoaded(textureLoaded),
+			StreamingRequest(deallocateNode)
+		{
+			this->filename = filename;
+		}
+	};
 private:
 	std::mutex mutex;
-	std::unordered_map<const wchar_t * const, ResizingArray<Request>, std::hash<const wchar_t *>> uploadRequests;
+	std::unordered_map<const wchar_t * const, TextureStreamingRequest*, std::hash<const wchar_t *>> uploadRequests;
 	std::unordered_map<const wchar_t * const, Texture, std::hash<const wchar_t *>> textures;
 public:
 	VirtualTextureInfoByID texturesByID;
 	PageProvider pageProvider;
 private:
-
 	template<class GlobalResources>
-	static void textureUploaded(void* storedFilename, void* executor, void* sharedResources)
+	static void textureUploaded(StreamingRequest* request, void* executor, void* sharedResources)
 	{
 		GlobalResources& globalResources = *reinterpret_cast<GlobalResources*>(sharedResources);
 		auto& virtualTextureManager = globalResources.virtualTextureManager;
-
-		Texture* texture;
-		auto requests = virtualTextureManager.textureUploadedHelper(storedFilename, texture);
-		for (auto& request : requests)
-		{
-			request(executor, sharedResources, *texture);
-		}
+		virtualTextureManager.textureUploadedHelper(reinterpret_cast<TextureStreamingRequest*>(request)->filename);
 	}
 
-	ResizingArray<VirtualTextureManager::Request> textureUploadedHelper(void* storedFilename, Texture*& texture);
+	void textureUploadedHelper(const wchar_t* filename, void* executor, void* sharedResources);
 
-	void loadTextureUncachedHelper(const wchar_t * filename, File file, StreamingManager& streamingManager, D3D12GraphicsEngine& graphicsEngine,
-		void(*useSubresource)(void* executor, void* sharedResources, HalfFinishedUploadRequest& useSubresourceRequest),
-		void(*resourceUploaded)(void* requester, void* executor, void* sharedResources),
+	void loadTextureUncachedHelper(TextureStreamingRequest& uploadRequest, StreamingManager& streamingManager, D3D12GraphicsEngine& graphicsEngine,
+		void(*useSubresource)(StreamingRequest* request, void* threadResources, void* globalResources),
+		void(*resourceUploaded)(StreamingRequest* request, void* threadResources, void* globalResources),
 		const DDSFileLoader::DdsHeaderDx12& header);
 
 	template<class ThreadResources, class GlobalResources>
-	static void textureUseSubresource(void* executor, void* sharedResources, HalfFinishedUploadRequest& useSubresourceRequest)
+	static void textureUseResource(StreamingRequest* useSubresourceRequest, void* executor, void* sharedResources)
 	{
 		ThreadResources& threadResources = *reinterpret_cast<ThreadResources*>(executor);
 		threadResources.taskShedular.backgroundQueue().push({ &useSubresourceRequest, [](void* context, ThreadResources& threadResources, GlobalResources& globalResources)
 		{
-			auto& useSubresourceRequest = *reinterpret_cast<HalfFinishedUploadRequest*>(context);
-			auto& uploadRequest = *useSubresourceRequest.uploadRequest;
-			const wchar_t* filename = reinterpret_cast<wchar_t*>(uploadRequest.requester);
+			auto& uploadRequest = *reinterpret_cast<TextureStreamingRequest*>(context);
 
-			size_t subresouceWidth = uploadRequest.textureInfo.width;
-			size_t subresourceHeight = uploadRequest.textureInfo.height;
-			size_t subresourceDepth = uploadRequest.textureInfo.depth;
-			size_t fileOffset = sizeof(DDSFileLoader::DdsHeaderDx12);
-			size_t currentMip = 0u;
-			while (currentMip != useSubresourceRequest.currentMipLevel)
+			std::size_t subresouceWidth = uploadRequest.width;
+			std::size_t subresourceHeight = uploadRequest.height;
+			std::size_t subresourceDepth = uploadRequest.depth;
+			std::size_t fileOffset = sizeof(DDSFileLoader::DdsHeaderDx12);
+			
+			for (std::size_t currentMip = 0u; currentMip != uploadRequest.mostDetailedMip; ++currentMip)
 			{
-				size_t numBytes, numRows, rowBytes;
-				DDSFileLoader::surfaceInfo(subresouceWidth, subresourceHeight, uploadRequest.textureInfo.format, numBytes, rowBytes, numRows);
+				std::size_t numBytes, numRows, rowBytes;
+				DDSFileLoader::surfaceInfo(subresouceWidth, subresourceHeight, uploadRequest.format, numBytes, rowBytes, numRows);
 				fileOffset += numBytes * subresourceDepth;
 
 				subresouceWidth >>= 1u;
@@ -83,59 +98,59 @@ private:
 				if (subresourceHeight == 0u) subresourceHeight = 1u;
 				subresourceDepth >>= 1u;
 				if (subresourceDepth == 0u) subresourceDepth = 1u;
-
-				++currentMip;
 			}
 
-			size_t numBytes, numRows, rowBytes;
-			DDSFileLoader::surfaceInfo(subresouceWidth, subresourceHeight, uploadRequest.textureInfo.format, numBytes, rowBytes, numRows);
-			size_t subresourceSize = numBytes * subresourceDepth;
+			std::size_t numBytes, numRows, rowBytes;
+			DDSFileLoader::surfaceInfo(subresouceWidth, subresourceHeight, uploadRequest.format, numBytes, rowBytes, numRows);
+			std::size_t subresourceSize = numBytes * subresourceDepth;
 
-			globalResources.asynchronousFileManager.readFile(&threadResources, &globalResources, filename, fileOffset, fileOffset + subresourceSize, uploadRequest.file, &useSubresourceRequest,
-				[](void* context, void* executor, void* sharedResources, const unsigned char* buffer, File file)
+			uploadRequest.start = fileOffset;
+			uploadRequest.end = fileOffset + subresourceSize;
+			uploadRequest.fileLoadedCallback = [](AsynchronousFileManager::IORequest& request, void* tr, void* gr, const unsigned char* buffer)
 			{
 				ThreadResources& threadResources = *reinterpret_cast<ThreadResources*>(executor);
 				GlobalResources& globalResources = *reinterpret_cast<GlobalResources*>(sharedResources);
-				HalfFinishedUploadRequest& useSubresourceRequest = *reinterpret_cast<HalfFinishedUploadRequest*>(context);
-				auto& uploadRequest = *useSubresourceRequest.uploadRequest;
-				const wchar_t* filename = reinterpret_cast<wchar_t*>(uploadRequest.requester);
+				TextureStreamingRequest& uploadRequest = static_cast<TextureStreamingRequest&>(request);
 				auto& streamingManager = threadResources.streamingManager;
 				VirtualTextureManager& virtualTextureManager = globalResources.virtualTextureManager;
-				ID3D12Resource* destResource;
+				ID3D12Resource* destResource = uploadRequest.destResource;
+
+				for(std::size_t currentMip = uploadRequest.mostDetailedMip; currentMip != uploadRequest.mipLevels; ++currentMip)
 				{
-					std::lock_guard<decltype(virtualTextureManager.mutex)> lock(virtualTextureManager.mutex);
-					destResource = virtualTextureManager.textures[filename].resource;
+					DDSFileLoader::copySubresourceToGpuTiled(destResource, uploadRequest.uploadResource, uploadRequest.uploadResourceOffset, uploadRequest.width, uploadRequest.height,
+						uploadRequest.depth, currentMip, uploadRequest.mipLevels, 0u, uploadRequest.format,
+						uploadRequest.uploadBufferCurrentCpuAddress, buffer, &streamingManager.copyCommandList());
 				}
-
-				DDSFileLoader::copySubresourceToGpuTiled(destResource, uploadRequest.uploadResource, useSubresourceRequest.uploadResourceOffset, uploadRequest.textureInfo.width, uploadRequest.textureInfo.height,
-					uploadRequest.textureInfo.depth, useSubresourceRequest.currentMipLevel, uploadRequest.mipLevels, useSubresourceRequest.currentArrayIndex, uploadRequest.textureInfo.format,
-					(unsigned char*)useSubresourceRequest.uploadBufferCpuAddressOfCurrentPos, buffer, &streamingManager.copyCommandList());
-
-				streamingManager.copyStarted(threadResources.taskShedular.index(), useSubresourceRequest);
-			});
+				streamingManager.copyStarted(threadResources.taskShedular.index(), uploadRequest);
+			};
+			globalResources.asynchronousFileManager.readFile(&threadResources, &globalResources, &uploadRequest);
 		} });
 	}
 
 	template<class ThreadResources, class GlobalResources>
-	void loadTextureUncached(const wchar_t* filename, ThreadResources& executor, GlobalResources& sharedResources)
+	void loadTextureUncached(TextureStreamingRequest& uploadRequest, ThreadResources& executor, GlobalResources& sharedResources)
 	{
-		File file = sharedResources.asynchronousFileManager.openFileForReading<GlobalResources>(sharedResources.ioCompletionQueue, filename);
+		uploadRequest.file = sharedResources.asynchronousFileManager.openFileForReading<GlobalResources>(sharedResources.ioCompletionQueue, uploadRequest.filename);
 
-		sharedResources.asynchronousFileManager.readFile(&executor, &sharedResources, filename, 0u, sizeof(DDSFileLoader::DdsHeaderDx12), file, reinterpret_cast<void*>(const_cast<wchar_t *>(filename)),
-			[](void* requester, void* executor, void* sharedResources, const unsigned char* buffer, File file)
+		uploadRequest.start = 0u;
+		uploadRequest.end = sizeof(DDSFileLoader::DdsHeaderDx12);
+		uploadRequest.fileLoadedCallback = [](AsynchronousFileManager::IORequest& request, void* tr, void* gr, const unsigned char* buffer)
 		{
-			const wchar_t* filename = reinterpret_cast<const wchar_t*>(requester);
+			TextureStreamingRequest& uploadRequest = static_cast<TextureStreamingRequest&>(request);
 			ThreadResources& threadResources = *reinterpret_cast<ThreadResources*>(executor);
 			GlobalResources& globalResources = *reinterpret_cast<GlobalResources*>(sharedResources);
 			auto& virtualTextureManager = globalResources.virtualTextureManager;
 			auto& streamingManager = globalResources.streamingManager;
 			auto& graphicsEngine = globalResources.graphicsEngine;
-			virtualTextureManager.loadTextureUncachedHelper(filename, file, streamingManager, graphicsEngine, textureUseSubresource<ThreadResources, GlobalResources>,
+			virtualTextureManager.loadTextureUncachedHelper(uploadRequest, streamingManager, graphicsEngine, textureUseResource<ThreadResources, GlobalResources>,
 				textureUploaded<GlobalResources>, *reinterpret_cast<const DDSFileLoader::DdsHeaderDx12*>(buffer));
-		});
+		};
+		sharedResources.asynchronousFileManager.readFile(&executor, &sharedResources, &uploadRequest);
 	}
 
-	void createTextureWithResitencyInfo(D3D12GraphicsEngine& graphicsEngine, ID3D12CommandQueue* commandQueue, RamToVramUploadRequest& vramRequest, const wchar_t* filename, File file);
+	static D3D12Resource createTexture(ID3D12Device* graphicsDevice, const TextureStreamingRequest& request);
+	static unsigned int createTextureDescriptor(D3D12GraphicsEngine& graphicsEngine, ID3D12Resource* texture, const TextureStreamingRequest& request);
+	ID3D12Resource* createTextureWithResitencyInfo(D3D12GraphicsEngine& graphicsEngine, ID3D12CommandQueue* commandQueue, TextureStreamingRequest& vramRequest);
 
 	void unloadTextureHelper(const wchar_t * filename, D3D12GraphicsEngine& graphicsEngine, StreamingManager& streamingManager);
 public:
@@ -143,8 +158,9 @@ public:
 	~VirtualTextureManager() {}
 
 	template<class ThreadResources, class GlobalResources>
-	static void loadTexture(ThreadResources& executor, GlobalResources& sharedResources, const wchar_t * filename, Request callback)
+	static void loadTexture(ThreadResources& executor, GlobalResources& sharedResources, TextureStreamingRequest* request)
 	{
+		const wchar_t * filename = request->filename;
 		auto& virtualTextureManager = sharedResources.virtualTextureManager;
 		auto& graphicsEngine = sharedResources.graphicsEngine;
 		auto& streamingManager = executor.streamingManager;
@@ -154,21 +170,24 @@ public:
 		texture.numUsers += 1u;
 		if (texture.numUsers == 1u)
 		{
-			virtualTextureManager.uploadRequests[filename].push_back(callback);
+			auto& requests = virtualTextureManager.uploadRequests[filename];
+			request->nextTextureRequest = requests;
+			requests = request;
 			lock.unlock();
 
-			virtualTextureManager.loadTextureUncached<ThreadResources, GlobalResources>(filename, executor, sharedResources);
+			virtualTextureManager.loadTextureUncached<ThreadResources, GlobalResources>(*request, executor, sharedResources);
 			return;
 		}
 		if (texture.loaded) //the resource is loaded
 		{
 			lock.unlock();
-			callback(&executor, &sharedResources, texture);
+			request->textureLoaded(*request, &executor, &sharedResources, texture);
 			return;
 		}
 		//the resourse is loading
 		auto& requests = virtualTextureManager.uploadRequests[filename];
-		requests.push_back(callback);
+		request->nextTextureRequest = requests;
+		requests = request;
 	}
 
 	/*the texture must no longer be in use, including by the GPU*/

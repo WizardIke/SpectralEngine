@@ -10,16 +10,15 @@ AsynchronousFileManager::AsynchronousFileManager()
 
 AsynchronousFileManager::~AsynchronousFileManager() {}
 
-bool AsynchronousFileManager::readFile(void* executor, void* sharedResources, const wchar_t* name, size_t start, size_t end, File file,
-	void* requester, void(*completionEvent)(void* requester, void* executor, void* sharedResources, const unsigned char* data, File file))
+bool AsynchronousFileManager::readFile(void* executor, void* sharedResources, IORequest* request)
 {
-	size_t memoryStart = start & ~(sectorSize - 1u);
-	size_t memoryEnd = (end + sectorSize - 1u) & ~(sectorSize - 1u);
+	size_t memoryStart = request->start & ~(sectorSize - 1u);
+	size_t memoryEnd = (request->end + sectorSize - 1u) & ~(sectorSize - 1u);
 	size_t memoryNeeded = memoryEnd - memoryStart;
 
 	unsigned char* allocation;
 	bool dataFound = false;
-	Key key{ name, start, end };
+	Key key{request->filename, request->start, request->end };
 	{
 		std::lock_guard<decltype(mutex)> lock(mutex);
 		
@@ -32,7 +31,7 @@ bool AsynchronousFileManager::readFile(void* executor, void* sharedResources, co
 		else
 		{
 			allocation = (unsigned char*)VirtualAlloc(nullptr, memoryNeeded, MEM_COMMIT, PAGE_READWRITE);
-			auto data = allocation + start - memoryStart;
+			auto data = allocation + request->start - memoryStart;
 			files.insert(std::pair<const Key, FileData>(key, FileData{ allocation }));
 		}
 	}
@@ -42,8 +41,8 @@ bool AsynchronousFileManager::readFile(void* executor, void* sharedResources, co
 		auto result = ReclaimVirtualMemory(allocation, memoryNeeded);
 		if (result == ERROR_SUCCESS)
 		{
-			auto data = allocation + start - memoryStart;
-			completionEvent(requester, executor, sharedResources, data, file);
+			auto data = allocation + request->start - memoryStart;
+			request->fileLoadedCallback(*request, executor, sharedResources, data);
 			return true;
 		}
 		else if(result != ERROR_BUSY) //ERROR_BUSY means the virtual memory was reclaimed but not its contents.
@@ -52,25 +51,14 @@ bool AsynchronousFileManager::readFile(void* executor, void* sharedResources, co
 		}
 	}
 
-	IORequest* request;
-	{
-		std::lock_guard<decltype(mutex)> lock(mutex);
-		request = requestAllocator.allocate();
-	}
-
 	request->buffer = allocation;
-	request->name = name;
-	request->start = start;
-	request->end = end;
 	request->accumulatedSize = 0u;
-	request->callback = { requester, completionEvent };
 	request->hEvent = nullptr;
-	request->file = file;
 	request->Offset = memoryStart & (std::numeric_limits<DWORD>::max() - 1u);
 	request->OffsetHigh = (DWORD)((memoryStart & ~(size_t)(std::numeric_limits<DWORD>::max() - 1u)) >> 32u);
 
 	DWORD bytesRead = 0u;
-	BOOL finished = ReadFile(file.native_handle(), request->buffer, (DWORD)memoryNeeded, &bytesRead, request);
+	BOOL finished = ReadFile(request->file.native_handle(), request->buffer, (DWORD)memoryNeeded, &bytesRead, request);
 	if (finished == FALSE && GetLastError() != ERROR_IO_PENDING)
 	{
 #ifndef ndebug
@@ -121,11 +109,6 @@ void AsynchronousFileManager::discard(const wchar_t* name, size_t start, size_t 
 		return true;
 	}
 	auto data = request->buffer + (request->start & (fileManager.sectorSize - 1u));
-	File file = request->file;
-	{
-		std::lock_guard<decltype(mutex)> lock(fileManager.mutex);
-		fileManager.requestAllocator.deallocate(request);
-	}
-	request->callback(executor, sharedResources, data, request->file);
+	request->fileLoadedCallback(*request, executor, sharedResources, data);
 	return true;
 }

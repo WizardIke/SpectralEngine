@@ -9,10 +9,12 @@
 #include "D3D12Resource.h"
 #include "PageDeleter.h" 
 #include "GpuCompletionEventManager.h"
+#include "frameBufferCount.h"
+#include "StreamingRequest.h"
+#include "AsynchronousFileManager.h"
 class VirtualTextureManager;
 class StreamingManager;
 struct IDXGIAdapter3;
-class HalfFinishedUploadRequest;
 class D3D12GraphicsEngine;
 class FeedbackAnalizerSubPass;
 #undef min
@@ -132,27 +134,31 @@ class PageProvider
 		bool operator!=(const NewPageIterator& rhs) { return newPage.page != rhs.newPage.page; }
 		bool operator<(const NewPageIterator& rhs) { return newPage.page < rhs.newPage.page; }
 	};
+
+	class PageLoadRequest : public StreamingRequest, public AsynchronousFileManager::IORequest
+	{
+	public:
+		unsigned long pageWidthInBytes;
+		unsigned long widthInBytes;
+		unsigned long heightInTexels;
+
+		enum class State
+		{
+			finished,
+			pending,
+			unused,
+			waitingToFreeMemory,
+		};
+		std::atomic<State> state;
+		PageAllocationInfo allocationInfo;
+		//uint64_t offsetInFile;
+	};
 public:
 	PageAllocator pageAllocator;
 private:
 	PageCache pageCache;
 	unsigned long long memoryUsage;
 	signed long long maxPages; //total number of pages that can be used for non-pinned virtual texture pages. Can be negative when too much memory is being used for other things
-
-	struct PageLoadRequest
-	{
-		enum class State
-		{
-			finished,
-			pending,
-			unused,
-		};
-		std::atomic<State> state;
-		PageAllocationInfo allocationInfo;
-		const wchar_t* filename;
-		uint64_t offsetInFile;
-		HalfFinishedUploadRequest* subresourceRequest;
-	};
 
 	PageLoadRequest pageLoadRequests[maxPagesLoading];
 	ResizingArray<std::pair<TextureLocation, unsigned long long>> posableLoadRequests;
@@ -161,9 +167,9 @@ private:
 	size_t newPageCount;
 	size_t newCacheSize;
 
-	static void copyPageToUploadBuffer(HalfFinishedUploadRequest& useSubresourceRequest, const unsigned char* data);
+	static void copyPageToUploadBuffer(StreamingRequest* useSubresourceRequest, const unsigned char* data);
 	static void addPageLoadRequestHelper(PageLoadRequest& pageRequest, VirtualTextureManager& virtualTextureManager, StreamingManager& streamingManager, 
-		void(*useSubresource)(void* executor, void* sharedResources, HalfFinishedUploadRequest& useSubresourceRequest));
+		void(*useSubresource)(StreamingRequest* request, void* threadResources, void* globalResources));
 
 	template<class ThreadResources, class GlobalResources>
 	static void addPageLoadRequest(PageLoadRequest& pageRequest, ThreadResources& threadResources, GlobalResources& sharedResources)
@@ -173,22 +179,18 @@ private:
 			PageLoadRequest& pageRequest = *reinterpret_cast<PageLoadRequest*>(requester);
 			VirtualTextureManager& virtualTextureManager = sharedResources.virtualTextureManager;
 			StreamingManager& streamingManager = sharedResources.streamingManager;
-			addPageLoadRequestHelper(pageRequest, virtualTextureManager, streamingManager, [](void* executor, void* sharedResources, HalfFinishedUploadRequest& useSubresourceRequest)
+			addPageLoadRequestHelper(pageRequest, virtualTextureManager, streamingManager, [](StreamingRequest* request, void* threadResources, void* globalResources)
 			{
-				auto& uploadRequest = *useSubresourceRequest.uploadRequest;
-				const size_t length = uploadRequest.meshInfo.sizeInBytes;
-				PageLoadRequest& pageRequest = *reinterpret_cast<PageLoadRequest*>(uploadRequest.requester);
+				PageLoadRequest& uploadRequest = *static_cast<PageLoadRequest*>(request);
 				GlobalResources& globalResources = *reinterpret_cast<GlobalResources*>(sharedResources);
-				globalResources.asynchronousFileManager.readFile(executor, sharedResources, pageRequest.filename, pageRequest.offsetInFile, pageRequest.offsetInFile + length, uploadRequest.file, &useSubresourceRequest,
-					[](void* requester, void* executor, void* sharedResources, const unsigned char* data, File file)
-				{
-					HalfFinishedUploadRequest& useSubresourceRequest = *reinterpret_cast<HalfFinishedUploadRequest*>(requester);
-					copyPageToUploadBuffer(useSubresourceRequest, data);
 
-					RamToVramUploadRequest& uploadRequest = *useSubresourceRequest.uploadRequest;
-					PageLoadRequest& pageRequest = *reinterpret_cast<PageLoadRequest*>(uploadRequest.requester);
-					pageRequest.state.store(PageProvider::PageLoadRequest::State::finished, std::memory_order::memory_order_release);
-				});
+				uploadRequest.fileLoadedCallback = [](AsynchronousFileManager::IORequest& request, void* tr, void* gr, const unsigned char* buffer)
+				{
+					PageLoadRequest& uploadRequest = static_cast<PageLoadRequest&>(request);
+					copyPageToUploadBuffer(&uploadRequest, buffer);
+					uploadRequest.state.store(PageProvider::PageLoadRequest::State::finished, std::memory_order::memory_order_release);
+				};
+				globalResources.asynchronousFileManager.readFile(threadResources, globalResources, &uploadRequest);
 			});
 		} });
 	}
@@ -266,7 +268,8 @@ private:
 		}
 	}
 
-	static void addNewPagesToResources(PageProvider& pageProvider, D3D12GraphicsEngine& graphicsEngine, VirtualTextureManager& virtualTextureManager, GpuCompletionEventManager& gpuCompletionEventManager, ID3D12GraphicsCommandList* commandList);
+	static void addNewPagesToResources(PageProvider& pageProvider, D3D12GraphicsEngine& graphicsEngine, VirtualTextureManager& virtualTextureManager,
+		GpuCompletionEventManager<frameBufferCount>& gpuCompletionEventManager, ID3D12GraphicsCommandList* commandList);
 public:
 	PageProvider(IDXGIAdapter3* adapter, ID3D12Device* graphicsDevice);
 
@@ -326,5 +329,5 @@ public:
 	}
 
 	void addPageDataToResource(ID3D12Resource* resource, D3D12_TILED_RESOURCE_COORDINATE* newPageCoordinates, size_t pageCount,
-		D3D12_TILE_REGION_SIZE& tileSize, unsigned long* uploadBufferOffsets, ID3D12GraphicsCommandList* commandList, GpuCompletionEventManager& gpuCompletionEventManager, uint32_t frameIndex);
+		D3D12_TILE_REGION_SIZE& tileSize, unsigned long* uploadBufferOffsets, ID3D12GraphicsCommandList* commandList, GpuCompletionEventManager<frameBufferCount>& gpuCompletionEventManager, uint32_t frameIndex);
 };

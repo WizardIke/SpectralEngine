@@ -1,7 +1,6 @@
 #include "PageProvider.h"
 #include "VirtualTextureManager.h"
 #include <d3d12.h>
-#include <d3d12.h>
 #include "File.h"
 #include "D3D12GraphicsEngine.h"
 #include "FeedbackAnalizer.h"
@@ -41,12 +40,12 @@ PageProvider::PageProvider(IDXGIAdapter3* adapter, ID3D12Device* graphicsDevice)
 }
 
 //textures must be tiled
-void PageProvider::addPageLoadRequestHelper(PageLoadRequest& pageRequest, VirtualTextureManager& virtualTextureManager, StreamingManager& streamingManager,
-	void(*useSubresource)(void* executor, void* sharedResources, HalfFinishedUploadRequest& useSubresourceRequest))
+void PageProvider::addPageLoadRequestHelper(PageLoadRequest& streamingRequest, VirtualTextureManager& virtualTextureManager, StreamingManager& streamingManager,
+	void(*streamResource)(StreamingRequest* request, void* threadResources, void* globalResources))
 {
-	VirtualTextureInfo& resourceInfo = virtualTextureManager.texturesByID[pageRequest.allocationInfo.textureLocation.textureId1()];
-	pageRequest.filename = resourceInfo.filename;
-	size_t mipLevel = (size_t)pageRequest.allocationInfo.textureLocation.mipLevel();
+	VirtualTextureInfo& resourceInfo = virtualTextureManager.texturesByID[streamingRequest.allocationInfo.textureLocation.textureId1()];
+	streamingRequest.filename = resourceInfo.filename;
+	size_t mipLevel = (size_t)streamingRequest.allocationInfo.textureLocation.mipLevel();
 	auto width = resourceInfo.width;
 	auto height = resourceInfo.height;
 	uint64_t filePos = sizeof(DDSFileLoader::DdsHeaderDx12);
@@ -67,10 +66,8 @@ void PageProvider::addPageLoadRequestHelper(PageLoadRequest& pageRequest, Virtua
 	if (heightInPages == 0u) heightInPages = 1u;
 	auto widthInPages = resourceInfo.widthInPages >> mipLevel;
 	if (widthInPages == 0u) widthInPages = 1u;
-	auto pageX = pageRequest.allocationInfo.textureLocation.x();
-	auto pageY = pageRequest.allocationInfo.textureLocation.y();
-	
-	RamToVramUploadRequest request;
+	auto pageX = streamingRequest.allocationInfo.textureLocation.x();
+	auto pageY = streamingRequest.allocationInfo.textureLocation.y();
 
 	uint32_t pageHeightInTexels, pageWidthInTexels, pageWidthInBytes;
 	DDSFileLoader::tileWidthAndHeightAndTileWidthInBytes(resourceInfo.format, pageWidthInTexels, pageHeightInTexels, pageWidthInBytes);
@@ -81,14 +78,14 @@ void PageProvider::addPageLoadRequestHelper(PageLoadRequest& pageRequest, Virtua
 		filePos += pageSize * pageX;
 		if (pageX < widthInPages)
 		{
-			request.meshInfo.indicesSize = pageWidthInBytes;
-			request.meshInfo.verticesSize = pageHeightInTexels;
+			streamingRequest.widthInBytes = pageWidthInBytes;
+			streamingRequest.heightInTexels = pageHeightInTexels;
 		}
 		else
 		{
 			uint32_t lastColumnWidthInBytes = pageWidthInBytes - (widthInPages * pageWidthInBytes - (uint32_t)rowBytes);
-			request.meshInfo.indicesSize = lastColumnWidthInBytes;
-			request.meshInfo.verticesSize = pageHeightInTexels;
+			streamingRequest.widthInBytes = lastColumnWidthInBytes;
+			streamingRequest.heightInTexels = pageHeightInTexels;
 		}
 	}
 	else
@@ -98,39 +95,37 @@ void PageProvider::addPageLoadRequestHelper(PageLoadRequest& pageRequest, Virtua
 		filePos += bottomPageSize * pageX;
 		if (pageX != (widthInPages - 1u))
 		{
-			request.meshInfo.indicesSize = pageWidthInBytes;
-			request.meshInfo.verticesSize = bottomPageHeight;
+			streamingRequest.widthInBytes = pageWidthInBytes;
+			streamingRequest.heightInTexels = bottomPageHeight;
 		}
 		else
 		{
 			uint32_t lastColumnWidthInBytes = pageWidthInBytes - (widthInPages * pageWidthInBytes - (uint32_t)rowBytes);
-			request.meshInfo.indicesSize = lastColumnWidthInBytes;
-			request.meshInfo.verticesSize = bottomPageHeight;
+			streamingRequest.widthInBytes = lastColumnWidthInBytes;
+			streamingRequest.heightInTexels = bottomPageHeight;
 		}
 	}
-
-	pageRequest.offsetInFile = filePos;
 	
-	request.meshInfo.padding = pageWidthInBytes;
-	request.arraySize = 1u;
-	request.currentArrayIndex = 0u;
-	request.currentMipLevel = (uint16_t)mipLevel;
-	request.mostDetailedMip = (uint16_t)mipLevel;
-	request.mipLevels = (uint16_t)mipLevel + 1u;
-	request.dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-	request.file = resourceInfo.file;
-	request.meshInfo.sizeInBytes = request.meshInfo.indicesSize * request.meshInfo.verticesSize;
-	request.requester = &pageRequest;
+	streamingRequest.pageWidthInBytes = pageWidthInBytes;
+	streamingRequest.file = resourceInfo.file;
+	streamingRequest.resourceSize = streamingRequest.widthInBytes * streamingRequest.heightInTexels;
+	streamingRequest.start = filePos;
+	streamingRequest.end = filePos + streamingRequest.resourceSize;
 
-	request.resourceUploadedPointer = &HalfFinishedUploadRequest::nullFunction;
+	streamingRequest.resourceUploaded = [](StreamingRequest* requester, void* threadResources, void* globalResources)
+	{
+		PageLoadRequest* request = reinterpret_cast<PageLoadRequest*>(requester);
+		request->state.store(PageLoadRequest::State::unused, std::memory_order::memory_order_release); //set as available to reuse
+	};
+	streamingRequest.deallocateNode = [](StreamingRequest* requester, void* threadResources, void* globalResources) {};
 
-	request.useSubresource = useSubresource;
+	streamingRequest.streamResource = streamResource;
 
-	streamingManager.addUploadRequest(request);
+	streamingManager.addUploadRequest(&streamingRequest);
 }
 
 void PageProvider::addPageDataToResource(ID3D12Resource* resource, D3D12_TILED_RESOURCE_COORDINATE* newPageCoordinates, size_t pageCount,
-	D3D12_TILE_REGION_SIZE& tileSize, unsigned long* uploadBufferOffsets, ID3D12GraphicsCommandList* commandList, GpuCompletionEventManager& gpuCompletionEventManager, uint32_t frameIndex)
+	D3D12_TILE_REGION_SIZE& tileSize, unsigned long* uploadBufferOffsets, ID3D12GraphicsCommandList* commandList, GpuCompletionEventManager<frameBufferCount>& gpuCompletionEventManager, uint32_t frameIndex)
 {
 	D3D12_RESOURCE_BARRIER barriers[1];
 	barriers[0].Type = D3D12_RESOURCE_BARRIER_TYPE::D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
@@ -143,15 +138,15 @@ void PageProvider::addPageDataToResource(ID3D12Resource* resource, D3D12_TILED_R
 	commandList->ResourceBarrier(1u, barriers);
 	for (size_t i = 0u; i != pageCount; ++i)
 	{
-		commandList->CopyTiles(resource, &newPageCoordinates[i], &tileSize, pageLoadRequests[uploadBufferOffsets[i]].subresourceRequest->uploadRequest->uploadResource,
-			pageLoadRequests[uploadBufferOffsets[i]].subresourceRequest->uploadResourceOffset,
+		commandList->CopyTiles(resource, &newPageCoordinates[i], &tileSize, pageLoadRequests[uploadBufferOffsets[i]].uploadResource,
+			pageLoadRequests[uploadBufferOffsets[i]].uploadResourceOffset,
 			D3D12_TILE_COPY_FLAGS::D3D12_TILE_COPY_FLAG_LINEAR_BUFFER_TO_SWIZZLED_TILED_RESOURCE);
 
+		pageLoadRequests[uploadBufferOffsets[i]].state.store(PageLoadRequest::State::waitingToFreeMemory, std::memory_order::memory_order_relaxed);
 		gpuCompletionEventManager.addRequest(&pageLoadRequests[uploadBufferOffsets[i]], [](void* requester, void* exe, void* sr)
 		{
 			PageLoadRequest* request = reinterpret_cast<PageLoadRequest*>(requester);
-			request->state.store(PageLoadRequest::State::unused, std::memory_order::memory_order_release);
-			request->subresourceRequest->copyFenceValue.store(0u, std::memory_order::memory_order_release); //copy has finished.
+			request->copyFenceValue.store(0u, std::memory_order::memory_order_release); //set copy state to finished. This will allow the memory in the streaming manager to be released.
 		}, frameIndex);
 	}
 
@@ -168,20 +163,20 @@ bool PageProvider::NewPageIterator::NewPage::operator<(const NewPage& other)
 	return resourceInfo < otherResourceInfo;
 }
 
-void PageProvider::copyPageToUploadBuffer(HalfFinishedUploadRequest& useSubresourceRequest, const unsigned char* data)
+void PageProvider::copyPageToUploadBuffer(StreamingRequest* request, const unsigned char* data)
 {
-	auto& uploadRequest = *useSubresourceRequest.uploadRequest;
-	size_t widthInBytes = uploadRequest.meshInfo.indicesSize;
-	size_t heightInTexels = uploadRequest.meshInfo.verticesSize;
-	size_t pageWidthInBytes = (size_t)uploadRequest.meshInfo.padding;
+	PageLoadRequest& streamingRequest = *reinterpret_cast<PageLoadRequest*>(request);
+	size_t widthInBytes = streamingRequest.widthInBytes;
+	size_t heightInTexels = streamingRequest.heightInTexels;
+	size_t pageWidthInBytes = streamingRequest.pageWidthInBytes;
 	if (widthInBytes == pageWidthInBytes)
 	{
-		memcpy(useSubresourceRequest.uploadBufferCpuAddressOfCurrentPos, data, widthInBytes * heightInTexels);
+		memcpy(streamingRequest.uploadBufferCurrentCpuAddress, data, streamingRequest.resourceSize);
 	}
 	else
 	{
 		const unsigned char* source = data;
-		unsigned char* destination = (unsigned char*)useSubresourceRequest.uploadBufferCpuAddressOfCurrentPos;
+		unsigned char* destination = streamingRequest.uploadBufferCurrentCpuAddress;
 		for (std::size_t i = 0u; i != heightInTexels; ++i)
 		{
 			memcpy(destination, source, widthInBytes);
@@ -189,9 +184,6 @@ void PageProvider::copyPageToUploadBuffer(HalfFinishedUploadRequest& useSubresou
 			destination += pageWidthInBytes;
 		}
 	}
-
-	PageLoadRequest& pageRequest = *reinterpret_cast<PageLoadRequest*>(uploadRequest.requester);
-	pageRequest.subresourceRequest = &useSubresourceRequest;
 }
 
 unsigned int PageProvider::recalculateCacheSize(FeedbackAnalizerSubPass& feedbackAnalizerSubPass, IDXGIAdapter3* adapter, size_t totalPagesNeeded)
@@ -308,7 +300,7 @@ void PageProvider::workoutIfPageNeededInCache(unsigned int mipBiasIncrease, std:
 			for (const auto& pageRequest : pageLoadRequests)
 			{
 				auto state = pageRequest.state.load(std::memory_order::memory_order_acquire);
-				if (state != PageLoadRequest::State::unused)
+				if (state == PageLoadRequest::State::pending && state == PageLoadRequest::State::finished)
 				{
 					if (pageRequest.allocationInfo.textureLocation == location)
 					{
@@ -330,13 +322,14 @@ size_t PageProvider::findLoadedTexturePages()
 {
 	newPageCount = 0u;
 	size_t numTexturesThatCanBeRequested = 0u;
-	for (auto& pageRequest : pageLoadRequests)
+	for (unsigned long i = 0u; i != (unsigned long)maxPagesLoading; ++i)
 	{
+		auto& pageRequest = pageLoadRequests[i];
 		auto state = pageRequest.state.load(std::memory_order::memory_order_acquire);
 		if (state == PageLoadRequest::State::finished)
 		{
 			newPages[newPageCount] = pageRequest.allocationInfo;
-			newPageOffsetsInLoadRequests[newPageCount] = static_cast<unsigned long>(&pageRequest - pageLoadRequests);
+			newPageOffsetsInLoadRequests[newPageCount] = i;
 			++newPageCount;
 		}
 		else if (state == PageLoadRequest::State::unused)
@@ -347,7 +340,8 @@ size_t PageProvider::findLoadedTexturePages()
 	return numTexturesThatCanBeRequested;
 }
 
-void PageProvider::addNewPagesToResources(PageProvider& pageProvider, D3D12GraphicsEngine& graphicsEngine, VirtualTextureManager& virtualTextureManager, GpuCompletionEventManager& gpuCompletionEventManager, ID3D12GraphicsCommandList* commandList)
+void PageProvider::addNewPagesToResources(PageProvider& pageProvider, D3D12GraphicsEngine& graphicsEngine, VirtualTextureManager& virtualTextureManager,
+	GpuCompletionEventManager<frameBufferCount>& gpuCompletionEventManager, ID3D12GraphicsCommandList* commandList)
 {
 	ID3D12CommandQueue* commandQueue = graphicsEngine.directCommandQueue;
 	ID3D12Device* graphicsDevice = graphicsEngine.graphicsDevice;

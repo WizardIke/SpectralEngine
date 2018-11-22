@@ -2,6 +2,7 @@
 
 #include <d3d12.h>
 #include "File.h"
+#include <cstddef>
 
 namespace DDSFileLoader
 {
@@ -78,16 +79,12 @@ namespace DDSFileLoader
 	size_t bitsPerPixel(DXGI_FORMAT fmt);
 	void tileWidthAndHeightAndTileWidthInBytes(DXGI_FORMAT format, uint32_t& width, uint32_t& height, uint32_t& tileWidthBytes);
 	bool validateDdsHeader(const DdsHeaderDx12& header);
-	void copySubresourceToGpu(ID3D12Resource* destResource, ID3D12Resource* uploadResource, uint64_t uploadBufferOffset, uint32_t width, uint32_t height, uint32_t depth, uint32_t currentMipLevel, uint32_t mipLevels,
+	void copySubresourceToGpu(ID3D12Resource* destResource, ID3D12Resource* uploadResource, unsigned long uploadBufferOffset, uint32_t width, uint32_t height, uint32_t depth, uint32_t currentMipLevel, uint32_t mipLevels,
 		uint32_t currentArrayIndex, DXGI_FORMAT format, unsigned char* uploadBufferAddress, const unsigned char* sourceBuffer, ID3D12GraphicsCommandList* copyCommandList);
 	void copySubresourceToGpuTiled(ID3D12Resource* destResource, ID3D12Resource* uploadResource, uint64_t uploadBufferOffset, uint32_t width, uint32_t height, uint32_t depth, uint32_t currentMipLevel, uint32_t mipLevels,
 		uint32_t currentArrayIndex, DXGI_FORMAT format, unsigned char* uploadBufferAddress, const unsigned char* sourceBuffer, ID3D12GraphicsCommandList* copyCommandList);
-
-
-	TextureInfo getDDSTextureInfoFromFile(File& textureFile);
-	void getDDSTextureInfoFromFile(D3D12_RESOURCE_DESC& textureDesc, File& textureFile, D3D12_SHADER_RESOURCE_VIEW_DESC& textureView, bool forceSRGB = false);
-	void LoadDDSTextureFromFile(ID3D12Device* const Device, D3D12_RESOURCE_DESC& TextureDesc, const size_t FileByteSize, D3D12_SHADER_RESOURCE_VIEW_DESC& TextureSRVDesc, HANDLE const TextureFile,
-		ID3D12Resource* const UploadTexture, ID3D12Resource* const DefaultTexture, ID3D12GraphicsCommandList* const CopyCommandList, D3D12_CPU_DESCRIPTOR_HANDLE const TextureDecriptorHandle, bool isCubeMap);
-	void loadSubresourceFromFile(ID3D12Device* const graphicsDevice, uint64_t textureWidth, uint32_t textureHeight, uint32_t textureDepth, DXGI_FORMAT format, uint16_t arrayIndex, uint16_t mipLevel, uint16_t mipLevels,
-		File TextureFile, void* const UploadBuffer, ID3D12Resource* const destResource, ID3D12GraphicsCommandList* const CopyCommandList, ID3D12Resource* uploadResource, uint64_t uploadResourceOffset);
+	void copyResourceToGpu(ID3D12Resource* destResource, ID3D12Resource* uploadResource, unsigned long uploadBufferOffset, uint32_t width, uint32_t height, uint32_t depth, uint32_t mipLevels, uint32_t arraySize, DXGI_FORMAT format,
+		unsigned char* uploadBufferAddress, const unsigned char* sourceBuffer, ID3D12GraphicsCommandList* copyCommandList);
+	std::size_t alignedResourceSize(uint32_t width, uint32_t height, uint32_t depth, uint32_t mipLevels, uint32_t arraySize, DXGI_FORMAT format);
+	std::size_t resourceSize(uint32_t width, uint32_t height, uint32_t depth, uint32_t mipLevels, uint32_t arraySize, DXGI_FORMAT format);
 }

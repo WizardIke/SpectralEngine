@@ -4,8 +4,6 @@
 #include "File.h"
 #include "IOCompletionQueue.h"
 #include <mutex>
-#include "FixedSizeAllocator.h"
-#include "Delegate.h"
 
 class AsynchronousFileManager
 {
@@ -38,23 +36,33 @@ public:
 		}
 	};
 
-	struct IORequest : OVERLAPPED
+	class IORequest : public OVERLAPPED
 	{
+	public:
 		//location to read
 		File file;
-		const wchar_t* name;
-		size_t start;
-		size_t end;
+		const wchar_t* filename;
+		std::size_t start;
+		std::size_t end;
 		//location to put the result
 		unsigned char* buffer;
 		//amount read
-		size_t accumulatedSize;
+		std::size_t accumulatedSize;
 		//what to do with the result
-		Delegate<void(void* executor, void* sharedResources, const unsigned char* data, File file)> callback;
+		void(*fileLoadedCallback)(IORequest& request, void* executor, void* sharedResources, const unsigned char* data);
+
+		IORequest() {}
+		IORequest(const wchar_t* filename, File file, std::size_t start, std::size_t end,
+			void(*fileLoadedCallback)(IORequest& request, void* executor, void* sharedResources, const unsigned char* data)) :
+			filename(filename),
+			file(file),
+			start(start),
+			end(end),
+			fileLoadedCallback(fileLoadedCallback)
+		{}
 	};
 private:
 	std::mutex mutex;
-	FixedSizeAllocator<IORequest> requestAllocator;
 	using HashMap = std::unordered_map<Key, FileData, Hasher>;
 	HashMap files;
 	std::size_t sectorSize;
@@ -78,7 +86,6 @@ public:
 		return file;
 	}
 
-	bool readFile(void* executor, void* sharedResources, const wchar_t* name, size_t start, size_t end, File file,
-		void* requester, void(*completionEvent)(void* requester, void* executor, void* sharedResources, const unsigned char* data, File file));
+	bool readFile(void* executor, void* sharedResources, IORequest* request);
 	void discard(const wchar_t* name, size_t start, size_t end);
 };

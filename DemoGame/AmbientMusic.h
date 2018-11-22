@@ -3,10 +3,11 @@
 #include <File.h>
 #include <atomic>
 #include <cstdint>
+#include <AsynchronousFileManager.h>
 class ThreadResources;
 class GlobalResources;
 
-class AmbientMusic : private IXAudio2VoiceCallback
+class AmbientMusic : private IXAudio2VoiceCallback, private AsynchronousFileManager::IORequest
 {
 	struct BufferDescriptor
 	{
@@ -22,7 +23,6 @@ class AmbientMusic : private IXAudio2VoiceCallback
 	const wchar_t* const * files;
 	std::size_t fileCount;
 	std::size_t previousTrack;
-	File file;
 	std::size_t filePosition;
 	std::size_t bytesRemaining;
 	std::size_t bytesNeeded;

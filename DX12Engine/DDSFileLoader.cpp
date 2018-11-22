@@ -1031,266 +1031,6 @@ namespace DDSFileLoader
 		}
 	}
 
-	void LoadDDSTextureFromFile(ID3D12Device* const Device, D3D12_RESOURCE_DESC& TextureDesc, const size_t FileByteSize, D3D12_SHADER_RESOURCE_VIEW_DESC& TextureSRVDesc, HANDLE const TextureFile,
-		ID3D12Resource* const UploadTexture, ID3D12Resource* const DefaultTexture, ID3D12GraphicsCommandList* const CopyCommandList, D3D12_CPU_DESCRIPTOR_HANDLE const TextureDecriptorHandle, bool isCubeMap)
-	{
-		size_t arraySize;
-		size_t depth;
-		if (TextureDesc.Dimension == D3D12_RESOURCE_DIMENSION_TEXTURE3D)
-		{
-			arraySize = 1;
-			depth = TextureDesc.DepthOrArraySize;
-		}
-		else
-		{
-			arraySize = TextureDesc.DepthOrArraySize;
-			depth = 1;
-		}
-
-		D3D12_SHADER_RESOURCE_VIEW_DESC textureShaderResourceView;
-		textureShaderResourceView.Format = TextureDesc.Format;
-		textureShaderResourceView.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-		switch (TextureDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE1D)
-		{
-		case D3D12_RESOURCE_DIMENSION_TEXTURE1D:
-		{
-			if (arraySize > 1u)
-			{
-				textureShaderResourceView.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE1DARRAY;
-				textureShaderResourceView.Texture1DArray.MostDetailedMip = 0u;
-				textureShaderResourceView.Texture1DArray.MipLevels = TextureDesc.MipLevels;
-				textureShaderResourceView.Texture1DArray.FirstArraySlice = 0u;
-				textureShaderResourceView.Texture1DArray.ArraySize = static_cast<UINT>(arraySize);
-				textureShaderResourceView.Texture1DArray.ResourceMinLODClamp = 0.f;
-			}
-			else
-			{
-				textureShaderResourceView.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE1D;
-				textureShaderResourceView.Texture1D.MostDetailedMip = 0u;
-				textureShaderResourceView.Texture1D.MipLevels = TextureDesc.MipLevels;
-				textureShaderResourceView.Texture1D.ResourceMinLODClamp = 0.f;
-			}
-
-		}
-		break;
-
-		case D3D12_RESOURCE_DIMENSION_TEXTURE2D:
-		{
-			if (isCubeMap)
-			{
-				if (arraySize > 6)
-				{
-					textureShaderResourceView.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBEARRAY;
-					textureShaderResourceView.TextureCubeArray.MostDetailedMip = 0u;
-					textureShaderResourceView.TextureCubeArray.MipLevels = TextureDesc.MipLevels;
-					textureShaderResourceView.TextureCubeArray.First2DArrayFace = 0u;
-					// Earlier we set arraySize to (NumCubes * 6)
-					textureShaderResourceView.TextureCubeArray.NumCubes = static_cast<UINT>(arraySize / 6);
-					textureShaderResourceView.TextureCubeArray.ResourceMinLODClamp = 0.f;
-				}
-				else
-				{
-					textureShaderResourceView.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE;
-					textureShaderResourceView.TextureCube.MostDetailedMip = 0u;
-					textureShaderResourceView.TextureCube.MipLevels = TextureDesc.MipLevels;
-					textureShaderResourceView.TextureCube.ResourceMinLODClamp = 0.f;
-				}
-			}
-			else if (arraySize > 1)
-			{
-				textureShaderResourceView.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2DARRAY;
-				textureShaderResourceView.Texture2DArray.MostDetailedMip = 0u;
-				textureShaderResourceView.Texture2DArray.MipLevels = TextureDesc.MipLevels;
-				textureShaderResourceView.Texture2DArray.FirstArraySlice = 0u;
-				textureShaderResourceView.Texture2DArray.ArraySize = static_cast<UINT>(arraySize);
-				textureShaderResourceView.Texture2DArray.PlaneSlice = 0u;
-				textureShaderResourceView.Texture2DArray.ResourceMinLODClamp = 0.f;
-			}
-			else
-			{
-				textureShaderResourceView.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-				textureShaderResourceView.Texture2D.MostDetailedMip = 0u;
-				textureShaderResourceView.Texture2D.MipLevels = TextureDesc.MipLevels;
-				textureShaderResourceView.Texture2D.PlaneSlice = 0u;
-				textureShaderResourceView.Texture2D.ResourceMinLODClamp = 0.f;
-			}
-		}
-		break;
-
-		case D3D12_RESOURCE_DIMENSION_TEXTURE3D:
-		{
-			textureShaderResourceView.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE3D;
-			textureShaderResourceView.Texture3D.MostDetailedMip = 0u;
-			textureShaderResourceView.Texture3D.MipLevels = TextureDesc.MipLevels;
-			textureShaderResourceView.Texture3D.ResourceMinLODClamp = 0.f;
-
-		}
-		break;
-		}
-
-
-		D3D12_FEATURE_DATA_FEATURE_LEVELS featureLevel;
-		D3D_FEATURE_LEVEL featureLevelsRequested = D3D_FEATURE_LEVEL::D3D_FEATURE_LEVEL_11_0;
-		featureLevel.NumFeatureLevels = 1u;
-		featureLevel.pFeatureLevelsRequested = &featureLevelsRequested;
-		HRESULT hr = Device->CheckFeatureSupport(D3D12_FEATURE_FEATURE_LEVELS, &featureLevel, sizeof(D3D12_FEATURE_DATA_FEATURE_LEVELS));
-		if (FAILED(hr)) throw HresultException(hr);
-		size_t maxsize;
-
-		switch (featureLevel.MaxSupportedFeatureLevel)
-		{
-		case D3D_FEATURE_LEVEL_9_1:
-		case D3D_FEATURE_LEVEL_9_2:
-			if (TextureSRVDesc.ViewDimension == D3D12_SRV_DIMENSION_TEXTURECUBEARRAY || TextureSRVDesc.ViewDimension == D3D12_SRV_DIMENSION_TEXTURECUBE)
-			{
-				maxsize = 512 /*D3D_FL9_1_REQ_TEXTURECUBE_DIMENSION*/;
-			}
-			else
-			{
-				maxsize = (TextureDesc.Dimension == D3D12_RESOURCE_DIMENSION_TEXTURE3D)
-					? 256 /*D3D_FL9_1_REQ_TEXTURE3D_U_V_OR_W_DIMENSION*/
-					: 2048 /*D3D_FL9_1_REQ_TEXTURE2D_U_OR_V_DIMENSION*/;
-			}
-			break;
-
-		case D3D_FEATURE_LEVEL_9_3:
-			maxsize = (TextureDesc.Dimension == D3D12_RESOURCE_DIMENSION_TEXTURE3D)
-				? 256 /*D3D_FL9_1_REQ_TEXTURE3D_U_V_OR_W_DIMENSION*/
-				: 4096 /*D3D_FL9_3_REQ_TEXTURE2D_U_OR_V_DIMENSION*/;
-			break;
-
-		default: // D3D_FEATURE_LEVEL_10_0 & D3D_FEATURE_LEVEL_10_1
-			maxsize = (TextureDesc.Dimension == D3D12_RESOURCE_DIMENSION_TEXTURE3D)
-				? 2048 /*D3D10_REQ_TEXTURE3D_U_V_OR_W_DIMENSION*/
-				: 8192 /*D3D10_REQ_TEXTURE2D_U_OR_V_DIMENSION*/;
-			break;
-		}
-
-
-		std::unique_ptr<D3D12_SUBRESOURCE_DATA[]> initData(new D3D12_SUBRESOURCE_DATA[TextureDesc.MipLevels * arraySize]);
-		std::unique_ptr<unsigned char[]> ByteData(new unsigned char[FileByteSize]); //TODO align
-		DWORD BytesRead;
-		bool result = ReadFile(TextureFile, ByteData.get(), static_cast<DWORD>(FileByteSize), &BytesRead, nullptr);
-		if (BytesRead != FileByteSize || !result) throw IOException();
-
-		size_t NumBytes = 0u;
-		size_t RowBytes = 0u;
-		size_t NumRows = 0u;
-		unsigned char* sourceBits = ByteData.get();
-		const unsigned char* sourceBitsEnd = sourceBits + FileByteSize;
-
-
-		size_t index = 0u;
-		for (size_t j = 0u; j < arraySize; j++)
-		{
-			size_t w = TextureDesc.Width;
-			size_t h = TextureDesc.Height;
-			size_t d = depth;
-			for (size_t i = 0; i < TextureDesc.MipLevels; i++)
-			{
-				surfaceInfo(w, h, TextureDesc.Format, NumBytes, RowBytes, NumRows);
-
-				if ((TextureDesc.MipLevels <= 1) || (w <= maxsize && h <= maxsize && d <= maxsize))
-				{
-					initData[index].pData = sourceBits;
-					initData[index].RowPitch = static_cast<UINT>(RowBytes);
-					initData[index].SlicePitch = static_cast<UINT>(NumBytes);
-					++index;
-				}
-				else throw FormatNotSupportedException();
-
-				if (sourceBits + (NumBytes*d) > sourceBitsEnd)
-				{
-					throw EndOfFileException();
-				}
-
-				sourceBits += NumBytes * d;
-
-				w = (w >> 1) > 1 ? w >> 1 : 1;
-				h = (h >> 1) > 1 ? h >> 1 : 1;
-				d = (d >> 1) > 1 ? d >> 1 : 1;
-			}
-		}
-		if (index <= 0) throw IndexOutOfRangeException();
-
-		const UINT subresourceCount = static_cast<UINT>(TextureDesc.MipLevels * arraySize);
-		void* MapSubResource;
-		D3D12_RANGE Range = { 0, 0 };
-		for (UINT i = 0; i < subresourceCount; i++)
-		{
-			hr = UploadTexture->Map(i, &Range, &MapSubResource);
-			if (FAILED(hr)) throw HresultException(hr);
-			hr = UploadTexture->WriteToSubresource(i, nullptr, initData[i].pData, static_cast<UINT>(initData[i].RowPitch), static_cast<UINT>(initData[i].SlicePitch));
-			if (FAILED(hr)) throw HresultException(hr);
-			UploadTexture->Unmap(i, nullptr);
-			
-		}
-		ByteData.reset();
-		CopyCommandList->CopyResource(DefaultTexture, UploadTexture);
-		Device->CreateShaderResourceView(DefaultTexture, &TextureSRVDesc, TextureDecriptorHandle);
-	}
-
-	void loadSubresourceFromFile(ID3D12Device* const graphicsDevice, uint64_t textureWidth, uint32_t textureHeight, uint32_t textureDepth, DXGI_FORMAT format, uint16_t arrayIndex, uint16_t mipLevel, uint16_t mipLevels,
-		File TextureFile, void* const UploadBuffer, ID3D12Resource* const destResource, ID3D12GraphicsCommandList* const CopyCommandList, ID3D12Resource* uploadResource, uint64_t uploadResourceOffset)
-	{
-		size_t sourceSlicePitch, sourceRowPitch, numRows;
-		uint32_t subresouceWidth = (uint32_t)(textureWidth >> mipLevel);
-		if (subresouceWidth == 0u) subresouceWidth = 1u;
-		uint32_t subresourceHeight = textureHeight >> mipLevel;
-		if (subresourceHeight == 0u) subresourceHeight = 1u;
-		uint32_t subresourceDepth = textureDepth >> mipLevel;
-		if (subresourceDepth == 0u) subresourceDepth = 1u;
-		surfaceInfo(subresouceWidth, subresourceHeight, format, sourceSlicePitch, sourceRowPitch, numRows);
-		size_t destRowPitch = (sourceRowPitch + (size_t)D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - (size_t)1u) & ~((size_t)D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - (size_t)1u);//sourceRowPitch is 4 byte aligned but destRowPitch is D3D12_TEXTURE_DATA_PITCH_ALIGNMENT byte aligned
-
-		if (destRowPitch == sourceRowPitch)
-		{
-			TextureFile.read(UploadBuffer, static_cast<DWORD>(sourceSlicePitch * subresourceDepth));
-		}
-		else
-		{
-			//something is wrong here, textures with less than D3D12_TEXTURE_DATA_PITCH_ALIGNMENT width and/or height look bad
-			std::unique_ptr<unsigned char[]> buffer(new unsigned char[sourceSlicePitch * subresourceDepth]);  //TODO align
-			TextureFile.read(buffer.get(), static_cast<DWORD>(sourceSlicePitch * subresourceDepth));
-			
-			unsigned char* source = buffer.get();
-			unsigned char* dest = reinterpret_cast<unsigned char*>(UploadBuffer);
-			for (uint32_t i = 0u; i < subresourceDepth; ++i)
-			{
-				for (size_t j = 0u; j < numRows; ++j)
-				{
-					memcpy(dest, source, sourceRowPitch);
-					source += sourceRowPitch;
-					dest += destRowPitch;
-				}
-			}
-		}
-
-		D3D12_TEXTURE_COPY_LOCATION destination;
-		destination.pResource = destResource;
-		destination.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
-		destination.SubresourceIndex = arrayIndex * mipLevels + mipLevel;
-		//destination.PlacedFootprint.Offset = 0u;
-		//destination.PlacedFootprint.Footprint.Depth = subresourceDepth;
-		//destination.PlacedFootprint.Footprint.Format = format;
-		//destination.PlacedFootprint.Footprint.Height = subresourceHeight;
-		//destination.PlacedFootprint.Footprint.Width = subresouceWidth;
-		//destination.PlacedFootprint.Footprint.RowPitch = static_cast<uint32_t>(destRowPitch);
-
-		D3D12_TEXTURE_COPY_LOCATION UploadBufferLocation;
-		UploadBufferLocation.pResource = uploadResource;
-		//UploadBufferLocation.SubresourceIndex = 0u;
-		UploadBufferLocation.Type = D3D12_TEXTURE_COPY_TYPE::D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
-		UploadBufferLocation.PlacedFootprint.Offset = uploadResourceOffset;
-		UploadBufferLocation.PlacedFootprint.Footprint.Depth = subresourceDepth;
-		UploadBufferLocation.PlacedFootprint.Footprint.Format = format;
-		UploadBufferLocation.PlacedFootprint.Footprint.Height = subresourceHeight;
-		UploadBufferLocation.PlacedFootprint.Footprint.Width = subresouceWidth;
-		UploadBufferLocation.PlacedFootprint.Footprint.RowPitch = static_cast<uint32_t>(destRowPitch);
-
-		CopyCommandList->CopyTextureRegion(&destination, 0u, 0u, 0u, &UploadBufferLocation, nullptr);
-	}
-
 	void tileWidthAndHeightAndTileWidthInBytes(DXGI_FORMAT format, uint32_t& width, uint32_t& height, uint32_t& tileWidthBytes)
 	{
 		switch (format)
@@ -1438,7 +1178,7 @@ namespace DDSFileLoader
 		}
 	}
 
-	void copySubresourceToGpu(ID3D12Resource* destResource, ID3D12Resource* uploadResource, uint64_t uploadBufferOffset, uint32_t width, uint32_t height, uint32_t depth, uint32_t currentMipLevel, uint32_t mipLevels,
+	void copySubresourceToGpu(ID3D12Resource* destResource, ID3D12Resource* uploadResource, unsigned long uploadBufferOffset, uint32_t width, uint32_t height, uint32_t depth, uint32_t currentMipLevel, uint32_t mipLevels,
 		uint32_t currentArrayIndex, DXGI_FORMAT format, unsigned char* uploadBufferAddress, const unsigned char* sourceBuffer, ID3D12GraphicsCommandList* copyCommandList)
 	{
 		uint32_t subresouceWidth = (width >> currentMipLevel);
@@ -1561,5 +1301,94 @@ namespace DDSFileLoader
 		UploadBufferLocation.PlacedFootprint.Footprint.RowPitch = static_cast<uint32_t>(destRowPitch);
 
 		copyCommandList->CopyTextureRegion(&destination, 0u, 0u, 0u, &UploadBufferLocation, nullptr);
+	}
+
+	void copyResourceToGpu(ID3D12Resource* destResource, ID3D12Resource* uploadResource, unsigned long uploadBufferOffset, uint32_t width, uint32_t height, uint32_t depth, uint32_t mipLevels, uint32_t arraySize, DXGI_FORMAT format,
+		unsigned char* uploadBufferAddress, const unsigned char* sourceBuffer, ID3D12GraphicsCommandList* copyCommandList)
+	{
+		for(uint32_t currentArrayIndex = 0u; currentArrayIndex != arraySize; ++currentArrayIndex)
+		{
+			uint32_t subresouceWidth = width;
+			uint32_t subresourceHeight = height;
+			uint32_t subresourceDepth = depth;
+			for(uint32_t currentMip = 0u; currentMip != mipLevels; ++currentMip)
+			{
+				size_t numBytes, numRows, sourceRowPitch;
+				DDSFileLoader::surfaceInfo(subresouceWidth, subresourceHeight, format, numBytes, sourceRowPitch, numRows);
+				size_t destRowPitch = (sourceRowPitch + (size_t)D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - (size_t)1u) & ~((size_t)D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - (size_t)1u);
+
+				copySubresourceToGpu(destResource, uploadResource, uploadBufferOffset, subresouceWidth, subresourceHeight,
+					subresourceDepth, currentMip, mipLevels, currentArrayIndex, format, uploadBufferAddress, sourceBuffer, copyCommandList);
+
+				const size_t subresourceSize = numBytes * subresourceDepth;
+				sourceBuffer += subresourceSize;
+
+				size_t destSubresourceSize = destRowPitch * numRows * subresourceDepth;
+				uploadBufferOffset += (unsigned long)destSubresourceSize;
+				uploadBufferAddress += destSubresourceSize;
+
+				subresouceWidth >>= 1u;
+				if(subresouceWidth == 0u) subresouceWidth = 1u;
+				subresourceHeight >>= 1u;
+				if(subresourceHeight == 0u) subresourceHeight = 1u;
+				subresourceDepth >>= 1u;
+				if(subresourceDepth == 0u) subresourceDepth = 1u;
+			}
+		}
+	}
+
+	std::size_t alignedResourceSize(uint32_t width, uint32_t height, uint32_t depth, uint32_t mipLevels, uint32_t arraySize, DXGI_FORMAT format)
+	{
+		std::size_t resourceSize = 0u;
+		{
+			std::size_t subresouceWidth = width;
+			std::size_t subresourceHeight = height;
+			std::size_t subresourceDepth = depth;
+			for(size_t currentMip = 0u; currentMip != mipLevels; ++currentMip)
+			{
+				std::size_t numBytes, numRows, rowBytes;
+				DDSFileLoader::surfaceInfo(subresouceWidth, subresourceHeight, format, numBytes, rowBytes, numRows);
+				std::size_t alignedRowBytes = (rowBytes + (std::size_t)D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - (std::size_t)1u) & ~((std::size_t)D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - (std::size_t)1u);
+
+				const std::size_t subresourceSize = numRows * alignedRowBytes * subresourceDepth;
+				resourceSize += subresourceSize;
+
+				subresouceWidth >>= 1u;
+				if(subresouceWidth == 0u) subresouceWidth = 1u;
+				subresourceHeight >>= 1u;
+				if(subresourceHeight == 0u) subresourceHeight = 1u;
+				subresourceDepth >>= 1u;
+				if(subresourceDepth == 0u) subresourceDepth = 1u;
+			}
+			resourceSize *= arraySize;
+		}
+		return resourceSize;
+	}
+
+	std::size_t resourceSize(uint32_t width, uint32_t height, uint32_t depth, uint32_t mipLevels, uint32_t arraySize, DXGI_FORMAT format)
+	{
+		std::size_t resourceSize = 0u;
+		{
+			std::size_t subresouceWidth = width;
+			std::size_t subresourceHeight = height;
+			std::size_t subresourceDepth = depth;
+			for(std::size_t currentMip = 0u; currentMip != mipLevels; ++currentMip)
+			{
+				std::size_t numBytes, numRows, rowBytes;
+				DDSFileLoader::surfaceInfo(subresouceWidth, subresourceHeight, format, numBytes, rowBytes, numRows);
+
+				const std::size_t subresourceSize = numBytes * subresourceDepth;
+				resourceSize += subresourceSize;
+
+				subresouceWidth >>= 1u;
+				if(subresouceWidth == 0u) subresouceWidth = 1u;
+				subresourceHeight >>= 1u;
+				if(subresourceHeight == 0u) subresourceHeight = 1u;
+				subresourceDepth >>= 1u;
+				if(subresourceDepth == 0u) subresourceDepth = 1u;
+			}
+			resourceSize *= arraySize;
+		}
+		return resourceSize;
 	}
 }
