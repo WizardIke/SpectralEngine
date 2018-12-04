@@ -96,7 +96,7 @@ private:
 		textureManager.textureUploadedHelper(filename, tr, gr);
 	}
 
-	static void loadTextureFromMemory(StreamingManager& streamingManager, const unsigned char* buffer, File file, TextureStreamingRequest& uploadRequest,
+	static void loadTextureFromMemory(StreamingManager& streamingManager, const unsigned char* buffer, TextureStreamingRequest& uploadRequest,
 		void(*streamResource)(StreamingRequest* request, void* threadResources, void* globalResources), void(*textureUploaded)(StreamingRequest* request, void*, void*));
 
 	template<class ThreadResources, class GlobalResources>
@@ -108,7 +108,7 @@ private:
 		request->fileLoadedCallback = [](AsynchronousFileManager::IORequest& request, void*, void* gr, const unsigned char* buffer)
 		{
 			GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
-			loadTextureFromMemory(globalResources.streamingManager, buffer, request.file, static_cast<TextureStreamingRequest&>(request), textureStreamResource<ThreadResources, GlobalResources>, textureUploaded<GlobalResources>);
+			loadTextureFromMemory(globalResources.streamingManager, buffer, static_cast<TextureStreamingRequest&>(request), textureStreamResource<ThreadResources, GlobalResources>, textureUploaded<GlobalResources>);
 		};
 		asynchronousFileManager.readFile(&threadResources, &globalResources, request);
 	}

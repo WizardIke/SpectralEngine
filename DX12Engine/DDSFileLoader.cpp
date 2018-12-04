@@ -1178,16 +1178,9 @@ namespace DDSFileLoader
 		}
 	}
 
-	void copySubresourceToGpu(ID3D12Resource* destResource, ID3D12Resource* uploadResource, unsigned long uploadBufferOffset, uint32_t width, uint32_t height, uint32_t depth, uint32_t currentMipLevel, uint32_t mipLevels,
-		uint32_t currentArrayIndex, DXGI_FORMAT format, unsigned char* uploadBufferAddress, const unsigned char* sourceBuffer, ID3D12GraphicsCommandList* copyCommandList)
+	void copySubresourceToGpu(ID3D12Resource* destResource, ID3D12Resource* uploadResource, unsigned long uploadBufferOffset, uint32_t subresouceWidth, uint32_t subresourceHeight, uint32_t subresourceDepth,
+		uint32_t currentMipLevel, uint32_t mipLevels, uint32_t currentArrayIndex, DXGI_FORMAT format, unsigned char* uploadBufferAddress, const unsigned char* sourceBuffer, ID3D12GraphicsCommandList* copyCommandList)
 	{
-		uint32_t subresouceWidth = (width >> currentMipLevel);
-		if (subresouceWidth == 0u) subresouceWidth = 1u;
-		uint32_t subresourceHeight = height >> currentMipLevel;
-		if (subresourceHeight == 0u) subresourceHeight = 1u;
-		uint32_t subresourceDepth = depth >> currentMipLevel;
-		if (subresourceDepth == 0u) subresourceDepth = 1u;
-
 		size_t sourceSlicePitch, sourceRowPitch, numRows;
 		surfaceInfo(subresouceWidth, subresourceHeight, format, sourceSlicePitch, sourceRowPitch, numRows);
 		size_t destRowPitch = (sourceRowPitch + (size_t)D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - (size_t)1u) & ~((size_t)D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - (size_t)1u);//sourceRowPitch is 4 byte aligned but destRowPitch is D3D12_TEXTURE_DATA_PITCH_ALIGNMENT byte aligned
@@ -1230,16 +1223,9 @@ namespace DDSFileLoader
 		copyCommandList->CopyTextureRegion(&destination, 0u, 0u, 0u, &UploadBufferLocation, nullptr);
 	}
 
-	void copySubresourceToGpuTiled(ID3D12Resource* destResource, ID3D12Resource* uploadResource, uint64_t uploadBufferOffset, uint32_t width, uint32_t height, uint32_t depth, uint32_t currentMipLevel, uint32_t mipLevels,
-		uint32_t currentArrayIndex, DXGI_FORMAT format, unsigned char* uploadBufferAddress, const unsigned char* sourceBuffer, ID3D12GraphicsCommandList* copyCommandList)
+	void copySubresourceToGpuTiled(ID3D12Resource* destResource, ID3D12Resource* uploadResource, uint64_t uploadBufferOffset, uint32_t subresouceWidth, uint32_t subresourceHeight, uint32_t subresourceDepth,
+		uint32_t currentMipLevel, uint32_t mipLevels, uint32_t currentArrayIndex, DXGI_FORMAT format, unsigned char* uploadBufferAddress, const unsigned char* sourceBuffer, ID3D12GraphicsCommandList* copyCommandList)
 	{
-		uint32_t subresouceWidth = (width >> currentMipLevel);
-		if (subresouceWidth == 0u) subresouceWidth = 1u;
-		uint32_t subresourceHeight = height >> currentMipLevel;
-		if (subresourceHeight == 0u) subresourceHeight = 1u;
-		uint32_t subresourceDepth = depth >> currentMipLevel;
-		if (subresourceDepth == 0u) subresourceDepth = 1u;
-
 		size_t sourceSlicePitch, sourceRowPitch, numRows;
 		surfaceInfo(subresouceWidth, subresourceHeight, format, sourceSlicePitch, sourceRowPitch, numRows);
 		size_t destRowPitch = (sourceRowPitch + (size_t)D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - (size_t)1u) & ~((size_t)D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - (size_t)1u);//sourceRowPitch is 4 byte aligned but destRowPitch is D3D12_TEXTURE_DATA_PITCH_ALIGNMENT byte aligned

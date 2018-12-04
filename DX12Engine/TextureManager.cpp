@@ -127,7 +127,7 @@ ID3D12Resource* TextureManager::createTexture(const TextureStreamingRequest& upl
 	return res;
 }
 
-void TextureManager::loadTextureFromMemory(StreamingManager& streamingManager, const unsigned char* buffer, File file, TextureStreamingRequest& uploadRequest,
+void TextureManager::loadTextureFromMemory(StreamingManager& streamingManager, const unsigned char* buffer, TextureStreamingRequest& uploadRequest,
 	void(*streamResource)(StreamingRequest* request, void* threadResources, void* globalResources), void(*textureUploaded)(StreamingRequest* request, void*, void*))
 {
 	const DDSFileLoader::DdsHeaderDx12& header = *reinterpret_cast<const DDSFileLoader::DdsHeaderDx12*>(buffer);
@@ -135,7 +135,6 @@ void TextureManager::loadTextureFromMemory(StreamingManager& streamingManager, c
 	if(!valid) throw false;
 	uploadRequest.streamResource = streamResource;
 	uploadRequest.resourceUploaded = textureUploaded;
-	uploadRequest.file = file;
 	uploadRequest.width = header.width;
 	uploadRequest.height = header.height;
 	uploadRequest.format = header.dxgiFormat;

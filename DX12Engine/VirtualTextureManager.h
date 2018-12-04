@@ -113,11 +113,21 @@ private:
 				auto& streamingManager = threadResources.streamingManager;
 				ID3D12Resource* destResource = uploadRequest.destResource;
 
+				uint32_t subresouceWidth = uploadRequest.width;
+				uint32_t subresourceHeight = uploadRequest.height;
+				uint32_t subresourceDepth = uploadRequest.depth;
 				for(unsigned int currentMip = (unsigned int)uploadRequest.mostDetailedMip; currentMip != (unsigned int)uploadRequest.mipLevels; ++currentMip)
 				{
-					DDSFileLoader::copySubresourceToGpuTiled(destResource, uploadRequest.uploadResource, uploadRequest.uploadResourceOffset, uploadRequest.width, uploadRequest.height,
-						uploadRequest.depth, (uint32_t)currentMip, uploadRequest.mipLevels, 0u, uploadRequest.format,
+					DDSFileLoader::copySubresourceToGpuTiled(destResource, uploadRequest.uploadResource, uploadRequest.uploadResourceOffset, subresouceWidth, subresourceHeight,
+						subresourceDepth, (uint32_t)currentMip, uploadRequest.mipLevels, 0u, uploadRequest.format,
 						uploadRequest.uploadBufferCurrentCpuAddress, buffer, &streamingManager.copyCommandList());
+
+					subresouceWidth >>= 1u;
+					if(subresouceWidth == 0u) subresouceWidth = 1u;
+					subresourceHeight >>= 1u;
+					if(subresourceHeight == 0u) subresourceHeight = 1u;
+					subresourceDepth >>= 1u;
+					if(subresourceDepth == 0u) subresourceDepth = 1u;
 				}
 				streamingManager.copyStarted(threadResources.taskShedular.index(), uploadRequest);
 			};
