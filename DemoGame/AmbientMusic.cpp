@@ -120,6 +120,7 @@ void AmbientMusic::findNextMusic(ThreadResources& threadResources, GlobalResourc
 		globalResources.asynchronousFileManager.discard(music.files[music.previousTrack], 0, 4 * 1024u);
 		music.callback(music, *reinterpret_cast<ThreadResources*>(tr), *reinterpret_cast<GlobalResources*>(gr));
 	};
+	globalResources.asynchronousFileManager.readFile(&threadResources, &globalResources, this);
 }
 
 void AmbientMusic::update(ThreadResources& threadResources, GlobalResources& globalResources)
