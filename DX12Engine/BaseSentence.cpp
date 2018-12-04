@@ -19,7 +19,7 @@ BaseSentence::BaseSentence(const unsigned int maxLength, ID3D12Device* const Dev
 	maxLength(maxLength),
 	color(color),
 	position(setPositionX(Position.x), setPositionY(Position.y)), 
-	textVertexBuffer([Device, maxLength](size_t i, D3D12Resource& element)
+	textVertexBuffer([Device, maxLength](std::size_t, D3D12Resource& element)
 {
 	D3D12_HEAP_PROPERTIES heapProperties;
 	heapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY::D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
@@ -41,7 +41,7 @@ BaseSentence::BaseSentence(const unsigned int maxLength, ID3D12Device* const Dev
 	resourceDesc.SampleDesc.Quality = 0u;
 	resourceDesc.Width = maxLength * sizeof(TextVertex);
 
-	new(&element) D3D12Resource(Device, heapProperties, D3D12_HEAP_FLAG_NONE, resourceDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr);
+	new(&element) D3D12Resource(Device, heapProperties, D3D12_HEAP_FLAG_NONE, resourceDesc, D3D12_RESOURCE_STATE_GENERIC_READ);
 })
 {
 	HRESULT hr;
@@ -81,7 +81,7 @@ void BaseSentence::update(uint32_t frameIndex)
 
 	TextVertex* vert = textVBGPUAddress[frameIndex];
 
-	wchar_t lastChar = -1; // no last character to start with
+	wchar_t lastChar = ' '; // no last character to start with
 
 	for (auto i = 0u; i < text.size(); ++i)
 	{

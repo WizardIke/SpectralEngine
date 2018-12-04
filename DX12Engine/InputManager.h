@@ -51,7 +51,7 @@ struct BaseInputHandler
 {
 	using GlobalResources = SharedResources;
 	void mouseMoved(long x, long y) {}
-	void leftMousePressed(SharedResources& sharedResources) {}
+	void leftMousePressed(SharedResources&) {}
 	//return true to skip default proccessing
 	bool keyDown(UINT keyCode, UINT scanCode, SharedResources& sharedResources) {}
 	bool keyUp(UINT keyCode, UINT scanCode, SharedResources& sharedResources) {}

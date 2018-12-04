@@ -52,10 +52,9 @@ static LRESULT CALLBACK windowCallback(HWND hwnd, UINT message, WPARAM wParam, L
 	default:
 		return DefWindowProc(hwnd, message, wParam, lParam);
 	}
-	return 0;
 }
 
-static void loadingResourceCallback(void* data, void* tr, void* gr, unsigned int textureID)
+static void loadingResourceCallback(TextureManager::TextureStreamingRequest&, void* tr, void* gr, unsigned int textureID)
 {
 	ThreadResources& threadResources = *reinterpret_cast<ThreadResources*>(tr);
 	GlobalResources& globalResources = *reinterpret_cast<GlobalResources*>(gr);
@@ -78,7 +77,7 @@ GlobalResources::GlobalResources(const unsigned int numberOfThreads, bool fullSc
 		[fullScreen]() {if (fullScreen) { return 0; } else return GetSystemMetrics(SM_CXSCREEN) / 5; }(),
 		[fullScreen]() {if (fullScreen) { return 0; } else return GetSystemMetrics(SM_CYSCREEN) / 5; }(), fullScreen, vSync),
 	graphicsEngine(window, enableGpuDebugging),
-	streamingManager(graphicsEngine.graphicsDevice, 32u * 1024u * 1024u, numberOfThreads > 2u ? numberOfThreads : 2u),
+	streamingManager(*graphicsEngine.graphicsDevice, 32u * 1024u * 1024u, numberOfThreads > 2u ? numberOfThreads : 2u),
 	taskShedular(numberOfThreads > 2u ? numberOfThreads : 2u, ThreadResources::initialize1),
 	mainThreadResources(0u, *this, ThreadResources::mainEndUpdate2),
 	asynchronousFileManager(),
@@ -115,9 +114,9 @@ GlobalResources::GlobalResources(const unsigned int numberOfThreads, bool fullSc
 		resourceDesc.SampleDesc.Quality = 0u;
 		resourceDesc.Width = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT; // size of the resource heap. Must be a multiple of 64KB for constant buffers
 		return resourceDesc;
-	}(), D3D12_RESOURCE_STATE_GENERIC_READ, nullptr),
+	}(), D3D12_RESOURCE_STATE_GENERIC_READ),
 	areas(mainThreadResources, *this),
-	ambientMusic(mainThreadResources, *this, musicFiles, sizeof(musicFiles) / sizeof(musicFiles[0])),
+	ambientMusic(*this, musicFiles, sizeof(musicFiles) / sizeof(musicFiles[0])),
 	playerPosition(DirectX::XMFLOAT3(59.0f, 4.0f, 10.0f), DirectX::XMFLOAT3(0.0f, 0.2f, 0.0f)),
 	warpTexture(graphicsEngine.graphicsDevice, []()
 	{
@@ -128,7 +127,7 @@ GlobalResources::GlobalResources(const unsigned int numberOfThreads, bool fullSc
 		properties.CreationNodeMask = 0u;
 		properties.MemoryPoolPreference = D3D12_MEMORY_POOL::D3D12_MEMORY_POOL_UNKNOWN;
 		return properties;
-	}(), D3D12_HEAP_FLAGS::D3D12_HEAP_FLAG_NONE, window.getBuffer(0u)->GetDesc(), D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, nullptr),
+	}(), D3D12_HEAP_FLAGS::D3D12_HEAP_FLAG_NONE, window.getBuffer(0u)->GetDesc(), D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE),
 	warpTextureCpuDescriptorHeap(graphicsEngine.graphicsDevice, []()
 	{
 		D3D12_DESCRIPTOR_HEAP_DESC desc;
@@ -155,7 +154,13 @@ GlobalResources::GlobalResources(const unsigned int numberOfThreads, bool fullSc
 	userInterface.~UserInterface();
 	new(&userInterface) UserInterface(*this, constantBuffersGpuAddress, cpuConstantBuffer);
 	arial.~Font();
-	new(&arial) Font(constantBuffersGpuAddress, cpuConstantBuffer, L"Arial.fnt", TextureNames::Arial, mainThreadResources, *this, this, loadingResourceCallback);
+	TextureManager::TextureStreamingRequest* fontTextureRequest = new TextureManager::TextureStreamingRequest(loadingResourceCallback, 
+		[](StreamingRequest* request, void*, void*) 
+	{ 
+		delete static_cast<TextureManager::TextureStreamingRequest*>(request);
+	},
+		TextureNames::Arial);
+	new(&arial) Font(constantBuffersGpuAddress, cpuConstantBuffer, L"Arial.fnt", mainThreadResources, *this, fontTextureRequest);
 
 	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc;
 	srvDesc.Format = DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM;

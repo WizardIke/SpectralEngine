@@ -3,6 +3,7 @@
 #undef max
 #include <pcg_random.hpp>
 #include <GpuCompletionEventManager.h>
+#include <frameBufferCount.h>
 #include <StreamingManager.h>
 #include <TaskShedular.h>
 #include "RenderPass1.h"
@@ -15,7 +16,7 @@ class ThreadResources
 	void (*mEndUpdate2)(ThreadResources& threadResources, GlobalResources& globalResources);
 public:
 	TaskShedular<ThreadResources, GlobalResources>::ThreadLocal taskShedular;
-	GpuCompletionEventManager gpuCompletionEventManager;
+	GpuCompletionEventManager<frameBufferCount> gpuCompletionEventManager;
 	pcg32 randomNumberGenerator;
 	StreamingManager::ThreadLocal streamingManager;
 	RenderPass1::Local renderPass;

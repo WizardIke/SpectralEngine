@@ -11,7 +11,7 @@ void InputHandler::mouseMoved(long x, long y)
 	mouseMotionObverver.mouseMoved(static_cast<float>(x) / screenWidth * 10.0f, static_cast<float>(y) / screenWidth * 10.0f);
 }
 
-bool InputHandler::keyDown(UINT keyCode, UINT scanCode, GlobalResources& globalResources)
+bool InputHandler::keyDown(UINT keyCode, UINT, GlobalResources& globalResources)
 {
 	switch(keyCode)
 	{
@@ -77,7 +77,7 @@ bool InputHandler::keyDown(UINT keyCode, UINT scanCode, GlobalResources& globalR
 	}
 }
 
-bool InputHandler::keyUp(UINT keyCode, UINT scanCode, GlobalResources& globalResources)
+bool InputHandler::keyUp(UINT keyCode, UINT, GlobalResources&)
 {
 	switch(keyCode)
 	{

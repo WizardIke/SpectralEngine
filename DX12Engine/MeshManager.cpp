@@ -52,7 +52,7 @@ void MeshManager::createMesh(Mesh& mesh, const wchar_t* filename, ID3D12Device* 
 		resourceDesc.SampleDesc.Quality = 0u;
 		resourceDesc.Width = vertexSizeBytes;
 		return resourceDesc;
-	}(), D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_COMMON, nullptr);
+	}(), D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_COMMON);
 	mesh.indices.~D3D12Resource();
 	new(&mesh.indices) D3D12Resource(graphicsDevice, mesh.buffer, vertexAlignedSize, [indexSizeBytes]()
 	{
@@ -69,7 +69,7 @@ void MeshManager::createMesh(Mesh& mesh, const wchar_t* filename, ID3D12Device* 
 		resourceDesc.SampleDesc.Quality = 0u;
 		resourceDesc.Width = indexSizeBytes;
 		return resourceDesc;
-	}(), D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_COMMON, nullptr);
+	}(), D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_COMMON);
 
 
 #ifdef _DEBUG

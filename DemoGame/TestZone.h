@@ -11,6 +11,7 @@
 #include <TextureManager.h>
 #include <VirtualTextureManager.h>
 #include <MeshManager.h>
+#include "StreamingRequests.h"
 
 #include "Shaders/VtFeedbackMaterialPS.h"
 
@@ -23,7 +24,7 @@ class TestZoneFunctions
 		constexpr static unsigned int numTextures = 1u;
 		constexpr static unsigned int numComponents = 1u + numMeshes + numTextures;
 
-		static void componentUploaded(void* requester, ThreadResources& executor, GlobalResources& sharedResources)
+		static void componentUploaded(void* requester, ThreadResources& executor, GlobalResources&)
 		{
 			const auto zone = reinterpret_cast<Zone<ThreadResources, GlobalResources>*>(requester);
 			zone->componentUploaded(executor, numComponents);
@@ -65,7 +66,7 @@ class TestZoneFunctions
 			resourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 			resourceDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
 			return resourceDesc;
-		}(), D3D12_RESOURCE_STATE_GENERIC_READ, nullptr)
+		}(), D3D12_RESOURCE_STATE_GENERIC_READ)
 		{
 			D3D12_RANGE readRange{ 0u, 0u };
 			HRESULT hr = perObjectConstantBuffers->Map(0u, &readRange, reinterpret_cast<void**>(&perObjectConstantBuffersCpuAddress));
@@ -80,12 +81,11 @@ class TestZoneFunctions
 			cpuConstantBuffer += vtFeedbackMaterialPsSize;
 
 			VirtualTextureManager& virtualTextureManager = globalResources.virtualTextureManager;
-			virtualTextureManager.loadTexture(threadResources, globalResources, TextureNames::stone04, { &zone , [](void* context, void* tr,
-				void* gr, const VirtualTextureManager::Texture& texture)
+			VirtualTextureRequest* stone04Request = new VirtualTextureRequest([](VirtualTextureManager::TextureStreamingRequest& request, void* tr, void* gr, const VirtualTextureManager::Texture& texture)
 			{
 				ThreadResources& threadResources = *reinterpret_cast<ThreadResources*>(tr);
 				GlobalResources& globalResources = *reinterpret_cast<GlobalResources*>(gr);
-				auto& zone = *reinterpret_cast<Zone<ThreadResources, GlobalResources>*>(context);
+				auto& zone = reinterpret_cast<VirtualTextureRequest&>(request).zone;
 				auto resources = ((HDResources*)zone.newData);
 				const auto cpuStartAddress = resources->perObjectConstantBuffersCpuAddress;
 				const auto gpuStartAddress = resources->perObjectConstantBuffers->GetGPUVirtualAddress();
@@ -102,18 +102,26 @@ class TestZoneFunctions
 				stone4FeedbackBufferPsCpu->usefulTextureWidth = (float)(textureInfo.width);
 
 				componentUploaded(&zone, threadResources, globalResources);
-			} });
+			}, [](StreamingRequest* request, void*, void*) 
+			{
+				delete static_cast<VirtualTextureRequest*>(request);
+			}, TextureNames::stone04, zone);
+			virtualTextureManager.loadTexture(threadResources, globalResources, stone04Request);
 
 			MeshManager& meshManager = globalResources.meshManager;
-			meshManager.loadMeshWithPositionTextureNormal(MeshNames::HighResMesh1, &zone, threadResources, globalResources, [](void* context, void* tr, void* gr, Mesh* mesh)
+			MeshRequest* HighResMesh1Request = new MeshRequest([](MeshManager::MeshStreamingRequest& request, void* tr, void* gr, Mesh& mesh)
 			{
-				ThreadResources& threadResources = *reinterpret_cast<ThreadResources*>(tr);
-				GlobalResources& globalResources = *reinterpret_cast<GlobalResources*>(gr);
-				auto& zone = *reinterpret_cast<Zone<ThreadResources, GlobalResources>*>(context);
+				ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
+				GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
+				auto& zone = static_cast<MeshRequest&>(request).zone;
 				auto resources = ((HDResources*)zone.newData);
-				resources->highResPlaneModel.mesh = mesh;
+				resources->highResPlaneModel.mesh = &mesh;
 				componentUploaded(&zone, threadResources, globalResources);
-			});
+			}, [](StreamingRequest* request, void*, void*)
+			{
+				delete static_cast<MeshRequest*>(request);
+			}, MeshNames::HighResMesh1, zone);
+			meshManager.loadMeshWithPositionTextureNormal(threadResources, globalResources, HighResMesh1Request);
 
 			constexpr uint64_t pointLightConstantBufferAlignedSize = (sizeof(LightConstantBuffer) + (uint64_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (uint64_t)1u) & ~((uint64_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (uint64_t)1u);
 
@@ -142,7 +150,7 @@ class TestZoneFunctions
 			perObjectConstantBuffers->Unmap(0u, nullptr);
 		}
 
-		void update1(ThreadResources& threadResources, GlobalResources& globalResources) {}
+		void update1(ThreadResources&, GlobalResources&) {}
 
 		void update2(ThreadResources& threadResources, GlobalResources& globalResources)
 		{
@@ -184,7 +192,7 @@ class TestZoneFunctions
 			componentUploaded(&zone, threadResources, globalResources);
 		}
 
-		void destruct(ThreadResources& threadResources, GlobalResources& globalResources)
+		void destruct(ThreadResources&, GlobalResources& globalResources)
 		{
 			MeshManager& meshManager = globalResources.meshManager;
 			VirtualTextureManager& virtualTextureManager = globalResources.virtualTextureManager;
@@ -223,7 +231,7 @@ class TestZoneFunctions
 		threadResources.taskShedular.update1NextQueue().push({ &zone, update1 });
 	}
 public:
-	static void createNewStateData(Zone<ThreadResources, GlobalResources>& zone, ThreadResources& threadResources, GlobalResources& globalResources)
+	static void createNewStateData(Zone<ThreadResources, GlobalResources>& zone, ThreadResources& threadResources, GlobalResources&)
 	{
 		switch (zone.newState)
 		{
@@ -233,7 +241,7 @@ public:
 		}
 	}
 
-	static void deleteOldStateData(Zone<ThreadResources, GlobalResources>& zone, ThreadResources& threadResources, GlobalResources& globalResources)
+	static void deleteOldStateData(Zone<ThreadResources, GlobalResources>& zone, ThreadResources& threadResources, GlobalResources&)
 	{
 		switch (zone.oldState)
 		{
@@ -251,13 +259,13 @@ public:
 		}
 	}
 	
-	static void start(Zone<ThreadResources, GlobalResources>& zone, ThreadResources& threadResources, GlobalResources& globalResources)
+	static void start(Zone<ThreadResources, GlobalResources>& zone, ThreadResources& threadResources, GlobalResources&)
 	{
 		threadResources.taskShedular.update1NextQueue().push({ &zone, update1 });
 	}
 
-	static void loadConnectedAreas(Zone<ThreadResources, GlobalResources>& zone, ThreadResources& threadResources, GlobalResources& globalResources, float distanceSquared, Area::VisitedNode* loadedAreas) {}
-	static bool changeArea(Zone<ThreadResources, GlobalResources>& zone, ThreadResources& threadResources, GlobalResources& globalResources) { return false; }
+	static void loadConnectedAreas(Zone<ThreadResources, GlobalResources>&, ThreadResources&, GlobalResources&, float, Area::VisitedNode*) {}
+	static bool changeArea(Zone<ThreadResources, GlobalResources>&, ThreadResources&, GlobalResources&) { return false; }
 };
 
 template<unsigned int x, unsigned int z>

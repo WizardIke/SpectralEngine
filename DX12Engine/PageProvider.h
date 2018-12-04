@@ -57,9 +57,9 @@ class PageProvider
 
 			void swap(const NewPage& other)
 			{
-				auto pageData = *page;
+				auto pageTemp = *page;
 				*page = *other.page;
-				*other.page = pageData;
+				*other.page = pageTemp;
 				auto offset = *offsetInUploadBuffer;
 				*offsetInUploadBuffer = *other.offsetInUploadBuffer;
 				*other.offsetInUploadBuffer = offset;
@@ -172,25 +172,25 @@ private:
 		void(*useSubresource)(StreamingRequest* request, void* threadResources, void* globalResources));
 
 	template<class ThreadResources, class GlobalResources>
-	static void addPageLoadRequest(PageLoadRequest& pageRequest, ThreadResources& threadResources, GlobalResources& sharedResources)
+	static void addPageLoadRequest(PageLoadRequest& pageRequest, ThreadResources& threadResources, GlobalResources&)
 	{
-		threadResources.taskShedular.backgroundQueue().push({ &pageRequest, [](void* requester, ThreadResources& threadResources, GlobalResources& sharedResources)
+		threadResources.taskShedular.backgroundQueue().push({ &pageRequest, [](void* requester, ThreadResources&, GlobalResources& sharedResources)
 		{
 			PageLoadRequest& pageRequest = *reinterpret_cast<PageLoadRequest*>(requester);
 			VirtualTextureManager& virtualTextureManager = sharedResources.virtualTextureManager;
 			StreamingManager& streamingManager = sharedResources.streamingManager;
-			addPageLoadRequestHelper(pageRequest, virtualTextureManager, streamingManager, [](StreamingRequest* request, void* threadResources, void* globalResources)
+			addPageLoadRequestHelper(pageRequest, virtualTextureManager, streamingManager, [](StreamingRequest* request, void* tr, void* gr)
 			{
 				PageLoadRequest& uploadRequest = *static_cast<PageLoadRequest*>(request);
-				GlobalResources& globalResources = *reinterpret_cast<GlobalResources*>(sharedResources);
+				GlobalResources& globalResources = *reinterpret_cast<GlobalResources*>(gr);
 
-				uploadRequest.fileLoadedCallback = [](AsynchronousFileManager::IORequest& request, void* tr, void* gr, const unsigned char* buffer)
+				uploadRequest.fileLoadedCallback = [](AsynchronousFileManager::IORequest& request, void*, void*, const unsigned char* buffer)
 				{
 					PageLoadRequest& uploadRequest = static_cast<PageLoadRequest&>(request);
 					copyPageToUploadBuffer(&uploadRequest, buffer);
 					uploadRequest.state.store(PageProvider::PageLoadRequest::State::finished, std::memory_order::memory_order_release);
 				};
-				globalResources.asynchronousFileManager.readFile(threadResources, globalResources, &uploadRequest);
+				globalResources.asynchronousFileManager.readFile(tr, gr, &uploadRequest);
 			});
 		} });
 	}
@@ -228,10 +228,9 @@ private:
 		size_t numDroppablePagesInCache = newCacheSize - numRequiredPagesInCache;
 		if (numDroppablePagesInCache < newPageCount)
 		{
-			size_t numPagesToDrop = newPageCount - numDroppablePagesInCache;
 			if (mipBiasIncrease != 0u)
 			{
-				//very hard to tell if a page needs loading when mip level has decreased. Therefor we just keep the first pages.
+				//very hard to tell if a page needs loading when mip level has changed. Therefor we just keep the first pages.
 				newPageCount = numDroppablePagesInCache;
 			}
 			else
@@ -251,7 +250,7 @@ private:
 						while (i != 0u)
 						{
 							--i;
-							auto pos = pageRequests.find(newPages[i].textureLocation);
+							pos = pageRequests.find(newPages[i].textureLocation);
 							if (pos == pageRequests.end())
 							{
 								//this page isn't needed because it wasn't requested this frame
@@ -271,14 +270,13 @@ private:
 	static void addNewPagesToResources(PageProvider& pageProvider, D3D12GraphicsEngine& graphicsEngine, VirtualTextureManager& virtualTextureManager,
 		GpuCompletionEventManager<frameBufferCount>& gpuCompletionEventManager, ID3D12GraphicsCommandList* commandList);
 public:
-	PageProvider(IDXGIAdapter3* adapter, ID3D12Device* graphicsDevice);
+	PageProvider(IDXGIAdapter3* adapter);
 
 	template<class ThreadResources, class GlobalResources, class HashMap>
 	void processPageRequests(HashMap& pageRequests, VirtualTextureManager& virtualTextureManager,
 		ThreadResources& executor, GlobalResources& sharedResources)
 	{
 		IDXGIAdapter3* adapter = sharedResources.graphicsEngine.adapter;
-		ID3D12Device* graphicsDevice = sharedResources.graphicsEngine.graphicsDevice;
 		FeedbackAnalizerSubPass& feedbackAnalizerSubPass = sharedResources.renderPass.virtualTextureFeedbackSubPass();
 
 		//Work out memory budget, grow or shrink cache as required and change mip bias if required
@@ -320,7 +318,7 @@ public:
 
 			// we have finished with the readback resources so we can render again
 			FeedbackAnalizerSubPass& feedbackAnalizerSubPass = sharedResources.renderPass.virtualTextureFeedbackSubPass();
-			threadResources.taskShedular.update1NextQueue().push({ &feedbackAnalizerSubPass, [](void* requester, ThreadResources& executor, GlobalResources& sharedResources)
+			threadResources.taskShedular.update1NextQueue().push({ &feedbackAnalizerSubPass, [](void* requester, ThreadResources&, GlobalResources&)
 			{
 				FeedbackAnalizerSubPass& subPass = *reinterpret_cast<FeedbackAnalizerSubPass*>(requester);
 				subPass.setInView();

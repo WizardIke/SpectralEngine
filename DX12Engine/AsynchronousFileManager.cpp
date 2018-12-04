@@ -31,7 +31,6 @@ bool AsynchronousFileManager::readFile(void* executor, void* sharedResources, IO
 		else
 		{
 			allocation = (unsigned char*)VirtualAlloc(nullptr, memoryNeeded, MEM_COMMIT, PAGE_READWRITE);
-			auto data = allocation + request->start - memoryStart;
 			files.insert(std::pair<const Key, FileData>(key, FileData{ allocation }));
 		}
 	}
@@ -61,9 +60,6 @@ bool AsynchronousFileManager::readFile(void* executor, void* sharedResources, IO
 	BOOL finished = ReadFile(request->file.native_handle(), request->buffer, (DWORD)memoryNeeded, &bytesRead, request);
 	if (finished == FALSE && GetLastError() != ERROR_IO_PENDING)
 	{
-#ifndef ndebug
-		auto lastError = GetLastError();
-#endif
 		return false;
 	}
 	return true;
@@ -85,7 +81,7 @@ void AsynchronousFileManager::discard(const wchar_t* name, size_t start, size_t 
 
  bool AsynchronousFileManager::processIOCompletionHelper(AsynchronousFileManager& fileManager, void* executor, void* sharedResources, DWORD numberOfBytes, LPOVERLAPPED overlapped)
 {
-	IORequest* request = reinterpret_cast<IORequest*>(overlapped);
+	IORequest* request = static_cast<IORequest*>(overlapped);
 	request->accumulatedSize += numberOfBytes;
 	const std::size_t sectorSize = fileManager.sectorSize;
 	const std::size_t memoryStart = request->start & ~(sectorSize - 1u);
@@ -101,9 +97,6 @@ void AsynchronousFileManager::discard(const wchar_t* name, size_t start, size_t 
 		BOOL finished = ReadFile(request->file.native_handle(), request->buffer + request->accumulatedSize, (DWORD)(sizeToRead - request->accumulatedSize), &bytesRead, request);
 		if (finished == FALSE && GetLastError() != ERROR_IO_PENDING)
 		{
-#ifndef NDEBUG
-			auto lastError = GetLastError();
-#endif
 			return false;
 		}
 		return true;

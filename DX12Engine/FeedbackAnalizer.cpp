@@ -34,8 +34,8 @@ static inline void requestMipLevels(unsigned int mipLevel, const VirtualTextureI
 			feedbackData.setMipLevel(mipLevel);
 			feedbackData.setX(x);
 			feedbackData.setY(y);
-			PageRequestData& pageRequest = uniqueRequests[feedbackData];
-			++pageRequest.count;
+			PageRequestData& request = uniqueRequests[feedbackData];
+			++request.count;
 			++mipLevel;
 		}
 	}
@@ -46,8 +46,8 @@ void FeedbackAnalizerSubPass::gatherUniqueRequests(FeedbackAnalizerSubPass& subP
 	auto& uniqueRequests = subPass.uniqueRequests;
 	unsigned char* feadBackBuffer;
 
-	const auto width = subPass.width;
-	const auto height = subPass.height;
+	const auto width = subPass.textureWidth;
+	const auto height = subPass.textureHeight;
 	const auto totalSize = width * height * 8u;
 	D3D12_RANGE readRange{ 0u, totalSize };
 	subPass.readbackTexture->Map(0u, &readRange, reinterpret_cast<void**>(&feadBackBuffer));
@@ -130,8 +130,8 @@ void FeedbackAnalizerSubPass::createResources(D3D12GraphicsEngine& graphicsEngin
 	resourceDesc.MipLevels = 1u;
 	resourceDesc.SampleDesc.Count = 1u;
 	resourceDesc.SampleDesc.Quality = 0u;
-	this->width = newWidth;
-	this->height = newHeight;
+	this->textureWidth = newWidth;
+	this->textureHeight = newHeight;
 	resourceDesc.Width = newWidth * newHeight * 8u;
 
 	D3D12_HEAP_PROPERTIES heapProperties;
@@ -141,7 +141,7 @@ void FeedbackAnalizerSubPass::createResources(D3D12GraphicsEngine& graphicsEngin
 	heapProperties.Type = D3D12_HEAP_TYPE::D3D12_HEAP_TYPE_READBACK;
 	heapProperties.VisibleNodeMask = 1u;
 
-	new(&readbackTexture) D3D12Resource(graphicsDevice, heapProperties, D3D12_HEAP_FLAGS::D3D12_HEAP_FLAG_NONE, resourceDesc, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_COPY_DEST, nullptr);
+	new(&readbackTexture) D3D12Resource(graphicsDevice, heapProperties, D3D12_HEAP_FLAGS::D3D12_HEAP_FLAG_NONE, resourceDesc, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_COPY_DEST);
 
 	resourceDesc.Flags = D3D12_RESOURCE_FLAGS::D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
 	resourceDesc.Format = DXGI_FORMAT::DXGI_FORMAT_R16G16B16A16_UINT;
@@ -156,7 +156,7 @@ void FeedbackAnalizerSubPass::createResources(D3D12GraphicsEngine& graphicsEngin
 	clearValue.Color[1] = 0.0f;
 	clearValue.Color[2] = 65280.0f;
 	clearValue.Color[3] = 65535.0f;
-	new(&feadbackTextureGpu) D3D12Resource(graphicsDevice, heapProperties, D3D12_HEAP_FLAGS::D3D12_HEAP_FLAG_NONE, resourceDesc, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_COMMON, &clearValue);
+	new(&feadbackTextureGpu) D3D12Resource(graphicsDevice, heapProperties, D3D12_HEAP_FLAGS::D3D12_HEAP_FLAG_NONE, resourceDesc, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_COMMON, clearValue);
 
 	D3D12_RENDER_TARGET_VIEW_DESC rtvDesc;
 	rtvDesc.Format = DXGI_FORMAT::DXGI_FORMAT_R16G16B16A16_UINT;
@@ -177,7 +177,7 @@ void FeedbackAnalizerSubPass::createResources(D3D12GraphicsEngine& graphicsEngin
 	clearValue.Format = DXGI_FORMAT::DXGI_FORMAT_D32_FLOAT;
 	clearValue.DepthStencil.Depth = 1.0f;
 	clearValue.DepthStencil.Stencil = 0u;
-	new(&depthBuffer) D3D12Resource(graphicsDevice, heapProperties, D3D12_HEAP_FLAGS::D3D12_HEAP_FLAG_NONE, resourceDesc, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_DEPTH_WRITE, &clearValue);
+	new(&depthBuffer) D3D12Resource(graphicsDevice, heapProperties, D3D12_HEAP_FLAGS::D3D12_HEAP_FLAG_NONE, resourceDesc, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_DEPTH_WRITE, clearValue);
 
 	D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc;
 	dsvDesc.Flags = D3D12_DSV_FLAGS::D3D12_DSV_FLAG_NONE;

@@ -10,7 +10,7 @@
 class BaseSentence
 {
 	Array<D3D12Resource, frameBufferCount> textVertexBuffer;
-	unsigned short maxLength;
+	unsigned int maxLength;
 	DirectX::XMFLOAT2 position;
 
 	struct TextVertex {

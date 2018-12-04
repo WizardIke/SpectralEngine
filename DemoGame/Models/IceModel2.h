@@ -17,7 +17,7 @@ class IceModel2
 	constexpr static size_t vsConstantBufferSize = (sizeof(VSPerObjectConstantBuffer) + D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull) & ~(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull);
 	constexpr static size_t psConstantBufferSize = (sizeof(GlassMaterialPS) + D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull) & ~(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull);
 public:
-	D3D12_GPU_VIRTUAL_ADDRESS vsConstantBufferGPU(uint32_t frameIndex)
+	D3D12_GPU_VIRTUAL_ADDRESS vsConstantBufferGPU(uint32_t)
 	{
 		return constantBufferGpu;
 	}

@@ -8,6 +8,7 @@
 #include <D3D12DescriptorHeap.h>
 #include <Light.h>
 #include <VirtualTextureManager.h>
+#include "../StreamingRequests.h"
 
 #include "CaveModelPart1.h"
 #include "../Shaders/VtFeedbackMaterialPS.h"
@@ -20,9 +21,8 @@ namespace Cave
 		constexpr static unsigned int numTextures = 1u;
 		constexpr static unsigned int numComponents = 3u;
 
-		static void componentUploaded(void* requester, ThreadResources& executor, GlobalResources& sharedResources)
+		static void componentUploaded(Zone<ThreadResources, GlobalResources>* zone, ThreadResources& executor, GlobalResources&)
 		{
-			const auto zone = reinterpret_cast<Zone<ThreadResources, GlobalResources>*>(requester);
 			zone->componentUploaded(executor, numComponents);
 		}
 
@@ -62,7 +62,7 @@ namespace Cave
 			resourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 			resourceDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
 			return resourceDesc;
-		}(), D3D12_RESOURCE_STATE_GENERIC_READ, nullptr)
+		}(), D3D12_RESOURCE_STATE_GENERIC_READ)
 		{
 			D3D12_RANGE readRange{ 0u, 0u };
 			HRESULT hr = perObjectConstantBuffers->Map(0u, &readRange, reinterpret_cast<void**>(&perObjectConstantBuffersCpuAddress));
@@ -77,11 +77,11 @@ namespace Cave
 			new(&caveModelPart1) CaveModelPart1(PerObjectConstantBuffersGpuAddress, cpuConstantBuffer);
 
 			VirtualTextureManager& virtualTextureManager = globalResources.virtualTextureManager;
-			virtualTextureManager.loadTexture(threadResources, globalResources, TextureNames::stone04, { &zone, [](void* context, void* tr, void* gr, const VirtualTextureManager::Texture& texture)
+			VirtualTextureRequest* stone04Request = new VirtualTextureRequest([](VirtualTextureManager::TextureStreamingRequest& request, void* tr, void* gr, const VirtualTextureManager::Texture& texture)
 			{
 				ThreadResources& threadResources = *reinterpret_cast<ThreadResources*>(tr);
 				GlobalResources& globalResources = *reinterpret_cast<GlobalResources*>(gr);
-				auto& zone = *reinterpret_cast<Zone<ThreadResources, GlobalResources>*>(context);
+				auto& zone = reinterpret_cast<VirtualTextureRequest&>(request).zone;
 				auto resources = ((HDResources*)zone.newData);
 				const auto cpuStartAddress = resources->perObjectConstantBuffersCpuAddress;
 				const auto gpuStartAddress = resources->perObjectConstantBuffers->GetGPUVirtualAddress();
@@ -97,19 +97,27 @@ namespace Cave
 				stone4FeedbackBufferPsCpu->usefulTextureHeight = (float)(textureInfo.height);
 				stone4FeedbackBufferPsCpu->usefulTextureWidth = (float)(textureInfo.width);
 
-				componentUploaded(context, threadResources, globalResources);
-			} });
+				componentUploaded(&zone, threadResources, globalResources);
+			}, [](StreamingRequest* request, void*, void*)
+			{
+				delete static_cast<VirtualTextureRequest*>(request);
+			}, TextureNames::stone04, zone);
+			virtualTextureManager.loadTexture(threadResources, globalResources, stone04Request);
 
 			MeshManager& meshManager = globalResources.meshManager;
-			meshManager.loadMeshWithPositionTextureNormal(MeshNames::squareWithNormals, &zone, threadResources, globalResources, [](void* context, void* tr, void* gr, Mesh* mesh)
+			MeshRequest* squareWithNormalsRequest = new MeshRequest([](MeshManager::MeshStreamingRequest& request, void* tr, void* gr, Mesh& mesh)
 			{
-				ThreadResources& threadResources = *reinterpret_cast<ThreadResources*>(tr);
-				GlobalResources& globalResources = *reinterpret_cast<GlobalResources*>(gr);
-				auto& zone = *reinterpret_cast<Zone<ThreadResources, GlobalResources>*>(context);
+				ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
+				GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
+				auto& zone = static_cast<MeshRequest&>(request).zone;
 				const auto resources = ((HDResources*)zone.newData);
-				resources->caveModelPart1.mesh = mesh;
-				componentUploaded(context, threadResources, globalResources);
-			});
+				resources->caveModelPart1.mesh = &mesh;
+				componentUploaded(&zone, threadResources, globalResources);
+			}, [](StreamingRequest* request, void*, void*)
+			{
+				delete static_cast<MeshRequest*>(request);
+			}, MeshNames::squareWithNormals, zone);
+			meshManager.loadMeshWithPositionTextureNormal(threadResources, globalResources, squareWithNormalsRequest);
 
 			constexpr uint64_t pointLightConstantBufferAlignedSize = (sizeof(LightConstantBuffer) + (uint64_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (uint64_t)1u) &
 				~((uint64_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (uint64_t)1u);
@@ -138,7 +146,6 @@ namespace Cave
 
 		void update2(ThreadResources& threadResources, GlobalResources& globalResources)
 		{
-			uint32_t frameIndex = globalResources.graphicsEngine.frameIndex;
 			const auto commandList = threadResources.renderPass.colorSubPass().opaqueCommandList();
 			const auto vtFeedbackCommandList = threadResources.renderPass.virtualTextureFeedbackSubPass().firstCommandList();
 			
@@ -161,7 +168,7 @@ namespace Cave
 			}
 		}
 
-		void update1(ThreadResources& threadResources, GlobalResources& globalResources) {}
+		void update1(ThreadResources&, GlobalResources&) {}
 
 		static void create(void* zone1, ThreadResources& threadResources, GlobalResources& globalResources)
 		{
@@ -171,7 +178,7 @@ namespace Cave
 			componentUploaded(&zone, threadResources, globalResources);
 		}
 
-		void destruct(ThreadResources& threadResources, GlobalResources& globalResources)
+		void destruct(ThreadResources&, GlobalResources& globalResources)
 		{
 			auto& meshManager = globalResources.meshManager;
 			auto& virtualTextureManager = globalResources.virtualTextureManager;
@@ -213,7 +220,7 @@ namespace Cave
 
 	struct Zone1Functions
 	{
-		static void createNewStateData(Zone<ThreadResources, GlobalResources>& zone, ThreadResources& threadResources, GlobalResources& globalResources)
+		static void createNewStateData(Zone<ThreadResources, GlobalResources>& zone, ThreadResources& threadResources, GlobalResources&)
 		{
 			switch (zone.newState)
 			{
@@ -223,7 +230,7 @@ namespace Cave
 			}
 		}
 
-		static void deleteOldStateData(Zone<ThreadResources, GlobalResources>& zone, ThreadResources& threadResources, GlobalResources& globalResources)
+		static void deleteOldStateData(Zone<ThreadResources, GlobalResources>& zone, ThreadResources& threadResources, GlobalResources&)
 		{
 			switch (zone.oldState)
 			{
@@ -241,12 +248,12 @@ namespace Cave
 			}
 		}
 
-		static void loadConnectedAreas(Zone<ThreadResources, GlobalResources>& zone, ThreadResources& threadResources, GlobalResources& globalResources, float distance, Area::VisitedNode* loadedAreas)
+		static void loadConnectedAreas(Zone<ThreadResources, GlobalResources>&, ThreadResources& threadResources, GlobalResources& globalResources, float distance, Area::VisitedNode* loadedAreas)
 		{
 			globalResources.areas.outside.load(threadResources, globalResources, Vector2{ 0.0f, 91.0f }, distance, loadedAreas);
 		}
 
-		static bool changeArea(Zone<ThreadResources, GlobalResources>& zone, ThreadResources& threadResources, GlobalResources& globalResources)
+		static bool changeArea(Zone<ThreadResources, GlobalResources>&, ThreadResources& threadResources, GlobalResources& globalResources)
 		{
 			auto& playerPosition = globalResources.playerPosition.location.position;
 			if ((playerPosition.x - 74.0f) * (playerPosition.x - 74.0f) + (playerPosition.y + 10.0f) * (playerPosition.y + 10.0f) + (playerPosition.z - 71.0f) * (playerPosition.z - 71.0f) < 400)
@@ -258,7 +265,7 @@ namespace Cave
 			return false;
 		}
 
-		static void start(Zone<ThreadResources, GlobalResources>& zone, ThreadResources& threadResources, GlobalResources& globalResources)
+		static void start(Zone<ThreadResources, GlobalResources>& zone, ThreadResources& threadResources, GlobalResources&)
 		{
 			threadResources.taskShedular.update1NextQueue().push({ &zone, update1 });
 		}

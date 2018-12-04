@@ -23,7 +23,7 @@ class FeedbackAnalizerSubPass : public RenderSubPass<VirtualPageCamera, D3D12_RE
 	D3D12DescriptorHeap depthStencilDescriptorHeap;
 	D3D12DescriptorHeap rtvDescriptorHeap;
 	D3D12Resource readbackTexture;
-	unsigned long width, height;
+	unsigned long textureWidth, textureHeight;
 	uint32_t lastFrameIndex;
 
 	struct TextureLocationHasher : std::hash<uint64_t>
@@ -116,12 +116,12 @@ public:
 				destination.PlacedFootprint.Offset = 0u;
 				destination.PlacedFootprint.Footprint.Depth = 1u;
 				destination.PlacedFootprint.Footprint.Format = DXGI_FORMAT::DXGI_FORMAT_R16G16B16A16_UINT;
-				destination.PlacedFootprint.Footprint.Height = renderSubPass.height;
-				destination.PlacedFootprint.Footprint.Width = renderSubPass.width;
-				destination.PlacedFootprint.Footprint.RowPitch = static_cast<uint32_t>(renderSubPass.width * 8u);
+				destination.PlacedFootprint.Footprint.Height = renderSubPass.textureHeight;
+				destination.PlacedFootprint.Footprint.Width = renderSubPass.textureWidth;
+				destination.PlacedFootprint.Footprint.RowPitch = static_cast<uint32_t>(renderSubPass.textureWidth * 8u);
 
 				streamingManagerLocal.copyCommandList().CopyTextureRegion(&destination, 0u, 0u, 0u, &UploadBufferLocation, nullptr);
-				streamingManager.addCopyCompletionEvent(executor.taskShedular.index(), context, readbackTextureReady<Executor, SharedResources_t>);
+				streamingManagerLocal.addCopyCompletionEvent(context, readbackTextureReady<Executor, SharedResources_t>);
 			} });
 		}
 

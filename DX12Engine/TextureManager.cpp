@@ -32,7 +32,6 @@ void TextureManager::unloadTexture(const wchar_t* filename, D3D12GraphicsEngine&
 
 ID3D12Resource* TextureManager::createTexture(const TextureStreamingRequest& uploadRequest, TextureManager& textureManager, D3D12GraphicsEngine& graphicsEngine, const wchar_t* filename)
 {
-	ID3D12Resource* texture;
 	D3D12_HEAP_PROPERTIES textureHeapProperties;
 	textureHeapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
 	textureHeapProperties.CreationNodeMask = 1u;
@@ -54,7 +53,7 @@ ID3D12Resource* TextureManager::createTexture(const TextureStreamingRequest& upl
 	textureDesc.Width = uploadRequest.width;
 
 	D3D12Resource resource(graphicsEngine.graphicsDevice, textureHeapProperties, D3D12_HEAP_FLAGS::D3D12_HEAP_FLAG_NONE, textureDesc,
-		D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_COMMON, nullptr);
+		D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_COMMON);
 
 #ifndef NDEBUG
 	std::wstring name = L"texture ";
@@ -118,14 +117,14 @@ ID3D12Resource* TextureManager::createTexture(const TextureStreamingRequest& upl
 	}
 	graphicsEngine.graphicsDevice->CreateShaderResourceView(resource, &srvDesc, discriptorHandle);
 
-	texture = resource;
+	ID3D12Resource* res = resource;
 	{
 		std::lock_guard<decltype(textureManager.mutex)> lock(textureManager.mutex);
 		Texture& texture = textureManager.textures[filename];
 		texture.resource = std::move(resource);
 		texture.descriptorIndex = discriptorIndex;
 	}
-	return texture;
+	return res;
 }
 
 void TextureManager::loadTextureFromMemory(StreamingManager& streamingManager, const unsigned char* buffer, File file, TextureStreamingRequest& uploadRequest,
@@ -140,17 +139,17 @@ void TextureManager::loadTextureFromMemory(StreamingManager& streamingManager, c
 	uploadRequest.width = header.width;
 	uploadRequest.height = header.height;
 	uploadRequest.format = header.dxgiFormat;
-	uploadRequest.mipLevels = header.mipMapCount;
+	uploadRequest.mipLevels = (uint16_t)header.mipMapCount;
 	uploadRequest.dimension = (D3D12_RESOURCE_DIMENSION)header.dimension;
 	if(header.miscFlag & 0x4L)
 	{
-		uploadRequest.arraySize = header.arraySize * 6u; //The texture is a cubemap
+		uploadRequest.arraySize = (uint16_t)(header.arraySize * 6u); //The texture is a cubemap
 	}
 	else
 	{
-		uploadRequest.arraySize = header.arraySize;
+		uploadRequest.arraySize = (uint16_t)header.arraySize;
 	}
-	uploadRequest.depth = header.depth;
+	uploadRequest.depth = (uint16_t)header.depth;
 	uploadRequest.resourceSize = (unsigned long)DDSFileLoader::alignedResourceSize(uploadRequest.width, uploadRequest.height, uploadRequest.depth,
 		uploadRequest.mipLevels, uploadRequest.arraySize, uploadRequest.format);
 

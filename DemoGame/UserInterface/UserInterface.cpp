@@ -44,7 +44,7 @@ UserInterface::UserInterface(GlobalResources& sharedResources, D3D12_GPU_VIRTUAL
 	heapProperties.CreationNodeMask = 0u;
 	heapProperties.MemoryPoolPreference = D3D12_MEMORY_POOL::D3D12_MEMORY_POOL_UNKNOWN;
 	heapProperties.VisibleNodeMask = 0u;
-	virtualFeedbackTextureCopy = D3D12Resource(sharedResources.graphicsEngine.graphicsDevice, heapProperties, D3D12_HEAP_FLAGS::D3D12_HEAP_FLAG_NONE, resourceDesc, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, nullptr);
+	virtualFeedbackTextureCopy = D3D12Resource(sharedResources.graphicsEngine.graphicsDevice, heapProperties, D3D12_HEAP_FLAGS::D3D12_HEAP_FLAG_NONE, resourceDesc, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 
 #ifndef NDEBUG
 	virtualFeedbackTextureCopy->SetName(L"User interface copy of virtual feedback texture");
@@ -143,7 +143,7 @@ void UserInterface::restart(ThreadResources& threadResources)
 	} });
 }
 
-void UserInterface::start(ThreadResources& threadResources, GlobalResources& sharedResources)
+void UserInterface::start(ThreadResources& threadResources, GlobalResources&)
 {
 	restart(threadResources);
 }

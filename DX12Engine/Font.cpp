@@ -24,7 +24,7 @@ FontChar* Font::getChar(const wchar_t c)
 	return nullptr;
 }
 
-void Font::create(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, unsigned char*& constantBufferCpuAddress, const wchar_t* const filename, const wchar_t* const textureFile,
+void Font::create(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, unsigned char*& constantBufferCpuAddress, const wchar_t* const filename,
 	unsigned int windowWidth, unsigned int windowHeight)
 {
 	constantBufferCpuAddress += psPerObjectConstantBufferSize;
@@ -119,7 +119,7 @@ void Font::create(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, unsigned 
 		// get unicode id
 		fs >> tmp >> tmp; // char id=0
 		startpos = tmp.find(L"=") + 1;
-		charList[i].id = std::stoi(tmp.substr(startpos, tmp.size() - startpos));
+		charList[i].id = (wchar_t)std::stoi(tmp.substr(startpos, tmp.size() - startpos));
 
 		// get x
 		fs >> tmp; // x=392

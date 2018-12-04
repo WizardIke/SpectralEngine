@@ -2,7 +2,7 @@
 #include "Quaternion.h"
 #include <cmath>
 
-EulerRotation::EulerRotation(Quaternion& quaternion)
+EulerRotation::EulerRotation(const Quaternion& quaternion)
 {
 	float ysqr = quaternion.y * quaternion.y;
 

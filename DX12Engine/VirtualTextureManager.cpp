@@ -13,9 +13,9 @@ void VirtualTextureManager::loadTextureUncachedHelper(TextureStreamingRequest& u
 	uploadRequest.width = header.width;
 	uploadRequest.height = header.height;
 	uploadRequest.format = header.dxgiFormat;
-	uploadRequest.mipLevels = header.mipMapCount;
+	uploadRequest.mipLevels = (uint16_t)header.mipMapCount;
 	uploadRequest.dimension = (D3D12_RESOURCE_DIMENSION)header.dimension;
-	uploadRequest.depth = header.depth;
+	uploadRequest.depth = (uint16_t)header.depth;
 	assert(header.arraySize == 1u);
 
 	uploadRequest.destResource = createTextureWithResitencyInfo(graphicsEngine, streamingManager.commandQueue(), uploadRequest);
@@ -39,7 +39,7 @@ D3D12Resource VirtualTextureManager::createTexture(ID3D12Device* graphicsDevice,
 	textureDesc.SampleDesc.Quality = 0u;
 	textureDesc.Width = request.width;
 
-	return D3D12Resource(graphicsDevice, textureDesc, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_COMMON, nullptr);
+	return D3D12Resource(graphicsDevice, textureDesc, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_COMMON);
 }
 
 unsigned int VirtualTextureManager::createTextureDescriptor(D3D12GraphicsEngine& graphicsEngine, ID3D12Resource* texture, const TextureStreamingRequest& request)
@@ -138,8 +138,8 @@ void VirtualTextureManager::unloadTextureHelper(const wchar_t * filename, D3D12G
 			D3D12_TILE_REGION_SIZE tileRegion;
 			tileRegion.NumTiles = numPages;
 			tileRegion.UseBox = TRUE;
-			tileRegion.Width = width;
-			tileRegion.Height = height;
+			tileRegion.Width = (uint32_t)width;
+			tileRegion.Height = (uint16_t)height;
 			tileRegion.Depth = 1u;
 
 			D3D12_TILE_RANGE_FLAGS rangeFlags = D3D12_TILE_RANGE_FLAG_NULL;
@@ -220,7 +220,7 @@ ID3D12Resource* VirtualTextureManager::createTextureWithResitencyInfo(D3D12Graph
 		resitencyInfo.lowestPinnedMip = vramRequest.mipLevels - packedMipInfo.NumPackedMips;
 		pageProvider.pageAllocator.addPackedPages(resitencyInfo, packedMipInfo.NumTilesForPackedMips, commandQueue, graphicsEngine.graphicsDevice);
 	}
-	vramRequest.mostDetailedMip = resitencyInfo.lowestPinnedMip;
+	vramRequest.mostDetailedMip = (uint16_t)resitencyInfo.lowestPinnedMip;
 	ID3D12Resource* resourcePtr = resource;
 
 	{

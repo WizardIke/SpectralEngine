@@ -382,6 +382,7 @@
       <Filter>StreamingManager</Filter>
     </ClInclude>
     <ClInclude Include="AtomicSinglyLinked.h" />
+    <ClInclude Include="ThreadsafePoolAllocator.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DDSFileLoader.cpp">
@@ -464,7 +465,6 @@
     <ClCompile Include="PageDeleter.cpp">
       <Filter>VirtualTexturing</Filter>
     </ClCompile>
-    <ClCompile Include="ThreadsafePoolAllocator.cpp" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Shaders\WaterPS.hlsl">

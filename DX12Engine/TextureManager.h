@@ -53,12 +53,12 @@ private:
 	static ID3D12Resource* createTexture(const TextureStreamingRequest& useSubresourceRequest, TextureManager& textureManager, D3D12GraphicsEngine& graphicsEngine, const wchar_t* filename);
 	
 	template<class ThreadResources, class GlobalResources>
-	static void textureStreamResource(StreamingRequest* request, void* tr, void* globalResources)
+	static void textureStreamResource(StreamingRequest* request, void* tr, void*)
 	{
-		ThreadResources& threadResources = *reinterpret_cast<ThreadResources*>(tr);
-		threadResources.taskShedular.backgroundQueue().push({ &useSubresourceRequest, [](void* requester, ThreadResources& threadResources, GlobalResources& globalResources)
+		ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
+		threadResources.taskShedular.backgroundQueue().push({request, [](void* requester, ThreadResources& threadResources, GlobalResources& globalResources)
 		{
-			TextureStreamingRequest& uploadRequest = *reinterpret_cast<TextureStreamingRequest*>(requester);
+			TextureStreamingRequest& uploadRequest = *static_cast<TextureStreamingRequest*>(requester);
 			std::size_t resourceSize = DDSFileLoader::resourceSize(uploadRequest.width, uploadRequest.height, uploadRequest.depth, uploadRequest.mipLevels, uploadRequest.arraySize, uploadRequest.format);
 			constexpr size_t fileOffset = sizeof(DDSFileLoader::DdsHeaderDx12);
 
@@ -66,18 +66,21 @@ private:
 			uploadRequest.end = fileOffset + resourceSize;
 			uploadRequest.fileLoadedCallback = [](AsynchronousFileManager::IORequest& request, void* tr, void* gr, const unsigned char* buffer)
 			{
-				TextureStreamingRequest& uploadRequest = reinterpret_cast<TextureStreamingRequest&>(request);
-				ThreadResources& threadResources = *reinterpret_cast<ThreadResources*>(executor);
-				GlobalResources& globalResources = *reinterpret_cast<GlobalResources*>(sharedResources);
+				TextureStreamingRequest& uploadRequest = static_cast<TextureStreamingRequest&>(request);
+				ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
+				GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
 				StreamingManager::ThreadLocal& streamingManager = threadResources.streamingManager;
 				ID3D12Resource* destResource = createTexture(uploadRequest, globalResources.textureManager, globalResources.graphicsEngine, uploadRequest.filename);
 
-				DDSFileLoader::copyResourceToGpu(destResource, uploadRequest.uploadResource, uploadRequest.data.uploadResourceOffset, uploadRequest.width, uploadRequest.height,
+				DDSFileLoader::copyResourceToGpu(destResource, uploadRequest.uploadResource, uploadRequest.uploadResourceOffset, uploadRequest.width, uploadRequest.height,
 					uploadRequest.depth, uploadRequest.mipLevels, uploadRequest.arraySize, uploadRequest.format, uploadRequest.uploadBufferCurrentCpuAddress, buffer, &streamingManager.copyCommandList());
 				streamingManager.copyStarted(threadResources.taskShedular.index(), uploadRequest);
 			};
 			bool result = globalResources.asynchronousFileManager.readFile(&threadResources, &globalResources, &uploadRequest);
-			assert(result);
+#ifndef ndebug
+			if(!result)
+				assert(result);
+#endif // !ndebug
 		} });
 	}
 
@@ -86,8 +89,8 @@ private:
 	template<class GlobalResources>
 	static void textureUploaded(StreamingRequest* request, void* tr, void* gr)
 	{
-		const wchar_t* filename = reinterpret_cast<TextureStreamingRequest*>(request)->filename;
-		auto& globalResources = *reinterpret_cast<GlobalResources*>(gr);
+		const wchar_t* filename = static_cast<TextureStreamingRequest*>(request)->filename;
+		auto& globalResources = *static_cast<GlobalResources*>(gr);
 		auto& textureManager = globalResources.textureManager;
 
 		textureManager.textureUploadedHelper(filename, tr, gr);
@@ -102,9 +105,9 @@ private:
 		request->file = asynchronousFileManager.openFileForReading<GlobalResources>(ioCompletionQueue, request->filename);
 		request->start = 0u;
 		request->end = sizeof(DDSFileLoader::DdsHeaderDx12);
-		request->fileLoadedCallback = [](AsynchronousFileManager::IORequest& request, void* tr, void* gr, const unsigned char* buffer)
+		request->fileLoadedCallback = [](AsynchronousFileManager::IORequest& request, void*, void* gr, const unsigned char* buffer)
 		{
-			GlobalResources& globalResources = *reinterpret_cast<GlobalResources*>(gr);
+			GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
 			loadTextureFromMemory(globalResources.streamingManager, buffer, request.file, static_cast<TextureStreamingRequest&>(request), textureStreamResource<ThreadResources, GlobalResources>, textureUploaded<GlobalResources>);
 		};
 		asynchronousFileManager.readFile(&threadResources, &globalResources, request);

@@ -1,7 +1,7 @@
 #pragma once
 #include "Exception.h"
 
-class IOException : Exception
+class IOException : public Exception
 {
 
 };

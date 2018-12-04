@@ -30,12 +30,12 @@ public:
 	VirtualPageCamera(ID3D12Resource* image, D3D12_CPU_DESCRIPTOR_HANDLE renderTargetView, D3D12_CPU_DESCRIPTOR_HANDLE depthSencilView,
 		unsigned int width, unsigned int height, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1, unsigned char*& constantBufferCpuAddress1, float fieldOfView,
 		Transform& target);
-	void init(ID3D12Resource* image, D3D12_CPU_DESCRIPTOR_HANDLE renderTargetView, D3D12_CPU_DESCRIPTOR_HANDLE depthSencilView,
+	void init(ID3D12Resource* image, D3D12_CPU_DESCRIPTOR_HANDLE renderTargetView1, D3D12_CPU_DESCRIPTOR_HANDLE depthSencilView1,
 		unsigned int width, unsigned int height, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1, unsigned char*& constantBufferCpuAddress1, float fieldOfView,
 		Transform& target)
 	{
 		this->~VirtualPageCamera();
-		new(this) VirtualPageCamera(image, renderTargetView, depthSencilView, width, height, constantBufferGpuAddress1, constantBufferCpuAddress1, fieldOfView, target);
+		new(this) VirtualPageCamera(image, renderTargetView1, depthSencilView1, width, height, constantBufferGpuAddress1, constantBufferCpuAddress1, fieldOfView, target);
 	}
 	~VirtualPageCamera();
 

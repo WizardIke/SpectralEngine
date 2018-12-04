@@ -27,12 +27,13 @@ public:
 
 		friend class StreamingManager;
 		uint64_t fenceValue() { return mFenceValue.load(std::memory_order::memory_order_relaxed); }
+		std::size_t bufferIndex() { return currentCommandList == commandLists[0] ? 0u : 1u; }
 	public:
 		ThreadLocal(ID3D12Device* const graphicsDevice, StreamingManager& streamingManager, unsigned int threadIndex);
 		ID3D12GraphicsCommandList& copyCommandList() { return *currentCommandList; }
 		void update(StreamingManager& streamingManager, void* threadResources, void* globalResources);
 		void copyStarted(unsigned int threadIndex, StreamingRequest& processingRequest);
-		void addCopyCompletionEvent(void* requester, void(*unloadCallback)(void* const requester, void* executor, void* sharedResources), std::size_t bufferIndex);
+		void addCopyCompletionEvent(void* requester, void(*unloadCallback)(void* const requester, void* executor, void* sharedResources));
 	};
 private:
 	D3D12CommandQueue copyCommandQueue;

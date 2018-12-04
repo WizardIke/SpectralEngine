@@ -8,24 +8,45 @@ class D3D12Resource
 	ID3D12Resource* data;
 public:
 	D3D12Resource(ID3D12Device* const device, const D3D12_HEAP_PROPERTIES& heapProperties, const D3D12_HEAP_FLAGS heapFlags, const D3D12_RESOURCE_DESC& resourceDesc,
-		const D3D12_RESOURCE_STATES initialResourceState, const D3D12_CLEAR_VALUE* const optimizedClearValue)
+		const D3D12_RESOURCE_STATES initialResourceState, const D3D12_CLEAR_VALUE& optimizedClearValue)
 	{
-		auto hr = device->CreateCommittedResource(&heapProperties, heapFlags, &resourceDesc, initialResourceState, optimizedClearValue, IID_PPV_ARGS(&data));
+		auto hr = device->CreateCommittedResource(&heapProperties, heapFlags, &resourceDesc, initialResourceState, &optimizedClearValue, IID_PPV_ARGS(&data));
+		if (FAILED(hr)) throw ID3D12ResourceCreationFailedException();
+	}
+
+	D3D12Resource(ID3D12Device* const device, const D3D12_HEAP_PROPERTIES& heapProperties, const D3D12_HEAP_FLAGS heapFlags, const D3D12_RESOURCE_DESC& resourceDesc,
+		const D3D12_RESOURCE_STATES initialResourceState)
+	{
+		auto hr = device->CreateCommittedResource(&heapProperties, heapFlags, &resourceDesc, initialResourceState, nullptr, IID_PPV_ARGS(&data));
+		if(FAILED(hr)) throw ID3D12ResourceCreationFailedException();
+	}
+
+	D3D12Resource(ID3D12Device* const device, ID3D12Heap* const heap, const uint64_t heapOffset, const D3D12_RESOURCE_DESC& resourceDesc,
+		const D3D12_RESOURCE_STATES initialResourceState, const D3D12_CLEAR_VALUE& optimizedClearValue) : data(nullptr)
+	{
+		HRESULT hr = device->CreatePlacedResource(heap, heapOffset, &resourceDesc, initialResourceState, &optimizedClearValue, IID_PPV_ARGS(&data));
 		if (FAILED(hr)) throw ID3D12ResourceCreationFailedException();
 	}
 
 	D3D12Resource(ID3D12Device* const device, ID3D12Heap* const heap, const uint64_t heapOffset, const D3D12_RESOURCE_DESC& resourceDesc,
-		const D3D12_RESOURCE_STATES initialResourceState, const D3D12_CLEAR_VALUE* const optimizedClearValue) : data(nullptr)
+		const D3D12_RESOURCE_STATES initialResourceState) : data(nullptr)
 	{
-		HRESULT hr = device->CreatePlacedResource(heap, heapOffset, &resourceDesc, initialResourceState, optimizedClearValue, IID_PPV_ARGS(&data));
+		HRESULT hr = device->CreatePlacedResource(heap, heapOffset, &resourceDesc, initialResourceState, nullptr, IID_PPV_ARGS(&data));
+		if(FAILED(hr)) throw ID3D12ResourceCreationFailedException();
+	}
+
+	D3D12Resource(ID3D12Device* const device, const D3D12_RESOURCE_DESC& resourceDesc,
+		const D3D12_RESOURCE_STATES initialResourceState, const D3D12_CLEAR_VALUE& optimizedClearValue) : data(nullptr)
+	{
+		auto hr = device->CreateReservedResource(&resourceDesc, initialResourceState, &optimizedClearValue, IID_PPV_ARGS(&data));
 		if (FAILED(hr)) throw ID3D12ResourceCreationFailedException();
 	}
 
 	D3D12Resource(ID3D12Device* const device, const D3D12_RESOURCE_DESC& resourceDesc,
-		const D3D12_RESOURCE_STATES initialResourceState, const D3D12_CLEAR_VALUE* const optimizedClearValue) : data(nullptr)
+		const D3D12_RESOURCE_STATES initialResourceState) : data(nullptr)
 	{
-		auto hr = device->CreateReservedResource(&resourceDesc, initialResourceState, optimizedClearValue, IID_PPV_ARGS(&data));
-		if (FAILED(hr)) throw ID3D12ResourceCreationFailedException();
+		auto hr = device->CreateReservedResource(&resourceDesc, initialResourceState, nullptr, IID_PPV_ARGS(&data));
+		if(FAILED(hr)) throw ID3D12ResourceCreationFailedException();
 	}
 
 	D3D12Resource(D3D12Resource&& other) : data(other.data)

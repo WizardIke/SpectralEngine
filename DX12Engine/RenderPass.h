@@ -8,6 +8,11 @@
 #include "D3D12GraphicsEngine.h"
 class Window;
 
+#if defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable: 4127)
+#endif
+
 template<class... RenderSubPass_t>
 class RenderPass
 {
@@ -208,8 +213,8 @@ public:
 		}
 
 		template<unsigned int nextSubPassIndex, unsigned int dependencyIndex, unsigned int dependencyIndexEnd, class Dependencies>
-		static std::enable_if_t<dependencyIndex == dependencyIndexEnd, void> addBeginBarriersHelper2(std::tuple<RenderSubPass_t...>& subPasses,
-			D3D12_RESOURCE_BARRIER* barriers, unsigned int& barrierCount) {}
+		static std::enable_if_t<dependencyIndex == dependencyIndexEnd, void> addBeginBarriersHelper2(std::tuple<RenderSubPass_t...>&,
+			D3D12_RESOURCE_BARRIER*, unsigned int&) {}
 
 
 		template<D3D12_RESOURCE_STATES stateBefore, D3D12_RESOURCE_STATES stateAfter, D3D12_RESOURCE_BARRIER_FLAGS flags, class CameraSubPass>
@@ -234,7 +239,7 @@ public:
 		}
 
 		template<unsigned int nextIndex, unsigned int currentIndex, unsigned int endIndex, class ResourceIndices>
-		static std::enable_if_t<currentIndex == endIndex, void> addEndOnlyBarriers(std::tuple<RenderSubPass_t...>& subPasses, D3D12_RESOURCE_BARRIER* barriers, unsigned int& barrierCount) {}
+		static std::enable_if_t<currentIndex == endIndex, void> addEndOnlyBarriers(std::tuple<RenderSubPass_t...>&, D3D12_RESOURCE_BARRIER*, unsigned int&) {}
 
 		template<unsigned int previousIndex, unsigned int nextIndex, unsigned int transitioningResourceIndex>
 		static void addEndOnlyBarriersOneResource(std::tuple<RenderSubPass_t...>& subPasses, D3D12_RESOURCE_BARRIER* barriers, unsigned int& barrierCount)
@@ -301,7 +306,7 @@ public:
 		}
 
 		template<unsigned int nextIndex, unsigned int transitioningResourceIndex, unsigned int previousIndex>
-		static std::enable_if_t<previousIndex == nextIndex, void> addEndOnlyBarriersHelper(std::tuple<RenderSubPass_t...>& subPasses, D3D12_RESOURCE_BARRIER* barriers, unsigned int& barrierCount) {}
+		static std::enable_if_t<previousIndex == nextIndex, void> addEndOnlyBarriersHelper(std::tuple<RenderSubPass_t...>&, D3D12_RESOURCE_BARRIER*, unsigned int&) {}
 
 		template<unsigned int transitioningResourceIndex, unsigned int previousSubPassIndex>
 		constexpr static std::enable_if_t<transitioningResourceIndex == previousSubPassIndex, D3D12_RESOURCE_STATES> getStateBeforeBarriers() noexcept
@@ -418,13 +423,13 @@ public:
 		}
 
 		template<unsigned int start, unsigned int end>
-		std::enable_if_t<start == end, unsigned int> commandListPerThread(std::tuple<RenderSubPass_t...>& subPasses)
+		std::enable_if_t<start == end, unsigned int> commandListPerThread(std::tuple<RenderSubPass_t...>&)
 		{
 			return 0u;
 		}
 
 		template<unsigned int start, unsigned int end, bool firstThread>
-		std::enable_if_t<!(start != end), void> update1After(D3D12GraphicsEngine& graphicsEngine, RenderPass<RenderSubPass_t...>& renderPass, ID3D12RootSignature* rootSignature) {}
+		std::enable_if_t<!(start != end), void> update1After(D3D12GraphicsEngine&, RenderPass<RenderSubPass_t...>&, ID3D12RootSignature*) {}
 
 		template<unsigned int start, unsigned int end, bool firstThread>
 		std::enable_if_t<start != end, void>
@@ -450,8 +455,8 @@ public:
 	
 		template<unsigned int start, unsigned int end>
 		std::enable_if_t<start == end, void>
-			update2(RenderPass<RenderSubPass_t...>& renderPass, ID3D12CommandList** commandLists,
-				unsigned int numThreads) {}
+			update2(RenderPass<RenderSubPass_t...>&, ID3D12CommandList**,
+				unsigned int) {}
 
 		template<unsigned int start, unsigned int end>
 		std::enable_if_t<start != end, void>
@@ -471,8 +476,8 @@ public:
 
 		template<unsigned int start, unsigned int end, class Executor, class SharedResources>
 		std::enable_if_t<start == end, void>
-			update2LastThread(Executor& executor, SharedResources& sharedResources, RenderPass<RenderSubPass_t...>& renderPass, ID3D12CommandList** commandLists,
-				unsigned int listsBefore) {}
+			update2LastThread(Executor&, SharedResources&, RenderPass<RenderSubPass_t...>&, ID3D12CommandList**,
+				unsigned int) {}
 
 		template<unsigned int start, unsigned int end, class Executor, class SharedResources>
 		std::enable_if_t<start != end, void>
@@ -490,3 +495,7 @@ public:
 		}
 	};
 };
+
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#endif

@@ -5,7 +5,7 @@
 #include "D3D12GraphicsEngine.h"
 #include "FeedbackAnalizer.h"
 
-PageProvider::PageProvider(IDXGIAdapter3* adapter, ID3D12Device* graphicsDevice)
+PageProvider::PageProvider(IDXGIAdapter3* adapter)
 {
 	DXGI_QUERY_VIDEO_MEMORY_INFO videoMemoryInfo;
 	auto result = adapter->QueryVideoMemoryInfo(0u, DXGI_MEMORY_SEGMENT_GROUP::DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &videoMemoryInfo);
@@ -112,12 +112,12 @@ void PageProvider::addPageLoadRequestHelper(PageLoadRequest& streamingRequest, V
 	streamingRequest.start = filePos;
 	streamingRequest.end = filePos + streamingRequest.resourceSize;
 
-	streamingRequest.resourceUploaded = [](StreamingRequest* requester, void* threadResources, void* globalResources)
+	streamingRequest.resourceUploaded = [](StreamingRequest* requester, void*, void*)
 	{
-		PageLoadRequest* request = reinterpret_cast<PageLoadRequest*>(requester);
+		PageLoadRequest* request = static_cast<PageLoadRequest*>(requester);
 		request->state.store(PageLoadRequest::State::unused, std::memory_order::memory_order_release); //set as available to reuse
 	};
-	streamingRequest.deallocateNode = [](StreamingRequest* requester, void* threadResources, void* globalResources) {};
+	streamingRequest.deallocateNode = [](StreamingRequest*, void*, void*) {};
 
 	streamingRequest.streamResource = streamResource;
 
@@ -143,7 +143,7 @@ void PageProvider::addPageDataToResource(ID3D12Resource* resource, D3D12_TILED_R
 			D3D12_TILE_COPY_FLAGS::D3D12_TILE_COPY_FLAG_LINEAR_BUFFER_TO_SWIZZLED_TILED_RESOURCE);
 
 		pageLoadRequests[uploadBufferOffsets[i]].state.store(PageLoadRequest::State::waitingToFreeMemory, std::memory_order::memory_order_relaxed);
-		gpuCompletionEventManager.addRequest(&pageLoadRequests[uploadBufferOffsets[i]], [](void* requester, void* exe, void* sr)
+		gpuCompletionEventManager.addRequest(&pageLoadRequests[uploadBufferOffsets[i]], [](void* requester, void*, void*)
 		{
 			PageLoadRequest* request = reinterpret_cast<PageLoadRequest*>(requester);
 			request->copyFenceValue.store(0u, std::memory_order::memory_order_release); //set copy state to finished. This will allow the memory in the streaming manager to be released.
@@ -165,7 +165,7 @@ bool PageProvider::NewPageIterator::NewPage::operator<(const NewPage& other)
 
 void PageProvider::copyPageToUploadBuffer(StreamingRequest* request, const unsigned char* data)
 {
-	PageLoadRequest& streamingRequest = *reinterpret_cast<PageLoadRequest*>(request);
+	PageLoadRequest& streamingRequest = *static_cast<PageLoadRequest*>(request);
 	size_t widthInBytes = streamingRequest.widthInBytes;
 	size_t heightInTexels = streamingRequest.heightInTexels;
 	size_t pageWidthInBytes = streamingRequest.pageWidthInBytes;

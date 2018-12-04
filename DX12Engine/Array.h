@@ -32,7 +32,7 @@ public:
 	typedef ::std::reverse_iterator<const Element*> const_reverse_iterator;
 
 	template<typename Functor, typename Return = typename std::result_of_t<Functor(std::size_t, Element&)>>
-	Array(Functor& initializer, typename std::enable_if<true, Return>::type* = nullptr)
+	Array(Functor&& initializer, typename std::enable_if<true, Return>::type* = nullptr)
 	{
 		std::size_t i;
 		try
@@ -54,7 +54,7 @@ public:
 	}
 	
 	template<typename Functor, typename = typename std::result_of_t<Functor(std::size_t)> >
-	Array(Functor& initializer)
+	Array(Functor&& initializer)
 	{
 		std::size_t i;
 		try

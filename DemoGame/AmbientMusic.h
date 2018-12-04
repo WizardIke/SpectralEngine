@@ -28,7 +28,7 @@ class AmbientMusic : private IXAudio2VoiceCallback, private AsynchronousFileMana
 	std::size_t bytesNeeded;
 	BufferDescriptor bufferDescriptors[3];
 	BufferDescriptor* currentBuffer;
-	GlobalResources& globalResources;
+	GlobalResources& globalResourcesRef;
 	void(*callback)(AmbientMusic& music, ThreadResources& threadResources, GlobalResources& globalResources);
 
 	virtual void STDMETHODCALLTYPE OnBufferEnd(void* pBufferContext) override;
@@ -48,7 +48,7 @@ class AmbientMusic : private IXAudio2VoiceCallback, private AsynchronousFileMana
 	void startImpl(ThreadResources& executor, GlobalResources& sharedResources);
 	static void onFirstBufferFinishedLoading(AmbientMusic& music, ThreadResources& threadResources, GlobalResources& globalResources);
 public:
-	AmbientMusic(ThreadResources& executor, GlobalResources& sharedResources, const wchar_t* const * files, std::size_t fileCount);
+	AmbientMusic(GlobalResources& sharedResources, const wchar_t* const * files, std::size_t fileCount);
 	~AmbientMusic();
 	void start(ThreadResources& executor, GlobalResources& sharedResources);
 };

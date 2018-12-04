@@ -20,7 +20,7 @@ void ThreadResources::start(GlobalResources& globalResources)
 bool ThreadResources::initialize1(ThreadResources& threadResources, GlobalResources& globalResources)
 {
 	threadResources.taskShedular.runBackgroundTasks(globalResources.taskShedular, threadResources, globalResources);
-	threadResources.streamingManager.update(globalResources.streamingManager);
+	threadResources.streamingManager.update(globalResources.streamingManager, &threadResources, &globalResources);
 
 	globalResources.taskShedular.barrier().sync(globalResources.taskShedular.threadCount(), [&globalResources = globalResources, &threadResources = threadResources]()
 	{
@@ -35,7 +35,7 @@ bool ThreadResources::initialize1(ThreadResources& threadResources, GlobalResour
 	return false;
 }
 
-bool ThreadResources::initialize2(ThreadResources& threadResources, GlobalResources& globalResources)
+bool ThreadResources::initialize2(ThreadResources&, GlobalResources& globalResources)
 {
 	globalResources.taskShedular.barrier().sync(globalResources.taskShedular.threadCount(), [&taskShedular = globalResources.taskShedular]()
 	{
@@ -73,7 +73,7 @@ bool ThreadResources::endUpdate2(ThreadResources& threadResources, GlobalResourc
 	return false;
 }
 
-bool ThreadResources::quit(ThreadResources& threadResources, GlobalResources& globalResources)
+bool ThreadResources::quit(ThreadResources&, GlobalResources&)
 {
 	return true;
 }
@@ -92,7 +92,7 @@ void ThreadResources::mainEndUpdate2(ThreadResources& threadResources, GlobalRes
 	threadResources.taskShedular.endUpdate2Primary(globalResources.taskShedular, endUpdate1, primaryThreadCount, updateIndex);
 	
 	threadResources.gpuCompletionEventManager.update(globalResources.graphicsEngine.frameIndex, &threadResources, &globalResources);
-	threadResources.streamingManager.update(globalResources.streamingManager);
+	threadResources.streamingManager.update(globalResources.streamingManager, &threadResources, &globalResources);
 }
 
 void ThreadResources::primaryEndUpdate2(ThreadResources& threadResources, GlobalResources& globalResources)
@@ -111,13 +111,13 @@ void ThreadResources::primaryEndUpdate2(ThreadResources& threadResources, Global
 	threadResources.taskShedular.endUpdate2Primary(globalResources.taskShedular, endUpdate1, primaryThreadCount, updateIndex);
 
 	threadResources.gpuCompletionEventManager.update(globalResources.graphicsEngine.frameIndex, &threadResources, &globalResources);
-	threadResources.streamingManager.update(globalResources.streamingManager);
+	threadResources.streamingManager.update(globalResources.streamingManager, &threadResources, &globalResources);
 }
 
 static void backgroundEndUpdate(ThreadResources& threadResources, GlobalResources& globalResources)
 {
 	threadResources.gpuCompletionEventManager.update(globalResources.graphicsEngine.frameIndex, &threadResources, &globalResources);
-	threadResources.streamingManager.update(globalResources.streamingManager);
+	threadResources.streamingManager.update(globalResources.streamingManager, &threadResources, &globalResources);
 }
 
 static void backgroundPrepairForUpdate2(ThreadResources& threadResources, GlobalResources& globalResources)

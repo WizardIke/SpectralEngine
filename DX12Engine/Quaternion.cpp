@@ -2,7 +2,7 @@
 #include "EulerRotation.h"
 #include <cmath>
 
-Quaternion::Quaternion(EulerRotation& eulerRotation)
+Quaternion::Quaternion(const EulerRotation& eulerRotation)
 {
 	float halfYaw = eulerRotation.yaw * 0.5f;
 	float halfPitch = eulerRotation.pitch * 0.5f;

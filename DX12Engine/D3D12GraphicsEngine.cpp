@@ -23,7 +23,7 @@ D3D12GraphicsEngine::D3D12GraphicsEngine(Window& window, DXGIFactory factory) :
 }()),
 
 	directFenceEvent(nullptr, FALSE, FALSE, nullptr),
-	directFences([&](size_t i, D3D12FencePointer& element)
+	directFences([&](std::size_t, D3D12FencePointer& element)
 {
 	new(&element) D3D12FencePointer(graphicsDevice, 0u, D3D12_FENCE_FLAG_NONE);
 }),
@@ -62,7 +62,7 @@ D3D12GraphicsEngine::D3D12GraphicsEngine(Window& window, DXGIFactory factory) :
 	depthSencilHeapResourcesDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
 	depthSencilHeapResourcesDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
 	return depthSencilHeapResourcesDesc;
-}(), D3D12_RESOURCE_STATE_DEPTH_WRITE, &[]()
+}(), D3D12_RESOURCE_STATE_DEPTH_WRITE, []()
 {
 	D3D12_CLEAR_VALUE depthOptimizedClearValue;
 	depthOptimizedClearValue.Format = DXGI_FORMAT_D32_FLOAT;

@@ -133,7 +133,7 @@ public:
 			}
 		}
 
-		void endUpdate2End(TaskShedular& taskShedular, const unsigned int primaryThreadCount, const unsigned int updateIndex)
+		void endUpdate2End(TaskShedular& taskShedular, const unsigned int primaryThreadCount, const unsigned int)
 		{
 			taskShedular.mBarrier.sync(primaryThreadCount, [&mUpdateIndexAndPrimaryThreadCount = taskShedular.mUpdateIndexAndPrimaryThreadCount,
 				&primaryThreadCountDefferedDecrease = taskShedular.mPrimaryThreadCountDefferedDecrease]()

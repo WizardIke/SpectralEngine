@@ -231,6 +231,7 @@
     <ClInclude Include="GlobalResources.h">
       <Filter>GlobalResources</Filter>
     </ClInclude>
+    <ClInclude Include="StreamingRequests.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Meshes\bath.mesh">

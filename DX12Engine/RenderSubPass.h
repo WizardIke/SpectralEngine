@@ -278,8 +278,8 @@ public:
 		}
 
 		template<class ThreadResources, class GlobalResources>
-		void update2LastThread(ID3D12CommandList**& commandLists, unsigned int numThreads, RenderSubPass<Camera, state1, Dependencies_t, DependencyStates_t, commandListsPerFrame, stateAfter1, isStaticNumberOfCameras, initialSize>& renderSubPass,
-			ThreadResources& threadResources, GlobalResources& globalResources)
+		void update2LastThread(ID3D12CommandList**& commandLists, unsigned int numThreads, RenderSubPass<Camera, state1, Dependencies_t, DependencyStates_t, commandListsPerFrame, stateAfter1, isStaticNumberOfCameras, initialSize>&,
+			ThreadResources&, GlobalResources&)
 		{
 			update2(commandLists, numThreads);
 		}
@@ -309,7 +309,7 @@ public:
 
 		template<class ThreadResources, class GlobalResources>
 		void update2LastThread(ID3D12CommandList**& commandLists, unsigned int numThreads, RenderMainSubPass<Camera_t, state1, Dependencies_t, DependencyStates_t, commandListsPerFrame, stateAfter1>& renderSubPass,
-			ThreadResources& threadResources, GlobalResources& globalResources)
+			ThreadResources&, GlobalResources&)
 		{
 			auto cameras = renderSubPass.cameras();
 			auto camerasEnd = cameras.end();

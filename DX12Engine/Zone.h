@@ -89,10 +89,10 @@ public:
 		} });
 	}
 
-	void setState(unsigned int newState, ThreadResources& threadResources, GlobalResources& globalResources)
+	void setState(unsigned int newState1, ThreadResources& threadResources, GlobalResources& globalResources)
 	{
-		const unsigned int highestSupportedState = this->highestSupportedState;
-		unsigned int actualNewState = newState > highestSupportedState ? highestSupportedState : newState;
+		const unsigned int highestSupported = this->highestSupportedState;
+		unsigned int actualNewState = newState1 > highestSupported ? highestSupported : newState1;
 		if (this->nextState == undefinedState)
 		{
 			//we aren't currently changing state
@@ -100,7 +100,7 @@ public:
 			{
 				this->nextState = actualNewState;
 				this->newState = actualNewState;
-				if (actualNewState == highestSupportedState)
+				if (actualNewState == highestSupported)
 				{
 					finishMovingToUnloadedState(threadResources);
 				}
