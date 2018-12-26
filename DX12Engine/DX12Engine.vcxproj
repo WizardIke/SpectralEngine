@@ -217,6 +217,7 @@
     </FxCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="ActorQueue.h" />
     <ClInclude Include="Area.h" />
     <ClInclude Include="Array.h" />
     <ClInclude Include="AsynchronousFileManager.h" />
@@ -225,6 +226,7 @@
     <ClInclude Include="AudioPlaybackException.h" />
     <ClInclude Include="HashMultiSet.h" />
     <ClInclude Include="PageAllocationInfo.h" />
+    <ClInclude Include="SinglyLinked.h" />
     <ClInclude Include="StartableIOCompletionQueue.h" />
     <ClInclude Include="StreamingRequest.h" />
     <ClInclude Include="VirtualTextureInfoByID.h" />

@@ -383,6 +383,8 @@
     </ClInclude>
     <ClInclude Include="AtomicSinglyLinked.h" />
     <ClInclude Include="ThreadsafePoolAllocator.h" />
+    <ClInclude Include="ActorQueue.h" />
+    <ClInclude Include="SinglyLinked.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DDSFileLoader.cpp">
