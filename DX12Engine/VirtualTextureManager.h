@@ -80,6 +80,10 @@ private:
 		streamingManager.uploadFinished(request, threadResources, globalResources);
 	}
 
+	static void textureUseResourceHelper(TextureStreamingRequest& uploadRequest, void(*fileLoadedCallback)(AsynchronousFileManager::IORequest& request, void* tr, void*, const unsigned char* buffer));
+	static void fileLoadedCallbackHelper(TextureStreamingRequest& uploadRequest, const unsigned char* buffer, StreamingManager::ThreadLocal& streamingManager,
+		void(*copyStarted)(void* requester, void* tr, void* gr));
+
 	template<class ThreadResources, class GlobalResources>
 	static void textureUseResource(StreamingManager::StreamingRequest* useSubresourceRequest, void* executor, void*)
 	{
@@ -87,51 +91,14 @@ private:
 		threadResources.taskShedular.backgroundQueue().push({ useSubresourceRequest, [](void* context, ThreadResources& threadResources, GlobalResources& globalResources)
 		{
 			auto& uploadRequest = *static_cast<TextureStreamingRequest*>(static_cast<StreamingManager::StreamingRequest*>(context));
-
-			std::size_t subresouceWidth = uploadRequest.width;
-			std::size_t subresourceHeight = uploadRequest.height;
-			std::size_t subresourceDepth = uploadRequest.depth;
-			std::size_t fileOffset = sizeof(DDSFileLoader::DdsHeaderDx12);
-			
-			for (std::size_t currentMip = 0u; currentMip != uploadRequest.mostDetailedMip; ++currentMip)
-			{
-				std::size_t numBytes, numRows, rowBytes;
-				DDSFileLoader::surfaceInfo(subresouceWidth, subresourceHeight, uploadRequest.format, numBytes, rowBytes, numRows);
-				fileOffset += numBytes * subresourceDepth;
-
-				subresouceWidth >>= 1u;
-				if (subresouceWidth == 0u) subresouceWidth = 1u;
-				subresourceHeight >>= 1u;
-				if (subresourceHeight == 0u) subresourceHeight = 1u;
-				subresourceDepth >>= 1u;
-				if (subresourceDepth == 0u) subresourceDepth = 1u;
-			}
-
-			std::size_t numBytes, numRows, rowBytes;
-			DDSFileLoader::surfaceInfo(subresouceWidth, subresourceHeight, uploadRequest.format, numBytes, rowBytes, numRows);
-			std::size_t subresourceSize = numBytes * subresourceDepth;
-
-			uploadRequest.start = fileOffset;
-			uploadRequest.end = fileOffset + subresourceSize;
-			uploadRequest.fileLoadedCallback = [](AsynchronousFileManager::IORequest& request, void* tr, void*, const unsigned char* buffer)
+			textureUseResourceHelper(uploadRequest, [](AsynchronousFileManager::IORequest& request, void* tr, void*, const unsigned char* buffer)
 			{
 				ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
 				TextureStreamingRequest& uploadRequest = static_cast<TextureStreamingRequest&>(request);
 				auto& streamingManager = threadResources.streamingManager;
-				ID3D12Resource* destResource = uploadRequest.destResource;
 
-				uint32_t subresouceWidth = uploadRequest.width >> uploadRequest.mostDetailedMip;
-				if(subresouceWidth == 0u) subresouceWidth = 1u;
-				uint32_t subresourceHeight = uploadRequest.height >> uploadRequest.mostDetailedMip;
-				if(subresourceHeight == 0u) subresourceHeight = 1u;
-				uint32_t subresourceDepth = uploadRequest.depth >> uploadRequest.mostDetailedMip;
-				if(subresourceDepth == 0u) subresourceDepth = 1u;
-				
-				DDSFileLoader::copySubresourceToGpuTiled(destResource, uploadRequest.uploadResource, uploadRequest.uploadResourceOffset, subresouceWidth, subresourceHeight,
-					subresourceDepth, uploadRequest.mostDetailedMip, uploadRequest.mipLevels, 0u, uploadRequest.format,
-					uploadRequest.uploadBufferCurrentCpuAddress, buffer, &streamingManager.copyCommandList());
-				streamingManager.addCopyCompletionEvent(&uploadRequest, copyStarted<ThreadResources, GlobalResources>);
-			};
+				fileLoadedCallbackHelper(uploadRequest, buffer, streamingManager, copyStarted<ThreadResources, GlobalResources>);
+			});
 			globalResources.asynchronousFileManager.readFile(&threadResources, &globalResources, &uploadRequest);
 		} });
 	}

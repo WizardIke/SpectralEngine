@@ -263,3 +263,89 @@ void VirtualTextureManager::textureUploadedHelper(const wchar_t* filename, void*
 		old->textureLoaded(*old, tr, gr, *texture);
 	}
 }
+
+void VirtualTextureManager::textureUseResourceHelper(TextureStreamingRequest& uploadRequest, void(*fileLoadedCallback)(AsynchronousFileManager::IORequest& request, void* tr, void*, const unsigned char* buffer))
+{
+	std::size_t subresouceWidth = uploadRequest.width;
+	std::size_t subresourceHeight = uploadRequest.height;
+	std::size_t subresourceDepth = uploadRequest.depth;
+	std::size_t fileOffset = sizeof(DDSFileLoader::DdsHeaderDx12);
+
+	for(std::size_t currentMip = 0u; currentMip != uploadRequest.mostDetailedMip; ++currentMip)
+	{
+		std::size_t numBytes, numRows, rowBytes;
+		DDSFileLoader::surfaceInfo(subresouceWidth, subresourceHeight, uploadRequest.format, numBytes, rowBytes, numRows);
+		fileOffset += numBytes * subresourceDepth;
+
+		subresouceWidth >>= 1u;
+		if(subresouceWidth == 0u) subresouceWidth = 1u;
+		subresourceHeight >>= 1u;
+		if(subresourceHeight == 0u) subresourceHeight = 1u;
+		subresourceDepth >>= 1u;
+		if(subresourceDepth == 0u) subresourceDepth = 1u;
+	}
+
+	std::size_t subresourceSize = 0u;
+	for(std::size_t currentMip = uploadRequest.mostDetailedMip; currentMip != uploadRequest.mipLevels; ++currentMip)
+	{
+		std::size_t numBytes, numRows, rowBytes;
+		DDSFileLoader::surfaceInfo(subresouceWidth, subresourceHeight, uploadRequest.format, numBytes, rowBytes, numRows);
+		subresourceSize += numBytes * subresourceDepth;
+
+		subresouceWidth >>= 1u;
+		if(subresouceWidth == 0u) subresouceWidth = 1u;
+		subresourceHeight >>= 1u;
+		if(subresourceHeight == 0u) subresourceHeight = 1u;
+		subresourceDepth >>= 1u;
+		if(subresourceDepth == 0u) subresourceDepth = 1u;
+	}
+
+
+
+	uploadRequest.start = fileOffset;
+	uploadRequest.end = fileOffset + subresourceSize;
+	uploadRequest.fileLoadedCallback = fileLoadedCallback;
+}
+
+void VirtualTextureManager::fileLoadedCallbackHelper(TextureStreamingRequest& uploadRequest, const unsigned char* buffer, StreamingManager::ThreadLocal& streamingManager,
+	void(*copyStarted)(void* requester, void* tr, void* gr))
+{
+	ID3D12Resource* destResource = uploadRequest.destResource;
+
+	unsigned long uploadResourceOffset = uploadRequest.uploadResourceOffset;
+	unsigned char* uploadBufferCurrentCpuAddress = uploadRequest.uploadBufferCurrentCpuAddress;
+	for(uint32_t i = uploadRequest.mostDetailedMip;;)
+	{
+		uint32_t subresouceWidth = uploadRequest.width >> uploadRequest.mostDetailedMip;
+		if(subresouceWidth == 0u) subresouceWidth = 1u;
+		uint32_t subresourceHeight = uploadRequest.height >> uploadRequest.mostDetailedMip;
+		if(subresourceHeight == 0u) subresourceHeight = 1u;
+		uint32_t subresourceDepth = uploadRequest.depth >> uploadRequest.mostDetailedMip;
+		if(subresourceDepth == 0u) subresourceDepth = 1u;
+
+		DDSFileLoader::copySubresourceToGpuTiled(destResource, uploadRequest.uploadResource, uploadResourceOffset, subresouceWidth, subresourceHeight,
+			subresourceDepth, uploadRequest.mostDetailedMip, uploadRequest.mipLevels, 0u, uploadRequest.format,
+			uploadBufferCurrentCpuAddress, buffer, &streamingManager.copyCommandList());
+
+		++i;
+		if(i == uploadRequest.mipLevels) break;
+
+		std::size_t numBytes, numRows, rowBytes;
+		DDSFileLoader::surfaceInfo(subresouceWidth, subresourceHeight, uploadRequest.format, numBytes, rowBytes, numRows);
+		std::size_t alignedSize = (rowBytes + (size_t)D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - (size_t)1u) & ~((size_t)D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - (size_t)1u) * numRows * subresourceDepth;
+		uploadResourceOffset += (unsigned long)alignedSize;
+		uploadBufferCurrentCpuAddress += alignedSize;
+	}
+
+	uint32_t subresouceWidth = uploadRequest.width >> uploadRequest.mostDetailedMip;
+	if(subresouceWidth == 0u) subresouceWidth = 1u;
+	uint32_t subresourceHeight = uploadRequest.height >> uploadRequest.mostDetailedMip;
+	if(subresourceHeight == 0u) subresourceHeight = 1u;
+	uint32_t subresourceDepth = uploadRequest.depth >> uploadRequest.mostDetailedMip;
+	if(subresourceDepth == 0u) subresourceDepth = 1u;
+
+	DDSFileLoader::copySubresourceToGpuTiled(destResource, uploadRequest.uploadResource, uploadRequest.uploadResourceOffset, subresouceWidth, subresourceHeight,
+		subresourceDepth, uploadRequest.mostDetailedMip, uploadRequest.mipLevels, 0u, uploadRequest.format,
+		uploadRequest.uploadBufferCurrentCpuAddress, buffer, &streamingManager.copyCommandList());
+	streamingManager.addCopyCompletionEvent(&uploadRequest, copyStarted);
+}
