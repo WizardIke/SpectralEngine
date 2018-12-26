@@ -100,8 +100,8 @@ void StreamingManager::freeSpace(void* threadResources, void* globalResources)
 		StreamingRequest& request = *processingRequestsStart;
 		if(!request.readyToDelete) break;
 		readPos += request.numberOfBytesToFree; //free CPU memory
+		processingRequestsStart = processingRequestsStart->nextToDelete; //Need to do this now as the next line will delete request
 		request.resourceUploaded(&request, threadResources, globalResources);
-		processingRequestsStart = processingRequestsStart->nextToDelete;
 	}
 	uploadBufferReadPos = readPos;
 }

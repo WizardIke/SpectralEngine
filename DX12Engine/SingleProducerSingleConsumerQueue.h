@@ -4,8 +4,8 @@
 template<class T, size_t mCapacity>
 class SingleProducerSingleConsumerQueue
 {
-	T mData[mCapacity];
 	T* mFront;
+	T mData[mCapacity];
 	std::atomic<T*> mBack;
 public:
 	SingleProducerSingleConsumerQueue()

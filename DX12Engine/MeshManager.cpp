@@ -313,9 +313,11 @@ void MeshManager::meshUploadedHelper(MeshManager& meshManager, const wchar_t* fi
 		requests = std::move(request->second);
 		meshManager.uploadRequests.erase(request);
 	}
-	for(auto current = requests; current != nullptr; current = current->nextMeshRequest)
+	for(auto current = requests; current != nullptr; )
 	{
-		current->meshLoaded(*current, tr, gr, *mesh);
+		auto old = current;
+		current = current->nextMeshRequest; //Need to do this now as old will be deleted by the next line
+		old->meshLoaded(*old, tr, gr, *mesh);
 	}
 }
 

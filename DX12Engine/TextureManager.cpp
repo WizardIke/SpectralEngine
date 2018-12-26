@@ -168,9 +168,10 @@ void TextureManager::textureUploadedHelper(const wchar_t* filename, void* tr, vo
 		requests = std::move(requestsPos->second);
 		uploadRequests.erase(requestsPos);
 	}
-
-	for(TextureStreamingRequest* current = requests; current != nullptr; current = current->nextTextureRequest)
+	for(auto current = requests; current != nullptr; )
 	{
-		current->textureLoaded(*current, tr, gr, descriptorIndex);
+		auto old = current;
+		current = current->nextTextureRequest; //Need to do this now as old will be deleted by the next line
+		old->textureLoaded(*old, tr, gr, descriptorIndex);
 	}
 }
