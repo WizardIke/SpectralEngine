@@ -177,8 +177,7 @@ private:
 		{
 			PageLoadRequest& pageRequest = *reinterpret_cast<PageLoadRequest*>(requester);
 			VirtualTextureManager& virtualTextureManager = sharedResources.virtualTextureManager;
-			StreamingManager& streamingManager = sharedResources.streamingManager;
-			addPageLoadRequestHelper(pageRequest, virtualTextureManager, streamingManager, [](StreamingManager::StreamingRequest* request, void* tr, void* gr)
+			addPageLoadRequestHelper(pageRequest, virtualTextureManager, [](StreamingManager::StreamingRequest* request, void* tr, void* gr)
 			{
 				PageLoadRequest& uploadRequest = *static_cast<PageLoadRequest*>(request);
 				GlobalResources& globalResources = *reinterpret_cast<GlobalResources*>(gr);
@@ -191,6 +190,7 @@ private:
 				};
 				globalResources.asynchronousFileManager.readFile(tr, gr, &uploadRequest);
 			});
+			StreamingManager& streamingManager = sharedResources.streamingManager;
 			streamingManager.addUploadRequest(&pageRequest, threadResources, sharedResources);
 		} });
 	}

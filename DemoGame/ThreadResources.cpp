@@ -6,7 +6,7 @@ ThreadResources::ThreadResources(unsigned int index, GlobalResources& globalReso
 	taskShedular(index, globalResources.taskShedular), 
 	gpuCompletionEventManager(),
 	randomNumberGenerator(std::chrono::high_resolution_clock::now().time_since_epoch().count()),
-	streamingManager(globalResources.graphicsEngine.graphicsDevice, globalResources.streamingManager, index),
+	streamingManager(globalResources.graphicsEngine.graphicsDevice),
 	renderPass(globalResources.graphicsEngine) 
 {
 }
@@ -24,7 +24,6 @@ bool ThreadResources::initialize1(ThreadResources& threadResources, GlobalResour
 
 	globalResources.taskShedular.barrier().sync(globalResources.taskShedular.threadCount(), [&globalResources = globalResources, &threadResources = threadResources]()
 	{
-		globalResources.streamingManager.update<ThreadResources, GlobalResources>(threadResources.taskShedular);
 		IOCompletionPacket task;
 		while (globalResources.ioCompletionQueue.pop(task))
 		{
@@ -87,7 +86,7 @@ void ThreadResources::mainEndUpdate2(ThreadResources& threadResources, GlobalRes
 	if(primaryThreadCount != 1u) globalResources.readyToPresentEvent.wait();
 	
 	threadResources.renderPass.present(primaryThreadCount, globalResources.graphicsEngine, globalResources.window, globalResources.renderPass);
-	globalResources.update(threadResources);
+	globalResources.update();
 
 	threadResources.taskShedular.endUpdate2Primary(globalResources.taskShedular, endUpdate1, primaryThreadCount, updateIndex);
 	

@@ -69,6 +69,6 @@ public:
 	{
 		return *renderPass.colorSubPass().cameras().begin();
 	}
-	void update(ThreadResources& threadResources);
+	void update();
 	void start();
 };

@@ -103,7 +103,7 @@ public:
 				D3D12GraphicsEngine& graphicsEngine = sharedResources.graphicsEngine;
 				StreamingManager::ThreadLocal& streamingManagerLocal = executor.streamingManager;
 
-				streamingManager.commandQueue()->Wait(graphicsEngine.directFences[renderSubPass.lastFrameIndex], graphicsEngine.fenceValues[renderSubPass.lastFrameIndex]); //must be delayed after update2 so the command lists have been executed.
+				streamingManager.commandQueue().Wait(graphicsEngine.directFences[renderSubPass.lastFrameIndex], graphicsEngine.fenceValues[renderSubPass.lastFrameIndex]); //must be delayed after update2 so the command lists have been executed.
 
 				D3D12_TEXTURE_COPY_LOCATION UploadBufferLocation;
 				UploadBufferLocation.pResource = renderSubPass.feadbackTextureGpu;

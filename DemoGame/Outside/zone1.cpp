@@ -236,9 +236,8 @@ namespace
 				auto resources = ((HDResources*)zone.newData);
 				resources->groundModel.setDiffuseTexture(textureDescriptor, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
 				componentUploaded(zone, threadResources, globalResources);
-			}, [](StreamingRequest* request, void*, void*)
-			{
-				delete static_cast<VirtualTextureRequest*>(request);
+
+				delete static_cast<TextureRequest*>(&request);
 			}, TextureNames::ground01, zone);
 			textureManager.loadTexture(threadResources, globalResources, ground01Request);
 			TextureRequest* wall01Request = new TextureRequest([](TextureManager::TextureStreamingRequest& request, void* tr, void* gr, unsigned int textureDescriptor)
@@ -249,9 +248,8 @@ namespace
 				auto resources = ((HDResources*)zone.newData);
 				resources->wallModel.setDiffuseTexture(textureDescriptor, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
 				componentUploaded(zone, threadResources, globalResources);
-			}, [](StreamingRequest* request, void*, void*)
-			{
-				delete static_cast<VirtualTextureRequest*>(request);
+
+				delete static_cast<TextureRequest*>(&request);
 			}, TextureNames::wall01, zone);
 			textureManager.loadTexture(threadResources, globalResources, wall01Request);
 			TextureRequest* marble01Request = new TextureRequest([](TextureManager::TextureStreamingRequest& request, void* tr, void* gr, unsigned int textureDescriptor)
@@ -262,9 +260,8 @@ namespace
 				auto resources = ((HDResources*)zone.newData);
 				resources->bathModel1.setDiffuseTexture(textureDescriptor, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
 				componentUploaded(zone, threadResources, globalResources);
-			}, [](StreamingRequest* request, void*, void*)
-			{
-				delete static_cast<VirtualTextureRequest*>(request);
+
+				delete static_cast<TextureRequest*>(&request);
 			}, TextureNames::marble01, zone);
 			textureManager.loadTexture(threadResources, globalResources, marble01Request);
 			TextureRequest* water01Request = new TextureRequest([](TextureManager::TextureStreamingRequest& request, void* tr, void* gr, unsigned int textureDescriptor)
@@ -275,9 +272,8 @@ namespace
 				auto resources = ((HDResources*)zone.newData);
 				resources->waterModel.setNormalTexture(textureDescriptor, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
 				componentUploaded(zone, threadResources, globalResources);
-			}, [](StreamingRequest* request, void*, void*)
-			{
-				delete static_cast<VirtualTextureRequest*>(request);
+
+				delete static_cast<TextureRequest*>(&request);
 			}, TextureNames::water01, zone);
 			textureManager.loadTexture(threadResources, globalResources, water01Request);
 			TextureRequest* ice01Request = new TextureRequest([](TextureManager::TextureStreamingRequest& request, void* tr, void* gr, unsigned int textureDescriptor)
@@ -288,9 +284,8 @@ namespace
 				auto resources = ((HDResources*)zone.newData);
 				resources->iceModel.setDiffuseTexture(textureDescriptor, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
 				componentUploaded(zone, threadResources, globalResources);
-			}, [](StreamingRequest* request, void*, void*)
-			{
-				delete static_cast<VirtualTextureRequest*>(request);
+
+				delete static_cast<TextureRequest*>(&request);
 			}, TextureNames::ice01, zone);
 			textureManager.loadTexture(threadResources, globalResources, ice01Request);
 			TextureRequest* icebump01Request = new TextureRequest([](TextureManager::TextureStreamingRequest& request, void* tr, void* gr, unsigned int textureDescriptor)
@@ -301,9 +296,8 @@ namespace
 				auto resources = ((HDResources*)zone.newData);
 				resources->iceModel.setNormalTexture(textureDescriptor, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
 				componentUploaded(zone, threadResources, globalResources);
-			}, [](StreamingRequest* request, void*, void*)
-			{
-				delete static_cast<VirtualTextureRequest*>(request);
+
+				delete static_cast<TextureRequest*>(&request);
 			}, TextureNames::icebump01, zone);
 			textureManager.loadTexture(threadResources, globalResources, icebump01Request);
 			TextureRequest* firenoise01Request = new TextureRequest([](TextureManager::TextureStreamingRequest& request, void* tr, void* gr, unsigned int textureDescriptor)
@@ -315,9 +309,8 @@ namespace
 				resources->fireModel1.setNormalTexture(textureDescriptor, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
 				resources->fireModel2.setNormalTexture(textureDescriptor, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
 				componentUploaded(zone, threadResources, globalResources);
-			}, [](StreamingRequest* request, void*, void*)
-			{
-				delete static_cast<VirtualTextureRequest*>(request);
+
+				delete static_cast<TextureRequest*>(&request);
 			}, TextureNames::firenoise01, zone);
 			textureManager.loadTexture(threadResources, globalResources, firenoise01Request);
 			TextureRequest* fire01Request = new TextureRequest([](TextureManager::TextureStreamingRequest& request, void* tr, void* gr, unsigned int textureDescriptor)
@@ -329,9 +322,8 @@ namespace
 				resources->fireModel1.setDiffuseTexture(textureDescriptor, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
 				resources->fireModel2.setDiffuseTexture(textureDescriptor, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
 				componentUploaded(zone, threadResources, globalResources);
-			}, [](StreamingRequest* request, void*, void*)
-			{
-				delete static_cast<VirtualTextureRequest*>(request);
+
+				delete static_cast<TextureRequest*>(&request);
 			}, TextureNames::fire01, zone);
 			textureManager.loadTexture(threadResources, globalResources, fire01Request);
 			TextureRequest* firealpha01Request = new TextureRequest([](TextureManager::TextureStreamingRequest& request, void* tr, void* gr, unsigned int textureDescriptor)
@@ -343,9 +335,8 @@ namespace
 				resources->fireModel1.setAlphaTexture(textureDescriptor, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
 				resources->fireModel2.setAlphaTexture(textureDescriptor, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
 				componentUploaded(zone, threadResources, globalResources);
-			}, [](StreamingRequest* request, void*, void*)
-			{
-				delete static_cast<VirtualTextureRequest*>(request);
+
+				delete static_cast<TextureRequest*>(&request);
 			}, TextureNames::firealpha01, zone);
 			textureManager.loadTexture(threadResources, globalResources, firealpha01Request);
 
@@ -358,9 +349,8 @@ namespace
 				auto resources = ((HDResources*)zone.newData);
 				resources->bathModel1.mesh = &mesh;
 				componentUploaded(zone, threadResources, globalResources);
-			}, [](StreamingRequest* request, void*, void*)
-			{
-				delete static_cast<MeshRequest*>(request);
+
+				delete static_cast<MeshRequest*>(&request);
 			}, MeshNames::bath, zone);
 			meshManager.loadMeshWithPositionTextureNormal(threadResources, globalResources, bathRequest);
 			MeshRequest* plane1Request = new MeshRequest([](MeshManager::MeshStreamingRequest& request, void* tr, void* gr, Mesh& mesh)
@@ -371,9 +361,8 @@ namespace
 				auto resources = ((HDResources*)zone.newData);
 				resources->groundModel.mesh = &mesh;
 				componentUploaded(zone, threadResources, globalResources);
-			}, [](StreamingRequest* request, void*, void*)
-			{
-				delete static_cast<MeshRequest*>(request);
+
+				delete static_cast<MeshRequest*>(&request);
 			}, MeshNames::plane1, zone);
 			meshManager.loadMeshWithPositionTextureNormal(threadResources, globalResources, plane1Request);
 			MeshRequest* wallRequest = new MeshRequest([](MeshManager::MeshStreamingRequest& request, void* tr, void* gr, Mesh& mesh)
@@ -384,9 +373,8 @@ namespace
 				auto resources = ((HDResources*)zone.newData);
 				resources->wallModel.mesh = &mesh;
 				componentUploaded(zone, threadResources, globalResources);
-			}, [](StreamingRequest* request, void*, void*)
-			{
-				delete static_cast<MeshRequest*>(request);
+
+				delete static_cast<MeshRequest*>(&request);
 			}, MeshNames::wall, zone);
 			meshManager.loadMeshWithPositionTextureNormal(threadResources, globalResources, wallRequest);
 			MeshRequest* waterRequest = new MeshRequest([](MeshManager::MeshStreamingRequest& request, void* tr, void* gr, Mesh& mesh)
@@ -397,9 +385,8 @@ namespace
 				auto resources = ((HDResources*)zone.newData);
 				resources->waterModel.mesh = &mesh;
 				componentUploaded(zone, threadResources, globalResources);
-			}, [](StreamingRequest* request, void*, void*)
-			{
-				delete static_cast<MeshRequest*>(request);
+
+				delete static_cast<MeshRequest*>(&request);
 			}, MeshNames::water, zone);
 			meshManager.loadMeshWithPositionTexture(threadResources, globalResources, waterRequest);
 			MeshRequest* cubeRequest = new MeshRequest([](MeshManager::MeshStreamingRequest& request, void* tr, void* gr, Mesh& mesh)
@@ -410,9 +397,8 @@ namespace
 				auto resources = ((HDResources*)zone.newData);
 				resources->iceModel.mesh = &mesh;
 				componentUploaded(zone, threadResources, globalResources);
-			}, [](StreamingRequest* request, void*, void*)
-			{
-				delete static_cast<MeshRequest*>(request);
+
+				delete static_cast<MeshRequest*>(&request);
 			}, MeshNames::cube, zone);
 			meshManager.loadMeshWithPositionTexture(threadResources, globalResources, cubeRequest);
 			MeshRequest* squareRequest = new MeshRequest([](MeshManager::MeshStreamingRequest& request, void* tr, void* gr, Mesh& mesh)
@@ -424,9 +410,8 @@ namespace
 				resources->fireModel1.mesh = &mesh;
 				resources->fireModel2.mesh = &mesh;
 				componentUploaded(zone, threadResources, globalResources);
-			}, [](StreamingRequest* request, void*, void*)
-			{
-				delete static_cast<MeshRequest*>(request);
+
+				delete static_cast<MeshRequest*>(&request);
 			}, MeshNames::square, zone);
 			meshManager.loadMeshWithPositionTexture(threadResources, globalResources, squareRequest);
 			MeshRequest* aabbRequest = new MeshRequest([](MeshManager::MeshStreamingRequest& request, void* tr, void* gr, Mesh& mesh)
@@ -437,9 +422,8 @@ namespace
 				auto resources = ((HDResources*)zone.newData);
 				resources->cubeWithPos = &mesh;
 				componentUploaded(zone, threadResources, globalResources);
-			}, [](StreamingRequest* request, void*, void*)
-			{
-				delete static_cast<MeshRequest*>(request);
+
+				delete static_cast<MeshRequest*>(&request);
 			}, MeshNames::aabb, zone);
 			meshManager.loadMeshWithPosition(threadResources, globalResources, aabbRequest);
 			MeshRequest* squareWithPosRequest = new MeshRequest([](MeshManager::MeshStreamingRequest& request, void* tr, void* gr, Mesh& mesh)
@@ -450,9 +434,8 @@ namespace
 				auto resources = ((HDResources*)zone.newData);
 				resources->squareWithPos = &mesh;
 				componentUploaded(zone, threadResources, globalResources);
-			}, [](StreamingRequest* request, void*, void*)
-			{
-				delete static_cast<MeshRequest*>(request);
+
+				delete static_cast<MeshRequest*>(&request);
 			}, MeshNames::squareWithPos, zone);
 			meshManager.loadMeshWithPosition(threadResources, globalResources, squareWithPosRequest);
 			
@@ -864,9 +847,8 @@ namespace
 				auto resources = ((MDResources*)zone.newData);
 				resources->bathModel.setDiffuseTexture(textureDescriptor, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
 				callback(zone, threadResources, globalResources);
-			}, [](StreamingRequest* request, void*, void*)
-			{
-				delete static_cast<VirtualTextureRequest*>(request);
+
+				delete static_cast<TextureRequest*>(&request);
 			}, TextureNames::marble01, zone);
 			textureManager.loadTexture(threadResources, globalResources, marble01Request);
 
@@ -879,9 +861,8 @@ namespace
 				auto resources = ((MDResources*)zone.newData);
 				resources->bathModel.mesh = &mesh;
 				callback(zone, threadResources, globalResources);
-			}, [](StreamingRequest* request, void*, void*)
-			{
-				delete static_cast<MeshRequest*>(request);
+
+				delete static_cast<MeshRequest*>(&request);
 			}, MeshNames::bath, zone);
 			meshManager.loadMeshWithPositionTextureNormal(threadResources, globalResources, bathRequest);
 

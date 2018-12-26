@@ -71,6 +71,16 @@ private:
 		const DDSFileLoader::DdsHeaderDx12& header);
 
 	template<class ThreadResources, class GlobalResources>
+	static void copyStarted(void* requester, void* tr, void* gr)
+	{
+		TextureStreamingRequest* request = static_cast<TextureStreamingRequest*>(requester);
+		ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
+		GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
+		StreamingManager& streamingManager = globalResources.streamingManager;
+		streamingManager.uploadFinished(request, threadResources, globalResources);
+	}
+
+	template<class ThreadResources, class GlobalResources>
 	static void textureUseResource(StreamingManager::StreamingRequest* useSubresourceRequest, void* executor, void*)
 	{
 		ThreadResources& threadResources = *reinterpret_cast<ThreadResources*>(executor);
@@ -126,7 +136,7 @@ private:
 					subresourceDepth >>= 1u;
 					if(subresourceDepth == 0u) subresourceDepth = 1u;
 				}
-				streamingManager.copyStarted(threadResources.taskShedular.index(), uploadRequest);
+				streamingManager.addCopyCompletionEvent(&uploadRequest, copyStarted<ThreadResources, GlobalResources>);
 			};
 			globalResources.asynchronousFileManager.readFile(&threadResources, &globalResources, &uploadRequest);
 		} });

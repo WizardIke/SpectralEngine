@@ -14,9 +14,13 @@ class ActorQueue
 	static constexpr std::size_t hardwareDestructiveInterferenceSize = 64u;
 #endif
 
-	static SinglyLinked stub;
+	inline static SinglyLinked* stub() 
+	{
+		static SinglyLinked value;
+		return &value;
+	}
 
-	alignas(hardwareDestructiveInterferenceSize) std::atomic<SinglyLinked*> data = &stub;
+	alignas(hardwareDestructiveInterferenceSize) std::atomic<SinglyLinked*> data = stub();
 	alignas(hardwareDestructiveInterferenceSize) SinglyLinked* dequeuedData = nullptr;
 public:
 	/*
@@ -25,11 +29,25 @@ public:
 	bool push(SinglyLinked* value)
 	{
 		SinglyLinked* oldData = data.load(std::memory_order::memory_order_relaxed);
-		do
+		while(true)
 		{
-			value->next = oldData;
-		} while(!data.compare_exchange_weak(oldData, value, std::memory_order::memory_order_release, std::memory_order::memory_order_relaxed));
-		return oldData == &stub;
+			if(oldData == stub())
+			{
+				value->next = nullptr;
+				if(data.compare_exchange_weak(oldData, value, std::memory_order::memory_order_release, std::memory_order::memory_order_relaxed))
+				{
+					return true;
+				}
+			}
+			else
+			{
+				value->next = oldData;
+				if(data.compare_exchange_weak(oldData, value, std::memory_order::memory_order_release, std::memory_order::memory_order_relaxed))
+				{
+					return false;
+				}
+			}
+		};
 	}
 
 	/*
@@ -46,7 +64,7 @@ public:
 	bool stop()
 	{
 		SinglyLinked* oldData = nullptr;
-		return data.compare_exchange_strong(oldData, &stub, std::memory_order::memory_order_release, std::memory_order::memory_order_relaxed);
+		return data.compare_exchange_strong(oldData, stub(), std::memory_order::memory_order_release, std::memory_order::memory_order_relaxed);
 	}
 };
 

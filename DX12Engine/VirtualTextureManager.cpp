@@ -16,9 +16,17 @@ void VirtualTextureManager::loadTextureUncachedHelper(TextureStreamingRequest& u
 	uploadRequest.mipLevels = (uint16_t)header.mipMapCount;
 	uploadRequest.dimension = (D3D12_RESOURCE_DIMENSION)header.dimension;
 	uploadRequest.depth = (uint16_t)header.depth;
+	assert(header.depth == 1u);
 	assert(header.arraySize == 1u);
-
 	uploadRequest.destResource = createTextureWithResitencyInfo(graphicsEngine, streamingManager.commandQueue(), uploadRequest);
+
+	auto width = header.width >> uploadRequest.mostDetailedMip;
+	if(width == 0u) width = 1u;
+	auto height = header.height >> uploadRequest.mostDetailedMip;
+	if(height == 0u) height = 1u;
+	std::size_t numBytes, numRows, rowBytes;
+	DDSFileLoader::surfaceInfo(width, height, header.dxgiFormat, numBytes, rowBytes, numRows);
+	uploadRequest.resourceSize = (unsigned long)numBytes;
 }
 
 D3D12Resource VirtualTextureManager::createTexture(ID3D12Device* graphicsDevice, const TextureStreamingRequest& request)

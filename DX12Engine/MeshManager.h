@@ -81,9 +81,9 @@ private:
 	template<class GlobalResources>
 	static void meshUploaded(StreamingManager::StreamingRequest* request, void* executor, void* sharedResources)
 	{
-		GlobalResources& globalResources = *reinterpret_cast<GlobalResources*>(sharedResources);
+		GlobalResources& globalResources = *static_cast<GlobalResources*>(sharedResources);
 		MeshManager& meshManager = globalResources.meshManager;
-		meshUploadedHelper(meshManager, reinterpret_cast<MeshStreamingRequest*>(request)->filename, executor, sharedResources);
+		meshUploadedHelper(meshManager, static_cast<MeshStreamingRequest*>(request)->filename, executor, sharedResources);
 	}
 
 	template<class ThreadResources, class GlobalResources>
@@ -101,10 +101,10 @@ private:
 	template<class ThreadResources, class GlobalResources>
 	static void meshWithPositionTextureNormalTangentBitangentUseResource(StreamingManager::StreamingRequest* useSubresourceRequest, void* tr, void* gr)
 	{
-		ThreadResources& threadResources = *reinterpret_cast<ThreadResources*>(tr);
+		ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
 		threadResources.taskShedular.backgroundQueue().push({ &useSubresourceRequest, [](void* requester, ThreadResources& threadResources, GlobalResources& globalResources)
 		{
-			auto& uploadRequest = *reinterpret_cast<MeshStreamingRequest*>(requester);
+			auto& uploadRequest = *static_cast<MeshStreamingRequest*>(static_cast<StreamingManager::StreamingRequest*>(requester));
 			const auto sizeOnFile = uploadRequest.sizeOnFile;
 
 			uploadRequest.start = sizeof(uint32_t) * 3u;
@@ -128,7 +128,7 @@ private:
 		ThreadResources& threadResources = *reinterpret_cast<ThreadResources*>(tr);
 		threadResources.taskShedular.backgroundQueue().push({ &useSubresourceRequest, [](void* requester, ThreadResources& threadResources, GlobalResources& globalResources)
 		{
-			auto& uploadRequest = *reinterpret_cast<MeshStreamingRequest*>(requester);
+			auto& uploadRequest = *static_cast<MeshStreamingRequest*>(static_cast<StreamingManager::StreamingRequest*>(requester));
 			const auto sizeOnFile = uploadRequest.sizeOnFile;
 
 			uploadRequest.start = sizeof(uint32_t) * 3u;
@@ -152,7 +152,7 @@ private:
 		ThreadResources& threadResources = *reinterpret_cast<ThreadResources*>(tr);
 		threadResources.taskShedular.backgroundQueue().push({ &useSubresourceRequest, [](void* requester, ThreadResources& threadResources, GlobalResources& globalResources)
 		{
-			auto& uploadRequest = *reinterpret_cast<MeshStreamingRequest*>(requester);
+			auto& uploadRequest = *static_cast<MeshStreamingRequest*>(static_cast<StreamingManager::StreamingRequest*>(requester));
 			const auto sizeOnFile = uploadRequest.sizeOnFile;
 
 			uploadRequest.start = sizeof(uint32_t) * 3u;
@@ -176,7 +176,7 @@ private:
 		ThreadResources& threadResources = *reinterpret_cast<ThreadResources*>(tr);
 		threadResources.taskShedular.backgroundQueue().push({ &useSubresourceRequest, [](void* requester, ThreadResources& threadResources, GlobalResources& globalResources)
 		{
-			auto& uploadRequest = *reinterpret_cast<MeshStreamingRequest*>(requester);
+			auto& uploadRequest = *static_cast<MeshStreamingRequest*>(static_cast<StreamingManager::StreamingRequest*>(requester));
 			const auto sizeOnFile = uploadRequest.sizeOnFile;
 
 			uploadRequest.start = sizeof(uint32_t) * 3u;
@@ -249,7 +249,7 @@ private:
 		request.file = globalResources.asynchronousFileManager.openFileForReading<GlobalResources>(globalResources.ioCompletionQueue, request.filename);
 		request.start = 0u;
 		request.end = sizeof(uint32_t) * 3u;
-		request.fileLoadedCallback = [](AsynchronousFileManager::IORequest& request, void*, void* gr, const unsigned char* buffer)
+		request.fileLoadedCallback = [](AsynchronousFileManager::IORequest& request, void* tr, void* gr, const unsigned char* buffer)
 		{
 			MeshStreamingRequest& uploadRequest = reinterpret_cast<MeshStreamingRequest&>(request);
 			const uint32_t* data = reinterpret_cast<const uint32_t*>(buffer);
@@ -259,8 +259,9 @@ private:
 
 			fillUploadRequest(uploadRequest, vertexCount, indexCount, sizeof(VertexType_t), meshUploaded<GlobalResources>);
 			fillUploadRequestUseResourceCallback<VertexType_t, ThreadResources, GlobalResources>(uploadRequest, indexCount, vertexType2);
+			ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
 			GlobalResources& globalResources = *reinterpret_cast<GlobalResources*>(gr);
-			globalResources.streamingManager.addUploadRequest(&uploadRequest);
+			globalResources.streamingManager.addUploadRequest(&uploadRequest, threadResources, globalResources);
 		};
 		globalResources.asynchronousFileManager.readFile(&threadResources, &globalResources, &request);
 	}

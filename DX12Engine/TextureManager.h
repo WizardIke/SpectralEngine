@@ -48,6 +48,16 @@ private:
 	std::unordered_map<const wchar_t * const, Texture, std::hash<const wchar_t *>> textures;
 
 	static ID3D12Resource* createTexture(const TextureStreamingRequest& useSubresourceRequest, TextureManager& textureManager, D3D12GraphicsEngine& graphicsEngine, const wchar_t* filename);
+
+	template<class ThreadResources, class GlobalResources>
+	static void copyStarted(void* requester, void* tr, void* gr)
+	{
+		TextureStreamingRequest* request = static_cast<TextureStreamingRequest*>(requester);
+		ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
+		GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
+		StreamingManager& streamingManager = globalResources.streamingManager;
+		streamingManager.uploadFinished(request, threadResources, globalResources);
+	}
 	
 	template<class ThreadResources, class GlobalResources>
 	static void textureStreamResource(StreamingManager::StreamingRequest* request, void* tr, void*)
@@ -71,7 +81,7 @@ private:
 
 				DDSFileLoader::copyResourceToGpu(destResource, uploadRequest.uploadResource, uploadRequest.uploadResourceOffset, uploadRequest.width, uploadRequest.height,
 					uploadRequest.depth, uploadRequest.mipLevels, uploadRequest.arraySize, uploadRequest.format, uploadRequest.uploadBufferCurrentCpuAddress, buffer, &streamingManager.copyCommandList());
-				streamingManager.copyStarted(threadResources.taskShedular.index(), uploadRequest);
+				streamingManager.addCopyCompletionEvent(&uploadRequest, copyStarted<ThreadResources, GlobalResources>);
 			};
 			bool result = globalResources.asynchronousFileManager.readFile(&threadResources, &globalResources, &uploadRequest);
 #ifndef ndebug
@@ -106,7 +116,8 @@ private:
 		{
 			ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
 			GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
-			loadTextureFromMemory(buffer, static_cast<TextureStreamingRequest&>(request), textureStreamResource<ThreadResources, GlobalResources>, textureUploaded<GlobalResources>);
+			TextureStreamingRequest& uploadRequest = static_cast<TextureStreamingRequest&>(request);
+			loadTextureFromMemory(buffer, uploadRequest, textureStreamResource<ThreadResources, GlobalResources>, textureUploaded<GlobalResources>);
 			StreamingManager& streamingManager = globalResources.streamingManager;
 			streamingManager.addUploadRequest(&uploadRequest, threadResources, globalResources);
 		};

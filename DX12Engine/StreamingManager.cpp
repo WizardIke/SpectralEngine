@@ -69,14 +69,19 @@ void StreamingManager::run(ID3D12Device& device, void* threadResources, void* gl
 			}
 			else
 			{
+				message.readyToDelete = false;
 				if(waitingForSpaceRequestsStart == nullptr)
 				{
 					waitingForSpaceRequestsStart = &message;
 				}
-				waitingForSpaceRequestsEnd->next = &message;
+				else
+				{
+					waitingForSpaceRequestsEnd->next = &message;
+				}
 				waitingForSpaceRequestsEnd = &message;
 			}
 		}
+		waitingForSpaceRequestsEnd->next = nullptr;
 		if(hasSpaceToFree)
 		{
 			freeSpace(threadResources, globalResources);
@@ -123,11 +128,15 @@ void StreamingManager::allocateSpace(ID3D12Device& graphicsDevice, void* executo
 				requiredWriteIndex = resourceSize;
 			}
 
+			uploadRequest.nextToDelete = nullptr;
 			if(processingRequestsStart == nullptr)
 			{
 				processingRequestsStart = &uploadRequest;
 			}
-			processingRequestsEnd->next = &uploadRequest;
+			else
+			{
+				processingRequestsEnd->nextToDelete = &uploadRequest;
+			}
 			processingRequestsEnd = &uploadRequest;
 			
 			uploadRequest.numberOfBytesToFree = requiredWriteIndex - startWritePos;

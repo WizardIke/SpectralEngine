@@ -102,9 +102,8 @@ class TestZoneFunctions
 				stone4FeedbackBufferPsCpu->usefulTextureWidth = (float)(textureInfo.width);
 
 				componentUploaded(&zone, threadResources, globalResources);
-			}, [](StreamingRequest* request, void*, void*) 
-			{
-				delete static_cast<VirtualTextureRequest*>(request);
+
+				delete static_cast<VirtualTextureRequest*>(&request);
 			}, TextureNames::stone04, zone);
 			virtualTextureManager.loadTexture(threadResources, globalResources, stone04Request);
 
@@ -117,9 +116,8 @@ class TestZoneFunctions
 				auto resources = ((HDResources*)zone.newData);
 				resources->highResPlaneModel.mesh = &mesh;
 				componentUploaded(&zone, threadResources, globalResources);
-			}, [](StreamingRequest* request, void*, void*)
-			{
-				delete static_cast<MeshRequest*>(request);
+
+				delete static_cast<MeshRequest*>(&request);
 			}, MeshNames::HighResMesh1, zone);
 			meshManager.loadMeshWithPositionTextureNormal(threadResources, globalResources, HighResMesh1Request);
 

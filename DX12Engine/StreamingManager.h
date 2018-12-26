@@ -79,7 +79,7 @@ public:
 	StreamingManager(ID3D12Device& graphicsDevice, unsigned long uploadHeapStartingSize);
 
 	template<class ThreadResources, class GlobalResources>
-	void addUploadRequest(StreamingRequest* request, ThreadResources& threadResources, GlobalResources& globalResources)
+	void addUploadRequest(StreamingRequest* request, ThreadResources& threadResources, GlobalResources&)
 	{
 		request->action = Action::allocate;
 		bool needsStarting = messageQueue.push(request);
@@ -88,13 +88,13 @@ public:
 			threadResources.taskShedular.backgroundQueue().push({this, [](void* requester, ThreadResources& threadResources, GlobalResources& globalResources)
 			{
 				auto& streamingManager = *static_cast<StreamingManager*>(requester);
-				streamingManager.run(globalResources.graphicsEngine.graphicsDevice, &threadResources, &globalResources);
+				streamingManager.run(*globalResources.graphicsEngine.graphicsDevice, &threadResources, &globalResources);
 			}});
 		}
 	}
 
 	template<class ThreadResources, class GlobalResources>
-	void uploadFinished(StreamingRequest* request, ThreadResources& threadResources, GlobalResources& globalResources)
+	void uploadFinished(StreamingRequest* request, ThreadResources& threadResources, GlobalResources&)
 	{
 		request->action = Action::deallocate;
 		bool needsStarting = messageQueue.push(request);
@@ -103,7 +103,7 @@ public:
 			threadResources.taskShedular.backgroundQueue().push({this, [](void* requester, ThreadResources& threadResources, GlobalResources& globalResources)
 			{
 				auto& streamingManager = *static_cast<StreamingManager*>(requester);
-				streamingManager.run(globalResources.graphicsEngine.graphicsDevice, &threadResources, &globalResources);
+				streamingManager.run(*globalResources.graphicsEngine.graphicsDevice, &threadResources, &globalResources);
 			}});
 		}
 	}

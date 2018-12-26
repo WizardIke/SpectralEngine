@@ -54,13 +54,15 @@ static LRESULT CALLBACK windowCallback(HWND hwnd, UINT message, WPARAM wParam, L
 	}
 }
 
-static void loadingResourceCallback(TextureManager::TextureStreamingRequest&, void* tr, void* gr, unsigned int textureID)
+static void loadingResourceCallback(TextureManager::TextureStreamingRequest& request, void* tr, void* gr, unsigned int textureID)
 {
 	ThreadResources& threadResources = *reinterpret_cast<ThreadResources*>(tr);
 	GlobalResources& globalResources = *reinterpret_cast<GlobalResources*>(gr);
 	globalResources.arial.setDiffuseTexture(textureID, globalResources.constantBuffersCpuAddress, globalResources.sharedConstantBuffer->GetGPUVirtualAddress());
 	globalResources.userInterface.start(threadResources, globalResources);
 	globalResources.taskShedular.setNextPhaseTask(ThreadResources::initialize2);
+
+	delete static_cast<TextureManager::TextureStreamingRequest*>(&request);
 }
 
 static const wchar_t* const musicFiles[] = 
@@ -77,7 +79,7 @@ GlobalResources::GlobalResources(const unsigned int numberOfThreads, bool fullSc
 		[fullScreen]() {if (fullScreen) { return 0; } else return GetSystemMetrics(SM_CXSCREEN) / 5; }(),
 		[fullScreen]() {if (fullScreen) { return 0; } else return GetSystemMetrics(SM_CYSCREEN) / 5; }(), fullScreen, vSync),
 	graphicsEngine(window, enableGpuDebugging),
-	streamingManager(*graphicsEngine.graphicsDevice, 32u * 1024u * 1024u, numberOfThreads > 2u ? numberOfThreads : 2u),
+	streamingManager(*graphicsEngine.graphicsDevice, 32u * 1024u * 1024u),
 	taskShedular(numberOfThreads > 2u ? numberOfThreads : 2u, ThreadResources::initialize1),
 	mainThreadResources(0u, *this, ThreadResources::mainEndUpdate2),
 	asynchronousFileManager(),
@@ -154,12 +156,7 @@ GlobalResources::GlobalResources(const unsigned int numberOfThreads, bool fullSc
 	userInterface.~UserInterface();
 	new(&userInterface) UserInterface(*this, constantBuffersGpuAddress, cpuConstantBuffer);
 	arial.~Font();
-	TextureManager::TextureStreamingRequest* fontTextureRequest = new TextureManager::TextureStreamingRequest(loadingResourceCallback, 
-		[](StreamingRequest* request, void*, void*) 
-	{ 
-		delete static_cast<TextureManager::TextureStreamingRequest*>(request);
-	},
-		TextureNames::Arial);
+	TextureManager::TextureStreamingRequest* fontTextureRequest = new TextureManager::TextureStreamingRequest(loadingResourceCallback, TextureNames::Arial);
 	new(&arial) Font(constantBuffersGpuAddress, cpuConstantBuffer, L"Arial.fnt", mainThreadResources, *this, fontTextureRequest);
 
 	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc;
@@ -195,7 +192,7 @@ GlobalResources::~GlobalResources()
 	arial.destruct(textureManager, graphicsEngine, TextureNames::Arial);
 }
 
-void GlobalResources::update(ThreadResources& threadResources)
+void GlobalResources::update()
 {
 	bool succeeded = Window::processMessagesForAllWindowsOnCurrentThread();
 	if (!succeeded)
@@ -205,7 +202,6 @@ void GlobalResources::update(ThreadResources& threadResources)
 	timer.update();
 	playerPosition.update(timer.frameTime(), inputHandler.aDown, inputHandler.dDown, inputHandler.wDown, inputHandler.sDown, inputHandler.spaceDown);
 	mainCamera().update(window, graphicsEngine, playerPosition.location);
-	streamingManager.update<ThreadResources, GlobalResources>(threadResources.taskShedular);
 	//soundEngine.SetListenerPosition(playerPosition.location.position, DS3D_IMMEDIATE);
 }
 
