@@ -22,7 +22,7 @@ public:
 	D3D12CommandQueue directCommandQueue;
 
 	uint32_t frameIndex;
-	Array<D3D12FencePointer, frameBufferCount> directFences;
+	Array<D3D12Fence, frameBufferCount> directFences;
 	uint64_t fenceValues[frameBufferCount];
 	Event directFenceEvent;
 

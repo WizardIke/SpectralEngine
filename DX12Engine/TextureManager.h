@@ -7,13 +7,12 @@
 #include "DDSFileLoader.h"
 #include "AsynchronousFileManager.h"
 #include "IOCompletionQueue.h"
-#include "StreamingRequest.h"
 class D3D12GraphicsEngine;
 
 class TextureManager
 {
 public:
-	class TextureStreamingRequest : public StreamingRequest, public AsynchronousFileManager::IORequest
+	class TextureStreamingRequest : public StreamingManager::StreamingRequest, public AsynchronousFileManager::IORequest
 	{
 	public:
 		uint32_t width;
@@ -28,10 +27,8 @@ public:
 		TextureStreamingRequest* nextTextureRequest;
 
 		TextureStreamingRequest(void(*textureLoaded)(TextureStreamingRequest& request, void* tr, void* gr, unsigned int textureDescriptor),
-			void(*deallocateNode)(StreamingRequest* request, void* threadResources, void* globalResources),
 			const wchar_t * filename) :
-			textureLoaded(textureLoaded),
-			StreamingRequest(deallocateNode)
+			textureLoaded(textureLoaded)
 		{
 			this->filename = filename;
 		}
@@ -53,7 +50,7 @@ private:
 	static ID3D12Resource* createTexture(const TextureStreamingRequest& useSubresourceRequest, TextureManager& textureManager, D3D12GraphicsEngine& graphicsEngine, const wchar_t* filename);
 	
 	template<class ThreadResources, class GlobalResources>
-	static void textureStreamResource(StreamingRequest* request, void* tr, void*)
+	static void textureStreamResource(StreamingManager::StreamingRequest* request, void* tr, void*)
 	{
 		ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
 		threadResources.taskShedular.backgroundQueue().push({request, [](void* requester, ThreadResources& threadResources, GlobalResources& globalResources)
@@ -87,7 +84,7 @@ private:
 	void textureUploadedHelper(const wchar_t* filename, void* tr, void* gr);
 
 	template<class GlobalResources>
-	static void textureUploaded(StreamingRequest* request, void* tr, void* gr)
+	static void textureUploaded(StreamingManager::StreamingRequest* request, void* tr, void* gr)
 	{
 		const wchar_t* filename = static_cast<TextureStreamingRequest*>(request)->filename;
 		auto& globalResources = *static_cast<GlobalResources*>(gr);
@@ -96,8 +93,8 @@ private:
 		textureManager.textureUploadedHelper(filename, tr, gr);
 	}
 
-	static void loadTextureFromMemory(StreamingManager& streamingManager, const unsigned char* buffer, TextureStreamingRequest& uploadRequest,
-		void(*streamResource)(StreamingRequest* request, void* threadResources, void* globalResources), void(*textureUploaded)(StreamingRequest* request, void*, void*));
+	static void loadTextureFromMemory(const unsigned char* buffer, TextureStreamingRequest& uploadRequest,
+		void(*streamResource)(StreamingManager::StreamingRequest* request, void* threadResources, void* globalResources), void(*textureUploaded)(StreamingManager::StreamingRequest* request, void*, void*));
 
 	template<class ThreadResources, class GlobalResources>
 	void loadTextureUncached(AsynchronousFileManager& asynchronousFileManager, IOCompletionQueue& ioCompletionQueue, ThreadResources& threadResources, GlobalResources& globalResources, TextureStreamingRequest* request)
@@ -105,10 +102,13 @@ private:
 		request->file = asynchronousFileManager.openFileForReading<GlobalResources>(ioCompletionQueue, request->filename);
 		request->start = 0u;
 		request->end = sizeof(DDSFileLoader::DdsHeaderDx12);
-		request->fileLoadedCallback = [](AsynchronousFileManager::IORequest& request, void*, void* gr, const unsigned char* buffer)
+		request->fileLoadedCallback = [](AsynchronousFileManager::IORequest& request, void* tr, void* gr, const unsigned char* buffer)
 		{
+			ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
 			GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
-			loadTextureFromMemory(globalResources.streamingManager, buffer, static_cast<TextureStreamingRequest&>(request), textureStreamResource<ThreadResources, GlobalResources>, textureUploaded<GlobalResources>);
+			loadTextureFromMemory(buffer, static_cast<TextureStreamingRequest&>(request), textureStreamResource<ThreadResources, GlobalResources>, textureUploaded<GlobalResources>);
+			StreamingManager& streamingManager = globalResources.streamingManager;
+			streamingManager.addUploadRequest(&uploadRequest, threadResources, globalResources);
 		};
 		asynchronousFileManager.readFile(&threadResources, &globalResources, request);
 	}

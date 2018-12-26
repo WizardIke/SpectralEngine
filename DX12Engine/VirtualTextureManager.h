@@ -8,7 +8,6 @@
 #include "VirtualTextureInfo.h"
 #include "PageProvider.h"
 #include "VirtualTextureInfoByID.h"
-#include "StreamingRequest.h"
 #include "AsynchronousFileManager.h"
 #undef min
 #undef max
@@ -26,7 +25,7 @@ public:
 		bool loaded;
 	};
 
-	class TextureStreamingRequest : public StreamingRequest, public AsynchronousFileManager::IORequest
+	class TextureStreamingRequest : public StreamingManager::StreamingRequest, public AsynchronousFileManager::IORequest
 	{
 	public:
 		DXGI_FORMAT format;
@@ -42,10 +41,8 @@ public:
 		TextureStreamingRequest* nextTextureRequest;
 
 		TextureStreamingRequest(void(*textureLoaded)(TextureStreamingRequest& request, void* tr, void* gr, const Texture& texture),
-			void(*deallocateNode)(StreamingRequest* request, void* threadResources, void* globalResources),
 			const wchar_t * filename) :
-			textureLoaded(textureLoaded),
-			StreamingRequest(deallocateNode)
+			textureLoaded(textureLoaded)
 		{
 			this->filename = filename;
 		}
@@ -59,7 +56,7 @@ public:
 	PageProvider pageProvider;
 private:
 	template<class GlobalResources>
-	static void textureUploaded(StreamingRequest* request, void* executor, void* sharedResources)
+	static void textureUploaded(StreamingManager::StreamingRequest* request, void* executor, void* sharedResources)
 	{
 		GlobalResources& globalResources = *reinterpret_cast<GlobalResources*>(sharedResources);
 		auto& virtualTextureManager = globalResources.virtualTextureManager;
@@ -69,12 +66,12 @@ private:
 	void textureUploadedHelper(const wchar_t* filename, void* executor, void* sharedResources);
 
 	void loadTextureUncachedHelper(TextureStreamingRequest& uploadRequest, StreamingManager& streamingManager, D3D12GraphicsEngine& graphicsEngine,
-		void(*useSubresource)(StreamingRequest* request, void* threadResources, void* globalResources),
-		void(*resourceUploaded)(StreamingRequest* request, void* threadResources, void* globalResources),
+		void(*useSubresource)(StreamingManager::StreamingRequest* request, void* threadResources, void* globalResources),
+		void(*resourceUploaded)(StreamingManager::StreamingRequest* request, void* threadResources, void* globalResources),
 		const DDSFileLoader::DdsHeaderDx12& header);
 
 	template<class ThreadResources, class GlobalResources>
-	static void textureUseResource(StreamingRequest* useSubresourceRequest, void* executor, void*)
+	static void textureUseResource(StreamingManager::StreamingRequest* useSubresourceRequest, void* executor, void*)
 	{
 		ThreadResources& threadResources = *reinterpret_cast<ThreadResources*>(executor);
 		threadResources.taskShedular.backgroundQueue().push({ &useSubresourceRequest, [](void* context, ThreadResources& threadResources, GlobalResources& globalResources)
@@ -142,22 +139,24 @@ private:
 
 		uploadRequest.start = 0u;
 		uploadRequest.end = sizeof(DDSFileLoader::DdsHeaderDx12);
-		uploadRequest.fileLoadedCallback = [](AsynchronousFileManager::IORequest& request, void*, void* gr, const unsigned char* buffer)
+		uploadRequest.fileLoadedCallback = [](AsynchronousFileManager::IORequest& request, void* tr, void* gr, const unsigned char* buffer)
 		{
 			TextureStreamingRequest& uploadRequest = static_cast<TextureStreamingRequest&>(request);
+			ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
 			GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
 			auto& virtualTextureManager = globalResources.virtualTextureManager;
 			auto& streamingManager = globalResources.streamingManager;
 			auto& graphicsEngine = globalResources.graphicsEngine;
 			virtualTextureManager.loadTextureUncachedHelper(uploadRequest, streamingManager, graphicsEngine, textureUseResource<ThreadResources, GlobalResources>,
 				textureUploaded<GlobalResources>, *reinterpret_cast<const DDSFileLoader::DdsHeaderDx12*>(buffer));
+			streamingManager.addUploadRequest(&uploadRequest, threadResources, globalResources);
 		};
 		sharedResources.asynchronousFileManager.readFile(&executor, &sharedResources, &uploadRequest);
 	}
 
 	static D3D12Resource createTexture(ID3D12Device* graphicsDevice, const TextureStreamingRequest& request);
 	static unsigned int createTextureDescriptor(D3D12GraphicsEngine& graphicsEngine, ID3D12Resource* texture, const TextureStreamingRequest& request);
-	ID3D12Resource* createTextureWithResitencyInfo(D3D12GraphicsEngine& graphicsEngine, ID3D12CommandQueue* commandQueue, TextureStreamingRequest& vramRequest);
+	ID3D12Resource* createTextureWithResitencyInfo(D3D12GraphicsEngine& graphicsEngine, ID3D12CommandQueue& commandQueue, TextureStreamingRequest& vramRequest);
 
 	void unloadTextureHelper(const wchar_t * filename, D3D12GraphicsEngine& graphicsEngine, StreamingManager& streamingManager);
 public:

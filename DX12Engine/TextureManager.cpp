@@ -127,8 +127,8 @@ ID3D12Resource* TextureManager::createTexture(const TextureStreamingRequest& upl
 	return res;
 }
 
-void TextureManager::loadTextureFromMemory(StreamingManager& streamingManager, const unsigned char* buffer, TextureStreamingRequest& uploadRequest,
-	void(*streamResource)(StreamingRequest* request, void* threadResources, void* globalResources), void(*textureUploaded)(StreamingRequest* request, void*, void*))
+void TextureManager::loadTextureFromMemory(const unsigned char* buffer, TextureStreamingRequest& uploadRequest,
+	void(*streamResource)(StreamingManager::StreamingRequest* request, void* threadResources, void* globalResources), void(*textureUploaded)(StreamingManager::StreamingRequest* request, void*, void*))
 {
 	const DDSFileLoader::DdsHeaderDx12& header = *reinterpret_cast<const DDSFileLoader::DdsHeaderDx12*>(buffer);
 	bool valid = DDSFileLoader::validateDdsHeader(header);
@@ -151,8 +151,6 @@ void TextureManager::loadTextureFromMemory(StreamingManager& streamingManager, c
 	uploadRequest.depth = (uint16_t)header.depth;
 	uploadRequest.resourceSize = (unsigned long)DDSFileLoader::alignedResourceSize(uploadRequest.width, uploadRequest.height, uploadRequest.depth,
 		uploadRequest.mipLevels, uploadRequest.arraySize, uploadRequest.format);
-
-	streamingManager.addUploadRequest(&uploadRequest);
 }
 
 void TextureManager::textureUploadedHelper(const wchar_t* filename, void* tr, void* gr)

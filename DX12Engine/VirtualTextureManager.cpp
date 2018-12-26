@@ -1,8 +1,8 @@
 #include "VirtualTextureManager.h"
 
 void VirtualTextureManager::loadTextureUncachedHelper(TextureStreamingRequest& uploadRequest, StreamingManager& streamingManager, D3D12GraphicsEngine& graphicsEngine,
-	void(*useSubresource)(StreamingRequest* request, void* threadResources, void* globalResources),
-	void(*resourceUploaded)(StreamingRequest* request, void* threadResources, void* globalResources),
+	void(*useSubresource)(StreamingManager::StreamingRequest* request, void* threadResources, void* globalResources),
+	void(*resourceUploaded)(StreamingManager::StreamingRequest* request, void* threadResources, void* globalResources),
 	const DDSFileLoader::DdsHeaderDx12& header)
 {
 	bool valid = DDSFileLoader::validateDdsHeader(header);
@@ -19,8 +19,6 @@ void VirtualTextureManager::loadTextureUncachedHelper(TextureStreamingRequest& u
 	assert(header.arraySize == 1u);
 
 	uploadRequest.destResource = createTextureWithResitencyInfo(graphicsEngine, streamingManager.commandQueue(), uploadRequest);
-
-	streamingManager.addUploadRequest(&uploadRequest);
 }
 
 D3D12Resource VirtualTextureManager::createTexture(ID3D12Device* graphicsDevice, const TextureStreamingRequest& request)
@@ -117,7 +115,7 @@ void VirtualTextureManager::unloadTextureHelper(const wchar_t * filename, D3D12G
 			tileRegion.UseBox = FALSE;
 
 			D3D12_TILE_RANGE_FLAGS rangeFlags = D3D12_TILE_RANGE_FLAG_NULL;
-			streamingManager.commandQueue()->UpdateTileMappings(resitencyInfo.resource, 1u, &resourceTileCoord, &tileRegion, nullptr, 1u, &rangeFlags, nullptr,
+			streamingManager.commandQueue().UpdateTileMappings(resitencyInfo.resource, 1u, &resourceTileCoord, &tileRegion, nullptr, 1u, &rangeFlags, nullptr,
 				nullptr, D3D12_TILE_MAPPING_FLAG_NONE);
 		}
 		else
@@ -143,7 +141,7 @@ void VirtualTextureManager::unloadTextureHelper(const wchar_t * filename, D3D12G
 			tileRegion.Depth = 1u;
 
 			D3D12_TILE_RANGE_FLAGS rangeFlags = D3D12_TILE_RANGE_FLAG_NULL;
-			streamingManager.commandQueue()->UpdateTileMappings(resitencyInfo.resource, 1u, &resourceTileCoord, &tileRegion, nullptr, 1u, &rangeFlags, nullptr,
+			streamingManager.commandQueue().UpdateTileMappings(resitencyInfo.resource, 1u, &resourceTileCoord, &tileRegion, nullptr, 1u, &rangeFlags, nullptr,
 				nullptr, D3D12_TILE_MAPPING_FLAG_NONE);
 		}
 		
@@ -156,7 +154,7 @@ void VirtualTextureManager::unloadTextureHelper(const wchar_t * filename, D3D12G
 	}
 }
 
-ID3D12Resource* VirtualTextureManager::createTextureWithResitencyInfo(D3D12GraphicsEngine& graphicsEngine, ID3D12CommandQueue* commandQueue, TextureStreamingRequest& vramRequest)
+ID3D12Resource* VirtualTextureManager::createTextureWithResitencyInfo(D3D12GraphicsEngine& graphicsEngine, ID3D12CommandQueue& commandQueue, TextureStreamingRequest& vramRequest)
 {
 	D3D12Resource resource = createTexture(graphicsEngine.graphicsDevice, vramRequest);
 #ifndef NDEBUG
@@ -202,7 +200,7 @@ ID3D12Resource* VirtualTextureManager::createTextureWithResitencyInfo(D3D12Graph
 			{
 				if (resourceTileCoordsIndex == resourceTileCoordsMax)
 				{
-					pageProvider.pageAllocator.addPinnedPages(resourceTileCoords, resourceTileCoordsMax, resitencyInfo, commandQueue, graphicsEngine.graphicsDevice);
+					pageProvider.pageAllocator.addPinnedPages(resourceTileCoords, resourceTileCoordsMax, resitencyInfo, &commandQueue, graphicsEngine.graphicsDevice);
 					resourceTileCoordsIndex = 0u;
 				}
 				resourceTileCoords[resourceTileCoordsIndex].X = x;
@@ -212,13 +210,13 @@ ID3D12Resource* VirtualTextureManager::createTextureWithResitencyInfo(D3D12Graph
 				++resourceTileCoordsIndex;
 			}
 		}
-		pageProvider.pageAllocator.addPinnedPages(resourceTileCoords, resourceTileCoordsIndex, resitencyInfo, commandQueue, graphicsEngine.graphicsDevice);
+		pageProvider.pageAllocator.addPinnedPages(resourceTileCoords, resourceTileCoordsIndex, resitencyInfo, &commandQueue, graphicsEngine.graphicsDevice);
 	}
 	else
 	{
 		resitencyInfo.pinnedHeapLocations = new HeapLocation[packedMipInfo.NumPackedMips];
 		resitencyInfo.lowestPinnedMip = vramRequest.mipLevels - packedMipInfo.NumPackedMips;
-		pageProvider.pageAllocator.addPackedPages(resitencyInfo, packedMipInfo.NumTilesForPackedMips, commandQueue, graphicsEngine.graphicsDevice);
+		pageProvider.pageAllocator.addPackedPages(resitencyInfo, packedMipInfo.NumTilesForPackedMips, &commandQueue, graphicsEngine.graphicsDevice);
 	}
 	vramRequest.mostDetailedMip = (uint16_t)resitencyInfo.lowestPinnedMip;
 	ID3D12Resource* resourcePtr = resource;

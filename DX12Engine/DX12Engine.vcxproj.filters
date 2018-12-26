@@ -378,9 +378,6 @@
       <Filter>VirtualTexturing</Filter>
     </ClInclude>
     <ClInclude Include="StartableIOCompletionQueue.h" />
-    <ClInclude Include="StreamingRequest.h">
-      <Filter>StreamingManager</Filter>
-    </ClInclude>
     <ClInclude Include="AtomicSinglyLinked.h" />
     <ClInclude Include="ThreadsafePoolAllocator.h" />
     <ClInclude Include="ActorQueue.h" />

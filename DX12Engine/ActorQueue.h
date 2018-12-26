@@ -2,6 +2,9 @@
 #include <atomic>
 #include "SinglyLinked.h"
 
+#pragma warning(push)
+#pragma warning(disable:4324)
+
 class ActorQueue
 {
 #if __cplusplus >= 201703L
@@ -30,23 +33,11 @@ public:
 	}
 
 	/*
-	 * Returns false if the queue is empty.
+	 * Returns nullptr if the queue is empty.
 	 */
-	bool pop(SinglyLinked*& value)
+	SinglyLinked* popAll()
 	{
-		SinglyLinked* list = dequeuedData;
-		if(!list)
-		{
-			list = data.exchange(nullptr, std::memory_order::memory_order_acquire);
-			if(list == nullptr)
-			{
-				return false;
-			}
-		}
-		
-		value = list;
-		dequeuedData = list->next;
-		return true;
+		return data.exchange(nullptr, std::memory_order::memory_order_acquire);
 	}
 
 	/*
@@ -58,3 +49,5 @@ public:
 		return data.compare_exchange_strong(oldData, &stub, std::memory_order::memory_order_release, std::memory_order::memory_order_relaxed);
 	}
 };
+
+#pragma warning(pop)

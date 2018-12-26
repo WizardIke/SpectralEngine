@@ -228,7 +228,6 @@
     <ClInclude Include="PageAllocationInfo.h" />
     <ClInclude Include="SinglyLinked.h" />
     <ClInclude Include="StartableIOCompletionQueue.h" />
-    <ClInclude Include="StreamingRequest.h" />
     <ClInclude Include="VirtualTextureInfoByID.h" />
     <ClInclude Include="Zone.h" />
     <ClInclude Include="Delegate.h" />

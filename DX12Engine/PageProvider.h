@@ -10,10 +10,9 @@
 #include "PageDeleter.h" 
 #include "GpuCompletionEventManager.h"
 #include "frameBufferCount.h"
-#include "StreamingRequest.h"
 #include "AsynchronousFileManager.h"
+#include "StreamingManager.h"
 class VirtualTextureManager;
-class StreamingManager;
 struct IDXGIAdapter3;
 class D3D12GraphicsEngine;
 class FeedbackAnalizerSubPass;
@@ -135,7 +134,7 @@ class PageProvider
 		bool operator<(const NewPageIterator& rhs) { return newPage.page < rhs.newPage.page; }
 	};
 
-	class PageLoadRequest : public StreamingRequest, public AsynchronousFileManager::IORequest
+	class PageLoadRequest : public StreamingManager::StreamingRequest, public AsynchronousFileManager::IORequest
 	{
 	public:
 		unsigned long pageWidthInBytes;
@@ -167,19 +166,19 @@ private:
 	size_t newPageCount;
 	size_t newCacheSize;
 
-	static void copyPageToUploadBuffer(StreamingRequest* useSubresourceRequest, const unsigned char* data);
-	static void addPageLoadRequestHelper(PageLoadRequest& pageRequest, VirtualTextureManager& virtualTextureManager, StreamingManager& streamingManager, 
-		void(*useSubresource)(StreamingRequest* request, void* threadResources, void* globalResources));
+	static void copyPageToUploadBuffer(StreamingManager::StreamingRequest* useSubresourceRequest, const unsigned char* data);
+	static void addPageLoadRequestHelper(PageLoadRequest& pageRequest, VirtualTextureManager& virtualTextureManager, 
+		void(*useSubresource)(StreamingManager::StreamingRequest* request, void* threadResources, void* globalResources));
 
 	template<class ThreadResources, class GlobalResources>
 	static void addPageLoadRequest(PageLoadRequest& pageRequest, ThreadResources& threadResources, GlobalResources&)
 	{
-		threadResources.taskShedular.backgroundQueue().push({ &pageRequest, [](void* requester, ThreadResources&, GlobalResources& sharedResources)
+		threadResources.taskShedular.backgroundQueue().push({ &pageRequest, [](void* requester, ThreadResources& threadResources, GlobalResources& sharedResources)
 		{
 			PageLoadRequest& pageRequest = *reinterpret_cast<PageLoadRequest*>(requester);
 			VirtualTextureManager& virtualTextureManager = sharedResources.virtualTextureManager;
 			StreamingManager& streamingManager = sharedResources.streamingManager;
-			addPageLoadRequestHelper(pageRequest, virtualTextureManager, streamingManager, [](StreamingRequest* request, void* tr, void* gr)
+			addPageLoadRequestHelper(pageRequest, virtualTextureManager, streamingManager, [](StreamingManager::StreamingRequest* request, void* tr, void* gr)
 			{
 				PageLoadRequest& uploadRequest = *static_cast<PageLoadRequest*>(request);
 				GlobalResources& globalResources = *reinterpret_cast<GlobalResources*>(gr);
@@ -192,6 +191,7 @@ private:
 				};
 				globalResources.asynchronousFileManager.readFile(tr, gr, &uploadRequest);
 			});
+			streamingManager.addUploadRequest(&pageRequest, threadResources, sharedResources);
 		} });
 	}
 
@@ -268,7 +268,8 @@ private:
 	}
 
 	static void addNewPagesToResources(PageProvider& pageProvider, D3D12GraphicsEngine& graphicsEngine, VirtualTextureManager& virtualTextureManager,
-		GpuCompletionEventManager<frameBufferCount>& gpuCompletionEventManager, ID3D12GraphicsCommandList* commandList);
+		GpuCompletionEventManager<frameBufferCount>& gpuCompletionEventManager, ID3D12GraphicsCommandList* commandList,
+		void(*uploadComplete)(void*, void*, void*));
 public:
 	PageProvider(IDXGIAdapter3* adapter);
 
@@ -314,7 +315,14 @@ public:
 		executor.taskShedular.update2NextQueue().concurrentPush({ this, [](void* requester, ThreadResources& threadResources, GlobalResources& sharedResources)
 		{
 			addNewPagesToResources(*reinterpret_cast<PageProvider*>(requester), sharedResources.graphicsEngine, sharedResources.virtualTextureManager, threadResources.gpuCompletionEventManager,
-				threadResources.renderPass.virtualTextureFeedbackSubPass().firstCommandList());
+				threadResources.renderPass.virtualTextureFeedbackSubPass().firstCommandList(), [](void* requester, void* tr, void* gr)
+			{
+				PageLoadRequest* request = static_cast<PageLoadRequest*>(requester);
+				ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
+				GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
+				StreamingManager& streamingManager = globalResources.streamingManager;
+				streamingManager.uploadFinished(request, threadResources, globalResources);
+			});
 
 			// we have finished with the readback resources so we can render again
 			FeedbackAnalizerSubPass& feedbackAnalizerSubPass = sharedResources.renderPass.virtualTextureFeedbackSubPass();
@@ -327,5 +335,6 @@ public:
 	}
 
 	void addPageDataToResource(ID3D12Resource* resource, D3D12_TILED_RESOURCE_COORDINATE* newPageCoordinates, size_t pageCount,
-		D3D12_TILE_REGION_SIZE& tileSize, unsigned long* uploadBufferOffsets, ID3D12GraphicsCommandList* commandList, GpuCompletionEventManager<frameBufferCount>& gpuCompletionEventManager, uint32_t frameIndex);
+		D3D12_TILE_REGION_SIZE& tileSize, unsigned long* uploadBufferOffsets, ID3D12GraphicsCommandList* commandList, GpuCompletionEventManager<frameBufferCount>& gpuCompletionEventManager, uint32_t frameIndex,
+		void(*uploadComplete)(void*, void*, void*));
 };

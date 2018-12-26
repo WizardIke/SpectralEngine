@@ -23,9 +23,9 @@ D3D12GraphicsEngine::D3D12GraphicsEngine(Window& window, DXGIFactory factory) :
 }()),
 
 	directFenceEvent(nullptr, FALSE, FALSE, nullptr),
-	directFences([&](std::size_t, D3D12FencePointer& element)
+	directFences([&](std::size_t, D3D12Fence& element)
 {
-	new(&element) D3D12FencePointer(graphicsDevice, 0u, D3D12_FENCE_FLAG_NONE);
+	new(&element) D3D12Fence(graphicsDevice, 0u, D3D12_FENCE_FLAG_NONE);
 }),
 	renderTargetViewDescriptorSize(graphicsDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV)),
 	constantBufferViewAndShaderResourceViewAndUnordedAccessViewDescriptorSize(graphicsDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE::D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV)),
