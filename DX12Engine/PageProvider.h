@@ -315,7 +315,7 @@ public:
 		executor.taskShedular.update2NextQueue().concurrentPush({ this, [](void* requester, ThreadResources& threadResources, GlobalResources& sharedResources)
 		{
 			addNewPagesToResources(*reinterpret_cast<PageProvider*>(requester), sharedResources.graphicsEngine, sharedResources.virtualTextureManager, threadResources.gpuCompletionEventManager,
-				threadResources.renderPass.virtualTextureFeedbackSubPass().firstCommandList(), [](void* requester, void* tr, void* gr)
+				threadResources.renderPass.colorSubPass().opaqueCommandList(), [](void* requester, void* tr, void* gr) //must use colorSubPass as virtualTextureFeedbackSubPass isn't in view and will have closed command lists
 			{
 				PageLoadRequest* request = static_cast<PageLoadRequest*>(requester);
 				ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
