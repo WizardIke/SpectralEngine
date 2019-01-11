@@ -4,7 +4,6 @@
 #undef USE_REFLECTION_TEXTURE
 #include <Shaders/WaterMaterialVS.h>
 #include <D3D12GraphicsEngine.h>
-#include <Timer.h>
 
 struct AABBMaterial
 {
@@ -44,16 +43,18 @@ bool WaterModel2::isInView(const Frustum& Frustum)
 	return Frustum.checkCuboid2(positionX + 4.0f, positionY, positionZ + 4.0f, positionX - 4.0f, positionY, positionZ - 4.0f);
 }
 
-void WaterModel2::update(D3D12GraphicsEngine& graphicsEngine, Timer& timer)
+void WaterModel2::update(float frameTime)
 {
-	auto frameIndex = graphicsEngine.frameIndex;
-
-	waterTranslation += 0.1f * timer.frameTime();
+	waterTranslation += 0.1f * frameTime;
 	if (waterTranslation > 1.0f)
 	{
 		waterTranslation -= 1.0f;
 	}
+}
 
+void WaterModel2::beforeRender(D3D12GraphicsEngine& graphicsEngine)
+{
+	auto frameIndex = graphicsEngine.frameIndex;
 	auto buffer = reinterpret_cast<WaterMaterialVS*>(vertexConstantBufferCpu + frameIndex * vertexConstantBufferSize);
 	buffer->waterTranslation = waterTranslation;
 }

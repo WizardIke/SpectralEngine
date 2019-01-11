@@ -8,7 +8,6 @@
 struct WaterMaterialVS;
 class Mesh;
 class D3D12GraphicsEngine;
-class Timer;
 
 class WaterModel2
 {
@@ -28,7 +27,8 @@ public:
 	~WaterModel2() {}
 
 	bool WaterModel2::isInView(const Frustum& Frustum);
-	void update(D3D12GraphicsEngine& graphicsEngine, Timer& timer);
+	void update(float frameTime);
+	void beforeRender(D3D12GraphicsEngine& graphicsEngine);
 	float reflectionHeight() { return 2.75f; }
 	DirectX::XMFLOAT4 clipPlane() { return DirectX::XMFLOAT4(0.0f, -1.0f, 0.0f, positionY + 0.05f); }
 

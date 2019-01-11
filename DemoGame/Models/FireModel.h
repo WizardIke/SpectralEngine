@@ -59,13 +59,16 @@ public:
 	{
 		return Frustum.checkSphere(DirectX::XMVectorSet(positionX, positionY, positionZ, 1.0f), 1.5f);
 	}
-	void update(uint32_t frameIndex, const DirectX::XMFLOAT3& position, float frameTime)
+	void update(float frameTime)
 	{
 		flameTime += 0.6f * frameTime;
 		if (flameTime > 100.0f)
 		{
 			flameTime -= 100.0f;
 		}
+	}
+	void beforeRender(uint32_t frameIndex, const DirectX::XMFLOAT3& position)
+	{
 		float rotation = atan2(positionX - position.x, positionZ - position.z);
 
 		auto constantBuffer = reinterpret_cast<FireMaterialVS*>(constantBufferCpu + frameIndex * VSPerObjectConstantBufferSize);

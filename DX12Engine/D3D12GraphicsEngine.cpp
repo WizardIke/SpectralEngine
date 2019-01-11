@@ -5,11 +5,11 @@
 #include "Window.h"
 
 
-D3D12GraphicsEngine::D3D12GraphicsEngine(Window& window, bool enableGpuDebugging) : D3D12GraphicsEngine(window, DXGIFactory(enableGpuDebugging))
+D3D12GraphicsEngine::D3D12GraphicsEngine(Window& window, bool enableGpuDebugging, DXGI_ADAPTER_FLAG avoidedAdapterFlags) : D3D12GraphicsEngine(window, DXGIFactory(enableGpuDebugging), avoidedAdapterFlags)
 {}
 
-D3D12GraphicsEngine::D3D12GraphicsEngine(Window& window, DXGIFactory factory) :
-	adapter(factory, window.windowHandle, D3D_FEATURE_LEVEL_11_0),
+D3D12GraphicsEngine::D3D12GraphicsEngine(Window& window, DXGIFactory factory, DXGI_ADAPTER_FLAG avoidedAdapterFlags) :
+	adapter(factory, window.windowHandle, D3D_FEATURE_LEVEL_11_0, avoidedAdapterFlags),
 	graphicsDevice(adapter, D3D_FEATURE_LEVEL_11_0),
 
 	directCommandQueue(graphicsDevice, []()
@@ -137,7 +137,7 @@ void D3D12GraphicsEngine::present(Window& window, ID3D12CommandList** const comm
 	++(fenceValues[frameIndex]);
 
 	auto hr = directCommandQueue->Signal(directFences[frameIndex], fenceValues[frameIndex]);
-	if (FAILED(hr)) throw HresultException(hr);
+	if(FAILED(hr)) throw HresultException(hr);
 
 	window.present();
 	frameIndex = window.getCurrentBackBufferIndex();

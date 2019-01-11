@@ -87,19 +87,19 @@ void MainCamera::destruct(D3D12GraphicsEngine& graphicsEngine)
 
 MainCamera::~MainCamera() {}
 
-void MainCamera::update(Window& window, D3D12GraphicsEngine& graphicsEngine, const Transform& target)
+void MainCamera::update(const Transform& target)
 {
 	mLocation.position = target.position;
 	mLocation.rotation = target.rotation;
+}
 
+void MainCamera::render(Window& window, D3D12GraphicsEngine& graphicsEngine)
+{
 	DirectX::XMMATRIX mViewMatrix = mLocation.toMatrix();
-
 	mImage = window.getBuffer(graphicsEngine.frameIndex);
-
 	const auto constantBuffer = reinterpret_cast<CameraConstantBuffer*>(reinterpret_cast<unsigned char*>(constantBufferCpuAddress) + graphicsEngine.frameIndex * bufferSizePS);
 	constantBuffer->viewProjectionMatrix = mViewMatrix * mProjectionMatrix;;
 	constantBuffer->cameraPosition = mLocation.position;
-
 	mFrustum.update(mProjectionMatrix, mViewMatrix, screenNear, screenDepth);
 }
 
@@ -107,7 +107,7 @@ void MainCamera::bind(uint32_t frameIndex, ID3D12GraphicsCommandList** first, ID
 {
 	auto renderTargetViewHandle = renderTargetViews[frameIndex];
 	auto constantBufferGPU = constantBufferGpuAddress + bufferSizePS * frameIndex;
-	CameraUtil::bind(first, end, CameraUtil::getViewPort(mWidth, mHeight), CameraUtil::getScissorRect(mWidth, mHeight), constantBufferGPU, &renderTargetViewHandle, &depthSencilView);
+	CameraUtil::bind(first, end, CameraUtil::getViewPort(mWidth, mHeight), CameraUtil::getScissorRect(mWidth, mHeight), constantBufferGPU, renderTargetViewHandle, depthSencilView);
 }
 
 void MainCamera::bindFirstThread(uint32_t frameIndex, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end)

@@ -6,7 +6,7 @@ class DXGIAdapter
 {
 	IDXGIAdapter3* data;
 public:
-	DXGIAdapter(IDXGIFactory5* factory, HWND window, D3D_FEATURE_LEVEL featureLevel) : data(nullptr)
+	DXGIAdapter(IDXGIFactory5* factory, HWND window, D3D_FEATURE_LEVEL featureLevel, DXGI_ADAPTER_FLAG avoidedFlags = DXGI_ADAPTER_FLAG::DXGI_ADAPTER_FLAG_NONE) : data(nullptr)
 	{
 		IDXGIAdapter1* adapter;
 		DXGI_ADAPTER_DESC1 desc;
@@ -18,7 +18,7 @@ public:
 			adapter->Release();
 			if (result == S_OK)
 			{
-				if (!(desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE) && SUCCEEDED(D3D12CreateDevice(data, featureLevel, _uuidof(ID3D12Device), nullptr))) //this adapter is good
+				if (!(desc.Flags & avoidedFlags) && SUCCEEDED(D3D12CreateDevice(data, featureLevel, _uuidof(ID3D12Device), nullptr))) //this adapter is good
 				{
 					return;
 				}

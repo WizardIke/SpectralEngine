@@ -63,12 +63,12 @@ private:
 		}
 	};
 
-	D3D12GraphicsEngine(Window& window, DXGIFactory factory);
+	D3D12GraphicsEngine(Window& window, DXGIFactory factory, DXGI_ADAPTER_FLAG avoidedAdapterFlags);
 public:
 	D3D12DescriptorHeap mainDescriptorHeap;
 	DescriptorAllocator descriptorAllocator;
 
-	D3D12GraphicsEngine(Window& window, bool enableGpuDebugging);
+	D3D12GraphicsEngine(Window& window, bool enableGpuDebugging, DXGI_ADAPTER_FLAG avoidedAdapterFlags = DXGI_ADAPTER_FLAG::DXGI_ADAPTER_FLAG_NONE);
 	~D3D12GraphicsEngine();
 
 	void present(Window& window, ID3D12CommandList** ppCommandLists, unsigned int numLists);

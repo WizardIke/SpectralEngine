@@ -15,29 +15,20 @@
 */
 
 template<class HashMap>
-static inline void requestMipLevels(unsigned int mipLevel, const VirtualTextureInfo* textureInfo, TextureLocation feedbackData, HashMap& uniqueRequests)
+static inline void requestMipLevels(unsigned int mipLevel, const unsigned int lowestPinnedMip, TextureLocation feedbackData, HashMap& uniqueRequests)
 {
-	if (mipLevel < textureInfo->lowestPinnedMip)
+	auto x = feedbackData.x() >> mipLevel;
+	auto y = feedbackData.y() >> mipLevel;
+	while(mipLevel < lowestPinnedMip)
 	{
-		auto x = feedbackData.x() >> mipLevel;
-		auto y = feedbackData.y() >> mipLevel;
+		feedbackData.setMipLevel(mipLevel);
 		feedbackData.setX(x);
 		feedbackData.setY(y);
-
 		PageRequestData& pageRequest = uniqueRequests[feedbackData];
 		++pageRequest.count;
 		++mipLevel;
-		while (mipLevel != textureInfo->lowestPinnedMip)
-		{
-			x >>= 1u;
-			y >>= 1u;
-			feedbackData.setMipLevel(mipLevel);
-			feedbackData.setX(x);
-			feedbackData.setY(y);
-			PageRequestData& request = uniqueRequests[feedbackData];
-			++request.count;
-			++mipLevel;
-		}
+		x >>= 1u;
+		y >>= 1u;
 	}
 }
 
@@ -59,31 +50,30 @@ void FeedbackAnalizerSubPass::gatherUniqueRequests(FeedbackAnalizerSubPass& subP
 	{
 		TextureLocation feedbackData{*reinterpret_cast<uint64_t*>(feadBackBuffer)};
 
-		auto textureId = feedbackData.textureId1();
 		unsigned int nextMipLevel = (unsigned int)feedbackData.mipLevel();
+		auto textureId = feedbackData.textureId1();
 		auto texture2d = feedbackData.textureId2();
 		auto texture3d = feedbackData.textureId3();
 
 		feedbackData.setTextureId2(0);
 		feedbackData.setTextureId3(0);
 
-		VirtualTextureInfo* textureInfo;
 		if (textureId != 255u)
 		{
-			textureInfo = &virtualTextureManager.texturesByID[textureId];
-			requestMipLevels(nextMipLevel, textureInfo, feedbackData, uniqueRequests);
+			VirtualTextureInfo& textureInfo = virtualTextureManager.texturesByID[textureId];
+			requestMipLevels(nextMipLevel, textureInfo.lowestPinnedMip, feedbackData, uniqueRequests);
 		}
 		if (texture2d != 255u)
 		{
 			feedbackData.setTextureId1(texture2d);
-			textureInfo = &virtualTextureManager.texturesByID[texture2d];
-			requestMipLevels(nextMipLevel, textureInfo, feedbackData, uniqueRequests);
+			VirtualTextureInfo& textureInfo = virtualTextureManager.texturesByID[texture2d];
+			requestMipLevels(nextMipLevel, textureInfo.lowestPinnedMip, feedbackData, uniqueRequests);
 		}
 		if (texture3d != 255u)
 		{
 			feedbackData.setTextureId1(texture3d);
-			textureInfo = &virtualTextureManager.texturesByID[texture3d];
-			requestMipLevels(nextMipLevel, textureInfo, feedbackData, uniqueRequests);
+			VirtualTextureInfo& textureInfo = virtualTextureManager.texturesByID[texture3d];
+			requestMipLevels(nextMipLevel, textureInfo.lowestPinnedMip, feedbackData, uniqueRequests);
 		}
 	}
 
@@ -219,7 +209,7 @@ void FeedbackAnalizerSubPass::ThreadLocal::update1AfterFirstThread(D3D12Graphics
 		barriers[barrierCount].Transition.StateAfter = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET;
 		++barrierCount;
 
-		camera.update(graphicsEngine, renderSubPass.mipBias);
+		camera.render(graphicsEngine, renderSubPass.mipBias); //this function is called after waitForPreviousFrame so it is ok to use rendering functions
 	}
 	currentData->commandLists[0u]->ResourceBarrier(barrierCount, barriers);
 

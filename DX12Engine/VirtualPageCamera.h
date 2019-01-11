@@ -39,12 +39,12 @@ public:
 	}
 	~VirtualPageCamera();
 
-	void update(const D3D12GraphicsEngine& graphicsEngine, float mipBias);
+	void render(const D3D12GraphicsEngine& graphicsEngine, float mipBias);
 	bool isInView() const { return true; }
 	void bind(uint32_t frameIndex, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end)
 	{
 		auto constantBufferGPU = constantBufferGpuAddress + bufferSizePS * frameIndex;
-		CameraUtil::bind(first, end, CameraUtil::getViewPort(mWidth, mHeight), CameraUtil::getScissorRect(mWidth, mHeight), constantBufferGPU, &renderTargetView, &depthSencilView);
+		CameraUtil::bind(first, end, CameraUtil::getViewPort(mWidth, mHeight), CameraUtil::getScissorRect(mWidth, mHeight), constantBufferGPU, renderTargetView, depthSencilView);
 	}
 	
 	void bindFirstThread(uint32_t frameIndex, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end)

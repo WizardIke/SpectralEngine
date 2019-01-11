@@ -32,7 +32,7 @@ public:
 		const Transform& target, uint32_t* backBufferTextures);
 	~ReflectionCamera();
 
-	void update(uint32_t frameIndex, const DirectX::XMMATRIX& mViewMatrix);
+	void render(uint32_t frameIndex, const DirectX::XMMATRIX& mViewMatrix);
 	bool isInView() const { return true; }
 	void bind(uint32_t frameIndex, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end);
 	void bindFirstThread(uint32_t frameIndex, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end);

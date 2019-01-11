@@ -44,7 +44,8 @@ public:
 	void destruct(D3D12GraphicsEngine& graphicsEngine);
 	~MainCamera();
 
-	void update(Window& window, D3D12GraphicsEngine& graphicsEngine, const Transform& target);
+	void update(const Transform& target);
+	void render(Window& window, D3D12GraphicsEngine& graphicsEngine);
 	bool isInView() const { return true; }
 	void bind(uint32_t frameIndex, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end);
 	void bindFirstThread(uint32_t frameIndex, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end);

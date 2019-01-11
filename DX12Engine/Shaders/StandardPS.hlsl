@@ -162,11 +162,11 @@ float4 sampleTexture(Texture2D<float4> t, SamplerState samplerType, float2 texCo
 #ifdef USE_VIRTUAL_TEXTURE
 	{
         uint status;
-        value = t.Sample(samplerType, texCoords, status);
+        value = t.Sample(samplerType, texCoords, int2(0, 0), 0.0f, status);
         float bias = 1.0;
         while (!CheckAccessFullyMapped(status))
         {
-            value = t.SampleBias(samplerType, texCoords, bias, status);
+            value = t.SampleBias(samplerType, texCoords, bias, int2(0, 0), 0.0f, status);
             ++bias;
         }
     }

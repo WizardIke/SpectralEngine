@@ -490,17 +490,25 @@ namespace
 
 		void update1(ThreadResources&, GlobalResources& globalResources)
 		{
+			const auto frameTime = globalResources.timer.frameTime();
+			waterModel.update(frameTime);
+			fireModel1.update(frameTime);
+			fireModel2.update(frameTime);
+		}
+
+		void updateConstantBuffers(GlobalResources& globalResources)
+		{
 			const auto frameIndex = globalResources.graphicsEngine.frameIndex;
 			const auto& cameraPos = globalResources.mainCamera().position();
-			const auto frameTime = globalResources.timer.frameTime();
-			waterModel.update(globalResources.graphicsEngine, globalResources.timer);
-			fireModel1.update(frameIndex, cameraPos, frameTime);
-			fireModel2.update(frameIndex, cameraPos, frameTime);
-			for (auto& camera : reflectionCameras)
+			waterModel.beforeRender(globalResources.graphicsEngine);
+			fireModel1.beforeRender(frameIndex, cameraPos);
+			fireModel2.beforeRender(frameIndex, cameraPos);
+			for(auto& camera : reflectionCameras)
 			{
-				camera->update(globalResources.graphicsEngine.frameIndex, globalResources.mainCamera().transform().reflection(waterModel.reflectionHeight()).toMatrix());
+				camera->render(frameIndex, globalResources.mainCamera().transform().reflection(waterModel.reflectionHeight()).toMatrix());
 			}
 
+			const auto frameTime = globalResources.timer.frameTime();
 			auto rotationMatrix = DirectX::XMMatrixTranslation(-64.0f, -5.0f, -64.0f) * DirectX::XMMatrixRotationAxis(DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f), frameTime) * DirectX::XMMatrixTranslation(64.0f, 5.0f, 64.0f);
 
 			constexpr uint64_t pointLightConstantBufferAlignedSize = (sizeof(LightConstantBuffer) + D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull) & ~(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull);
@@ -511,7 +519,7 @@ namespace
 			pointLightConstantBuffer->lightDirection = light.direction;
 
 			pointLightConstantBuffer->pointLightCount = numPointLights;
-			for (auto i = 0u; i < numPointLights; ++i)
+			for(auto i = 0u; i < numPointLights; ++i)
 			{
 				auto temp = DirectX::XMVector4Transform(DirectX::XMVectorSet(pointLights[i].position.x(), pointLights[i].position.y(),
 					pointLights[i].position.z(), pointLights[i].position.w()), rotationMatrix);
@@ -603,6 +611,7 @@ namespace
 
 		void update2(ThreadResources& threadResources, GlobalResources& globalResources)
 		{
+			updateConstantBuffers(globalResources);
 			renderToTexture(threadResources, globalResources);
 
 			const auto frameIndex = globalResources.graphicsEngine.frameIndex;
@@ -890,19 +899,17 @@ namespace
 
 		~MDResources() {}
 
-		void update1(ThreadResources&, GlobalResources&) 
-		{
-			auto pointLightConstantBuffer = reinterpret_cast<LightConstantBuffer*>(pointLightConstantBufferCpuAddress);
-
-			pointLightConstantBuffer->ambientLight = light.ambientLight;
-			pointLightConstantBuffer->directionalLight = light.directionalLight;
-			pointLightConstantBuffer->lightDirection = light.direction;
-
-			pointLightConstantBuffer->pointLightCount = 0u;
-		}
+		void update1(ThreadResources&, GlobalResources&) {}
 
 		void update2(ThreadResources& threadResources, GlobalResources& globalResources)
 		{
+			auto pointLightConstantBuffer = reinterpret_cast<LightConstantBuffer*>(pointLightConstantBufferCpuAddress);
+			pointLightConstantBuffer->ambientLight = light.ambientLight;
+			pointLightConstantBuffer->directionalLight = light.directionalLight;
+			pointLightConstantBuffer->lightDirection = light.direction;
+			pointLightConstantBuffer->pointLightCount = 0u;
+
+
 			const auto commandList = threadResources.renderPass.colorSubPass().opaqueCommandList();
 
 			commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);

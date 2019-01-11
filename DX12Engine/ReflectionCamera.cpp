@@ -38,7 +38,7 @@ ReflectionCamera::ReflectionCamera(ID3D12Resource* image, D3D12_CPU_DESCRIPTOR_H
 
 ReflectionCamera::~ReflectionCamera() {}
 
-void ReflectionCamera::update(uint32_t frameIndex, const DirectX::XMMATRIX& mViewMatrix)
+void ReflectionCamera::render(uint32_t frameIndex, const DirectX::XMMATRIX& mViewMatrix)
 {
 	const auto constantBuffer = reinterpret_cast<CameraConstantBuffer*>(reinterpret_cast<unsigned char*>(constantBufferCpuAddress) + frameIndex * bufferSizePS);
 	constantBuffer->viewProjectionMatrix = mViewMatrix * mProjectionMatrix;;
@@ -50,7 +50,7 @@ void ReflectionCamera::update(uint32_t frameIndex, const DirectX::XMMATRIX& mVie
 void ReflectionCamera::bind(uint32_t frameIndex, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end)
 {
 	auto constantBufferGPU = constantBufferGpuAddress + bufferSizePS * frameIndex;
-	CameraUtil::bind(first, end, CameraUtil::getViewPort(mWidth, mHeight), CameraUtil::getScissorRect(mWidth, mHeight), constantBufferGPU, &renderTargetView, &depthSencilView);
+	CameraUtil::bind(first, end, CameraUtil::getViewPort(mWidth, mHeight), CameraUtil::getScissorRect(mWidth, mHeight), constantBufferGPU, renderTargetView, depthSencilView);
 }
 
 void ReflectionCamera::bindFirstThread(uint32_t frameIndex, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end)

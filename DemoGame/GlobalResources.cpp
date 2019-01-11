@@ -78,7 +78,7 @@ GlobalResources::GlobalResources(const unsigned int numberOfThreads, bool fullSc
 		[fullScreen]() {if (fullScreen) { return GetSystemMetrics(SM_CYVIRTUALSCREEN); } else return GetSystemMetrics(SM_CYSCREEN) / 2; }(),
 		[fullScreen]() {if (fullScreen) { return 0; } else return GetSystemMetrics(SM_CXSCREEN) / 5; }(),
 		[fullScreen]() {if (fullScreen) { return 0; } else return GetSystemMetrics(SM_CYSCREEN) / 5; }(), fullScreen, vSync),
-	graphicsEngine(window, enableGpuDebugging),
+	graphicsEngine(window, enableGpuDebugging, /*DXGI_ADAPTER_FLAG::DXGI_ADAPTER_FLAG_SOFTWARE*/DXGI_ADAPTER_FLAG::DXGI_ADAPTER_FLAG_NONE),
 	streamingManager(*graphicsEngine.graphicsDevice, 32u * 1024u * 1024u),
 	taskShedular(numberOfThreads > 2u ? numberOfThreads : 2u, ThreadResources::initialize1),
 	mainThreadResources(0u, *this, ThreadResources::mainEndUpdate2),
@@ -201,8 +201,12 @@ void GlobalResources::update()
 	}
 	timer.update();
 	playerPosition.update(timer.frameTime(), inputHandler.aDown, inputHandler.dDown, inputHandler.wDown, inputHandler.sDown, inputHandler.spaceDown);
-	mainCamera().update(window, graphicsEngine, playerPosition.location);
-	//soundEngine.SetListenerPosition(playerPosition.location.position, DS3D_IMMEDIATE);
+	mainCamera().update(playerPosition.location);
+}
+
+void GlobalResources::beforeRender()
+{
+	mainCamera().render(window, graphicsEngine);
 }
 
 void GlobalResources::start()

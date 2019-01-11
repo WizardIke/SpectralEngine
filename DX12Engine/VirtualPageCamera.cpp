@@ -32,7 +32,7 @@ VirtualPageCamera::VirtualPageCamera(ID3D12Resource* image, D3D12_CPU_DESCRIPTOR
 
 VirtualPageCamera::~VirtualPageCamera() {}
 
-void VirtualPageCamera::update(const D3D12GraphicsEngine& graphicsEngine, float mipBias)
+void VirtualPageCamera::render(const D3D12GraphicsEngine& graphicsEngine, float mipBias)
 {
 	const auto constantBuffer = reinterpret_cast<VtFeedbackCameraMaterial*>(reinterpret_cast<unsigned char*>(constantBufferCpuAddress) + graphicsEngine.frameIndex * bufferSizePS);
 	DirectX::XMMATRIX mViewMatrix = mTransform->toMatrix();

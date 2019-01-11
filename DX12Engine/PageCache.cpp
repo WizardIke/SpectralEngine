@@ -75,7 +75,7 @@ void PageCache::addPages(PageAllocationInfo* pageInfos, std::size_t pageCount, P
 		newPage.data = pageInfos[i];
 		newPage.next = mFront.next;
 		newPage.previous = &mFront;
-		//both of these are nesesary of if no moves happen or the hashmap resizes before moving the newPage
+		//both of these are nesesary if no moves happen or the hashmap resizes before moving the newPage
 		mFront.next->previous = &newPage;
 		mFront.next = &newPage;
 

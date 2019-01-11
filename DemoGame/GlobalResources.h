@@ -26,11 +26,14 @@
 #include <D3D12DescriptorHeap.h>
 #include <Win32Event.h>
 #include <atomic>
-class ThreadResources;
 
 class GlobalResources
 {
+	friend class ThreadResources;
 	GlobalResources(unsigned int numberOfThreads, bool fullScreen, bool vSync, bool enableGpuDebugging);
+
+	void update();
+	void beforeRender();
 public:
 	Window window;
 	D3D12GraphicsEngine graphicsEngine;
@@ -62,13 +65,13 @@ public:
 	Event readyToPresentEvent;
 	std::atomic<unsigned int> readyToPresentCount = 0u;
 
-	GlobalResources();
-	~GlobalResources();
-
 	MainCamera& mainCamera()
 	{
 		return *renderPass.colorSubPass().cameras().begin();
 	}
-	void update();
+
+	GlobalResources();
+	~GlobalResources();
+
 	void start();
 };
