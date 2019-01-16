@@ -277,37 +277,35 @@ void PageProvider::workoutIfPageNeededInCache(unsigned int mipBiasIncrease, std:
 	if (pageCache.getPage(location) != nullptr)
 	{
 		++numRequiredPagesInCache;
+		return;
 	}
-	else
+	const unsigned int nextMipLevel = mipLevel + 1u;
+	TextureLocation nextMipLocation;
+	nextMipLocation.setX(newX >> 1u);
+	nextMipLocation.setY(newY >> 1u);
+	nextMipLocation.setMipLevel(nextMipLevel);
+	nextMipLocation.setTextureId1(textureId);
+	nextMipLocation.setTextureId2(255u);
+	nextMipLocation.setTextureId3(255u);
+	if(nextMipLevel == textureInfo.lowestPinnedMip || pageCache.getPage(nextMipLocation) != nullptr)
 	{
-		const unsigned int nextMipLevel = mipLevel + 1u;
-		TextureLocation nextMipLocation;
-		nextMipLocation.setX(newX >> 1u);
-		nextMipLocation.setY(newY >> 1u);
-		nextMipLocation.setMipLevel(nextMipLevel);
-		nextMipLocation.setTextureId1(textureId);
-		nextMipLocation.setTextureId2(255u);
-		nextMipLocation.setTextureId3(255u);
-		if (nextMipLevel == textureInfo.lowestPinnedMip || pageCache.getPage(nextMipLocation) != nullptr)
+		bool pageAlreadyLoading = false;
+		for(const auto& pageRequest : pageLoadRequests)
 		{
-			bool pageAlreadyLoading = false;
-			for (const auto& pageRequest : pageLoadRequests)
+			auto state = pageRequest.state.load(std::memory_order::memory_order_acquire);
+			if(state == PageLoadRequest::State::pending || state == PageLoadRequest::State::finished)
 			{
-				auto state = pageRequest.state.load(std::memory_order::memory_order_acquire);
-				if (state == PageLoadRequest::State::pending && state == PageLoadRequest::State::finished)
+				if(pageRequest.allocationInfo.textureLocation == location)
 				{
-					if (pageRequest.allocationInfo.textureLocation == location)
-					{
-						pageAlreadyLoading = true;
-						break;
-					}
+					pageAlreadyLoading = true;
+					break;
 				}
 			}
+		}
 
-			if (!pageAlreadyLoading)
-			{
-				posableLoadRequests.push_back({ location, request.second.count });
-			}
+		if(!pageAlreadyLoading)
+		{
+			posableLoadRequests.push_back({location, request.second.count});
 		}
 	}
 }

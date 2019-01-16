@@ -181,8 +181,9 @@ public:
 				auto* commandList = &perFrameData.commandLists[0u];
 				for (auto& allocator : perFrameData.commandAllocators)
 				{
-
+					allocator.~D3D12CommandAllocator();
 					new(&allocator) D3D12CommandAllocator(graphicsEngine.graphicsDevice, D3D12_COMMAND_LIST_TYPE_DIRECT);
+					commandList->~D3D12GraphicsCommandList();
 					new(commandList) D3D12GraphicsCommandList(graphicsEngine.graphicsDevice, 0u, D3D12_COMMAND_LIST_TYPE_DIRECT, allocator, nullptr);
 					(*commandList)->Close();
 
