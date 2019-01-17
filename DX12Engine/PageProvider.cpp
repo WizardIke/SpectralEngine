@@ -396,3 +396,19 @@ void PageProvider::addNewPagesToResources(PageProvider& pageProvider, D3D12Graph
 	}
 	pageDeleter.finish();
 }
+
+void PageProvider::workOutWhichTexturesCanBeRequested(std::size_t numTexturesThatCanBeRequested)
+{
+	if(numTexturesThatCanBeRequested < posableLoadRequests.size())
+	{
+		if(numTexturesThatCanBeRequested != 0u)
+		{
+			std::nth_element(posableLoadRequests.begin(), posableLoadRequests.begin() + numTexturesThatCanBeRequested, posableLoadRequests.end(), [](const auto& lhs, const auto& rhs)
+			{
+				return lhs.second > rhs.second; //sort in descending order of area on screen
+			});
+		}
+		//reduce posableLoadRequests size to numTexturesThatCanBeRequested
+		posableLoadRequests.resize(numTexturesThatCanBeRequested);
+	}
+}

@@ -274,6 +274,19 @@ private:
 	void addPageDataToResource(ID3D12Resource* resource, D3D12_TILED_RESOURCE_COORDINATE* newPageCoordinates, size_t pageCount,
 		D3D12_TILE_REGION_SIZE& tileSize, unsigned long* uploadBufferOffsets, ID3D12GraphicsCommandList* commandList, GpuCompletionEventManager<frameBufferCount>& gpuCompletionEventManager, uint32_t frameIndex,
 		void(*uploadComplete)(void*, void*, void*));
+
+	template<class HashMap>
+	std::size_t checkForCachedPages(HashMap& pageRequests, VirtualTextureManager& virtualTextureManager, unsigned int mipBiasIncrease)
+	{
+		std::size_t numRequiredPagesInCache = 0u;
+		for(auto& request : pageRequests)
+		{
+			workoutIfPageNeededInCache(mipBiasIncrease, request, virtualTextureManager, numRequiredPagesInCache);
+		}
+		return numRequiredPagesInCache;
+	}
+
+	void workOutWhichTexturesCanBeRequested(std::size_t numTexturesThatCanBeRequested);
 public:
 	PageProvider(IDXGIAdapter3* adapter);
 
@@ -288,28 +301,13 @@ public:
 		const unsigned int mipBiasIncrease = recalculateCacheSize(feedbackAnalizerSubPass, adapter, pageRequests.size());
 
 		//work out which pages are in the cache, which pages need loading and the number that are required in the cache
-		size_t numRequiredPagesInCache = 0u;
-		for (auto& request : pageRequests)
-		{
-			workoutIfPageNeededInCache(mipBiasIncrease, request, virtualTextureManager, numRequiredPagesInCache);
-		}
+		std::size_t numRequiredPagesInCache = checkForCachedPages(pageRequests, virtualTextureManager, mipBiasIncrease);
 
 		//work out which pages have finished loading and how many textures can to requested
-		size_t numTexturesThatCanBeRequested = findLoadedTexturePages();
+		std::size_t numTexturesThatCanBeRequested = findLoadedTexturePages();
 
-		//work out which textures can be requested
-		if (numTexturesThatCanBeRequested < posableLoadRequests.size())
-		{
-			if (numTexturesThatCanBeRequested != 0u)
-			{
-				std::nth_element(posableLoadRequests.begin(), posableLoadRequests.begin() + numTexturesThatCanBeRequested, posableLoadRequests.end(), [](const auto& lhs, const auto& rhs)
-				{
-					return lhs.second > rhs.second; //sort in descending order of area on screen
-				});
-			}
-			//reduce posableLoadRequests size to numTexturesThatCanBeRequested
-			posableLoadRequests.resize(numTexturesThatCanBeRequested);
-		}
+		workOutWhichTexturesCanBeRequested(numTexturesThatCanBeRequested);
+		
 		//start all texture pages in posableLoadRequests loading
 		startLoadingRequiredPages(executor, sharedResources);
 
