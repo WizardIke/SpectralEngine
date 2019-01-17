@@ -371,25 +371,25 @@ void PageProvider::addNewPagesToResources(PageProvider& pageProvider, D3D12Graph
 		size_t i = 0u;
 		for (; i != newPageCount; ++i)
 		{
-			newPageCoordinates[i].X = (UINT)newPages[i].textureLocation.x();
-			newPageCoordinates[i].Y = (UINT)newPages[i].textureLocation.y();
-			newPageCoordinates[i].Z = (UINT)0u;
-			newPageCoordinates[i].Subresource = (UINT)newPages[i].textureLocation.mipLevel();
-
 			VirtualTextureInfo* resourceInfo = &virtualTextureManager.texturesByID[newPages[i].textureLocation.textureId1()];
 			if (resourceInfo != previousResourceInfo)
 			{
 				const size_t pageCount = i - lastIndex;
 				pageAllocator.addPages(newPageCoordinates + lastIndex, pageCount, *previousResourceInfo, commandQueue, graphicsDevice, newPages + lastIndex);
-				pageProvider.addPageDataToResource(previousResourceInfo->resource, &newPageCoordinates[lastIndex], pageCount, tileSize, &newPageOffsetsInLoadRequests[lastIndex],
+				pageProvider.addPageDataToResource(previousResourceInfo->resource, newPageCoordinates + lastIndex, pageCount, tileSize, &newPageOffsetsInLoadRequests[lastIndex],
 					commandList, gpuCompletionEventManager, frameIndex, uploadComplete);
 				lastIndex = i;
 				previousResourceInfo = resourceInfo;
 			}
+
+			newPageCoordinates[i].X = (UINT)newPages[i].textureLocation.x();
+			newPageCoordinates[i].Y = (UINT)newPages[i].textureLocation.y();
+			newPageCoordinates[i].Z = (UINT)0u;
+			newPageCoordinates[i].Subresource = (UINT)newPages[i].textureLocation.mipLevel();
 		}
 		const size_t pageCount = i - lastIndex;
 		pageAllocator.addPages(newPageCoordinates + lastIndex, pageCount, *previousResourceInfo, commandQueue, graphicsDevice, newPages + lastIndex);
-		pageProvider.addPageDataToResource(previousResourceInfo->resource, &newPageCoordinates[lastIndex], pageCount, tileSize, &newPageOffsetsInLoadRequests[lastIndex],
+		pageProvider.addPageDataToResource(previousResourceInfo->resource, newPageCoordinates + lastIndex, pageCount, tileSize, &newPageOffsetsInLoadRequests[lastIndex],
 			commandList, gpuCompletionEventManager, frameIndex, uploadComplete);
 
 		pageCache.addPages(newPages, newPageCount, pageDeleter);
