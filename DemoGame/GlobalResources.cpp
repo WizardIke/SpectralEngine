@@ -91,7 +91,7 @@ GlobalResources::GlobalResources(const unsigned int numberOfThreads, bool fullSc
 	inputHandler(window, { PlayerPosition::mouseMoved, &playerPosition }),
 	rootSignatures(graphicsEngine.graphicsDevice),
 	pipelineStateObjects(graphicsEngine.graphicsDevice, rootSignatures),
-	virtualTextureManager(graphicsEngine),
+	virtualTextureManager(),
 	sharedConstantBuffer(graphicsEngine.graphicsDevice, []()
 	{
 		D3D12_HEAP_PROPERTIES heapProperties;

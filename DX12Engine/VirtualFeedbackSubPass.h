@@ -12,7 +12,7 @@
 #undef min
 #undef max
 
-class FeedbackAnalizerSubPass : public RenderSubPass<VirtualPageCamera, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET, std::tuple<>, std::tuple<>, 1u,
+class VirtualFeedbackSubPass : public RenderSubPass<VirtualPageCamera, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET, std::tuple<>, std::tuple<>, 1u,
 	D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET, true, 1u>
 {
 	//friend class ThreadLocal;
@@ -25,18 +25,6 @@ class FeedbackAnalizerSubPass : public RenderSubPass<VirtualPageCamera, D3D12_RE
 	D3D12Resource readbackTexture;
 	unsigned long textureWidth, textureHeight;
 	uint32_t lastFrameIndex;
-
-	struct TextureLocationHasher : std::hash<uint64_t>
-	{
-		size_t operator()(TextureLocation location) const
-		{
-			return (*(std::hash<uint64_t>*)(this))(location.value);
-		}
-	};
-
-	//contains all unique valid pages needed
-	std::unordered_map<TextureLocation, PageRequestData, TextureLocationHasher> uniqueRequests;
-
 	bool inView = true;
 
 	template<class ThreadResources, class GlobalResources>
@@ -45,23 +33,26 @@ class FeedbackAnalizerSubPass : public RenderSubPass<VirtualPageCamera, D3D12_RE
 		ThreadResources& threadResources = *reinterpret_cast<ThreadResources*>(tr);
 		GlobalResources& globalResources = *reinterpret_cast<GlobalResources*>(gr);
 		VirtualTextureManager& virtualTextureManager = globalResources.virtualTextureManager;
-		FeedbackAnalizerSubPass& analyser = *reinterpret_cast<FeedbackAnalizerSubPass*>(requester);
+		VirtualFeedbackSubPass& analyser = *reinterpret_cast<VirtualFeedbackSubPass*>(requester);
+		PageProvider& pageProvider = virtualTextureManager.pageProvider;
+		VirtualTextureInfoByID& texturesByID = virtualTextureManager.texturesByID;
 
-		gatherUniqueRequests(analyser, virtualTextureManager);
-
-		//find needed pages and start them loading from disk if they aren't in the cache
-		virtualTextureManager.pageProvider.processPageRequests(analyser.uniqueRequests, virtualTextureManager, threadResources, globalResources);
-		analyser.uniqueRequests.clear();
+		const unsigned long totalSize = analyser.textureWidth * analyser.textureHeight * 8u;
+		unsigned char* feadBackBuffer = analyser.mapReadbackTexture(totalSize);
+		pageProvider.gatherPageRequests(feadBackBuffer, totalSize, texturesByID);
+		analyser.unmapReadbackTexture();
+		pageProvider.processPageRequests(texturesByID, threadResources, globalResources, analyser.mipBias, analyser.desiredMipBias);
 	}
 
-	static void gatherUniqueRequests(FeedbackAnalizerSubPass& subPass, VirtualTextureManager& virtualTextureManager);
+	unsigned char* mapReadbackTexture(unsigned long totalSize);
+	void unmapReadbackTexture();
 	void createResources(D3D12GraphicsEngine& graphicsEngine, Transform& mainCameraTransform, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1, unsigned char*& constantBufferCpuAddress1, uint32_t width, uint32_t height, float fieldOfView);
 public:
 	float mipBias;
 	float desiredMipBias;
 
-	FeedbackAnalizerSubPass() {}
-	FeedbackAnalizerSubPass(D3D12GraphicsEngine& graphicsEngine, Transform& mainCameraTransform, uint32_t width, uint32_t height, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1,
+	VirtualFeedbackSubPass() {}
+	VirtualFeedbackSubPass(D3D12GraphicsEngine& graphicsEngine, Transform& mainCameraTransform, uint32_t width, uint32_t height, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1,
 		unsigned char*& constantBufferCpuAddress1, float fieldOfView)
 	{
 		createResources(graphicsEngine, mainCameraTransform, constantBufferGpuAddress1, constantBufferCpuAddress1, width, height, fieldOfView);
@@ -85,11 +76,11 @@ public:
 	public:
 		ThreadLocal(D3D12GraphicsEngine& graphicsEngine) : Base(graphicsEngine) {}
 
-		void update1AfterFirstThread(D3D12GraphicsEngine& graphicsEngine, FeedbackAnalizerSubPass& renderSubPass,
+		void update1AfterFirstThread(D3D12GraphicsEngine& graphicsEngine, VirtualFeedbackSubPass& renderSubPass,
 			ID3D12RootSignature* rootSignature, uint32_t barrierCount, D3D12_RESOURCE_BARRIER* barriers);
 
 		template<class Executor, class SharedResources_t>
-		void update2LastThread(ID3D12CommandList**& commandLists, unsigned int numThreads, FeedbackAnalizerSubPass& renderSubPass, Executor& executor, SharedResources_t& sharedResources)
+		void update2LastThread(ID3D12CommandList**& commandLists, unsigned int numThreads, VirtualFeedbackSubPass& renderSubPass, Executor& executor, SharedResources_t& sharedResources)
 		{
 			addBarrier<state, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_COMMON>(renderSubPass, lastCommandList());
 			renderSubPass.lastFrameIndex = sharedResources.graphicsEngine.frameIndex;
@@ -97,7 +88,7 @@ public:
 
 			executor.taskShedular.update1NextQueue().push({ &renderSubPass, [](void* context, Executor& executor, SharedResources_t& sharedResources)
 			{
-				FeedbackAnalizerSubPass& renderSubPass = *reinterpret_cast<FeedbackAnalizerSubPass*>(context);
+				VirtualFeedbackSubPass& renderSubPass = *reinterpret_cast<VirtualFeedbackSubPass*>(context);
 				renderSubPass.inView = false;
 				StreamingManager& streamingManager = sharedResources.streamingManager;
 				D3D12GraphicsEngine& graphicsEngine = sharedResources.graphicsEngine;
@@ -126,7 +117,7 @@ public:
 		}
 
 		template<D3D12_RESOURCE_STATES stateBefore, D3D12_RESOURCE_STATES stateAfter>
-		static void addBarrier(FeedbackAnalizerSubPass& renderSubPass, ID3D12GraphicsCommandList* lastCommandList)
+		static void addBarrier(VirtualFeedbackSubPass& renderSubPass, ID3D12GraphicsCommandList* lastCommandList)
 		{
 			auto cameras = renderSubPass.cameras();
 			auto camerasEnd = cameras.end();

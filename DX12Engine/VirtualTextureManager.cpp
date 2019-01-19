@@ -1,5 +1,7 @@
 #include "VirtualTextureManager.h"
 
+VirtualTextureManager::VirtualTextureManager() {}
+
 void VirtualTextureManager::loadTextureUncachedHelper(TextureStreamingRequest& uploadRequest, StreamingManager& streamingManager, D3D12GraphicsEngine& graphicsEngine,
 	void(*useSubresource)(StreamingManager::StreamingRequest* request, void* threadResources, void* globalResources),
 	void(*resourceUploaded)(StreamingManager::StreamingRequest* request, void* threadResources, void* globalResources),

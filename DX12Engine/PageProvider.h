@@ -15,124 +15,16 @@
 class VirtualTextureManager;
 struct IDXGIAdapter3;
 class D3D12GraphicsEngine;
-class FeedbackAnalizerSubPass;
+class VirtualFeedbackSubPass;
 #undef min
 #undef max
 
 class PageProvider
 {
-	constexpr static size_t maxPageCountMultiplierLowerBound = 4;
-	constexpr static size_t maxPageCountMultiplierUpperBound = 6;
+	constexpr static std::size_t maxPageCountMultiplierLowerBound = 4;
 	constexpr static double memoryFullUpperBound = 0.97;
 	constexpr static double memoryFullLowerBound = 0.95;
-	constexpr static size_t maxPagesLoading = 32u;
-
-	class NewPageIterator
-	{
-		struct NewPage
-		{
-			PageAllocationInfo* page;
-			unsigned long* offsetInUploadBuffer;
-			PageAllocationInfo pageData;
-			unsigned long offsetInUploadBufferData;
-			VirtualTextureManager& virtualTextureManager;
-
-			NewPage(PageAllocationInfo* page, unsigned long* offsetInUploadBuffer, VirtualTextureManager& virtualTextureManager) : page(page),
-				offsetInUploadBuffer(offsetInUploadBuffer), virtualTextureManager(virtualTextureManager) {}
-
-			NewPage(NewPage&& other) : virtualTextureManager(other.virtualTextureManager)
-			{
-				pageData = *other.page;
-				offsetInUploadBufferData = *other.offsetInUploadBuffer;
-				page = &pageData;
-				offsetInUploadBuffer = &offsetInUploadBufferData;
-			}
-
-			void operator=(NewPage&& other)
-			{
-				*page = *other.page;
-				*offsetInUploadBuffer = *other.offsetInUploadBuffer;
-			}
-
-			void swap(const NewPage& other)
-			{
-				auto pageTemp = *page;
-				*page = *other.page;
-				*other.page = pageTemp;
-				auto offset = *offsetInUploadBuffer;
-				*offsetInUploadBuffer = *other.offsetInUploadBuffer;
-				*other.offsetInUploadBuffer = offset;
-			}
-
-			bool operator<(const NewPage& other);
-		};
-		NewPage newPage;
-	public:
-		using value_type = NewPage;
-		using difference_type = std::ptrdiff_t;
-		using pointer = NewPage*;
-		using reference = NewPage&;
-		using iterator_category = std::random_access_iterator_tag;
-
-
-		NewPageIterator(PageAllocationInfo* page, unsigned long* offsetInUploadBuffer, VirtualTextureManager& virtualTextureManager) : 
-			newPage{ page, offsetInUploadBuffer, virtualTextureManager } {}
-		NewPageIterator(const NewPageIterator& e) : newPage(e.newPage.page, e.newPage.offsetInUploadBuffer, e.newPage.virtualTextureManager) {}
-		NewPageIterator& operator=(const NewPageIterator& other)
-		{
-			newPage.page = other.newPage.page;
-			newPage.offsetInUploadBuffer = other.newPage.offsetInUploadBuffer;
-			return *this;
-		}
-		reference operator*() { return newPage; }
-		NewPageIterator& operator++() 
-		{
-			++newPage.page;
-			++newPage.offsetInUploadBuffer;
-			return *this; 
-		}
-		NewPageIterator& operator--() 
-		{
-			--newPage.page;
-			--newPage.offsetInUploadBuffer;
-			return *this;
-		}
-		NewPageIterator operator++(int)
-		{
-			NewPageIterator tmp(*this); 
-			++newPage.page;
-			++newPage.offsetInUploadBuffer;
-			return tmp;
-		}
-		NewPageIterator operator--(int)
-		{
-			NewPageIterator tmp(*this);
-			--newPage.page;
-			--newPage.offsetInUploadBuffer;
-			return tmp;
-		}
-		difference_type operator-(const NewPageIterator& rhs) const noexcept
-		{
-			return newPage.page - rhs.newPage.page;
-		}
-		NewPageIterator operator+(difference_type n) const noexcept
-		{
-			NewPageIterator tmp(*this); 
-			tmp.newPage.page += n;
-			tmp.newPage.offsetInUploadBuffer += n;
-			return tmp; 
-		}
-		NewPageIterator operator-(difference_type n) const noexcept
-		{ 
-			NewPageIterator tmp(*this);
-			tmp.newPage.page -= n;
-			tmp.newPage.offsetInUploadBuffer -= n;
-			return tmp; 
-		}
-		bool operator==(const NewPageIterator& rhs) { return newPage.page == rhs.newPage.page; }
-		bool operator!=(const NewPageIterator& rhs) { return newPage.page != rhs.newPage.page; }
-		bool operator<(const NewPageIterator& rhs) { return newPage.page < rhs.newPage.page; }
-	};
+	constexpr static std::size_t maxPagesLoading = 32u;
 
 	class PageLoadRequest : public StreamingManager::StreamingRequest, public AsynchronousFileManager::IORequest
 	{
@@ -140,35 +32,45 @@ class PageProvider
 		unsigned long pageWidthInBytes;
 		unsigned long widthInBytes;
 		unsigned long heightInTexels;
-
-		enum class State
-		{
-			finished,
-			pending,
-			unused,
-			waitingToFreeMemory,
-		};
-		std::atomic<State> state;
 		PageAllocationInfo allocationInfo;
-		//uint64_t offsetInFile;
+		PageLoadRequest* nextPageLoadRequest;
+	};
+
+	class HeapLocationsIterator
+	{
+		PageLoadRequest** pageLoadRequests;
+	public:
+		HeapLocationsIterator(PageLoadRequest** pageLoadRequests) : pageLoadRequests(pageLoadRequests) {}
+
+		HeapLocation& operator[](std::size_t i)
+		{
+			return pageLoadRequests[i]->allocationInfo.heapLocation;
+		}
+	};
+
+	struct TextureLocationHasher : std::hash<uint64_t>
+	{
+		size_t operator()(TextureLocation location) const
+		{
+			return (*(std::hash<uint64_t>*)(this))(location.value);
+		}
 	};
 public:
 	PageAllocator pageAllocator;
 private:
 	PageCache pageCache;
-	unsigned long long memoryUsage;
-	signed long long maxPages; //total number of pages that can be used for non-pinned virtual texture pages. Can be negative when too much memory is being used for other things
-
-	PageLoadRequest pageLoadRequests[maxPagesLoading];
+	std::unordered_map<TextureLocation, PageRequestData, TextureLocationHasher> uniqueRequests;
 	ResizingArray<std::pair<TextureLocation, unsigned long long>> posableLoadRequests;
-	PageAllocationInfo newPages[maxPagesLoading];
-	unsigned long newPageOffsetsInLoadRequests[maxPagesLoading];
-	size_t newPageCount;
-	size_t newCacheSize;
+	PageLoadRequest pageLoadRequests[maxPagesLoading];
+	std::size_t freePageLoadRequestsCount;
+	PageLoadRequest* freePageLoadRequests;
+	std::atomic<PageLoadRequest*> halfFinishedPageLoadRequests;
+	std::atomic<PageLoadRequest*> returnedPageLoadRequests;
 
 	static void copyPageToUploadBuffer(StreamingManager::StreamingRequest* useSubresourceRequest, const unsigned char* data);
 	static void addPageLoadRequestHelper(PageLoadRequest& pageRequest, VirtualTextureManager& virtualTextureManager, 
-		void(*useSubresource)(StreamingManager::StreamingRequest* request, void* threadResources, void* globalResources));
+		void(*useSubresource)(StreamingManager::StreamingRequest* request, void* threadResources, void* globalResources),
+		void(*resourceUploaded)(StreamingManager::StreamingRequest* request, void* threadResources, void* globalResources));
 
 	template<class ThreadResources, class GlobalResources>
 	static void addPageLoadRequest(PageLoadRequest& pageRequest, ThreadResources& threadResources, GlobalResources&)
@@ -182,141 +84,89 @@ private:
 				PageLoadRequest& uploadRequest = *static_cast<PageLoadRequest*>(request);
 				GlobalResources& globalResources = *reinterpret_cast<GlobalResources*>(gr);
 
-				uploadRequest.fileLoadedCallback = [](AsynchronousFileManager::IORequest& request, void*, void*, const unsigned char* buffer)
+				uploadRequest.fileLoadedCallback = [](AsynchronousFileManager::IORequest& req, void*, void* gr, const unsigned char* buffer)
 				{
-					PageLoadRequest& uploadRequest = static_cast<PageLoadRequest&>(request);
-					copyPageToUploadBuffer(&uploadRequest, buffer);
-					uploadRequest.state.store(PageProvider::PageLoadRequest::State::finished, std::memory_order::memory_order_release);
+					PageLoadRequest* request = static_cast<PageLoadRequest*>(&req);
+					copyPageToUploadBuffer(request, buffer);
+
+					GlobalResources& globalResources = *reinterpret_cast<GlobalResources*>(gr);
+					PageProvider& pageProvider = globalResources.virtualTextureManager.pageProvider;
+					PageLoadRequest* oldHalfFinishedPageLoadRequests = pageProvider.halfFinishedPageLoadRequests.load(std::memory_order::memory_order_relaxed);
+					request->nextPageLoadRequest = oldHalfFinishedPageLoadRequests;
+					while(!pageProvider.halfFinishedPageLoadRequests.compare_exchange_weak(oldHalfFinishedPageLoadRequests, request, std::memory_order_release, std::memory_order::memory_order_relaxed))
+					{
+						request->nextPageLoadRequest = oldHalfFinishedPageLoadRequests;
+					}
 				};
 				globalResources.asynchronousFileManager.readFile(tr, gr, &uploadRequest);
+			}, [](StreamingManager::StreamingRequest* requester, void*, void* gr)
+			{
+				PageLoadRequest* request = static_cast<PageLoadRequest*>(requester);
+				GlobalResources& globalResources = *reinterpret_cast<GlobalResources*>(gr);
+				PageProvider& pageProvider = globalResources.virtualTextureManager.pageProvider;
+				PageLoadRequest* oldReturnedPageLoadRequests = pageProvider.returnedPageLoadRequests.load(std::memory_order::memory_order_relaxed);
+				request->nextPageLoadRequest = oldReturnedPageLoadRequests;
+				while(!pageProvider.returnedPageLoadRequests.compare_exchange_weak(oldReturnedPageLoadRequests, request, std::memory_order_release, std::memory_order::memory_order_relaxed))
+				{
+					request->nextPageLoadRequest = oldReturnedPageLoadRequests;
+				}
 			});
 			StreamingManager& streamingManager = sharedResources.streamingManager;
 			streamingManager.addUploadRequest(&pageRequest, threadResources, sharedResources);
 		} });
 	}
 
-	unsigned int recalculateCacheSize(FeedbackAnalizerSubPass& feedbackAnalizerSubPass, IDXGIAdapter3* adapter, size_t totalPagesNeeded);
-	void workoutIfPageNeededInCache(unsigned int mipBiasIncrease, std::pair<const TextureLocation, PageRequestData>& request, VirtualTextureManager& virtualTextureManager, size_t& numRequiredPagesInCache);
-	size_t findLoadedTexturePages();
-
 	template<class ThreadResources, class GlobalResources>
-	void startLoadingRequiredPages(ThreadResources& threadResources, GlobalResources& globalResources)
+	void startLoadingRequiredPages(ThreadResources& threadResources, GlobalResources& globalResources, PageDeleter& pageDeleter)
 	{
-		auto loadRequestsCurrent = posableLoadRequests.begin();
-		const auto loadRequestsEnd = posableLoadRequests.end();
-		if (loadRequestsCurrent != loadRequestsEnd)
+		if (!posableLoadRequests.empty())
 		{
-			for (auto& pageRequest : pageLoadRequests)
+			for(const auto& requestInfo : posableLoadRequests)
 			{
-				auto state = pageRequest.state.load(std::memory_order::memory_order_acquire);
-				if (state == PageLoadRequest::State::unused)
-				{
-					pageRequest.state.store(PageLoadRequest::State::pending, std::memory_order::memory_order_relaxed);
-					pageRequest.allocationInfo.textureLocation = loadRequestsCurrent->first;
-					addPageLoadRequest(pageRequest, threadResources, globalResources);
-					++loadRequestsCurrent;
-					if (loadRequestsCurrent == loadRequestsEnd) break;
-				}
+				PageLoadRequest& pageRequest = *freePageLoadRequests;
+				freePageLoadRequests = freePageLoadRequests->nextPageLoadRequest;
+				pageRequest.allocationInfo.textureLocation = requestInfo.first;
+				addPageLoadRequest(pageRequest, threadResources, globalResources);
+				pageCache.addNonAllocatedPage(requestInfo.first, pageDeleter);
 			}
+			freePageLoadRequestsCount -= posableLoadRequests.size();
 			posableLoadRequests.clear();
 		}
 	}
 
-	template<class HashMap>
-	void dropNewPagesIfTooMany(HashMap& pageRequests, size_t numRequiredPagesInCache, unsigned int mipBiasIncrease)
-	{
-		size_t numDroppablePagesInCache = newCacheSize - numRequiredPagesInCache;
-		if (numDroppablePagesInCache < newPageCount)
-		{
-			if (mipBiasIncrease != 0u)
-			{
-				//very hard to tell if a page needs loading when mip level has changed. Therefor we just keep the first pages.
-				newPageCount = numDroppablePagesInCache;
-			}
-			else
-			{
-				auto i = newPageCount;
-				while (true)
-				{
-					--i;
-					auto pos = pageRequests.find(newPages[i].textureLocation);
-					if (pos == pageRequests.end())
-					{
-						//this page isn't needed because it wasn't requested this frame
-						--newPageCount;
-					}
-					else
-					{
-						while (i != 0u)
-						{
-							--i;
-							pos = pageRequests.find(newPages[i].textureLocation);
-							if (pos == pageRequests.end())
-							{
-								//this page isn't needed because it wasn't requested this frame
-								--newPageCount;
-								std::swap(newPages[i], newPages[newPageCount]);
-								std::swap(newPageOffsetsInLoadRequests[i], newPageOffsetsInLoadRequests[newPageCount]);
-							}
-						}
-						break;
-					}
-					if (i == 0u) break;
-				}
-			}
-		}
-	}
-
-	static void addNewPagesToResources(PageProvider& pageProvider, D3D12GraphicsEngine& graphicsEngine, VirtualTextureManager& virtualTextureManager,
+	static void addNewPagesToResources(PageProvider& pageProvider, D3D12GraphicsEngine& graphicsEngine, VirtualTextureInfoByID& texturesByID,
 		GpuCompletionEventManager<frameBufferCount>& gpuCompletionEventManager, ID3D12GraphicsCommandList* commandList,
 		void(*uploadComplete)(void*, void*, void*));
 
-	void addPageDataToResource(ID3D12Resource* resource, D3D12_TILED_RESOURCE_COORDINATE* newPageCoordinates, size_t pageCount,
-		D3D12_TILE_REGION_SIZE& tileSize, unsigned long* uploadBufferOffsets, ID3D12GraphicsCommandList* commandList, GpuCompletionEventManager<frameBufferCount>& gpuCompletionEventManager, uint32_t frameIndex,
+	static void addPageDataToResource(ID3D12Resource* resource, D3D12_TILED_RESOURCE_COORDINATE* newPageCoordinates, PageLoadRequest** pageLoadRequests, std::size_t pageCount,
+		D3D12_TILE_REGION_SIZE& tileSize, PageCache& pageCache, ID3D12GraphicsCommandList* commandList, GpuCompletionEventManager<frameBufferCount>& gpuCompletionEventManager, uint32_t frameIndex,
 		void(*uploadComplete)(void*, void*, void*));
 
-	template<class HashMap>
-	std::size_t checkForCachedPages(HashMap& pageRequests, VirtualTextureManager& virtualTextureManager, unsigned int mipBiasIncrease)
-	{
-		std::size_t numRequiredPagesInCache = 0u;
-		for(auto& request : pageRequests)
-		{
-			workoutIfPageNeededInCache(mipBiasIncrease, request, virtualTextureManager, numRequiredPagesInCache);
-		}
-		return numRequiredPagesInCache;
-	}
-
-	void workOutWhichTexturesCanBeRequested(std::size_t numTexturesThatCanBeRequested);
+	static void checkCacheForPages(decltype(uniqueRequests)& pageRequests, VirtualTextureInfoByID& texturesByID, PageCache& pageCache,
+		ResizingArray<std::pair<TextureLocation, unsigned long long>>& posableLoadRequests);
+	void shrinkNumberOfLoadRequestsIfNeeded(std::size_t numTexturePagesThatCanBeRequested);
+	void collectReturnedPageLoadRequests();
+	bool recalculateCacheSize(float& mipBias, float desiredMipBias, long long maxPages, std::size_t totalPagesNeeded, PageDeleter& pageDeleter);
+	long long calculateMemoryBudgetInPages(IDXGIAdapter3* adapter);
+	void processPageRequestsHelper(IDXGIAdapter3* adapter, VirtualTextureInfoByID& texturesByID, float& mipBias, float desiredMipBias, PageDeleter& pageDeleter);
+	void increaseMipBias(decltype(uniqueRequests)& pageRequests, VirtualTextureInfoByID& texturesByID);
 public:
-	PageProvider(IDXGIAdapter3* adapter);
+	PageProvider();
 
-	template<class ThreadResources, class GlobalResources, class HashMap>
-	void processPageRequests(HashMap& pageRequests, VirtualTextureManager& virtualTextureManager,
-		ThreadResources& executor, GlobalResources& sharedResources)
+	void gatherPageRequests(unsigned char* feadBackBuffer, unsigned long sizeInBytes, VirtualTextureInfoByID& texturesByID);
+
+	template<class ThreadResources, class GlobalResources>
+	void processPageRequests(VirtualTextureInfoByID& texturesByID,
+		ThreadResources& executor, GlobalResources& sharedResources, float& mipBias, float desiredMipBias)
 	{
-		IDXGIAdapter3* adapter = sharedResources.graphicsEngine.adapter;
-		FeedbackAnalizerSubPass& feedbackAnalizerSubPass = sharedResources.renderPass.virtualTextureFeedbackSubPass();
-
-		//Work out memory budget, grow or shrink cache as required and change mip bias if required
-		const unsigned int mipBiasIncrease = recalculateCacheSize(feedbackAnalizerSubPass, adapter, pageRequests.size());
-
-		//work out which pages are in the cache, which pages need loading and the number that are required in the cache
-		std::size_t numRequiredPagesInCache = checkForCachedPages(pageRequests, virtualTextureManager, mipBiasIncrease);
-
-		//work out which pages have finished loading and how many textures can to requested
-		std::size_t numTexturesThatCanBeRequested = findLoadedTexturePages();
-
-		workOutWhichTexturesCanBeRequested(numTexturesThatCanBeRequested);
-		
-		//start all texture pages in posableLoadRequests loading
-		startLoadingRequiredPages(executor, sharedResources);
-
-		//work out which newly loaded pages have to be dropped based on the number of pages that can be dropped from the cache
-		dropNewPagesIfTooMany(pageRequests, numRequiredPagesInCache, mipBiasIncrease);
+		PageDeleter pageDeleter(pageAllocator, texturesByID, sharedResources.graphicsEngine.directCommandQueue);
+		processPageRequestsHelper(sharedResources.graphicsEngine.adapter, texturesByID, mipBias, desiredMipBias, pageDeleter);
+		startLoadingRequiredPages(executor, sharedResources, pageDeleter);
+		pageDeleter.finish();
 
 		executor.taskShedular.update2NextQueue().concurrentPush({ this, [](void* requester, ThreadResources& threadResources, GlobalResources& sharedResources)
 		{
-			addNewPagesToResources(*reinterpret_cast<PageProvider*>(requester), sharedResources.graphicsEngine, sharedResources.virtualTextureManager, threadResources.gpuCompletionEventManager,
+			addNewPagesToResources(*reinterpret_cast<PageProvider*>(requester), sharedResources.graphicsEngine, sharedResources.virtualTextureManager.texturesByID, threadResources.gpuCompletionEventManager,
 				threadResources.renderPass.colorSubPass().opaqueCommandList(), [](void* requester, void* tr, void* gr) //must use colorSubPass as virtualTextureFeedbackSubPass isn't in view and will have closed command lists
 			{
 				PageLoadRequest* request = static_cast<PageLoadRequest*>(requester);
@@ -326,11 +176,11 @@ public:
 				streamingManager.uploadFinished(request, threadResources, globalResources);
 			});
 
-			// we have finished with the readback resources so we can render again
-			FeedbackAnalizerSubPass& feedbackAnalizerSubPass = sharedResources.renderPass.virtualTextureFeedbackSubPass();
+			//we have finished with the readback resources so we can render again
+			VirtualFeedbackSubPass& feedbackAnalizerSubPass = sharedResources.renderPass.virtualTextureFeedbackSubPass();
 			threadResources.taskShedular.update1NextQueue().push({ &feedbackAnalizerSubPass, [](void* requester, ThreadResources&, GlobalResources&)
 			{
-				FeedbackAnalizerSubPass& subPass = *reinterpret_cast<FeedbackAnalizerSubPass*>(requester);
+				VirtualFeedbackSubPass& subPass = *reinterpret_cast<VirtualFeedbackSubPass*>(requester);
 				subPass.setInView();
 			} });
 		} });

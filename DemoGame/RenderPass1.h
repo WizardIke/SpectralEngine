@@ -6,7 +6,7 @@
 #include <d3d12.h>
 #include <tuple>
 #include <Range.h>
-#include <FeedbackAnalizer.h>
+#include <VirtualFeedbackSubPass.h>
 class GlobalResources;
 class ThreadResources;
 
@@ -19,7 +19,7 @@ class RenderPass1
 	using ColorSubPass1 = RenderMainSubPass<MainCamera, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET,
 		std::tuple<std::integral_constant<unsigned int, renderToTextureSubPassIndex>>,
 		std::tuple<std::integral_constant<D3D12_RESOURCE_STATES, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE>>, 2u, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_PRESENT>;
-	using RenderPass11 = RenderPass<FeedbackAnalizerSubPass, RenderToTextureSubPass1, ColorSubPass1>;
+	using RenderPass11 = RenderPass<VirtualFeedbackSubPass, RenderToTextureSubPass1, ColorSubPass1>;
 
 	RenderPass11 data;
 public:
@@ -49,7 +49,7 @@ public:
 		ColorSubPass colorSubPass() { return std::get<colorSubPassIndex>(data.subPassesThreadLocal); }
 
 		RenderToTextureSubPass::ThreadLocal& renderToTextureSubPass() { return std::get<renderToTextureSubPassIndex>(data.subPassesThreadLocal); }
-		FeedbackAnalizerSubPass::ThreadLocal& virtualTextureFeedbackSubPass() { return std::get<virtualTextureFeedbackSubPassIndex>(data.subPassesThreadLocal); }
+		VirtualFeedbackSubPass::ThreadLocal& virtualTextureFeedbackSubPass() { return std::get<virtualTextureFeedbackSubPassIndex>(data.subPassesThreadLocal); }
 
 		void update1(ThreadResources& threadResources, D3D12GraphicsEngine& graphicsEngine, RenderPass1& renderPass, bool firstThread)
 		{
@@ -68,7 +68,7 @@ public:
 
 	ColorSubPass1& colorSubPass() { return std::get<colorSubPassIndex>(data.subPasses); }
 	RenderToTextureSubPass& renderToTextureSubPass() { return std::get<renderToTextureSubPassIndex>(data.subPasses); }
-	FeedbackAnalizerSubPass& virtualTextureFeedbackSubPass() { return std::get<virtualTextureFeedbackSubPassIndex>(data.subPasses); }
+	VirtualFeedbackSubPass& virtualTextureFeedbackSubPass() { return std::get<virtualTextureFeedbackSubPassIndex>(data.subPasses); }
 
 	void updateBarrierCount()
 	{

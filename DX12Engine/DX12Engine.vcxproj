@@ -242,7 +242,7 @@
     <ClInclude Include="D3D12PipelineState.h" />
     <ClInclude Include="D3D12RootSignature.h" />
     <ClInclude Include="D3DBlob.h" />
-    <ClInclude Include="FeedbackAnalizer.h" />
+    <ClInclude Include="VirtualFeedbackSubPass.h" />
     <ClInclude Include="for_each.h" />
     <ClInclude Include="frameBufferCount.h" />
     <ClInclude Include="Range.h" />
@@ -335,7 +335,7 @@
     <ClCompile Include="AsynchronousFileManager.cpp" />
     <ClCompile Include="BaseSentence.cpp" />
     <ClCompile Include="CameraUtil.cpp" />
-    <ClCompile Include="FeedbackAnalizer.cpp" />
+    <ClCompile Include="VirtualFeedbackSubPass.cpp" />
     <ClCompile Include="PageCache.cpp" />
     <ClCompile Include="PageDeleter.cpp" />
     <ClCompile Include="PageProvider.cpp" />

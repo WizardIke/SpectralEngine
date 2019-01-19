@@ -57,15 +57,24 @@ class PageCache
 	static const PageAllocationInfo& getDataFromNode(const Node& node) { return node.data; }
 public:
 	PageCache();
+	/* gets a page and marks it as the most recently used */
 	PageAllocationInfo* getPage(const TextureLocation& location);
 	std::size_t capacity() { return maxPages; }
+	std::size_t size() { return pageLookUp.size(); }
 	void increaseSize(std::size_t newMaxPages);
 
 	/*
 	* adds pages removing the least recently used pages in the cache to make room.
 	* adding pages to a cache with zero max size is undefined behavior.
 	*/
-	void addPages(PageAllocationInfo* pageInfos, std::size_t pageCount, PageDeleter& pageDeleter);
+	void addPages(const PageAllocationInfo* pageInfos, std::size_t pageCount, PageDeleter& pageDeleter);
+
+	void addPage(const PageAllocationInfo& pageInfo, PageDeleter& pageDeleter);
+
+	void addNonAllocatedPage(const TextureLocation& location, PageDeleter& pageDeleter);
+
+	bool contains(TextureLocation location);
+	void setPageAsAllocated(TextureLocation location, HeapLocation newHeapLocation);
 
 	void decreaseSize(std::size_t newMaxPages, PageDeleter& pageDeleter);
 
@@ -75,5 +84,6 @@ public:
 		return range(pageLookUp).map<const PageAllocationInfo&, &getDataFromNode>();
 	}
 
-	void removePageWithoutDeleting(const TextureLocation& location);
+	/* Removes a page without freeing heap space */
+	void removePage(const TextureLocation& location, PageDeleter& pageDeleter);
 };

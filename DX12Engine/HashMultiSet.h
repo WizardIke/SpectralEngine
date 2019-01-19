@@ -225,7 +225,7 @@ public:
 	{
 		if (other.impl.mSize != 0)
 		{
-			impl.data = impl.allocate(other.impl.capacity);
+			impl.data = impl.allocate(other.impl.capacity + 1u);
 			impl.capacity = other.impl.capacity;
 			impl.mSize = other.impl.mSize;
 			impl.loadThreshold = other.impl.loadThreshold;

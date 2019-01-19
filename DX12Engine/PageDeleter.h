@@ -17,6 +17,7 @@ class PageDeleter
 public:
 	PageDeleter(PageAllocator& pageAllocator, const VirtualTextureInfoByID& texturesByID, ID3D12CommandQueue* commandQueue);
 	void deletePage(const PageAllocationInfo& allocationInfo);
+	/* Delete page from resource without freeing heap space */
 	void deletePage(const TextureLocation& textureLocation);
 
 	void finish()

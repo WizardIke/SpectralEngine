@@ -55,32 +55,41 @@ void PageCache::Node::operator=(Node&& other) noexcept
 	new(this) Node(std::move(other));
 }
 
-void PageCache::addPages(PageAllocationInfo* pageInfos, std::size_t pageCount, PageDeleter& pageDeleter)
+void PageCache::addPages(const PageAllocationInfo* pageInfos, std::size_t pageCount, PageDeleter& pageDeleter)
 {
 	assert(maxPages != 0u);
-
 	for (std::size_t i = 0u; i != pageCount; ++i)
 	{
-		const auto size = pageLookUp.size();
-		if (size == maxPages)
-		{
-			Node* backPrev = mBack.previous;
-			mBack.previous = backPrev->previous;
-			mBack.previous->next = &mBack;
-			pageDeleter.deletePage(backPrev->data);
-			pageLookUp.erase(backPrev->data.textureLocation);
-		}
-		assert(size <= maxPages);
-		Node newPage;
-		newPage.data = pageInfos[i];
-		newPage.next = mFront.next;
-		newPage.previous = &mFront;
-		//both of these are nesesary if no moves happen or the hashmap resizes before moving the newPage
-		mFront.next->previous = &newPage;
-		mFront.next = &newPage;
-
-		pageLookUp.insert(std::move(newPage));
+		addPage(pageInfos[i], pageDeleter);
 	}
+}
+
+void PageCache::addPage(const PageAllocationInfo& pageInfo, PageDeleter& pageDeleter)
+{
+	const auto size = pageLookUp.size();
+	if(size == maxPages)
+	{
+		Node* backPrev = mBack.previous;
+		mBack.previous = backPrev->previous;
+		mBack.previous->next = &mBack;
+		pageDeleter.deletePage(backPrev->data);
+		pageLookUp.erase(backPrev->data.textureLocation);
+	}
+	assert(size <= maxPages);
+	Node newPage;
+	newPage.data = pageInfo;
+	newPage.next = mFront.next;
+	newPage.previous = &mFront;
+	//both of these are nesesary if no moves happen or the hashmap resizes before moving the newPage
+	mFront.next->previous = &newPage;
+	mFront.next = &newPage;
+
+	pageLookUp.insert(std::move(newPage));
+}
+
+void PageCache::addNonAllocatedPage(const TextureLocation& location, PageDeleter& pageDeleter)
+{
+	addPage({{std::numeric_limits<unsigned int>::max(), std::numeric_limits<unsigned int>::max()}, location}, pageDeleter);
 }
 
 void PageCache::decreaseSize(std::size_t newMaxPages, PageDeleter& pageDeleter)
@@ -95,18 +104,36 @@ void PageCache::decreaseSize(std::size_t newMaxPages, PageDeleter& pageDeleter)
 			Node* backPrev = mBack.previous;
 			mBack.previous = backPrev->previous;
 			mBack.previous->next = &mBack;
-			pageDeleter.deletePage(backPrev->data);
+			if(backPrev->data.heapLocation.heapOffsetInPages == std::numeric_limits<unsigned int>::max())
+			{
+				pageDeleter.deletePage(backPrev->data.textureLocation);
+			}
+			else
+			{
+				pageDeleter.deletePage(backPrev->data);
+			}
 			pageLookUp.erase(backPrev->data.textureLocation);
 		}
 	}
 	maxPages = newMaxPages;
 }
 
-void PageCache::removePageWithoutDeleting(const TextureLocation& location)
+void PageCache::removePage(const TextureLocation& location, PageDeleter& pageDeleter)
 {
 	auto page = pageLookUp.find(location);
 	assert(page != pageLookUp.end() && "Cannot delete a page that doesn't exist");
 	page->previous->next = page->next;
 	page->next->previous = page->previous;
 	pageLookUp.erase(page);
+	pageDeleter.deletePage(location); //remove page from resource
+}
+
+bool PageCache::contains(TextureLocation location)
+{
+	return pageLookUp.find(location) != pageLookUp.end();
+}
+
+void PageCache::setPageAsAllocated(TextureLocation location, HeapLocation newHeapLocation)
+{
+	pageLookUp.find(location)->data.heapLocation = newHeapLocation;
 }

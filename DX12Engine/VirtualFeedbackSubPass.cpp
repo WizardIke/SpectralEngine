@@ -1,95 +1,23 @@
-#include "FeedbackAnalizer.h"
+#include "VirtualFeedbackSubPass.h"
 #include "VirtualTextureInfo.h"
-#include <chrono>
-/*
-#include <Windows.h>
-#include <iostream>
-#include <sstream>
 
-#define DBOUT( s )            \
-{                             \
-   std::wostringstream os_;    \
-   os_ << s;                   \
-   OutputDebugStringW( os_.str().c_str() );  \
-}
-*/
-
-template<class HashMap>
-static inline void requestMipLevels(unsigned int mipLevel, const unsigned int lowestPinnedMip, TextureLocation feedbackData, HashMap& uniqueRequests)
+unsigned char* VirtualFeedbackSubPass::mapReadbackTexture(unsigned long totalSize)
 {
-	auto x = feedbackData.x() >> mipLevel;
-	auto y = feedbackData.y() >> mipLevel;
-	while(mipLevel < lowestPinnedMip)
-	{
-		feedbackData.setMipLevel(mipLevel);
-		feedbackData.setX(x);
-		feedbackData.setY(y);
-		PageRequestData& pageRequest = uniqueRequests[feedbackData];
-		++pageRequest.count;
-		++mipLevel;
-		x >>= 1u;
-		y >>= 1u;
-	}
-}
-
-void FeedbackAnalizerSubPass::gatherUniqueRequests(FeedbackAnalizerSubPass& subPass, VirtualTextureManager& virtualTextureManager)
-{
-	auto& uniqueRequests = subPass.uniqueRequests;
+	D3D12_RANGE readRange{0u, totalSize};
 	unsigned char* feadBackBuffer;
-
-	const auto width = subPass.textureWidth;
-	const auto height = subPass.textureHeight;
-	const auto totalSize = width * height * 8u;
-	D3D12_RANGE readRange{ 0u, totalSize };
-	subPass.readbackTexture->Map(0u, &readRange, reinterpret_cast<void**>(&feadBackBuffer));
-
-	//auto start = std::chrono::high_resolution_clock::now();
-
-	const auto feadBackBufferEnd = feadBackBuffer + totalSize;
-	for (; feadBackBuffer != feadBackBufferEnd; feadBackBuffer += 8u)
-	{
-		TextureLocation feedbackData{*reinterpret_cast<uint64_t*>(feadBackBuffer)};
-
-		unsigned int nextMipLevel = (unsigned int)feedbackData.mipLevel();
-		auto textureId = feedbackData.textureId1();
-		auto texture2d = feedbackData.textureId2();
-		auto texture3d = feedbackData.textureId3();
-
-		feedbackData.setTextureId2(0);
-		feedbackData.setTextureId3(0);
-
-		if (textureId != 255u)
-		{
-			VirtualTextureInfo& textureInfo = virtualTextureManager.texturesByID[textureId];
-			requestMipLevels(nextMipLevel, textureInfo.lowestPinnedMip, feedbackData, uniqueRequests);
-		}
-		if (texture2d != 255u)
-		{
-			feedbackData.setTextureId1(texture2d);
-			VirtualTextureInfo& textureInfo = virtualTextureManager.texturesByID[texture2d];
-			requestMipLevels(nextMipLevel, textureInfo.lowestPinnedMip, feedbackData, uniqueRequests);
-		}
-		if (texture3d != 255u)
-		{
-			feedbackData.setTextureId1(texture3d);
-			VirtualTextureInfo& textureInfo = virtualTextureManager.texturesByID[texture3d];
-			requestMipLevels(nextMipLevel, textureInfo.lowestPinnedMip, feedbackData, uniqueRequests);
-		}
-	}
-
-	/*
-	auto end = std::chrono::high_resolution_clock::now();
-	std::chrono::duration<double> time = end - start;
-	DBOUT("\n" << time.count());
-	*/
-
-	D3D12_RANGE writtenRange{ 0u, 0u };
-	subPass.readbackTexture->Unmap(0u, &writtenRange);
+	readbackTexture->Map(0u, &readRange, reinterpret_cast<void**>(&feadBackBuffer));
+	return feadBackBuffer;
 }
 
-void FeedbackAnalizerSubPass::destruct() {}
+void VirtualFeedbackSubPass::unmapReadbackTexture()
+{
+	D3D12_RANGE writtenRange{0u, 0u};
+	readbackTexture->Unmap(0u, &writtenRange);
+}
 
-void FeedbackAnalizerSubPass::createResources(D3D12GraphicsEngine& graphicsEngine, Transform& mainCameraTransform, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1, unsigned char*& constantBufferCpuAddress1,
+void VirtualFeedbackSubPass::destruct() {}
+
+void VirtualFeedbackSubPass::createResources(D3D12GraphicsEngine& graphicsEngine, Transform& mainCameraTransform, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1, unsigned char*& constantBufferCpuAddress1,
 	uint32_t width, uint32_t height, float fieldOfView)
 {
 	ID3D12Device* graphicsDevice = graphicsEngine.graphicsDevice;
@@ -189,7 +117,7 @@ void FeedbackAnalizerSubPass::createResources(D3D12GraphicsEngine& graphicsEngin
 
 }
 
-void FeedbackAnalizerSubPass::ThreadLocal::update1AfterFirstThread(D3D12GraphicsEngine& graphicsEngine, FeedbackAnalizerSubPass& renderSubPass,
+void VirtualFeedbackSubPass::ThreadLocal::update1AfterFirstThread(D3D12GraphicsEngine& graphicsEngine, VirtualFeedbackSubPass& renderSubPass,
 	ID3D12RootSignature* rootSignature, uint32_t barrierCount, D3D12_RESOURCE_BARRIER* barriers)
 {
 	auto frameIndex = graphicsEngine.frameIndex;

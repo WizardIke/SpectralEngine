@@ -302,9 +302,6 @@
       <Filter>VirtualTexturing</Filter>
     </ClInclude>
     <ClInclude Include="FixedSizeAllocator.h" />
-    <ClInclude Include="FeedbackAnalizer.h">
-      <Filter>VirtualTexturing</Filter>
-    </ClInclude>
     <ClInclude Include="Transform.h">
       <Filter>Transform</Filter>
     </ClInclude>
@@ -382,6 +379,9 @@
     <ClInclude Include="ThreadsafePoolAllocator.h" />
     <ClInclude Include="ActorQueue.h" />
     <ClInclude Include="SinglyLinked.h" />
+    <ClInclude Include="VirtualFeedbackSubPass.h">
+      <Filter>VirtualTexturing</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DDSFileLoader.cpp">
@@ -445,9 +445,6 @@
     <ClCompile Include="PageAllocator.cpp">
       <Filter>VirtualTexturing</Filter>
     </ClCompile>
-    <ClCompile Include="FeedbackAnalizer.cpp">
-      <Filter>VirtualTexturing</Filter>
-    </ClCompile>
     <ClCompile Include="PageCache.cpp">
       <Filter>VirtualTexturing</Filter>
     </ClCompile>
@@ -462,6 +459,9 @@
     </ClCompile>
     <ClCompile Include="ThreadBarrier.cpp" />
     <ClCompile Include="PageDeleter.cpp">
+      <Filter>VirtualTexturing</Filter>
+    </ClCompile>
+    <ClCompile Include="VirtualFeedbackSubPass.cpp">
       <Filter>VirtualTexturing</Filter>
     </ClCompile>
   </ItemGroup>

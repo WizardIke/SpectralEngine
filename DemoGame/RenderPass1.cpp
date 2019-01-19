@@ -5,7 +5,7 @@ RenderPass1::RenderPass1(GlobalResources& globalResources, Transform& mainCamera
 	D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpu, unsigned char*& constantBufferCpu, float feedbackFieldOfView) : data(globalResources.taskShedular.threadCount())
 {
 	auto& subPass = std::get<virtualTextureFeedbackSubPassIndex>(data.subPasses);
-	subPass.~FeedbackAnalizerSubPass();
-	new(&subPass) FeedbackAnalizerSubPass{ globalResources.graphicsEngine, mainCameraTransform, virtualTextureFeedbackWidth, virtualTextureFeedbackHeight,
+	subPass.~VirtualFeedbackSubPass();
+	new(&subPass) VirtualFeedbackSubPass{ globalResources.graphicsEngine, mainCameraTransform, virtualTextureFeedbackWidth, virtualTextureFeedbackHeight,
 		constantBufferGpu, constantBufferCpu, feedbackFieldOfView };
 }
