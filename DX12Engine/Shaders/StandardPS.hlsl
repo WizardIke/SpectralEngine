@@ -159,15 +159,21 @@ float calulateCheapReflection(float3 viewDirection, float3 reflectionNormal, flo
 float4 sampleTexture(Texture2D<float4> t, SamplerState samplerType, float2 texCoords)
 {
     float4 value;
-#ifdef USE_VIRTUAL_TEXTURE
+#ifdef USE_VIRTUAL_TEXTURES
 	{
         uint status;
         value = t.Sample(samplerType, texCoords, int2(0, 0), 0.0f, status);
-        float bias = 1.0;
-        while (!CheckAccessFullyMapped(status))
+        if (!CheckAccessFullyMapped(status))
         {
-            value = t.SampleBias(samplerType, texCoords, bias, int2(0, 0), 0.0f, status);
-            ++bias;
+            float2 derivX = ddx(texCoords);
+            float2 derivY = ddy(texCoords);
+            do
+            {
+                value = t.SampleGrad(samplerType, texCoords, derivX, derivY, int2(0, 0), 0.0f, status);
+                derivX *= 2.0f;
+                derivY *= 2.0f;
+            } while (!CheckAccessFullyMapped(status));
+
         }
     }
 #else
