@@ -13,12 +13,7 @@ public:
 		if (FAILED(hr)) throw D3D12CreateDeviceFailedException(hr);
 	}
 
-	D3D12Device(IDXGIFactory5* factory, HWND window, const D3D_FEATURE_LEVEL featureLevel) : data(nullptr)
-	{
-		DXGIAdapter tempAdapter(factory, window, featureLevel);
-		HRESULT hr = D3D12CreateDevice(tempAdapter, featureLevel, IID_PPV_ARGS(&data));
-		if (FAILED(hr)) throw D3D12CreateDeviceFailedException(hr);
-	}
+	D3D12Device(ID3D12Device* device) : data(device) {}
 
 	D3D12Device(D3D12Device&& other) : data(other.data)
 	{

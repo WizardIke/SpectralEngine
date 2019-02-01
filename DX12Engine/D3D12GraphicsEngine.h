@@ -63,7 +63,14 @@ private:
 		}
 	};
 
+	struct AdapterAndDevice
+	{
+		IDXGIAdapter3* adapter;
+		ID3D12Device* device;
+	};
+
 	D3D12GraphicsEngine(Window& window, DXGIFactory factory, DXGI_ADAPTER_FLAG avoidedAdapterFlags);
+	D3D12GraphicsEngine(Window& window, IDXGIFactory5* factory, AdapterAndDevice adapterAndDevice);
 public:
 	D3D12DescriptorHeap mainDescriptorHeap;
 	DescriptorAllocator descriptorAllocator;

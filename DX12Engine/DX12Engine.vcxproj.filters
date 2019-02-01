@@ -99,9 +99,6 @@
     <ClInclude Include="EventCreationException.h">
       <Filter>Exceptions</Filter>
     </ClInclude>
-    <ClInclude Include="IDXGIAdapterNotFoundException.h">
-      <Filter>Exceptions</Filter>
-    </ClInclude>
     <ClInclude Include="D3D12CreateDeviceFailedException.h">
       <Filter>Exceptions</Filter>
     </ClInclude>
@@ -381,6 +378,9 @@
     <ClInclude Include="SinglyLinked.h" />
     <ClInclude Include="VirtualFeedbackSubPass.h">
       <Filter>VirtualTexturing</Filter>
+    </ClInclude>
+    <ClInclude Include="GraphicsAdapterNotFound.h">
+      <Filter>Exceptions</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

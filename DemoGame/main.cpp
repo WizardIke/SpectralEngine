@@ -1,4 +1,5 @@
 #include "GlobalResources.h"
+#include <GraphicsAdapterNotFound.h>
 
 #ifdef _WIN32
 INT WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int)
@@ -11,5 +12,5 @@ int main()
 		GlobalResources game{};
 		game.start();
 	}
-	catch(IDXGIAdapterNotFoundException) {}
+	catch(GraphicsAdapterNotFound) {}
 }

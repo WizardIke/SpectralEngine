@@ -308,7 +308,7 @@
     <ClInclude Include="DDSFileLoader.h" />
     <ClInclude Include="EventCreationException.h" />
     <ClInclude Include="HresultException.h" />
-    <ClInclude Include="IDXGIAdapterNotFoundException.h" />
+    <ClInclude Include="GraphicsAdapterNotFound.h" />
     <ClInclude Include="InputManager.h" />
     <ClInclude Include="Light.h" />
     <ClInclude Include="D3D12GraphicsEngine.h" />

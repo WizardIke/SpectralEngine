@@ -3,15 +3,67 @@
 #include <d3d12.h>
 #include "DXGIAdapter.h"
 #include "Window.h"
+#include "GraphicsAdapterNotFound.h"
 
 
 D3D12GraphicsEngine::D3D12GraphicsEngine(Window& window, bool enableGpuDebugging, DXGI_ADAPTER_FLAG avoidedAdapterFlags) : D3D12GraphicsEngine(window, DXGIFactory(enableGpuDebugging), avoidedAdapterFlags)
 {}
 
-D3D12GraphicsEngine::D3D12GraphicsEngine(Window& window, DXGIFactory factory, DXGI_ADAPTER_FLAG avoidedAdapterFlags) :
-	adapter(factory, window.windowHandle, D3D_FEATURE_LEVEL_11_0, avoidedAdapterFlags),
-	graphicsDevice(adapter, D3D_FEATURE_LEVEL_11_0),
+D3D12GraphicsEngine::D3D12GraphicsEngine(Window& window, DXGIFactory factory, DXGI_ADAPTER_FLAG avoidedAdapterFlags) : D3D12GraphicsEngine(window, factory, [&factory, &window, avoidedAdapterFlags]()
+{
+	AdapterAndDevice adapterAndDevice = {};
 
+	IDXGIAdapter3* adapter3;
+	IDXGIAdapter1* adapter1;
+	DXGI_ADAPTER_DESC1 desc;
+	bool found = false;
+	for(auto adapterIndex = 0u; factory->EnumAdapters1(adapterIndex, &adapter1) != DXGI_ERROR_NOT_FOUND; ++adapterIndex) // we'll start looking for directx 12 compatible graphics devices starting at index 0
+	{
+		adapter1->GetDesc1(&desc);
+		auto result = adapter1->QueryInterface(IID_PPV_ARGS(&adapter3));
+		adapter1->Release();
+		if(result == S_OK)
+		{
+			if(!(desc.Flags & avoidedAdapterFlags) && SUCCEEDED(D3D12CreateDevice(adapter3, D3D_FEATURE_LEVEL_11_0, _uuidof(ID3D12Device), nullptr))) //this adapter is good
+			{
+				ID3D12Device* device;
+				HRESULT hr = D3D12CreateDevice(adapter1, D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&device));
+				if(FAILED(hr))
+				{
+					adapter3->Release();
+					continue;
+				}
+
+				D3D12_FEATURE_DATA_D3D12_OPTIONS featureData;
+				device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS, &featureData, sizeof(featureData));
+				if(featureData.TiledResourcesTier < D3D12_TILED_RESOURCES_TIER::D3D12_TILED_RESOURCES_TIER_2)
+				{
+					adapter3->Release();
+					device->Release();
+					continue;
+				}
+
+				adapterAndDevice.adapter = adapter3;
+				adapterAndDevice.device = device;
+				found = true;
+				break;
+			}
+			adapter3->Release();
+		}
+	}
+	
+	if(!found)
+	{
+		MessageBoxW(window.native_handle(), L"No DirectX 12 (D3D_FEATURE_LEVEL_11_0 or later with D3D12_TILED_RESOURCES_TIER_2 support) GPU found.", L"Error", MB_OK);
+		throw GraphicsAdapterNotFound();
+	}
+	
+	return adapterAndDevice;
+}()) {}
+
+D3D12GraphicsEngine::D3D12GraphicsEngine(Window& window, IDXGIFactory5* factory, AdapterAndDevice adapterAndDevice) :
+	adapter(adapterAndDevice.adapter),
+	graphicsDevice(adapterAndDevice.device),
 	directCommandQueue(graphicsDevice, []()
 {
 	D3D12_COMMAND_QUEUE_DESC commandQueueDesc;
@@ -21,15 +73,14 @@ D3D12GraphicsEngine::D3D12GraphicsEngine(Window& window, DXGIFactory factory, DX
 	commandQueueDesc.NodeMask = 0u;
 	return commandQueueDesc;
 }()),
-
-	directFenceEvent(nullptr, FALSE, FALSE, nullptr),
-	directFences([&](std::size_t, D3D12Fence& element)
+directFenceEvent(nullptr, FALSE, FALSE, nullptr),
+directFences([&](std::size_t, D3D12Fence& element)
 {
 	new(&element) D3D12Fence(graphicsDevice, 0u, D3D12_FENCE_FLAG_NONE);
 }),
-	renderTargetViewDescriptorSize(graphicsDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV)),
-	constantBufferViewAndShaderResourceViewAndUnordedAccessViewDescriptorSize(graphicsDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE::D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV)),
-	depthStencilDescriptorHeap(graphicsDevice, []()
+renderTargetViewDescriptorSize(graphicsDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV)),
+constantBufferViewAndShaderResourceViewAndUnordedAccessViewDescriptorSize(graphicsDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE::D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV)),
+depthStencilDescriptorHeap(graphicsDevice, []()
 {
 	D3D12_DESCRIPTOR_HEAP_DESC depthStencilViewDescriptorHeapDesc;
 	depthStencilViewDescriptorHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
@@ -38,7 +89,7 @@ D3D12GraphicsEngine::D3D12GraphicsEngine(Window& window, DXGIFactory factory, DX
 	depthStencilViewDescriptorHeapDesc.NodeMask = 0;
 	return depthStencilViewDescriptorHeapDesc;
 }()),
-	depthStencilHeap(graphicsDevice, []()
+depthStencilHeap(graphicsDevice, []()
 {
 	D3D12_HEAP_PROPERTIES depthSencilHeapProperties;
 	depthSencilHeapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
@@ -99,7 +150,7 @@ D3D12GraphicsEngine::D3D12GraphicsEngine(Window& window, DXGIFactory factory, DX
 #endif // _DEBUG
 
 
-	if (options.ResourceBindingTier == D3D12_RESOURCE_BINDING_TIER_1)
+	if(options.ResourceBindingTier == D3D12_RESOURCE_BINDING_TIER_1)
 	{
 		D3D12_SHADER_RESOURCE_VIEW_DESC nullSrvDesc;
 		nullSrvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
@@ -113,13 +164,13 @@ D3D12GraphicsEngine::D3D12GraphicsEngine(Window& window, DXGIFactory factory, DX
 		auto start = mainDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
 		D3D12_CPU_DESCRIPTOR_HANDLE end;
 		end.ptr = start.ptr + 128u * constantBufferViewAndShaderResourceViewAndUnordedAccessViewDescriptorSize;
-		for (; start.ptr != end.ptr; start.ptr += constantBufferViewAndShaderResourceViewAndUnordedAccessViewDescriptorSize)
+		for(; start.ptr != end.ptr; start.ptr += constantBufferViewAndShaderResourceViewAndUnordedAccessViewDescriptorSize)
 		{
 			graphicsDevice->CreateShaderResourceView(nullptr, &nullSrvDesc, start);
 		}
 	}
 
-	for (auto& fenceValue : fenceValues)
+	for(auto& fenceValue : fenceValues)
 	{
 		fenceValue = 0u;
 	}
