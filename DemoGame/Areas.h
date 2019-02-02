@@ -10,5 +10,6 @@ public:
 	OutSideArea outside;
 	Cave::CaveArea cave;
 
-	Areas(ThreadResources& executor, GlobalResources& sharedResources);
+	Areas();
+	void start(ThreadResources& executor, GlobalResources& sharedResources);
 };

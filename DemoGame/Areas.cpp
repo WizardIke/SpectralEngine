@@ -2,7 +2,9 @@
 #include "ThreadResources.h"
 #include "GlobalResources.h"
 
-Areas::Areas(ThreadResources& executor, GlobalResources& sharedResources)
+Areas::Areas() {}
+
+void Areas::start(ThreadResources& executor, GlobalResources& sharedResources)
 {
 	outside.start(executor, sharedResources);
 }

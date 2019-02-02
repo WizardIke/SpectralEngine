@@ -54,15 +54,44 @@ static LRESULT CALLBACK windowCallback(HWND hwnd, UINT message, WPARAM wParam, L
 	}
 }
 
-static void loadingResourceCallback(TextureManager::TextureStreamingRequest& request, void* tr, void* gr, unsigned int textureID)
+namespace
 {
-	ThreadResources& threadResources = *reinterpret_cast<ThreadResources*>(tr);
-	GlobalResources& globalResources = *reinterpret_cast<GlobalResources*>(gr);
-	globalResources.arial.setDiffuseTexture(textureID, globalResources.constantBuffersCpuAddress, globalResources.sharedConstantBuffer->GetGPUVirtualAddress());
-	globalResources.userInterface.start(threadResources, globalResources);
-	globalResources.taskShedular.setNextPhaseTask(ThreadResources::initialize2);
+	class InitialResourceLoader : public TextureManager::TextureStreamingRequest, public PipelineStateObjects::PipelineLoader
+	{
+		static void fontsLoadedCallback(TextureManager::TextureStreamingRequest& request, void* tr, void* gr, unsigned int textureID)
+		{
+			ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
+			GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
+			globalResources.arial.setDiffuseTexture(textureID, globalResources.constantBuffersCpuAddress, globalResources.sharedConstantBuffer->GetGPUVirtualAddress());
 
-	delete static_cast<TextureManager::TextureStreamingRequest*>(&request);
+			InitialResourceLoader& request1 = static_cast<InitialResourceLoader&>(request);
+			request1.componentLoaded(threadResources, globalResources);
+		}
+
+		static void pipelineStateObjectsLoadedCallback(PipelineStateObjects::PipelineLoader& pipelineLoader, ThreadResources& threadResources, GlobalResources& globalResources)
+		{
+			InitialResourceLoader& request1 = static_cast<InitialResourceLoader&>(pipelineLoader);
+			request1.componentLoaded(threadResources, globalResources);
+		}
+
+		void componentLoaded(ThreadResources& threadResources, GlobalResources& globalResources)
+		{
+			if(numberOfComponentsLoaded.fetch_add(1u, std::memory_order::memory_order_acq_rel) == (numberOfComponents - 1u))
+			{
+				globalResources.userInterface.start(threadResources, globalResources);
+				globalResources.areas.start(threadResources, globalResources);
+				globalResources.taskShedular.setNextPhaseTask(ThreadResources::initialize2);
+				delete this;
+			}
+		}
+
+		static constexpr unsigned int numberOfComponents = 2u;
+		std::atomic<unsigned int> numberOfComponentsLoaded = 0u;
+	public:
+		InitialResourceLoader(const wchar_t* fontFilename) :
+			TextureManager::TextureStreamingRequest(fontsLoadedCallback, fontFilename),
+			PipelineStateObjects::PipelineLoader(pipelineStateObjectsLoadedCallback) {}
+	};
 }
 
 static const wchar_t* const musicFiles[] = 
@@ -71,9 +100,9 @@ static const wchar_t* const musicFiles[] =
 	L"../DemoGame/Music/Tropic_Strike.sound"
 };
 
-GlobalResources::GlobalResources() : GlobalResources(std::thread::hardware_concurrency(), false, false, false) {}
+GlobalResources::GlobalResources() : GlobalResources(std::thread::hardware_concurrency(), false, false, false, new InitialResourceLoader(TextureNames::Arial)) {}
 
-GlobalResources::GlobalResources(const unsigned int numberOfThreads, bool fullScreen, bool vSync, bool enableGpuDebugging) :
+GlobalResources::GlobalResources(const unsigned int numberOfThreads, bool fullScreen, bool vSync, bool enableGpuDebugging, void* initialResourceLoader) :
 	window(this, windowCallback, [fullScreen]() {if (fullScreen) { return GetSystemMetrics(SM_CXVIRTUALSCREEN); } else return GetSystemMetrics(SM_CXSCREEN) / 2; }(),
 		[fullScreen]() {if (fullScreen) { return GetSystemMetrics(SM_CYVIRTUALSCREEN); } else return GetSystemMetrics(SM_CYSCREEN) / 2; }(),
 		[fullScreen]() {if (fullScreen) { return 0; } else return GetSystemMetrics(SM_CXSCREEN) / 5; }(),
@@ -90,7 +119,7 @@ GlobalResources::GlobalResources(const unsigned int numberOfThreads, bool fullSc
 	inputManager(),
 	inputHandler(window, { PlayerPosition::mouseMoved, &playerPosition }),
 	rootSignatures(graphicsEngine.graphicsDevice),
-	pipelineStateObjects(graphicsEngine.graphicsDevice, rootSignatures),
+	pipelineStateObjects(mainThreadResources, *this, static_cast<InitialResourceLoader*>(initialResourceLoader)),
 	virtualTextureManager(),
 	sharedConstantBuffer(graphicsEngine.graphicsDevice, []()
 	{
@@ -117,7 +146,7 @@ GlobalResources::GlobalResources(const unsigned int numberOfThreads, bool fullSc
 		resourceDesc.Width = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT; // size of the resource heap. Must be a multiple of 64KB for constant buffers
 		return resourceDesc;
 	}(), D3D12_RESOURCE_STATE_GENERIC_READ),
-	areas(mainThreadResources, *this),
+	areas(),
 	ambientMusic(*this, musicFiles, sizeof(musicFiles) / sizeof(musicFiles[0])),
 	playerPosition(DirectX::XMFLOAT3(59.0f, 4.0f, 10.0f), DirectX::XMFLOAT3(0.0f, 0.2f, 0.0f)),
 	warpTexture(graphicsEngine.graphicsDevice, []()
@@ -156,8 +185,7 @@ GlobalResources::GlobalResources(const unsigned int numberOfThreads, bool fullSc
 	userInterface.~UserInterface();
 	new(&userInterface) UserInterface(*this, constantBuffersGpuAddress, cpuConstantBuffer);
 	arial.~Font();
-	TextureManager::TextureStreamingRequest* fontTextureRequest = new TextureManager::TextureStreamingRequest(loadingResourceCallback, TextureNames::Arial);
-	new(&arial) Font(constantBuffersGpuAddress, cpuConstantBuffer, L"Arial.fnt", mainThreadResources, *this, fontTextureRequest);
+	new(&arial) Font(constantBuffersGpuAddress, cpuConstantBuffer, L"Arial.fnt", mainThreadResources, *this, static_cast<InitialResourceLoader*>(initialResourceLoader));
 
 	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc;
 	srvDesc.Format = DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM;

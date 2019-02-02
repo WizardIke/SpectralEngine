@@ -1,12 +1,30 @@
 #pragma once
 #include <D3D12PipelineState.h>
-struct ID3D12Device;
-class RootSignatures;
+#include <atomic>
+class ThreadResources;
+class GlobalResources;
 
 class PipelineStateObjects
 {
 public:
-	PipelineStateObjects(ID3D12Device* const Device, RootSignatures& rootSignatures);
+	class PipelineLoader
+	{
+		constexpr static unsigned int numberOfComponents = 15u;
+		std::atomic<unsigned int> numberOfcomponentsLoaded = 0u;
+		void(*loadingFinished)(PipelineStateObjects::PipelineLoader& pipelineLoader, ThreadResources& threadResources, GlobalResources& globalResources);
+	public:
+		PipelineLoader(void(*loadingFinished1)(PipelineStateObjects::PipelineLoader& pipelineLoader, ThreadResources& threadResources, GlobalResources& globalResources)) : loadingFinished(loadingFinished1) {}
+
+		void componentLoaded(ThreadResources& threadResources, GlobalResources& globalResources)
+		{
+			if(numberOfcomponentsLoaded.fetch_add(1u, std::memory_order::memory_order_acq_rel) == (numberOfComponents - 1u))
+			{
+				loadingFinished(*this, threadResources, globalResources);
+			}
+		}
+	};
+
+	PipelineStateObjects(ThreadResources& threadResources, GlobalResources& globalResources, PipelineLoader* pipelineLoader);
 	~PipelineStateObjects();
 
 	D3D12PipelineState text;

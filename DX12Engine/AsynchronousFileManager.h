@@ -11,8 +11,8 @@ public:
 	struct Key
 	{
 		const wchar_t* name;
-		size_t start;
-		size_t end;
+		std::size_t start;
+		std::size_t end;
 
 		bool operator==(const Key& other) const
 		{
@@ -27,9 +27,9 @@ public:
 
 	struct Hasher
 	{
-		size_t operator()(const Key& key) const
+		std::size_t operator()(const Key& key) const
 		{
-			size_t result = (size_t)key.name;
+			std::size_t result = (std::size_t)key.name;
 			result = result * 31u + key.start;
 			result = result * 31u + key.end;
 			return result;
@@ -87,5 +87,5 @@ public:
 	}
 
 	bool readFile(void* executor, void* sharedResources, IORequest* request);
-	void discard(const wchar_t* name, size_t start, size_t end);
+	void discard(const wchar_t* name, std::size_t start, std::size_t end);
 };
