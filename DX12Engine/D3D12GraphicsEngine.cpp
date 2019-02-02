@@ -4,14 +4,14 @@
 #include "DXGIAdapter.h"
 #include "Window.h"
 #include "GraphicsAdapterNotFound.h"
-
+#include "frameBufferCount.h"
 
 D3D12GraphicsEngine::D3D12GraphicsEngine(Window& window, bool enableGpuDebugging, DXGI_ADAPTER_FLAG avoidedAdapterFlags) : D3D12GraphicsEngine(window, DXGIFactory(enableGpuDebugging), avoidedAdapterFlags)
 {}
 
 D3D12GraphicsEngine::D3D12GraphicsEngine(Window& window, DXGIFactory factory, DXGI_ADAPTER_FLAG avoidedAdapterFlags) : D3D12GraphicsEngine(window, factory, [&factory, &window, avoidedAdapterFlags]()
 {
-	AdapterAndDevice adapterAndDevice = {};
+	AdapterAndDeviceAndResourceBindingTier adapterAndDeviceAndResourceBindingTier = {};
 
 	IDXGIAdapter3* adapter3;
 	IDXGIAdapter1* adapter1;
@@ -43,8 +43,9 @@ D3D12GraphicsEngine::D3D12GraphicsEngine(Window& window, DXGIFactory factory, DX
 					continue;
 				}
 
-				adapterAndDevice.adapter = adapter3;
-				adapterAndDevice.device = device;
+				adapterAndDeviceAndResourceBindingTier.adapter = adapter3;
+				adapterAndDeviceAndResourceBindingTier.device = device;
+				adapterAndDeviceAndResourceBindingTier.resourceBindingTier = featureData.ResourceBindingTier;
 				found = true;
 				break;
 			}
@@ -58,12 +59,12 @@ D3D12GraphicsEngine::D3D12GraphicsEngine(Window& window, DXGIFactory factory, DX
 		throw GraphicsAdapterNotFound();
 	}
 	
-	return adapterAndDevice;
+	return adapterAndDeviceAndResourceBindingTier;
 }()) {}
 
-D3D12GraphicsEngine::D3D12GraphicsEngine(Window& window, IDXGIFactory5* factory, AdapterAndDevice adapterAndDevice) :
-	adapter(adapterAndDevice.adapter),
-	graphicsDevice(adapterAndDevice.device),
+D3D12GraphicsEngine::D3D12GraphicsEngine(Window& window, IDXGIFactory5* factory, AdapterAndDeviceAndResourceBindingTier adapterAndDeviceAndResourceBindingTier) :
+	adapter(adapterAndDeviceAndResourceBindingTier.adapter),
+	graphicsDevice(adapterAndDeviceAndResourceBindingTier.device),
 	directCommandQueue(graphicsDevice, []()
 {
 	D3D12_COMMAND_QUEUE_DESC commandQueueDesc;
@@ -74,12 +75,10 @@ D3D12GraphicsEngine::D3D12GraphicsEngine(Window& window, IDXGIFactory5* factory,
 	return commandQueueDesc;
 }()),
 directFenceEvent(nullptr, FALSE, FALSE, nullptr),
-directFences([&](std::size_t, D3D12Fence& element)
-{
-	new(&element) D3D12Fence(graphicsDevice, 0u, D3D12_FENCE_FLAG_NONE);
-}),
+directFence(graphicsDevice, frameBufferCount, D3D12_FENCE_FLAG_NONE),
+fenceValue(frameBufferCount + 1u),
 renderTargetViewDescriptorSize(graphicsDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV)),
-constantBufferViewAndShaderResourceViewAndUnordedAccessViewDescriptorSize(graphicsDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE::D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV)),
+cbvAndSrvAndUavDescriptorSize(graphicsDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE::D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV)),
 depthStencilDescriptorHeap(graphicsDevice, []()
 {
 	D3D12_DESCRIPTOR_HEAP_DESC depthStencilViewDescriptorHeapDesc;
@@ -130,12 +129,9 @@ depthStencilHeap(graphicsDevice, []()
 
 	graphicsDevice->CreateDepthStencilView(depthStencilHeap, &depthStencilDesc, depthStencilDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
 
-	D3D12_FEATURE_DATA_D3D12_OPTIONS options = {};
-	graphicsDevice->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS, &options, sizeof(options));
-
 	D3D12_DESCRIPTOR_HEAP_DESC heapDesc;
 	heapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-	heapDesc.NumDescriptors = options.ResourceBindingTier == D3D12_RESOURCE_BINDING_TIER_1 ? 128u : DescriptorAllocator::maxDescriptors;
+	heapDesc.NumDescriptors = adapterAndDeviceAndResourceBindingTier.resourceBindingTier == D3D12_RESOURCE_BINDING_TIER_1 ? 128u : DescriptorAllocator::maxDescriptors;
 	heapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 	heapDesc.NodeMask = 0u;
 
@@ -150,7 +146,7 @@ depthStencilHeap(graphicsDevice, []()
 #endif // _DEBUG
 
 
-	if(options.ResourceBindingTier == D3D12_RESOURCE_BINDING_TIER_1)
+	if(adapterAndDeviceAndResourceBindingTier.resourceBindingTier == D3D12_RESOURCE_BINDING_TIER_1)
 	{
 		D3D12_SHADER_RESOURCE_VIEW_DESC nullSrvDesc;
 		nullSrvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
@@ -163,16 +159,11 @@ depthStencilHeap(graphicsDevice, []()
 
 		auto start = mainDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
 		D3D12_CPU_DESCRIPTOR_HANDLE end;
-		end.ptr = start.ptr + 128u * constantBufferViewAndShaderResourceViewAndUnordedAccessViewDescriptorSize;
-		for(; start.ptr != end.ptr; start.ptr += constantBufferViewAndShaderResourceViewAndUnordedAccessViewDescriptorSize)
+		end.ptr = start.ptr + 128u * cbvAndSrvAndUavDescriptorSize;
+		for(; start.ptr != end.ptr; start.ptr += cbvAndSrvAndUavDescriptorSize)
 		{
 			graphicsDevice->CreateShaderResourceView(nullptr, &nullSrvDesc, start);
 		}
-	}
-
-	for(auto& fenceValue : fenceValues)
-	{
-		fenceValue = 0u;
 	}
 
 	window.createSwapChain(*this, factory);
@@ -185,10 +176,10 @@ D3D12GraphicsEngine::~D3D12GraphicsEngine() {}
 void D3D12GraphicsEngine::present(Window& window, ID3D12CommandList** const commandLists, const unsigned int numLists)
 {
 	directCommandQueue->ExecuteCommandLists(numLists, commandLists);
-	++(fenceValues[frameIndex]);
-
-	auto hr = directCommandQueue->Signal(directFences[frameIndex], fenceValues[frameIndex]);
+	auto hr = directCommandQueue->Signal(directFence, fenceValue);
 	if(FAILED(hr)) throw HresultException(hr);
+
+	++fenceValue;
 
 	window.present();
 	frameIndex = window.getCurrentBackBufferIndex();
@@ -196,12 +187,18 @@ void D3D12GraphicsEngine::present(Window& window, ID3D12CommandList** const comm
 
 void D3D12GraphicsEngine::waitForPreviousFrame()
 {
-	if (directFences[frameIndex]->GetCompletedValue() < fenceValues[frameIndex])
+	const uint64_t fenceValueToWaitFor = fenceValue - frameBufferCount;
+	if (directFence->GetCompletedValue() < fenceValueToWaitFor)
 	{
-		HRESULT hr = directFences[frameIndex]->SetEventOnCompletion(fenceValues[frameIndex], directFenceEvent);
+		HRESULT hr = directFence->SetEventOnCompletion(fenceValueToWaitFor, directFenceEvent);
 		if (FAILED(hr)) throw HresultException(hr);
 		WaitForSingleObject(directFenceEvent, INFINITE);
 	}
+}
+
+void D3D12GraphicsEngine::waitCommandQueueForPreviousFrame(ID3D12CommandQueue& commandQueue)
+{
+	commandQueue.Wait(directFence, fenceValue - 1u);
 }
 
 void operator+=(D3D12_CPU_DESCRIPTOR_HANDLE& handle, std::size_t offset)

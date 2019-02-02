@@ -54,7 +54,7 @@ unsigned int VirtualTextureManager::createTextureDescriptor(D3D12GraphicsEngine&
 {
 	auto discriptorIndex = graphicsEngine.descriptorAllocator.allocate();
 	D3D12_CPU_DESCRIPTOR_HANDLE discriptorHandle = graphicsEngine.mainDescriptorHeap->GetCPUDescriptorHandleForHeapStart() +
-		discriptorIndex * graphicsEngine.constantBufferViewAndShaderResourceViewAndUnordedAccessViewDescriptorSize;
+		discriptorIndex * graphicsEngine.cbvAndSrvAndUavDescriptorSize;
 
 	D3D12_SHADER_RESOURCE_VIEW_DESC srv;
 	srv.Format = request.format;

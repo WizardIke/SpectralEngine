@@ -24,7 +24,6 @@ class VirtualFeedbackSubPass : public RenderSubPass<VirtualPageCamera, D3D12_RES
 	D3D12DescriptorHeap rtvDescriptorHeap;
 	D3D12Resource readbackTexture;
 	unsigned long textureWidth, textureHeight;
-	uint32_t lastFrameIndex;
 	bool inView = true;
 
 	template<class ThreadResources, class GlobalResources>
@@ -80,10 +79,9 @@ public:
 			ID3D12RootSignature* rootSignature, uint32_t barrierCount, D3D12_RESOURCE_BARRIER* barriers);
 
 		template<class Executor, class SharedResources_t>
-		void update2LastThread(ID3D12CommandList**& commandLists, unsigned int numThreads, VirtualFeedbackSubPass& renderSubPass, Executor& executor, SharedResources_t& sharedResources)
+		void update2LastThread(ID3D12CommandList**& commandLists, unsigned int numThreads, VirtualFeedbackSubPass& renderSubPass, Executor& executor, SharedResources_t&)
 		{
 			addBarrier<state, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_COMMON>(renderSubPass, lastCommandList());
-			renderSubPass.lastFrameIndex = sharedResources.graphicsEngine.frameIndex;
 			update2(commandLists, numThreads);
 
 			executor.taskShedular.update1NextQueue().push({ &renderSubPass, [](void* context, Executor& executor, SharedResources_t& sharedResources)
@@ -94,7 +92,7 @@ public:
 				D3D12GraphicsEngine& graphicsEngine = sharedResources.graphicsEngine;
 				StreamingManager::ThreadLocal& streamingManagerLocal = executor.streamingManager;
 
-				streamingManager.commandQueue().Wait(graphicsEngine.directFences[renderSubPass.lastFrameIndex], graphicsEngine.fenceValues[renderSubPass.lastFrameIndex]); //must be delayed after update2 so the command lists have been executed.
+				graphicsEngine.waitCommandQueueForPreviousFrame(streamingManager.commandQueue()); //Should be delayed after update2 so the command lists have been executed.
 
 				D3D12_TEXTURE_COPY_LOCATION UploadBufferLocation;
 				UploadBufferLocation.pResource = renderSubPass.feadbackTextureGpu;

@@ -1,5 +1,9 @@
 #include "Window.h"
 #include "D3D12GraphicsEngine.h"
+#include "frameBufferCount.h"
+#ifndef NDEBUG
+#include <string>
+#endif
 
 Window::Window(void* callbackData, LRESULT CALLBACK WndProc(HWND hwnd, UINT umessage, WPARAM wparam, LPARAM lparam),
 	unsigned int width, unsigned int height, int positionX, int positionY, bool fullScreen, bool vSync) : fullScreen(fullScreen), vSync(vSync)

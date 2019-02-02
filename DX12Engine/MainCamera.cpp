@@ -43,7 +43,7 @@ MainCamera::MainCamera(Window& window, D3D12GraphicsEngine& graphicsEngine, unsi
 
 		backBufferTextures[i] = graphicsEngine.descriptorAllocator.allocate();
 		graphicsEngine.graphicsDevice->CreateShaderResourceView(window.getBuffer(i), &backBufferSrvDesc,
-			shaderResourceViewCpuDescriptorHandle + backBufferTextures[i] * graphicsEngine.constantBufferViewAndShaderResourceViewAndUnordedAccessViewDescriptorSize);
+			shaderResourceViewCpuDescriptorHandle + backBufferTextures[i] * graphicsEngine.cbvAndSrvAndUavDescriptorSize);
 	}
 	auto frameIndex = graphicsEngine.frameIndex;
 	auto renderTargetView = renderTargetViewDescriptorHeap->GetCPUDescriptorHandleForHeapStart();

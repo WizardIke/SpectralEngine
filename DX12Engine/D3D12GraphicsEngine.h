@@ -5,11 +5,9 @@
 #include "D3D12DescriptorHeap.h"
 #include "D3D12Device.h"
 #include "D3D12Fence.h"
-#include "Array.h"
 #include "Win32Event.h"
 #include "DXGIFactory.h"
 #include <mutex>
-#include "frameBufferCount.h"
 struct ID3D12GraphicsCommandList;
 struct ID3D12CommandList;
 class Window;
@@ -20,14 +18,15 @@ public:
 	DXGIAdapter adapter;
 	D3D12Device graphicsDevice;
 	D3D12CommandQueue directCommandQueue;
-
-	uint32_t frameIndex;
-	Array<D3D12Fence, frameBufferCount> directFences;
-	uint64_t fenceValues[frameBufferCount];
+private:
+	D3D12Fence directFence;
+	uint64_t fenceValue;
 	Event directFenceEvent;
+public:
+	uint32_t frameIndex;
 
 	uint32_t renderTargetViewDescriptorSize;
-	uint32_t constantBufferViewAndShaderResourceViewAndUnordedAccessViewDescriptorSize;
+	uint32_t cbvAndSrvAndUavDescriptorSize;
 
 	D3D12DescriptorHeap depthStencilDescriptorHeap;
 	D3D12Resource depthStencilHeap;
@@ -63,14 +62,15 @@ private:
 		}
 	};
 
-	struct AdapterAndDevice
+	struct AdapterAndDeviceAndResourceBindingTier
 	{
 		IDXGIAdapter3* adapter;
 		ID3D12Device* device;
+		D3D12_RESOURCE_BINDING_TIER resourceBindingTier;
 	};
 
 	D3D12GraphicsEngine(Window& window, DXGIFactory factory, DXGI_ADAPTER_FLAG avoidedAdapterFlags);
-	D3D12GraphicsEngine(Window& window, IDXGIFactory5* factory, AdapterAndDevice adapterAndDevice);
+	D3D12GraphicsEngine(Window& window, IDXGIFactory5* factory, AdapterAndDeviceAndResourceBindingTier adapterAndDevice);
 public:
 	D3D12DescriptorHeap mainDescriptorHeap;
 	DescriptorAllocator descriptorAllocator;
@@ -80,6 +80,7 @@ public:
 
 	void present(Window& window, ID3D12CommandList** ppCommandLists, unsigned int numLists);
 	void waitForPreviousFrame();
+	void waitCommandQueueForPreviousFrame(ID3D12CommandQueue& commandQueue);
 };
 void operator+=(D3D12_CPU_DESCRIPTOR_HANDLE& handle, std::size_t offset);
 D3D12_CPU_DESCRIPTOR_HANDLE operator+(D3D12_CPU_DESCRIPTOR_HANDLE handle, size_t offset);

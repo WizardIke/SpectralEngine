@@ -63,7 +63,7 @@ ID3D12Resource* TextureManager::createTexture(const TextureStreamingRequest& upl
 
 	auto discriptorIndex = graphicsEngine.descriptorAllocator.allocate();
 	D3D12_CPU_DESCRIPTOR_HANDLE discriptorHandle = graphicsEngine.mainDescriptorHeap->GetCPUDescriptorHandleForHeapStart() +
-		discriptorIndex * graphicsEngine.constantBufferViewAndShaderResourceViewAndUnordedAccessViewDescriptorSize;
+		discriptorIndex * graphicsEngine.cbvAndSrvAndUavDescriptorSize;
 
 	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc;
 	srvDesc.Format = uploadRequest.format;

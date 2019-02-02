@@ -52,7 +52,7 @@ UserInterface::UserInterface(GlobalResources& sharedResources, D3D12_GPU_VIRTUAL
 
 	auto descriptorIndex = sharedResources.graphicsEngine.descriptorAllocator.allocate();
 	D3D12_CPU_DESCRIPTOR_HANDLE descritporHandle = sharedResources.graphicsEngine.mainDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
-	descritporHandle.ptr += sharedResources.graphicsEngine.constantBufferViewAndShaderResourceViewAndUnordedAccessViewDescriptorSize * descriptorIndex;
+	descritporHandle.ptr += sharedResources.graphicsEngine.cbvAndSrvAndUavDescriptorSize * descriptorIndex;
 	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc;
 	srvDesc.Format = DXGI_FORMAT::DXGI_FORMAT_R16G16B16A16_UNORM;
 	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;

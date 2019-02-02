@@ -169,7 +169,7 @@ GlobalResources::GlobalResources(const unsigned int numberOfThreads, bool fullSc
 	srvDesc.Texture2D.ResourceMinLODClamp = 0u;
 	warpTextureDescriptorIndex = graphicsEngine.descriptorAllocator.allocate();
 	graphicsEngine.graphicsDevice->CreateShaderResourceView(warpTexture, &srvDesc, graphicsEngine.mainDescriptorHeap->GetCPUDescriptorHandleForHeapStart() +
-		graphicsEngine.constantBufferViewAndShaderResourceViewAndUnordedAccessViewDescriptorSize * warpTextureDescriptorIndex);
+		graphicsEngine.cbvAndSrvAndUavDescriptorSize * warpTextureDescriptorIndex);
 
 	D3D12_RENDER_TARGET_VIEW_DESC warpTextureRtvDesc;
 	warpTextureRtvDesc.Format = DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM;

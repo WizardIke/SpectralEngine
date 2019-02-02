@@ -180,7 +180,7 @@ namespace
 				HDSHaderResourceViewDesc.Texture2D.ResourceMinLODClamp = 0.0f;
 
 				auto shaderResourceViewCpuDescriptorHandle = globalResources.graphicsEngine.mainDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
-				auto srvSize = globalResources.graphicsEngine.constantBufferViewAndShaderResourceViewAndUnordedAccessViewDescriptorSize;
+				auto srvSize = globalResources.graphicsEngine.cbvAndSrvAndUavDescriptorSize;
 				auto tempRenderTargetTexturesCpuDescriptorHandle = renderTargetTexturesDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
 
 				D3D12_SHADER_RESOURCE_VIEW_DESC backBufferSrvDesc;
@@ -201,7 +201,7 @@ namespace
 
 					reflectionCameraBackBuffers[i] = globalResources.graphicsEngine.descriptorAllocator.allocate();
 					globalResources.graphicsEngine.graphicsDevice->CreateShaderResourceView(renderTargetTextures[i], &backBufferSrvDesc,
-						shaderResourceViewCpuDescriptorHandle + reflectionCameraBackBuffers[i] * globalResources.graphicsEngine.constantBufferViewAndShaderResourceViewAndUnordedAccessViewDescriptorSize);
+						shaderResourceViewCpuDescriptorHandle + reflectionCameraBackBuffers[i] * globalResources.graphicsEngine.cbvAndSrvAndUavDescriptorSize);
 
 					tempRenderTargetTexturesCpuDescriptorHandle.ptr += globalResources.graphicsEngine.renderTargetViewDescriptorSize;
 				}
