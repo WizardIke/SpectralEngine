@@ -478,9 +478,6 @@
     <FxCompile Include="Shaders\GlassPS.hlsl">
       <Filter>Shaders\Pixel</Filter>
     </FxCompile>
-    <FxCompile Include="Shaders\StandardPS.hlsl">
-      <Filter>Shaders\Pixel</Filter>
-    </FxCompile>
     <FxCompile Include="Shaders\TextPS.hlsl">
       <Filter>Shaders\Pixel</Filter>
     </FxCompile>
@@ -501,6 +498,9 @@
     </FxCompile>
     <FxCompile Include="Shaders\Quad2dVS.hlsl">
       <Filter>Shaders\Vertex</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\StandardPS.hlsl">
+      <Filter>Shaders\Pixel</Filter>
     </FxCompile>
   </ItemGroup>
 </Project>
