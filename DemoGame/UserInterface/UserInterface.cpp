@@ -68,17 +68,19 @@ UserInterface::UserInterface(GlobalResources& sharedResources, D3D12_GPU_VIRTUAL
 
 void UserInterface::update1(GlobalResources& sharedResources)
 {
-	unsigned int frameIndex = sharedResources.graphicsEngine.frameIndex;
-	CPUUsageSentence.update(sharedResources);
-	FPSSentence.update(frameIndex, sharedResources.timer.frameTime());
+	float frameTime = sharedResources.timer.frameTime();
+	CPUUsageSentence.update(frameTime);
+	FPSSentence.update(frameTime);
 }
 
 void UserInterface::update2(ThreadResources& executor, GlobalResources& sharedResources)
 {
 	auto frameIndex = sharedResources.graphicsEngine.frameIndex;
+	CPUUsageSentence.beforeRender(frameIndex);
+	FPSSentence.beforeRender(frameIndex);
+
 	const auto opaqueDirectCommandList = executor.renderPass.colorSubPass().opaqueCommandList();
 	
-
 	opaqueDirectCommandList->SetPipelineState(sharedResources.pipelineStateObjects.text);
 	opaqueDirectCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 	opaqueDirectCommandList->SetGraphicsRootConstantBufferView(3u, sharedResources.arial.psPerObjectCBVGpuAddress);

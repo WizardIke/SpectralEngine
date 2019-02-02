@@ -29,7 +29,7 @@ public:
 	~BaseSentence();
 
 	void setPosition(const DirectX::XMFLOAT2 pos);
-	void update(uint32_t FrameIndex);
+	void beforeRender(uint32_t FrameIndex);
 
 	Font* font;
 	std::wstring text;

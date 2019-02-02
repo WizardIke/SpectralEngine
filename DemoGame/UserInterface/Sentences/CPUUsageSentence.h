@@ -4,7 +4,6 @@
 
 #include <pdh.h>
 #include <BaseSentence.h>
-class GlobalResources;
 
 class CPUUsageSentence : public BaseSentence
 {
@@ -15,5 +14,5 @@ public:
 	CPUUsageSentence() {}
 	CPUUsageSentence(ID3D12Device* const Device, Font* const Font, const DirectX::XMFLOAT2 Position, const DirectX::XMFLOAT2 Size, const DirectX::XMFLOAT4 color);
 	~CPUUsageSentence();
-	void update(GlobalResources& sharedResources);
+	void update(float frameTime);
 };

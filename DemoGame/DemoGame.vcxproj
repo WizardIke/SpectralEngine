@@ -223,7 +223,6 @@
     <ClCompile Include="ThreadResources.cpp" />
     <ClCompile Include="UserInterface\Sentences\CPUUsageSentence.cpp" />
     <ClCompile Include="UserInterface\Sentences\FPSSentence.cpp" />
-    <ClCompile Include="UserInterface\Sentences\RenderCountSentence.cpp" />
     <ClCompile Include="UserInterface\UserInterface.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -257,7 +256,6 @@
     <ClInclude Include="ThreadResources.h" />
     <ClInclude Include="UserInterface\Sentences\CPUUsageSentence.h" />
     <ClInclude Include="UserInterface\Sentences\FPSSentence.h" />
-    <ClInclude Include="UserInterface\Sentences\RenderCountSentence.h" />
     <ClInclude Include="UserInterface\UserInterface.h" />
   </ItemGroup>
   <ItemGroup>

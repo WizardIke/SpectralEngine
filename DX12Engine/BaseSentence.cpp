@@ -57,7 +57,7 @@ BaseSentence::BaseSentence(const unsigned int maxLength, ID3D12Device* const Dev
 #endif
 
 	D3D12_RANGE readRange = { 0u, 0u }; 
-	for (auto i = 0u; i < frameBufferCount; ++i)
+	for (auto i = 0u; i != frameBufferCount; ++i)
 	{
 		hr = textVertexBuffer[i]->Map(0, &readRange, reinterpret_cast<void**>(&textVBGPUAddress[i]));
 
@@ -69,10 +69,8 @@ BaseSentence::BaseSentence(const unsigned int maxLength, ID3D12Device* const Dev
 
 BaseSentence::~BaseSentence() {}
 
-void BaseSentence::update(uint32_t frameIndex)
+void BaseSentence::beforeRender(uint32_t frameIndex)
 {
-	unsigned int numCharacters = 0u;
-
 	float horrizontalPadding = font->leftpadding + font->rightpadding;
 	float verticalPadding = font->toppadding + font->bottompadding;
 
@@ -81,19 +79,13 @@ void BaseSentence::update(uint32_t frameIndex)
 
 	TextVertex* vert = textVBGPUAddress[frameIndex];
 
-	wchar_t lastChar = ' '; // no last character to start with
-
-	for (auto i = 0u; i < text.size(); ++i)
+	wchar_t lastChar = L'\0'; // Last character is used for kerning. L'\0' doesn't have a kerning.
+	unsigned int currentVertexIndex = 0u;
+	for (auto currentChar : text)
 	{
-		auto currentChar = text[i];
-
 		auto fontChar = font->getChar(currentChar);
-
 		// character not in font char set
 		if (!fontChar) continue;
-
-		// end of string
-		if (currentChar == L'\0') break;
 
 		// new line
 		if (currentChar == L'\n')
@@ -103,15 +95,12 @@ void BaseSentence::update(uint32_t frameIndex)
 			continue;
 		}
 
-		if (numCharacters >= maxLength)
-		{
-			break;
-		}
+		assert(currentVertexIndex < maxLength && "Trying to render more characters than maxLength");
 
-		float kerning = 0.0f;
-		if (i != 0u) kerning = font->getKerning(lastChar, currentChar);
+		float kerning = font->getKerning(lastChar, currentChar);
 
-		vert[numCharacters] = TextVertex(color.x,
+		new(&vert[currentVertexIndex]) TextVertex(
+			color.x,
 			color.y,
 			color.z,
 			color.w,
@@ -122,12 +111,13 @@ void BaseSentence::update(uint32_t frameIndex)
 			x + ((fontChar->xoffset + kerning) * size.x),
 			y - (fontChar->yoffset * size.y),
 			fontChar->width * size.x,
-			fontChar->height * size.y);
+			fontChar->height * size.y
+		);
 
-		++numCharacters;
+		++currentVertexIndex;
 
 		// remove horrizontal padding and advance to next char position
-		x += (fontChar->xadvance - horrizontalPadding) * size.x;
+		x += (fontChar->xadvance - horrizontalPadding + kerning) * size.x;
 
 		lastChar = currentChar;
 	}

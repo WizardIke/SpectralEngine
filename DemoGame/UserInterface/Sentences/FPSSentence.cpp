@@ -7,29 +7,28 @@ FPSSentence::FPSSentence(ID3D12Device* const Device, Font* const Font, const Dir
 
 FPSSentence::~FPSSentence() {}
 
-void FPSSentence::update(uint32_t FrameIndex, float frameTime)
+void FPSSentence::update(float frameTime)
 {
 	timePassed += frameTime;
 	++count;
 	if (timePassed >= 1.f)
 	{
-		
-		if (count > 99999)
+		unsigned int fps = (unsigned int)(count / timePassed);
+		count = 0;
+		timePassed = 0.f;
+
+		if (fps > 99999)
 		{
 			text = L"Fps >99999";
 		}
 		else
 		{
 			text = L"Fps ";
-			text += std::to_wstring(count);
+			text += std::to_wstring(fps);
 		}
 		
-		if (count >= 60) color = DirectX::XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f);
-		else if (count >= 30) color = DirectX::XMFLOAT4(1.0f, 1.0f, 0.0f, 1.0f);
+		if (fps >= 60) color = DirectX::XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f);
+		else if (fps >= 30) color = DirectX::XMFLOAT4(1.0f, 1.0f, 0.0f, 1.0f);
 		else color = DirectX::XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f);
-
-		count = 0;
-		timePassed = 0.f;
 	}
-	BaseSentence::update(FrameIndex);
 }
