@@ -4,14 +4,13 @@ VirtualTextureManager::VirtualTextureManager() {}
 
 void VirtualTextureManager::loadTextureUncachedHelper(TextureStreamingRequest& uploadRequest, StreamingManager& streamingManager, D3D12GraphicsEngine& graphicsEngine,
 	void(*useSubresource)(StreamingManager::StreamingRequest* request, void* threadResources, void* globalResources),
-	void(*resourceUploaded)(StreamingManager::StreamingRequest* request, void* threadResources, void* globalResources),
 	const DDSFileLoader::DdsHeaderDx12& header)
 {
 	bool valid = DDSFileLoader::validateDdsHeader(header);
 	if (!valid) throw false;
 
 	uploadRequest.streamResource = useSubresource;
-	uploadRequest.resourceUploaded = resourceUploaded;
+	uploadRequest.deleteStreamingRequest = freeRequestMemory;
 	uploadRequest.width = header.width;
 	uploadRequest.height = header.height;
 	uploadRequest.format = header.dxgiFormat;
@@ -244,29 +243,23 @@ ID3D12Resource* VirtualTextureManager::createTextureWithResitencyInfo(D3D12Graph
 	return resourcePtr;
 }
 
-void VirtualTextureManager::textureUploadedHelper(const wchar_t* filename, void* tr, void* gr)
+void VirtualTextureManager::notifyTextureReady(TextureStreamingRequest* request, void* tr, void* gr)
 {
-	TextureStreamingRequest* requests;
 	Texture* texture;
 	{
 		std::lock_guard<decltype(mutex)> lock(mutex);
-		texture = &textures[filename];
-		texture->loaded = true;
-
-		auto request = uploadRequests.find(filename);
-		assert(request != uploadRequests.end() && "A texture is loading with no requests for it");
-		requests = std::move(request->second);
-		uploadRequests.erase(request);
+		texture = &textures[request->filename];
+		texture->lastRequest = nullptr;
 	}
-	for(auto current = requests; current != nullptr; )
+	do
 	{
-		auto old = current;
-		current = current->nextTextureRequest; //Need to do this now as old will be deleted by the next line
+		auto old = request;
+		request = request->nextTextureRequest; //Need to do this now as old could be deleted by the next line
 		old->textureLoaded(*old, tr, gr, *texture);
-	}
+	} while(request != nullptr);
 }
 
-void VirtualTextureManager::textureUseResourceHelper(TextureStreamingRequest& uploadRequest, void(*fileLoadedCallback)(AsynchronousFileManager::IORequest& request, void* tr, void*, const unsigned char* buffer))
+void VirtualTextureManager::textureUseResourceHelper(TextureStreamingRequest& uploadRequest, void(*fileLoadedCallback)(AsynchronousFileManager::ReadRequest& request, void* tr, void*, const unsigned char* buffer))
 {
 	std::size_t subresouceWidth = uploadRequest.width;
 	std::size_t subresourceHeight = uploadRequest.height;
@@ -302,15 +295,27 @@ void VirtualTextureManager::textureUseResourceHelper(TextureStreamingRequest& up
 		if(subresourceDepth == 0u) subresourceDepth = 1u;
 	}
 
-
-
 	uploadRequest.start = fileOffset;
 	uploadRequest.end = fileOffset + subresourceSize;
 	uploadRequest.fileLoadedCallback = fileLoadedCallback;
 }
 
+void VirtualTextureManager::freeRequestMemory(StreamingManager::StreamingRequest* request1, void*, void*)
+{
+	auto request = static_cast<TextureStreamingRequest*>(request1);
+	if(request->numberOfComponentsReadyToDelete.fetch_add(1u) == (TextureStreamingRequest::numberOfComponents - 1u))
+	{
+		do
+		{
+			auto old = request;
+			request = request->nextTextureRequest; //Need to do this now as old could be deleted by the next line
+			old->deleteTextureRequest(*old);
+		} while(request != nullptr);
+	}
+}
+
 void VirtualTextureManager::fileLoadedCallbackHelper(TextureStreamingRequest& uploadRequest, const unsigned char* buffer, StreamingManager::ThreadLocal& streamingManager,
-	void(*copyStarted)(void* requester, void* tr, void* gr))
+	void(*copyFinished)(void* requester, void* tr, void* gr))
 {
 	ID3D12Resource* destResource = uploadRequest.destResource;
 
@@ -349,5 +354,5 @@ void VirtualTextureManager::fileLoadedCallbackHelper(TextureStreamingRequest& up
 	DDSFileLoader::copySubresourceToGpuTiled(destResource, uploadRequest.uploadResource, uploadRequest.uploadResourceOffset, subresouceWidth, subresourceHeight,
 		subresourceDepth, uploadRequest.mostDetailedMip, uploadRequest.mipLevels, 0u, uploadRequest.format,
 		uploadRequest.uploadBufferCurrentCpuAddress, buffer, &streamingManager.copyCommandList());
-	streamingManager.addCopyCompletionEvent(&uploadRequest, copyStarted);
+	streamingManager.addCopyCompletionEvent(&uploadRequest, copyFinished);
 }

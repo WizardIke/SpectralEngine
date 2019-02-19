@@ -5,59 +5,75 @@ AsynchronousFileManager::AsynchronousFileManager()
 {
 	SYSTEM_INFO systemInfo;
 	GetSystemInfo(&systemInfo);
-	sectorSize = systemInfo.dwPageSize;
+	pageSize = systemInfo.dwPageSize;
 }
 
 AsynchronousFileManager::~AsynchronousFileManager() {}
 
-bool AsynchronousFileManager::readFile(void* executor, void* sharedResources, IORequest* request)
+bool AsynchronousFileManager::readFile(ReadRequest& request, void* tr, void* gr)
 {
-	size_t memoryStart = request->start & ~(sectorSize - 1u);
-	size_t memoryEnd = (request->end + sectorSize - 1u) & ~(sectorSize - 1u);
+	size_t memoryStart = request.start & ~(pageSize - 1u);
+	size_t memoryEnd = (request.end + pageSize - 1u) & ~(pageSize - 1u);
 	size_t memoryNeeded = memoryEnd - memoryStart;
 
 	unsigned char* allocation;
-	bool dataFound = false;
-	Key key{request->filename, request->start, request->end };
+	auto dataPtr = files.find(request);
+	if(dataPtr != files.end())
 	{
-		std::lock_guard<decltype(mutex)> lock(mutex);
-		
-		auto dataPtr = files.find(key);
-		if (dataPtr != files.end())
+		auto& dataDescriptor = dataPtr->second;
+		++dataDescriptor.userCount;
+		allocation = dataDescriptor.allocation;
+
+		if(dataDescriptor.userCount == 1u)
 		{
-			dataFound = true;
-			allocation = dataPtr->second.allocation;
+			auto result = ReclaimVirtualMemory(allocation, memoryNeeded);
+			if(result == ERROR_SUCCESS)
+			{
+				//We successfully reclaimed the data, so we can complete the request to load it.
+				auto data = allocation + request.start - memoryStart;
+				request.fileLoadedCallback(request, tr, gr, data);
+				return true;
+			}
+			else
+			{
+				if(result != ERROR_BUSY) //ERROR_BUSY means the virtual memory was reclaimed but not its contents.
+				{
+					return false;
+				}
+				request.next = dataDescriptor.requests;
+				dataDescriptor.requests = &request;
+			}
+		}
+		else if(dataDescriptor.requests == nullptr)
+		{
+			//The resource is already loaded.
+			auto data = allocation + request.start - memoryStart;
+			request.fileLoadedCallback(request, tr, gr, data);
+			return true;
 		}
 		else
 		{
-			allocation = (unsigned char*)VirtualAlloc(nullptr, memoryNeeded, MEM_COMMIT, PAGE_READWRITE);
-			files.insert(std::pair<const Key, FileData>(key, FileData{ allocation }));
+			//The resource isn't loaded yet.
+			request.next = dataDescriptor.requests;
+			dataDescriptor.requests = &request;
+			return true; //Some other request is already loading the data. 
 		}
 	}
-	
-	if (dataFound)
+	else
 	{
-		auto result = ReclaimVirtualMemory(allocation, memoryNeeded);
-		if (result == ERROR_SUCCESS)
-		{
-			auto data = allocation + request->start - memoryStart;
-			request->fileLoadedCallback(*request, executor, sharedResources, data);
-			return true;
-		}
-		else if(result != ERROR_BUSY) //ERROR_BUSY means the virtual memory was reclaimed but not its contents.
-		{
-			return false;
-		}
+		allocation = (unsigned char*)VirtualAlloc(nullptr, memoryNeeded, MEM_COMMIT, PAGE_READWRITE);
+		request.next = nullptr;
+		files.insert(std::pair<const ResourceId, FileData>(request, FileData{allocation, 1u, &request}));
 	}
 
-	request->buffer = allocation;
-	request->accumulatedSize = 0u;
-	request->hEvent = nullptr;
-	request->Offset = memoryStart & (std::numeric_limits<DWORD>::max() - 1u);
-	request->OffsetHigh = (DWORD)((memoryStart & ~(size_t)(std::numeric_limits<DWORD>::max() - 1u)) >> 32u);
+	request.buffer = allocation;
+	request.accumulatedSize = 0u;
+	request.hEvent = nullptr;
+	request.Offset = memoryStart & (std::numeric_limits<DWORD>::max() - 1u);
+	request.OffsetHigh = (DWORD)((memoryStart & ~(size_t)(std::numeric_limits<DWORD>::max() - 1u)) >> 32u);
 
 	DWORD bytesRead = 0u;
-	BOOL finished = ReadFile(request->file.native_handle(), request->buffer, (DWORD)memoryNeeded, &bytesRead, request);
+	BOOL finished = ReadFile(request.file.native_handle(), request.buffer, (DWORD)memoryNeeded, &bytesRead, &request);
 	if (finished == FALSE && GetLastError() != ERROR_IO_PENDING)
 	{
 		return false;
@@ -65,25 +81,26 @@ bool AsynchronousFileManager::readFile(void* executor, void* sharedResources, IO
 	return true;
 }
 
-void AsynchronousFileManager::discard(const wchar_t* name, size_t start, size_t end)
+void AsynchronousFileManager::discard(ReadRequest& resource, void* tr, void* gr)
 {
-	Key key{ name, start, end };
-	size_t memoryStart = start & ~(sectorSize - 1u);
-	size_t memoryEnd = (end + sectorSize - 1u) & ~(sectorSize - 1u);
+	size_t memoryStart = resource.start & ~(pageSize - 1u);
+	size_t memoryEnd = (resource.end + pageSize - 1u) & ~(pageSize - 1u);
 	size_t memoryNeeded = memoryEnd - memoryStart;
-	FileData fileData;
+	FileData& dataDescriptor = files.find(resource)->second;
+	resource.deleteReadRequest(resource, tr, gr);
+	--dataDescriptor.userCount;
+	if(dataDescriptor.userCount == 0u)
 	{
-		std::lock_guard<decltype(mutex)> lock(mutex);
-		fileData = files.find(key)->second;
+		//The resource is no longer needed in memory.
+		OfferVirtualMemory(dataDescriptor.allocation, memoryNeeded, OFFER_PRIORITY::VmOfferPriorityLow);
 	}
-	OfferVirtualMemory(fileData.allocation, memoryNeeded, OFFER_PRIORITY::VmOfferPriorityLow);
 }
 
  bool AsynchronousFileManager::processIOCompletionHelper(AsynchronousFileManager& fileManager, void* executor, void* sharedResources, DWORD numberOfBytes, LPOVERLAPPED overlapped)
 {
-	IORequest* request = static_cast<IORequest*>(overlapped);
+	ReadRequest* request = static_cast<ReadRequest*>(overlapped);
 	request->accumulatedSize += numberOfBytes;
-	const std::size_t sectorSize = fileManager.sectorSize;
+	const std::size_t sectorSize = fileManager.pageSize;
 	const std::size_t memoryStart = request->start & ~(sectorSize - 1u);
 	const std::size_t memoryEnd = (request->end + sectorSize - 1u) & ~(sectorSize - 1u);
 	const std::size_t sizeToRead = memoryEnd - memoryStart;
@@ -101,7 +118,37 @@ void AsynchronousFileManager::discard(const wchar_t* name, size_t start, size_t 
 		}
 		return true;
 	}
-	auto data = request->buffer + (request->start & (fileManager.sectorSize - 1u));
-	request->fileLoadedCallback(*request, executor, sharedResources, data);
+	auto data = request->buffer + (request->start & (fileManager.pageSize - 1u));
+
+	FileData& dataDescriptor = fileManager.files.find(*request)->second;
+	ReadRequest* requests = dataDescriptor.requests;
+	dataDescriptor.requests = nullptr;
+	do
+	{
+		ReadRequest& temp = *requests;
+		requests = static_cast<ReadRequest*>(requests->next); //Allow reuse of next
+		temp.fileLoadedCallback(temp, executor, sharedResources, data);
+	} while(requests != nullptr);
 	return true;
 }
+
+ void AsynchronousFileManager::run(void* tr, void* gr)
+ {
+	 do
+	 {
+		 SinglyLinked* temp = messageQueue.popAll();
+		 for(; temp != nullptr;)
+		 {
+			 auto& message = *static_cast<ReadRequest*>(temp);
+			 temp = temp->next; //Allow reuse of next
+			 if(message.action == Action::deallocate)
+			 {
+				 discard(message, tr, gr);
+			 }
+			 else
+			 {
+				 readFile(static_cast<ReadRequest&>(message), tr, gr);
+			 }
+		 }
+	 } while(!messageQueue.stop());
+ }

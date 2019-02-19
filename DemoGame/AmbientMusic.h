@@ -7,14 +7,20 @@
 class ThreadResources;
 class GlobalResources;
 
-class AmbientMusic : private IXAudio2VoiceCallback, private AsynchronousFileManager::IORequest
+class AmbientMusic : private IXAudio2VoiceCallback
 {
-	struct BufferDescriptor
+	struct Buffer : public AsynchronousFileManager::ReadRequest
 	{
 		const unsigned char* data;
-		std::atomic<const wchar_t*> filename = nullptr;
-		std::size_t filePositionStart;
-		std::size_t filePositionEnd;
+		AmbientMusic* music;
+	};
+	struct InfoRequest : public AsynchronousFileManager::ReadRequest
+	{
+		AmbientMusic* music;
+	};
+	struct ExtraBuffer : public Buffer
+	{
+		std::atomic<bool> inUse = false;
 	};
 	//The size of one of the two sound buffers
 	constexpr static size_t rawSoundDataBufferSize = 64 * 1024;
@@ -22,12 +28,14 @@ class AmbientMusic : private IXAudio2VoiceCallback, private AsynchronousFileMana
 	std::atomic<unsigned int> bufferLoadingAndIsFirstBuffer = 0u;
 	const wchar_t* const * files;
 	std::size_t fileCount;
+	File file;
 	std::size_t previousTrack;
 	std::size_t filePosition;
 	std::size_t bytesRemaining;
-	std::size_t bytesNeeded;
-	BufferDescriptor bufferDescriptors[3];
-	BufferDescriptor* currentBuffer;
+	Buffer bufferDescriptors[2];
+	Buffer* currentBuffer;
+	ExtraBuffer extraBuffer;
+	InfoRequest infoRequest;
 	GlobalResources& globalResourcesRef;
 	void(*callback)(AmbientMusic& music, ThreadResources& threadResources, GlobalResources& globalResources);
 

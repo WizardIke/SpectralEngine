@@ -6,7 +6,7 @@ struct HeapLocation
 	unsigned int heapIndex;
 	unsigned int heapOffsetInPages;
 
-	HeapLocation() {} //so std::vector doesn't zero heapIndex and heapOffsetInPages when it doesn't need to
+	HeapLocation() {} //so containers don't't zero heapIndex and heapOffsetInPages when they doesn't need to
 	HeapLocation(unsigned int heapIndex, unsigned int heapOffsetInPages) : heapIndex(heapIndex), heapOffsetInPages(heapOffsetInPages) {} //needed because of other constructor
 };
 

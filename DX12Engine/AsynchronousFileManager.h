@@ -3,74 +3,87 @@
 #include <cstdint>
 #include "File.h"
 #include "IOCompletionQueue.h"
-#include <mutex>
+#include "ActorQueue.h"
 
 class AsynchronousFileManager
 {
-public:
-	struct Key
+private:
+	struct ResourceId
 	{
-		const wchar_t* name;
+		const wchar_t* filename;
 		std::size_t start;
 		std::size_t end;
 
-		bool operator==(const Key& other) const
+		bool operator==(const ResourceId& other) const
 		{
-			return name == other.name && start == other.start && end == other.end;
+			return filename == other.filename && start == other.start && end == other.end;
 		}
-	};
-
-	struct FileData
-	{
-		unsigned char* allocation;
 	};
 
 	struct Hasher
 	{
-		std::size_t operator()(const Key& key) const
+		std::size_t operator()(const ResourceId& key) const
 		{
-			std::size_t result = (std::size_t)key.name;
+			std::size_t result = (std::size_t)key.filename;
 			result = result * 31u + key.start;
 			result = result * 31u + key.end;
 			return result;
 		}
 	};
 
-	class IORequest : public OVERLAPPED
+	enum class Action : short
+	{
+		allocate,
+		deallocate,
+	};
+public:
+	class ReadRequest : public OVERLAPPED, public SinglyLinked, public ResourceId
 	{
 	public:
+		Action action;
 		//location to read
 		File file;
-		const wchar_t* filename;
-		std::size_t start;
-		std::size_t end;
 		//location to put the result
 		unsigned char* buffer;
 		//amount read
 		std::size_t accumulatedSize;
 		//what to do with the result
-		void(*fileLoadedCallback)(IORequest& request, void* executor, void* sharedResources, const unsigned char* data);
+		void(*fileLoadedCallback)(ReadRequest& request, void* executor, void* sharedResources, const unsigned char* data);
+		void(*deleteReadRequest)(ReadRequest& request, void* tr, void* gr);
 
-		IORequest() {}
-		IORequest(const wchar_t* filename, File file, std::size_t start, std::size_t end,
-			void(*fileLoadedCallback)(IORequest& request, void* executor, void* sharedResources, const unsigned char* data)) :
-			filename(filename),
+		ReadRequest() {}
+		ReadRequest(const wchar_t* filename, File file, std::size_t start, std::size_t end,
+			void(*fileLoadedCallback)(ReadRequest& request, void* executor, void* sharedResources, const unsigned char* data),
+			void(*deleteRequest)(ReadRequest& request, void* executor, void* sharedResources)) :
 			file(file),
-			start(start),
-			end(end),
-			fileLoadedCallback(fileLoadedCallback)
-		{}
+			fileLoadedCallback(fileLoadedCallback),
+			deleteReadRequest(deleteRequest)
+		{
+			this->filename = filename;
+			this->start = start;
+			this->end = end;
+		}
 	};
 private:
-	std::mutex mutex;
-	using HashMap = std::unordered_map<Key, FileData, Hasher>;
-	HashMap files;
-	std::size_t sectorSize;
+	struct FileData
+	{
+		unsigned char* allocation;
+		unsigned int userCount;
+		ReadRequest* requests;
+	};
+
+	std::unordered_map<ResourceId, FileData, Hasher> files;
+	std::size_t pageSize;
+	ActorQueue messageQueue;
+
+	static bool processIOCompletionHelper(AsynchronousFileManager& fileManager, void* executor, void* sharedResources, DWORD numberOfBytes, LPOVERLAPPED overlapped);
+	void run(void* executor, void* sharedResources);
+	bool readFile(ReadRequest& request, void* tr, void* gr);
+	void discard(ReadRequest& resource, void* tr, void* gr);
 public:
 	AsynchronousFileManager();
 	~AsynchronousFileManager();
 
-	static bool processIOCompletionHelper(AsynchronousFileManager& fileManager, void* executor, void* sharedResources, DWORD numberOfBytes, LPOVERLAPPED overlapped);
 	template<class GlobalResources>
 	static bool processIOCompletion(void* executor, void* sharedResources, DWORD numberOfBytes, LPOVERLAPPED overlapped)
 	{
@@ -86,6 +99,33 @@ public:
 		return file;
 	}
 
-	bool readFile(void* executor, void* sharedResources, IORequest* request);
-	void discard(const wchar_t* name, std::size_t start, std::size_t end);
+	template<class ThreadResources, class GlobalResources>
+	void readFile(ReadRequest* request, ThreadResources& threadResources, GlobalResources&)
+	{
+		request->action = Action::allocate;
+		bool needsStarting = messageQueue.push(request);
+		if(needsStarting)
+		{
+			threadResources.taskShedular.backgroundQueue().push({this, [](void* requester, ThreadResources& threadResources, GlobalResources& globalResources)
+			{
+				auto& afm = *static_cast<AsynchronousFileManager*>(requester);
+				afm.run(&threadResources, &globalResources);
+			}});
+		}
+	}
+
+	template<class ThreadResources, class GlobalResources>
+	void discard(ReadRequest* request, ThreadResources& threadResources, GlobalResources&)
+	{
+		request->action = Action::deallocate;
+		bool needsStarting = messageQueue.push(request);
+		if(needsStarting)
+		{
+			threadResources.taskShedular.backgroundQueue().push({this, [](void* requester, ThreadResources& threadResources, GlobalResources& globalResources)
+			{
+				auto& afm = *static_cast<AsynchronousFileManager*>(requester);
+				afm.run(&threadResources, &globalResources);
+			}});
+		}
+	}
 };

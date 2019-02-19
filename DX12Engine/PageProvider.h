@@ -26,7 +26,7 @@ class PageProvider
 	constexpr static double memoryFullLowerBound = 0.95;
 	constexpr static std::size_t maxPagesLoading = 32u;
 
-	class PageLoadRequest : public StreamingManager::StreamingRequest, public AsynchronousFileManager::IORequest
+	class PageLoadRequest : public StreamingManager::StreamingRequest, public AsynchronousFileManager::ReadRequest
 	{
 	public:
 		unsigned long pageWidthInBytes;
@@ -82,14 +82,15 @@ private:
 			addPageLoadRequestHelper(pageRequest, virtualTextureManager, [](StreamingManager::StreamingRequest* request, void* tr, void* gr)
 			{
 				PageLoadRequest& uploadRequest = *static_cast<PageLoadRequest*>(request);
-				GlobalResources& globalResources = *reinterpret_cast<GlobalResources*>(gr);
+				ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
+				GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
 
-				uploadRequest.fileLoadedCallback = [](AsynchronousFileManager::IORequest& req, void*, void* gr, const unsigned char* buffer)
+				uploadRequest.fileLoadedCallback = [](AsynchronousFileManager::ReadRequest& req, void*, void* gr, const unsigned char* buffer)
 				{
 					PageLoadRequest* request = static_cast<PageLoadRequest*>(&req);
 					copyPageToUploadBuffer(request, buffer);
 
-					GlobalResources& globalResources = *reinterpret_cast<GlobalResources*>(gr);
+					GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
 					PageProvider& pageProvider = globalResources.virtualTextureManager.pageProvider;
 					PageLoadRequest* oldHalfFinishedPageLoadRequests = pageProvider.halfFinishedPageLoadRequests.load(std::memory_order::memory_order_relaxed);
 					request->nextPageLoadRequest = oldHalfFinishedPageLoadRequests;
@@ -98,11 +99,11 @@ private:
 						request->nextPageLoadRequest = oldHalfFinishedPageLoadRequests;
 					}
 				};
-				globalResources.asynchronousFileManager.readFile(tr, gr, &uploadRequest);
+				globalResources.asynchronousFileManager.readFile(&uploadRequest, threadResources, globalResources);
 			}, [](StreamingManager::StreamingRequest* requester, void*, void* gr)
 			{
 				PageLoadRequest* request = static_cast<PageLoadRequest*>(requester);
-				GlobalResources& globalResources = *reinterpret_cast<GlobalResources*>(gr);
+				GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
 				PageProvider& pageProvider = globalResources.virtualTextureManager.pageProvider;
 				PageLoadRequest* oldReturnedPageLoadRequests = pageProvider.returnedPageLoadRequests.load(std::memory_order::memory_order_relaxed);
 				request->nextPageLoadRequest = oldReturnedPageLoadRequests;

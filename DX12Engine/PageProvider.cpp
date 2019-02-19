@@ -108,7 +108,7 @@ void PageProvider::addPageLoadRequestHelper(PageLoadRequest& streamingRequest, V
 	streamingRequest.resourceSize = streamingRequest.widthInBytes * streamingRequest.heightInTexels;
 	streamingRequest.start = filePos;
 	streamingRequest.end = filePos + streamingRequest.resourceSize;
-	streamingRequest.resourceUploaded = resourceUploaded;
+	streamingRequest.deleteStreamingRequest = resourceUploaded;
 	streamingRequest.streamResource = streamResource;
 }
 

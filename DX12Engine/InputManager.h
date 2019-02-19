@@ -70,7 +70,7 @@ public:
 
 		inputDevices[1].usUsagePage = 0x01;
 		inputDevices[1].usUsage = 0x06;
-		inputDevices[1].dwFlags = RIDEV_NOLEGACY;   // adds HID keyboard and also ignores legacy keyboard messages
+		inputDevices[1].dwFlags = RIDEV_NOLEGACY | RIDEV_APPKEYS;   // adds HID keyboard and also ignores legacy keyboard messages
 		inputDevices[1].hwndTarget = nullptr;
 
 

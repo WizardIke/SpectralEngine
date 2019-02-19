@@ -128,13 +128,13 @@ ID3D12Resource* TextureManager::createTexture(const TextureStreamingRequest& upl
 }
 
 void TextureManager::loadTextureFromMemory(const unsigned char* buffer, TextureStreamingRequest& uploadRequest,
-	void(*streamResource)(StreamingManager::StreamingRequest* request, void* threadResources, void* globalResources), void(*textureUploaded)(StreamingManager::StreamingRequest* request, void*, void*))
+	void(*streamResource)(StreamingManager::StreamingRequest* request, void* threadResources, void* globalResources))
 {
 	const DDSFileLoader::DdsHeaderDx12& header = *reinterpret_cast<const DDSFileLoader::DdsHeaderDx12*>(buffer);
 	bool valid = DDSFileLoader::validateDdsHeader(header);
 	if(!valid) throw false;
 	uploadRequest.streamResource = streamResource;
-	uploadRequest.resourceUploaded = textureUploaded;
+	uploadRequest.deleteStreamingRequest = freeRequestMemory;
 	uploadRequest.width = header.width;
 	uploadRequest.height = header.height;
 	uploadRequest.format = header.dxgiFormat;
@@ -153,25 +153,33 @@ void TextureManager::loadTextureFromMemory(const unsigned char* buffer, TextureS
 		uploadRequest.mipLevels, uploadRequest.arraySize, uploadRequest.format);
 }
 
-void TextureManager::textureUploadedHelper(const wchar_t* filename, void* tr, void* gr)
+void TextureManager::notifyTextureReady(TextureStreamingRequest* request, void* tr, void* gr)
 {
 	unsigned int descriptorIndex;
-	TextureStreamingRequest* requests;
 	{
 		std::lock_guard<decltype(mutex)> lock(mutex);
-		auto& texture = textures[filename];
-		texture.loaded = true;
+		auto& texture = textures[request->filename];
+		texture.lastRequest = nullptr;
 		descriptorIndex = texture.descriptorIndex;
-
-		auto requestsPos = uploadRequests.find(filename);
-		assert(requestsPos != uploadRequests.end() && "A texture is loading with no requests for it");
-		requests = std::move(requestsPos->second);
-		uploadRequests.erase(requestsPos);
 	}
-	for(auto current = requests; current != nullptr; )
+	do
 	{
-		auto old = current;
-		current = current->nextTextureRequest; //Need to do this now as old will be deleted by the next line
+		auto old = request;
+		request = request->nextTextureRequest; //Need to do this now as old could be deleted by the next line
 		old->textureLoaded(*old, tr, gr, descriptorIndex);
+	} while(request != nullptr);
+}
+
+void TextureManager::freeRequestMemory(StreamingManager::StreamingRequest* request1, void*, void*)
+{
+	auto request = static_cast<TextureStreamingRequest*>(request1);
+	if(request->numberOfComponentsReadyToDelete.fetch_add(1u) == (TextureStreamingRequest::numberOfComponents - 1u))
+	{
+		do
+		{
+			auto old = request;
+			request = request->nextTextureRequest; //Need to do this now as old could be deleted by the next line
+			old->deleteTextureRequest(*old);
+		} while(request != nullptr);
 	}
 }

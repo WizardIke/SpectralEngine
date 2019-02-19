@@ -1,10 +1,9 @@
 #include "MeshManager.h"
 #include <cassert>
 
-void MeshManager::fillUploadRequest(MeshStreamingRequest& uploadRequest, uint32_t vertexCount, uint32_t indexCount, uint32_t vertexStride,
-	void(*meshUploaded)(StreamingManager::StreamingRequest* useSubresourceRequest, void* executor, void* sharedResources))
+void MeshManager::fillUploadRequest(MeshStreamingRequest& uploadRequest, uint32_t vertexCount, uint32_t indexCount, uint32_t vertexStride)
 {
-	uploadRequest.resourceUploaded = meshUploaded;
+	uploadRequest.deleteStreamingRequest = freeRequestMemory;
 
 	uint32_t indicesSize;
 	if (indexCount != 0u) indicesSize = sizeof(uint32_t) * indexCount;
@@ -297,28 +296,21 @@ void MeshManager::meshWithPositionUseResourceHelper(MeshStreamingRequest& upload
 	streamingManager.addCopyCompletionEvent(&uploadRequest, copyStarted);
 }
 
-void MeshManager::meshUploadedHelper(MeshManager& meshManager, const wchar_t* filename, void* tr, void* gr)
+void MeshManager::notifyMeshReady(MeshStreamingRequest* request, void* tr, void* gr)
 {
 	Mesh* mesh;
-	MeshStreamingRequest* requests;
 	{
-		std::lock_guard<decltype(meshManager.mutex)> lock(meshManager.mutex);
-		MeshInfo& meshInfo = meshManager.meshInfos[filename];
-		meshInfo.loaded = true;
-
+		std::lock_guard<decltype(mutex)> lock(mutex);
+		MeshInfo& meshInfo = meshInfos[request->filename];
+		meshInfo.lastRequest = nullptr;
 		mesh = &meshInfo.mesh;
-
-		auto request = meshManager.uploadRequests.find(filename);
-		assert(request != meshManager.uploadRequests.end() && "Mesh loading with no request for it!");
-		requests = std::move(request->second);
-		meshManager.uploadRequests.erase(request);
 	}
-	for(auto current = requests; current != nullptr; )
+	do
 	{
-		auto old = current;
-		current = current->nextMeshRequest; //Need to do this now as old will be deleted by the next line
+		auto old = request;
+		request = request->nextMeshRequest; //Need to do this now as old could be deleted by the next line
 		old->meshLoaded(*old, tr, gr, *mesh);
-	}
+	} while(request != nullptr);
 }
 
 void MeshManager::CalculateTangentBitangent(const unsigned char* start, const unsigned char* end, MeshWithPositionTextureNormalTangentBitangent* Mesh)
@@ -438,6 +430,20 @@ void MeshManager::CalculateTangentBitangent(const unsigned char* start, const un
 		Mesh->by = meshes[0].by;
 		Mesh->bz = meshes[0].bz;
 		++Mesh;
+	}
+}
+
+void MeshManager::freeRequestMemory(StreamingManager::StreamingRequest* request1, void*, void*)
+{
+	auto request = static_cast<MeshStreamingRequest*>(request1);
+	if(request->numberOfComponentsReadyToDelete.fetch_add(1u) == (MeshStreamingRequest::numberOfComponents - 1u))
+	{
+		do
+		{
+			auto old = request;
+			request = request->nextMeshRequest; //Need to do this now as old could be deleted by the next line
+			old->deleteMeshRequest(*old);
+		} while(request != nullptr);
 	}
 }
 

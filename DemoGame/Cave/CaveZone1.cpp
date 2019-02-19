@@ -98,7 +98,8 @@ namespace Cave
 				stone4FeedbackBufferPsCpu->usefulTextureWidth = (float)(textureInfo.width);
 
 				componentUploaded(&zone, threadResources, globalResources);
-
+			}, [](VirtualTextureManager::TextureStreamingRequest& request)
+			{
 				delete static_cast<VirtualTextureRequest*>(&request);
 			}, TextureNames::stone04, zone);
 			virtualTextureManager.loadTexture(threadResources, globalResources, stone04Request);
@@ -112,7 +113,8 @@ namespace Cave
 				const auto resources = ((HDResources*)zone.newData);
 				resources->caveModelPart1.mesh = &mesh;
 				componentUploaded(&zone, threadResources, globalResources);
-
+			}, [](MeshManager::MeshStreamingRequest& request)
+			{
 				delete static_cast<MeshRequest*>(&request);
 			}, MeshNames::squareWithNormals, zone);
 			meshManager.loadMeshWithPositionTextureNormal(threadResources, globalResources, squareWithNormalsRequest);

@@ -11,7 +11,7 @@ namespace
 	{
 		constexpr static unsigned int numberOfComponents = 2u;
 
-		class RequestHelper : public AsynchronousFileManager::IORequest
+		class RequestHelper : public AsynchronousFileManager::ReadRequest
 		{
 		public:
 			ShaderRequestVP* request;
@@ -28,8 +28,29 @@ namespace
 		const unsigned char* pixelShaderData;
 
 		std::atomic<unsigned int> numberOfComponentsLoaded = 0u;
+		std::atomic<unsigned int> numberOfComponentsReadyToDelete = 0u;
 		void(*loadingFinished)(const unsigned char* vertexShaderData, std::size_t vertexShaderDataLength, const unsigned char* pixelShaderData, std::size_t pixelShaderDataLength,
 			ThreadResources& threadResources, GlobalResources& globalResources, ID3D12RootSignature* rootSignature, ID3D12Device* device, ShaderRequestVP* requests);
+
+		static void freeRequestMemory(AsynchronousFileManager::ReadRequest& request1, void*, void*)
+		{
+			ShaderRequestVP& request = *static_cast<RequestHelper&>(request1).request;
+			if(request.numberOfComponentsReadyToDelete.fetch_add(1u) == (numberOfComponents - 1u))
+			{
+				delete &request;
+			}
+		}
+
+		void shaderFileLoaded(ThreadResources& threadResources, GlobalResources& globalResources)
+		{
+			if(numberOfComponentsLoaded.fetch_add(1u, std::memory_order::memory_order_acq_rel) == (numberOfComponents - 1u))
+			{
+				loadingFinished(vertexShaderData, vertexHelper.end, pixelShaderData, pixelHelper.end,
+					threadResources, globalResources, rootSignature, device, this);
+				globalResources.asynchronousFileManager.discard(&vertexHelper, threadResources, globalResources);
+				globalResources.asynchronousFileManager.discard(&pixelHelper, threadResources, globalResources);
+			}
+		}
 	
 		ShaderRequestVP(ThreadResources& threadResources, GlobalResources& globalResources, const wchar_t* vertexFile, const wchar_t* pixelFile, ID3D12RootSignature* rootSignature1, ID3D12Device* device1,
 			PipelineStateObjects::PipelineLoader* pipelineLoader1,
@@ -52,24 +73,16 @@ namespace
 			request1.file = vsFile;
 			request1.start = 0u;
 			request1.end = vsFile.size();
-			request1.fileLoadedCallback = [](AsynchronousFileManager::IORequest& request, void* executor, void* sharedResources, const unsigned char* data)
+			request1.fileLoadedCallback = [](AsynchronousFileManager::ReadRequest& request, void* executor, void* sharedResources, const unsigned char* data)
 			{
 				request.file.close();
 
 				ShaderRequestVP& request1 = *static_cast<RequestHelper&>(request).request;
 				request1.vertexShaderData = data;
-
-				if(request1.numberOfComponentsLoaded.fetch_add(1u, std::memory_order::memory_order_acq_rel) == (numberOfComponents - 1u))
-				{
-					GlobalResources& globalResources = *static_cast<GlobalResources*>(sharedResources);
-					request1.loadingFinished(request1.vertexShaderData, request1.vertexHelper.end, request1.pixelShaderData, request1.pixelHelper.end,
-						*static_cast<ThreadResources*>(executor), globalResources, request1.rootSignature, request1.device, &request1);
-					globalResources.asynchronousFileManager.discard(request1.vertexHelper.filename, 0u, request1.vertexHelper.end);
-					globalResources.asynchronousFileManager.discard(request1.pixelHelper.filename, 0u, request1.pixelHelper.end);
-					delete &request1;
-				}
+				request1.shaderFileLoaded(*static_cast<ThreadResources*>(executor), *static_cast<GlobalResources*>(sharedResources));
 			};
-			fileManager.readFile(&threadResources, &globalResources, &request1);
+			request1.deleteReadRequest = freeRequestMemory;
+			fileManager.readFile(&request1, threadResources, globalResources);
 
 			File psFile = fileManager.openFileForReading<GlobalResources>(ioCompletionQueue, pixelFile);
 			RequestHelper& request2 = pixelHelper;
@@ -77,24 +90,16 @@ namespace
 			request2.file = psFile;
 			request2.start = 0u;
 			request2.end = psFile.size();
-			request2.fileLoadedCallback = [](AsynchronousFileManager::IORequest& request, void* executor, void* sharedResources, const unsigned char* data)
+			request2.fileLoadedCallback = [](AsynchronousFileManager::ReadRequest& request, void* executor, void* sharedResources, const unsigned char* data)
 			{
 				request.file.close();
 
 				ShaderRequestVP& request1 = *static_cast<RequestHelper&>(request).request;
 				request1.pixelShaderData = data;
-
-				if(request1.numberOfComponentsLoaded.fetch_add(1u, std::memory_order::memory_order_acq_rel) == (numberOfComponents - 1u))
-				{
-					GlobalResources& globalResources = *static_cast<GlobalResources*>(sharedResources);
-					request1.loadingFinished(request1.vertexShaderData, request1.vertexHelper.end, request1.pixelShaderData, request1.pixelHelper.end,
-						*static_cast<ThreadResources*>(executor), globalResources, request1.rootSignature, request1.device, &request1);
-					globalResources.asynchronousFileManager.discard(request1.vertexHelper.filename, 0u, request1.vertexHelper.end);
-					globalResources.asynchronousFileManager.discard(request1.pixelHelper.filename, 0u, request1.pixelHelper.end);
-					delete &request1;
-				}
+				request1.shaderFileLoaded(*static_cast<ThreadResources*>(executor), *static_cast<GlobalResources*>(sharedResources));
 			};
-			fileManager.readFile(&threadResources, &globalResources, &request2);
+			request2.deleteReadRequest = freeRequestMemory;
+			fileManager.readFile(&request2, threadResources, globalResources);
 		}
 	public:
 		static ShaderRequestVP* create(ThreadResources& threadResources, GlobalResources& globalResources, const wchar_t* vertexFile, const wchar_t* pixelFile, ID3D12RootSignature* rootSignature1, ID3D12Device* device1,

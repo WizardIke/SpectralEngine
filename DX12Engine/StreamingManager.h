@@ -26,7 +26,7 @@ public:
 	public:
 		StreamingRequest() {}
 
-		void(*resourceUploaded)(StreamingRequest* request, void* threadResources, void* globalResources);
+		void(*deleteStreamingRequest)(StreamingRequest* request, void* threadResources, void* globalResources);
 		void(*streamResource)(StreamingRequest* request, void* threadResources, void* globalResources);
 		unsigned long resourceSize;
 

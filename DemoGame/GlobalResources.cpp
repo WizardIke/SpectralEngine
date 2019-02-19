@@ -72,6 +72,7 @@ namespace
 		{
 			InitialResourceLoader& request1 = static_cast<InitialResourceLoader&>(pipelineLoader);
 			request1.componentLoaded(threadResources, globalResources);
+			freeRequestMemory(request1);
 		}
 
 		void componentLoaded(ThreadResources& threadResources, GlobalResources& globalResources)
@@ -81,15 +82,26 @@ namespace
 				globalResources.userInterface.start(threadResources, globalResources);
 				globalResources.areas.start(threadResources, globalResources);
 				globalResources.taskShedular.setNextPhaseTask(ThreadResources::initialize2);
-				delete this;
+			}
+		}
+
+		static void freeRequestMemory(InitialResourceLoader& request)
+		{
+			if(request.numberOfComponentsReadyToDelete.fetch_add(1u) == (numberOfComponents - 1u))
+			{
+				delete &request;
 			}
 		}
 
 		static constexpr unsigned int numberOfComponents = 2u;
 		std::atomic<unsigned int> numberOfComponentsLoaded = 0u;
+		std::atomic<unsigned int> numberOfComponentsReadyToDelete = 0u;
 	public:
 		InitialResourceLoader(const wchar_t* fontFilename) :
-			TextureManager::TextureStreamingRequest(fontsLoadedCallback, fontFilename),
+			TextureManager::TextureStreamingRequest(fontsLoadedCallback, [](TextureManager::TextureStreamingRequest& request)
+		{
+			freeRequestMemory(static_cast<InitialResourceLoader&>(request));
+		}, fontFilename),
 			PipelineStateObjects::PipelineLoader(pipelineStateObjectsLoadedCallback) {}
 	};
 }
