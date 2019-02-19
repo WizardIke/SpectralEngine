@@ -117,7 +117,7 @@ namespace Cave
 			{
 				delete static_cast<MeshRequest*>(&request);
 			}, MeshNames::squareWithNormals, zone);
-			meshManager.loadMeshWithPositionTextureNormal(threadResources, globalResources, squareWithNormalsRequest);
+			meshManager.loadMesh(threadResources, globalResources, squareWithNormalsRequest);
 
 			constexpr uint64_t pointLightConstantBufferAlignedSize = (sizeof(LightConstantBuffer) + (uint64_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (uint64_t)1u) &
 				~((uint64_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (uint64_t)1u);

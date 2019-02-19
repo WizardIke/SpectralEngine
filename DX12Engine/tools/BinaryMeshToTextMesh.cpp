@@ -22,11 +22,12 @@ int main(int conut, char** strings)
 		return -1;
 	}
 	
-	uint32_t vertexType, vertexCount, indexCount;
-	fin.read(reinterpret_cast<char*>(&vertexType), sizeof(vertexType));
+	uint32_t compressedVertexType, unpackedVertexType, vertexCount, indexCount;
+	fin.read(reinterpret_cast<char*>(&compressedVertexType), sizeof(compressedVertexType));
+	fin.read(reinterpret_cast<char*>(&unpackedVertexType), sizeof(unpackedVertexType));
 	fin.read(reinterpret_cast<char*>(&vertexCount), sizeof(vertexCount));
 	fin.read(reinterpret_cast<char*>(&indexCount), sizeof(indexCount));
-	if(vertexType == VertexType::position3f)
+	if(compressedVertexType == VertexType::position3f)
 	{
 		cout << "Vertex Type: position3f\n";
 		cout << "vertexCount: " << vertexCount << '\n';
@@ -41,7 +42,7 @@ int main(int conut, char** strings)
 				' ' << vertex.position[2] << "}\n";
 		}
 	}
-	else if(vertexType == VertexType::position3f_texCoords2f)
+	else if(compressedVertexType == VertexType::position3f_texCoords2f)
 	{
 		cout << "Vertex Type: position3f_texCoords2f\n";
 		cout << "vertexCount: " << vertexCount << '\n';
@@ -57,7 +58,7 @@ int main(int conut, char** strings)
 			cout << "texCoords: {" << vertex.texCoords[0] << ' ' << vertex.texCoords[1] << "}\n";
 		}
 	}
-	else if(vertexType == VertexType::position3f_texCoords2f_normal3f)
+	else if(compressedVertexType == VertexType::position3f_texCoords2f_normal3f)
 	{
 		cout << "Vertex Type: position3f_texCoords2f_normal3f\n";
 		cout << "vertexCount: " << vertexCount << '\n';

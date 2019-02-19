@@ -121,7 +121,7 @@ class TestZoneFunctions
 			{
 				delete static_cast<MeshRequest*>(&request);
 			}, MeshNames::HighResMesh1, zone);
-			meshManager.loadMeshWithPositionTextureNormal(threadResources, globalResources, HighResMesh1Request);
+			meshManager.loadMesh(threadResources, globalResources, HighResMesh1Request);
 
 			constexpr uint64_t pointLightConstantBufferAlignedSize = (sizeof(LightConstantBuffer) + (uint64_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (uint64_t)1u) & ~((uint64_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (uint64_t)1u);
 

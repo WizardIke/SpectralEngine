@@ -362,7 +362,7 @@ namespace
 			{
 				delete static_cast<MeshRequest*>(&request);
 			}, MeshNames::bath, zone);
-			meshManager.loadMeshWithPositionTextureNormal(threadResources, globalResources, bathRequest);
+			meshManager.loadMesh(threadResources, globalResources, bathRequest);
 			MeshRequest* plane1Request = new MeshRequest([](MeshManager::MeshStreamingRequest& request, void* tr, void* gr, Mesh& mesh)
 			{
 				ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
@@ -375,7 +375,7 @@ namespace
 			{
 				delete static_cast<MeshRequest*>(&request);
 			}, MeshNames::plane1, zone);
-			meshManager.loadMeshWithPositionTextureNormal(threadResources, globalResources, plane1Request);
+			meshManager.loadMesh(threadResources, globalResources, plane1Request);
 			MeshRequest* wallRequest = new MeshRequest([](MeshManager::MeshStreamingRequest& request, void* tr, void* gr, Mesh& mesh)
 			{
 				ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
@@ -388,7 +388,7 @@ namespace
 			{
 				delete static_cast<MeshRequest*>(&request);
 			}, MeshNames::wall, zone);
-			meshManager.loadMeshWithPositionTextureNormal(threadResources, globalResources, wallRequest);
+			meshManager.loadMesh(threadResources, globalResources, wallRequest);
 			MeshRequest* waterRequest = new MeshRequest([](MeshManager::MeshStreamingRequest& request, void* tr, void* gr, Mesh& mesh)
 			{
 				ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
@@ -401,7 +401,7 @@ namespace
 			{
 				delete static_cast<MeshRequest*>(&request);
 			}, MeshNames::water, zone);
-			meshManager.loadMeshWithPositionTexture(threadResources, globalResources, waterRequest);
+			meshManager.loadMesh(threadResources, globalResources, waterRequest);
 			MeshRequest* cubeRequest = new MeshRequest([](MeshManager::MeshStreamingRequest& request, void* tr, void* gr, Mesh& mesh)
 			{
 				ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
@@ -414,7 +414,7 @@ namespace
 			{
 				delete static_cast<MeshRequest*>(&request);
 			}, MeshNames::cube, zone);
-			meshManager.loadMeshWithPositionTexture(threadResources, globalResources, cubeRequest);
+			meshManager.loadMesh(threadResources, globalResources, cubeRequest);
 			MeshRequest* squareRequest = new MeshRequest([](MeshManager::MeshStreamingRequest& request, void* tr, void* gr, Mesh& mesh)
 			{
 				ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
@@ -428,7 +428,7 @@ namespace
 			{
 				delete static_cast<MeshRequest*>(&request);
 			}, MeshNames::square, zone);
-			meshManager.loadMeshWithPositionTexture(threadResources, globalResources, squareRequest);
+			meshManager.loadMesh(threadResources, globalResources, squareRequest);
 			MeshRequest* aabbRequest = new MeshRequest([](MeshManager::MeshStreamingRequest& request, void* tr, void* gr, Mesh& mesh)
 			{
 				ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
@@ -441,7 +441,7 @@ namespace
 			{
 				delete static_cast<MeshRequest*>(&request);
 			}, MeshNames::aabb, zone);
-			meshManager.loadMeshWithPosition(threadResources, globalResources, aabbRequest);
+			meshManager.loadMesh(threadResources, globalResources, aabbRequest);
 			MeshRequest* squareWithPosRequest = new MeshRequest([](MeshManager::MeshStreamingRequest& request, void* tr, void* gr, Mesh& mesh)
 			{
 				ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
@@ -454,7 +454,7 @@ namespace
 			{
 				delete static_cast<MeshRequest*>(&request);
 			}, MeshNames::squareWithPos, zone);
-			meshManager.loadMeshWithPosition(threadResources, globalResources, squareWithPosRequest);
+			meshManager.loadMesh(threadResources, globalResources, squareWithPosRequest);
 			
 			threadResources.taskShedular.update1NextQueue().concurrentPush({ &zone, [](void* context, ThreadResources& threadResources, GlobalResources& globalResources)
 			{
@@ -892,7 +892,7 @@ namespace
 			{
 				delete static_cast<MeshRequest*>(&request);
 			}, MeshNames::bath, zone);
-			meshManager.loadMeshWithPositionTextureNormal(threadResources, globalResources, bathRequest);
+			meshManager.loadMesh(threadResources, globalResources, bathRequest);
 
 			constexpr uint64_t pointLightConstantBufferAlignedSize = (sizeof(LightConstantBuffer) + (uint64_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (uint64_t)1u) &
 				~((uint64_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (uint64_t)1u);

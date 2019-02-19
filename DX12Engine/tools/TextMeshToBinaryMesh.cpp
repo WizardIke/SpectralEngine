@@ -14,7 +14,8 @@ int main(int conut, char** strings)
 	};
 	struct MeshHeader
 	{
-		uint32_t vertexType;
+		uint32_t compressedVertexType;
+		uint32_t unpackedVertexType;
 		uint32_t vertexCount;
 		uint32_t indexCount;
 	};
@@ -70,15 +71,18 @@ int main(int conut, char** strings)
 	MeshHeader header;
 	if(newVertexType == "position3f")
 	{
-		header.vertexType = VertexType::position3f;
+		header.compressedVertexType = VertexType::position3f;
+		header.unpackedVertexType = VertexType::position3f;
 	}
 	else if(newVertexType == "position3f_texCoords2f")
 	{
-		header.vertexType = VertexType::position3f_texCoords2f;
+		header.compressedVertexType = VertexType::position3f_texCoords2f;
+		header.unpackedVertexType = VertexType::position3f_texCoords2f;
 	}
 	else if(newVertexType == "position3f_texCoords2f_normal3f")
 	{
-		header.vertexType = VertexType::position3f_texCoords2f_normal3f;
+		header.compressedVertexType = VertexType::position3f_texCoords2f_normal3f;
+		header.unpackedVertexType = VertexType::position3f_texCoords2f_normal3f;
 	}
 	else
 	{

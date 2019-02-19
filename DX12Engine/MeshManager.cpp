@@ -1,7 +1,7 @@
 #include "MeshManager.h"
 #include <cassert>
 
-void MeshManager::fillUploadRequest(MeshStreamingRequest& uploadRequest, uint32_t vertexCount, uint32_t indexCount, uint32_t vertexStride)
+void MeshManager::fillUploadRequestHelper(MeshStreamingRequest& uploadRequest, uint32_t vertexCount, uint32_t indexCount, uint32_t vertexStride)
 {
 	uploadRequest.deleteStreamingRequest = freeRequestMemory;
 

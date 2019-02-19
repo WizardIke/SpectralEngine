@@ -20,7 +20,7 @@ int main()
 	cout << "enter the file name  ";
 	string name;
 	cin >> name;
-	string path = "c:/users/ike/desktop/" + name + ".mesh";
+	string path = name + ".mesh";
 
 	fout.open(path, ios::binary);
 	if (fout.fail())
@@ -28,8 +28,10 @@ int main()
 		cout << "Failed to open file: " << path;
 		return -1;
 	}
-	uint32_t vertexType = VertexType::position3f_texCoords2f_normal3f;
-	fout.write((char*)&vertexType, sizeof(vertexType));
+	uint32_t compressedVertexType = VertexType::position3f_texCoords2f_normal3f;
+	fout.write((char*)&compressedVertexType, sizeof(compressedVertexType));
+	uint32_t unpackedVertexType = VertexType::position3f_texCoords2f_normal3f;
+	fout.write((char*)&unpackedVertexType, sizeof(unpackedVertexType));
 	fout.write((char*)&vertexCount, sizeof(vertexCount));
 	uint32_t indexCount = 0u;
 	fout.write((char*)&indexCount, sizeof(indexCount));
