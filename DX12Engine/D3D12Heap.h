@@ -40,6 +40,18 @@ public:
 		return data == nullptr;
 	}
 
+	ID3D12Heap*& set()
+	{
+		return data;
+	}
+
+	ID3D12Heap* steal()
+	{
+		auto ret = data;
+		data = nullptr;
+		return ret;
+	}
+
 	operator ID3D12Heap*()
 	{
 		return data;

@@ -52,7 +52,7 @@ struct Font
 		TextureManager::TextureStreamingRequest* textureRequest)
 	{
 		TextureManager& textureManager = sharedResources.textureManager;
-		textureManager.loadTexture(executor, sharedResources, textureRequest);
+		textureManager.load(textureRequest, executor, sharedResources);
 		auto windowWidth = sharedResources.window.width();
 		auto windowHeight = sharedResources.window.height();
 		create(constantBufferGpuAddress, constantBufferCpuAddress, filename, windowWidth, windowHeight);

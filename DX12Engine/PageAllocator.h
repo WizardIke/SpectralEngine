@@ -42,12 +42,8 @@ private:
 	void allocatePage(decltype(chunks.begin())& currentChunk, decltype(chunks.end())& chunksEnd, ID3D12Device* graphicsDevice, ID3D12CommandQueue* commandQueue, ID3D12Resource* resource,
 		std::size_t& lastIndex, std::size_t currentIndex, D3D12_TILED_RESOURCE_COORDINATE* locations, HeapLocation& heapLocation, UINT* heapOffsets, UINT* heapTileCounts);
 
-	void allocatePinnedPage(decltype(pinnedChunks.begin())& currentChunk, decltype(pinnedChunks.end())& chunksEnd, ID3D12Device* graphicsDevice, ID3D12CommandQueue* commandQueue, VirtualTextureInfo& textureInfo,
-		std::size_t& lastIndex, std::size_t currentIndex, D3D12_TILED_RESOURCE_COORDINATE* locations, UINT* heapOffsets, UINT* heapTileCounts);
-
-	void allocatePagePacked(decltype(pinnedChunks.begin())& currentChunk, decltype(pinnedChunks.end())& chunksEnd, ID3D12Device* graphicsDevice, ID3D12CommandQueue* commandQueue,
-		const VirtualTextureInfo& textureInfo, std::size_t& lastIndex, std::size_t currentIndex, D3D12_TILE_REGION_SIZE& tileRegion,
-		const D3D12_TILED_RESOURCE_COORDINATE& location, HeapLocation* heapLocations, UINT* heapOffsets, UINT* heapTileCounts);
+	void allocatePinnedPage(decltype(pinnedChunks.begin())& currentChunk, decltype(pinnedChunks.end())& chunksEnd, ID3D12Device* graphicsDevice, ID3D12CommandQueue* commandQueue, ID3D12Resource* resource,
+		HeapLocation* pinnedHeapLocations, std::size_t& lastIndex, std::size_t currentIndex, D3D12_TILED_RESOURCE_COORDINATE* locations, UINT* heapOffsets, UINT* heapTileCounts);
 public:
 	template<class HeapLocationsIterator>
 	void addPages(D3D12_TILED_RESOURCE_COORDINATE* locations, std::size_t pageCount, ID3D12Resource* resource, ID3D12CommandQueue* commandQueue,
@@ -71,8 +67,8 @@ public:
 			nullptr, heapOffsets, heapTileCounts, D3D12_TILE_MAPPING_FLAG_NONE);
 	}
 
-	void addPackedPages(const VirtualTextureInfo& textureInfo, std::size_t numPages, ID3D12CommandQueue* commandQueue, ID3D12Device* graphicsDevice);
-	void addPinnedPages(D3D12_TILED_RESOURCE_COORDINATE* locations, std::size_t pageCount, VirtualTextureInfo& textureInfo, ID3D12CommandQueue* commandQueue,
+	void addPinnedPages(ID3D12Resource* resource, HeapLocation* pinnedHeapLocations, unsigned int lowestPinnedMip, std::size_t numPages, ID3D12CommandQueue* commandQueue, ID3D12Device* graphicsDevice);
+	void addPinnedPages(D3D12_TILED_RESOURCE_COORDINATE* locations, std::size_t pageCount, ID3D12Resource* resource, HeapLocation* pinnedHeapLocations, ID3D12CommandQueue* commandQueue,
 		ID3D12Device* graphicsDevice);
 	void removePages(const HeapLocation* heapLocations, std::size_t numPages);
 	void removePage(const HeapLocation heapLocation);

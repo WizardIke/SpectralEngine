@@ -240,7 +240,7 @@ namespace
 			{
 				delete static_cast<TextureRequest*>(&request);
 			}, TextureNames::ground01, zone);
-			textureManager.loadTexture(threadResources, globalResources, ground01Request);
+			textureManager.load(ground01Request, threadResources, globalResources);
 			TextureRequest* wall01Request = new TextureRequest([](TextureManager::TextureStreamingRequest& request, void* tr, void* gr, unsigned int textureDescriptor)
 			{
 				ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
@@ -253,7 +253,7 @@ namespace
 			{
 				delete static_cast<TextureRequest*>(&request);
 			}, TextureNames::wall01, zone);
-			textureManager.loadTexture(threadResources, globalResources, wall01Request);
+			textureManager.load(wall01Request, threadResources, globalResources);
 			TextureRequest* marble01Request = new TextureRequest([](TextureManager::TextureStreamingRequest& request, void* tr, void* gr, unsigned int textureDescriptor)
 			{
 				ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
@@ -266,7 +266,7 @@ namespace
 			{
 				delete static_cast<TextureRequest*>(&request);
 			}, TextureNames::marble01, zone);
-			textureManager.loadTexture(threadResources, globalResources, marble01Request);
+			textureManager.load(marble01Request, threadResources, globalResources);
 			TextureRequest* water01Request = new TextureRequest([](TextureManager::TextureStreamingRequest& request, void* tr, void* gr, unsigned int textureDescriptor)
 			{
 				ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
@@ -279,7 +279,7 @@ namespace
 			{
 				delete static_cast<TextureRequest*>(&request);
 			}, TextureNames::water01, zone);
-			textureManager.loadTexture(threadResources, globalResources, water01Request);
+			textureManager.load(water01Request, threadResources, globalResources);
 			TextureRequest* ice01Request = new TextureRequest([](TextureManager::TextureStreamingRequest& request, void* tr, void* gr, unsigned int textureDescriptor)
 			{
 				ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
@@ -292,7 +292,7 @@ namespace
 			{
 				delete static_cast<TextureRequest*>(&request);
 			}, TextureNames::ice01, zone);
-			textureManager.loadTexture(threadResources, globalResources, ice01Request);
+			textureManager.load(ice01Request, threadResources, globalResources);
 			TextureRequest* icebump01Request = new TextureRequest([](TextureManager::TextureStreamingRequest& request, void* tr, void* gr, unsigned int textureDescriptor)
 			{
 				ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
@@ -305,7 +305,7 @@ namespace
 			{
 				delete static_cast<TextureRequest*>(&request);
 			}, TextureNames::icebump01, zone);
-			textureManager.loadTexture(threadResources, globalResources, icebump01Request);
+			textureManager.load(icebump01Request, threadResources, globalResources);
 			TextureRequest* firenoise01Request = new TextureRequest([](TextureManager::TextureStreamingRequest& request, void* tr, void* gr, unsigned int textureDescriptor)
 			{
 				ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
@@ -319,7 +319,7 @@ namespace
 			{
 				delete static_cast<TextureRequest*>(&request);
 			}, TextureNames::firenoise01, zone);
-			textureManager.loadTexture(threadResources, globalResources, firenoise01Request);
+			textureManager.load(firenoise01Request, threadResources, globalResources);
 			TextureRequest* fire01Request = new TextureRequest([](TextureManager::TextureStreamingRequest& request, void* tr, void* gr, unsigned int textureDescriptor)
 			{
 				ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
@@ -333,7 +333,7 @@ namespace
 			{
 				delete static_cast<TextureRequest*>(&request);
 			}, TextureNames::fire01, zone);
-			textureManager.loadTexture(threadResources, globalResources, fire01Request);
+			textureManager.load(fire01Request, threadResources, globalResources);
 			TextureRequest* firealpha01Request = new TextureRequest([](TextureManager::TextureStreamingRequest& request, void* tr, void* gr, unsigned int textureDescriptor)
 			{
 				ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
@@ -347,7 +347,7 @@ namespace
 			{
 				delete static_cast<TextureRequest*>(&request);
 			}, TextureNames::firealpha01, zone);
-			textureManager.loadTexture(threadResources, globalResources, firealpha01Request);
+			textureManager.load(firealpha01Request, threadResources, globalResources);
 
 			MeshManager& meshManager = globalResources.meshManager;
 			MeshRequest* bathRequest = new MeshRequest([](MeshManager::MeshStreamingRequest& request, void* tr, void* gr, Mesh& mesh)
@@ -362,7 +362,7 @@ namespace
 			{
 				delete static_cast<MeshRequest*>(&request);
 			}, MeshNames::bath, zone);
-			meshManager.loadMesh(threadResources, globalResources, bathRequest);
+			meshManager.load(bathRequest, threadResources, globalResources);
 			MeshRequest* plane1Request = new MeshRequest([](MeshManager::MeshStreamingRequest& request, void* tr, void* gr, Mesh& mesh)
 			{
 				ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
@@ -375,7 +375,7 @@ namespace
 			{
 				delete static_cast<MeshRequest*>(&request);
 			}, MeshNames::plane1, zone);
-			meshManager.loadMesh(threadResources, globalResources, plane1Request);
+			meshManager.load(plane1Request, threadResources, globalResources);
 			MeshRequest* wallRequest = new MeshRequest([](MeshManager::MeshStreamingRequest& request, void* tr, void* gr, Mesh& mesh)
 			{
 				ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
@@ -388,7 +388,7 @@ namespace
 			{
 				delete static_cast<MeshRequest*>(&request);
 			}, MeshNames::wall, zone);
-			meshManager.loadMesh(threadResources, globalResources, wallRequest);
+			meshManager.load(wallRequest, threadResources, globalResources);
 			MeshRequest* waterRequest = new MeshRequest([](MeshManager::MeshStreamingRequest& request, void* tr, void* gr, Mesh& mesh)
 			{
 				ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
@@ -401,7 +401,7 @@ namespace
 			{
 				delete static_cast<MeshRequest*>(&request);
 			}, MeshNames::water, zone);
-			meshManager.loadMesh(threadResources, globalResources, waterRequest);
+			meshManager.load(waterRequest, threadResources, globalResources);
 			MeshRequest* cubeRequest = new MeshRequest([](MeshManager::MeshStreamingRequest& request, void* tr, void* gr, Mesh& mesh)
 			{
 				ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
@@ -414,7 +414,7 @@ namespace
 			{
 				delete static_cast<MeshRequest*>(&request);
 			}, MeshNames::cube, zone);
-			meshManager.loadMesh(threadResources, globalResources, cubeRequest);
+			meshManager.load(cubeRequest, threadResources, globalResources);
 			MeshRequest* squareRequest = new MeshRequest([](MeshManager::MeshStreamingRequest& request, void* tr, void* gr, Mesh& mesh)
 			{
 				ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
@@ -428,7 +428,7 @@ namespace
 			{
 				delete static_cast<MeshRequest*>(&request);
 			}, MeshNames::square, zone);
-			meshManager.loadMesh(threadResources, globalResources, squareRequest);
+			meshManager.load(squareRequest, threadResources, globalResources);
 			MeshRequest* aabbRequest = new MeshRequest([](MeshManager::MeshStreamingRequest& request, void* tr, void* gr, Mesh& mesh)
 			{
 				ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
@@ -441,7 +441,7 @@ namespace
 			{
 				delete static_cast<MeshRequest*>(&request);
 			}, MeshNames::aabb, zone);
-			meshManager.loadMesh(threadResources, globalResources, aabbRequest);
+			meshManager.load(aabbRequest, threadResources, globalResources);
 			MeshRequest* squareWithPosRequest = new MeshRequest([](MeshManager::MeshStreamingRequest& request, void* tr, void* gr, Mesh& mesh)
 			{
 				ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
@@ -454,7 +454,7 @@ namespace
 			{
 				delete static_cast<MeshRequest*>(&request);
 			}, MeshNames::squareWithPos, zone);
-			meshManager.loadMesh(threadResources, globalResources, squareWithPosRequest);
+			meshManager.load(squareWithPosRequest, threadResources, globalResources);
 			
 			threadResources.taskShedular.update1NextQueue().concurrentPush({ &zone, [](void* context, ThreadResources& threadResources, GlobalResources& globalResources)
 			{
@@ -602,7 +602,7 @@ namespace
 					commandList->SetGraphicsRootConstantBufferView(3u, wallModel.psBufferGpu());
 					commandList->IASetVertexBuffers(0u, 1u, &wallModel.mesh->vertexBufferView);
 					commandList->IASetIndexBuffer(&wallModel.mesh->indexBufferView);
-					commandList->DrawIndexedInstanced(wallModel.mesh->indexCount, 1u, 0u, 0, 0u);
+					commandList->DrawIndexedInstanced(wallModel.mesh->indexCount(), 1u, 0u, 0, 0u);
 				}
 				if (iceModel.isInView(frustum))
 				{
@@ -612,7 +612,7 @@ namespace
 					commandList->SetGraphicsRootConstantBufferView(2u, iceModel.vsAabbGpu());
 					commandList->IASetVertexBuffers(0u, 1u, &cubeWithPos->vertexBufferView);
 					commandList->IASetIndexBuffer(&cubeWithPos->indexBufferView);
-					commandList->DrawIndexedInstanced(cubeWithPos->indexCount, 1u, 0u, 0, 0u);
+					commandList->DrawIndexedInstanced(cubeWithPos->indexCount(), 1u, 0u, 0, 0u);
 
 					commandList->ResourceBarrier(2u, copyEndBarriers);
 					commandList->OMSetRenderTargets(1u, &backBufferRenderTargetCpuHandle, TRUE, &depthStencilHandle);
@@ -621,7 +621,7 @@ namespace
 					commandList->SetGraphicsRootConstantBufferView(3u, iceModel.psConstantBufferGPU());
 					commandList->IASetVertexBuffers(0u, 1u, &iceModel.mesh->vertexBufferView);
 					commandList->IASetIndexBuffer(&iceModel.mesh->indexBufferView);
-					commandList->DrawIndexedInstanced(iceModel.mesh->indexCount, 1u, 0u, 0, 0u);
+					commandList->DrawIndexedInstanced(iceModel.mesh->indexCount(), 1u, 0u, 0, 0u);
 				}
 			}
 		}
@@ -682,7 +682,7 @@ namespace
 				opaqueDirectCommandList->SetGraphicsRootConstantBufferView(3u, groundModel.psBufferGpu());
 				opaqueDirectCommandList->IASetVertexBuffers(0u, 1u, &groundModel.mesh->vertexBufferView);
 				opaqueDirectCommandList->IASetIndexBuffer(&groundModel.mesh->indexBufferView);
-				opaqueDirectCommandList->DrawIndexedInstanced(groundModel.mesh->indexCount, 1u, 0u, 0, 0u);
+				opaqueDirectCommandList->DrawIndexedInstanced(groundModel.mesh->indexCount(), 1u, 0u, 0, 0u);
 			}
 
 			opaqueDirectCommandList->SetPipelineState(globalResources.pipelineStateObjects.directionalLight);
@@ -692,7 +692,7 @@ namespace
 				opaqueDirectCommandList->SetGraphicsRootConstantBufferView(3u, wallModel.psBufferGpu());
 				opaqueDirectCommandList->IASetVertexBuffers(0u, 1u, &wallModel.mesh->vertexBufferView);
 				opaqueDirectCommandList->IASetIndexBuffer(&wallModel.mesh->indexBufferView);
-				opaqueDirectCommandList->DrawIndexedInstanced(wallModel.mesh->indexCount, 1u, 0u, 0, 0u);
+				opaqueDirectCommandList->DrawIndexedInstanced(wallModel.mesh->indexCount(), 1u, 0u, 0, 0u);
 			}
 
 			if (bathModel1.isInView(frustum))
@@ -701,7 +701,7 @@ namespace
 				opaqueDirectCommandList->SetGraphicsRootConstantBufferView(3u, bathModel1.psBufferGpu());
 				opaqueDirectCommandList->IASetVertexBuffers(0u, 1u, &bathModel1.mesh->vertexBufferView);
 				opaqueDirectCommandList->IASetIndexBuffer(&bathModel1.mesh->indexBufferView);
-				opaqueDirectCommandList->DrawIndexedInstanced(bathModel1.mesh->indexCount, 1u, 0u, 0, 0u);
+				opaqueDirectCommandList->DrawIndexedInstanced(bathModel1.mesh->indexCount(), 1u, 0u, 0, 0u);
 			}
 
 			transparantCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
@@ -713,7 +713,7 @@ namespace
 				transparantCommandList->SetGraphicsRootConstantBufferView(2u, waterModel.vsAabbGpu());
 				transparantCommandList->IASetVertexBuffers(0u, 1u, &squareWithPos->vertexBufferView);
 				transparantCommandList->IASetIndexBuffer(&squareWithPos->indexBufferView);
-				transparantCommandList->DrawIndexedInstanced(squareWithPos->indexCount, 1u, 0u, 0, 0u);
+				transparantCommandList->DrawIndexedInstanced(squareWithPos->indexCount(), 1u, 0u, 0, 0u);
 
 				transparantCommandList->ResourceBarrier(2u, copyEndBarriers);
 				transparantCommandList->OMSetRenderTargets(1u, &backBufferRenderTargetCpuHandle, TRUE, &depthStencilHandle);
@@ -722,7 +722,7 @@ namespace
 				transparantCommandList->SetGraphicsRootConstantBufferView(3u, waterModel.psConstantBufferGPU());
 				transparantCommandList->IASetVertexBuffers(0u, 1u, &waterModel.mesh->vertexBufferView);
 				transparantCommandList->IASetIndexBuffer(&waterModel.mesh->indexBufferView);
-				transparantCommandList->DrawIndexedInstanced(waterModel.mesh->indexCount, 1u, 0u, 0, 0u);
+				transparantCommandList->DrawIndexedInstanced(waterModel.mesh->indexCount(), 1u, 0u, 0, 0u);
 			}
 
 
@@ -734,7 +734,7 @@ namespace
 				transparantCommandList->SetGraphicsRootConstantBufferView(2u, iceModel.vsAabbGpu());
 				transparantCommandList->IASetVertexBuffers(0u, 1u, &cubeWithPos->vertexBufferView);
 				transparantCommandList->IASetIndexBuffer(&cubeWithPos->indexBufferView);
-				transparantCommandList->DrawIndexedInstanced(cubeWithPos->indexCount, 1u, 0u, 0, 0u);
+				transparantCommandList->DrawIndexedInstanced(cubeWithPos->indexCount(), 1u, 0u, 0, 0u);
 
 				transparantCommandList->ResourceBarrier(2u, copyEndBarriers);
 				transparantCommandList->OMSetRenderTargets(1u, &backBufferRenderTargetCpuHandle, TRUE, &depthStencilHandle);
@@ -743,7 +743,7 @@ namespace
 				transparantCommandList->SetGraphicsRootConstantBufferView(3u, iceModel.psConstantBufferGPU());
 				transparantCommandList->IASetVertexBuffers(0u, 1u, &iceModel.mesh->vertexBufferView);
 				transparantCommandList->IASetIndexBuffer(&iceModel.mesh->indexBufferView);
-				transparantCommandList->DrawIndexedInstanced(iceModel.mesh->indexCount, 1u, 0u, 0, 0u);
+				transparantCommandList->DrawIndexedInstanced(iceModel.mesh->indexCount(), 1u, 0u, 0, 0u);
 			}
 			
 			if (fireModel1.isInView(frustum) || fireModel2.isInView(frustum))
@@ -757,14 +757,14 @@ namespace
 				{
 					transparantCommandList->SetGraphicsRootConstantBufferView(2u, fireModel1.vsConstantBufferGPU(frameIndex));
 					transparantCommandList->SetGraphicsRootConstantBufferView(3u, fireModel1.psConstantBufferGPU());
-					transparantCommandList->DrawIndexedInstanced(fireModel1.mesh->indexCount, 1u, 0u, 0, 0u);
+					transparantCommandList->DrawIndexedInstanced(fireModel1.mesh->indexCount(), 1u, 0u, 0, 0u);
 				}
 
 				if (fireModel2.isInView(frustum))
 				{
 					transparantCommandList->SetGraphicsRootConstantBufferView(2u, fireModel2.vsConstantBufferGPU(frameIndex));
 					transparantCommandList->SetGraphicsRootConstantBufferView(3u, fireModel2.psConstantBufferGPU());
-					transparantCommandList->DrawIndexedInstanced(fireModel2.mesh->indexCount, 1u, 0u, 0, 0u);
+					transparantCommandList->DrawIndexedInstanced(fireModel2.mesh->indexCount(), 1u, 0u, 0, 0u);
 				}
 			}
 		}
@@ -786,22 +786,22 @@ namespace
 				} });
 			}
 
-			textureManager.unloadTexture(TextureNames::ground01, graphicsEngine);
-			textureManager.unloadTexture(TextureNames::wall01, graphicsEngine);
-			textureManager.unloadTexture(TextureNames::marble01, graphicsEngine);
-			textureManager.unloadTexture(TextureNames::water01, graphicsEngine);
-			textureManager.unloadTexture(TextureNames::ice01, graphicsEngine);
-			textureManager.unloadTexture(TextureNames::icebump01, graphicsEngine);
-			textureManager.unloadTexture(TextureNames::firenoise01, graphicsEngine);
-			textureManager.unloadTexture(TextureNames::fire01, graphicsEngine);
-			textureManager.unloadTexture(TextureNames::firealpha01, graphicsEngine);
+			textureManager.unload(TextureNames::ground01, graphicsEngine);
+			textureManager.unload(TextureNames::wall01, graphicsEngine);
+			textureManager.unload(TextureNames::marble01, graphicsEngine);
+			textureManager.unload(TextureNames::water01, graphicsEngine);
+			textureManager.unload(TextureNames::ice01, graphicsEngine);
+			textureManager.unload(TextureNames::icebump01, graphicsEngine);
+			textureManager.unload(TextureNames::firenoise01, graphicsEngine);
+			textureManager.unload(TextureNames::fire01, graphicsEngine);
+			textureManager.unload(TextureNames::firealpha01, graphicsEngine);
 
-			meshManager.unloadMesh(MeshNames::bath);
-			meshManager.unloadMesh(MeshNames::plane1);
-			meshManager.unloadMesh(MeshNames::wall);
-			meshManager.unloadMesh(MeshNames::water);
-			meshManager.unloadMesh(MeshNames::cube);
-			meshManager.unloadMesh(MeshNames::square);
+			meshManager.unload(MeshNames::bath);
+			meshManager.unload(MeshNames::plane1);
+			meshManager.unload(MeshNames::wall);
+			meshManager.unload(MeshNames::water);
+			meshManager.unload(MeshNames::cube);
+			meshManager.unload(MeshNames::square);
 
 			perObjectConstantBuffers->Unmap(0u, nullptr);
 		}
@@ -877,7 +877,7 @@ namespace
 			{
 				delete static_cast<TextureRequest*>(&request);
 			}, TextureNames::marble01, zone);
-			textureManager.loadTexture(threadResources, globalResources, marble01Request);
+			textureManager.load(marble01Request, threadResources, globalResources);
 
 			MeshManager& meshManager = globalResources.meshManager;
 			MeshRequest* bathRequest = new MeshRequest([](MeshManager::MeshStreamingRequest& request, void* tr, void* gr, Mesh& mesh)
@@ -892,7 +892,7 @@ namespace
 			{
 				delete static_cast<MeshRequest*>(&request);
 			}, MeshNames::bath, zone);
-			meshManager.loadMesh(threadResources, globalResources, bathRequest);
+			meshManager.load(bathRequest, threadResources, globalResources);
 
 			constexpr uint64_t pointLightConstantBufferAlignedSize = (sizeof(LightConstantBuffer) + (uint64_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (uint64_t)1u) &
 				~((uint64_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (uint64_t)1u);
@@ -909,9 +909,9 @@ namespace
 			auto& meshManager = globalResources.meshManager;
 			auto& graphicsEngine = globalResources.graphicsEngine;
 
-			textureManager.unloadTexture(TextureNames::marble01, graphicsEngine);
+			textureManager.unload(TextureNames::marble01, graphicsEngine);
 
-			meshManager.unloadMesh(MeshNames::bath);
+			meshManager.unload(MeshNames::bath);
 
 			perObjectConstantBuffers->Unmap(0u, nullptr);
 		}
@@ -943,7 +943,7 @@ namespace
 				commandList->SetGraphicsRootConstantBufferView(3u, bathModel.psBufferGpu());
 				commandList->IASetVertexBuffers(0u, 1u, &bathModel.mesh->vertexBufferView);
 				commandList->IASetIndexBuffer(&bathModel.mesh->indexBufferView);
-				commandList->DrawIndexedInstanced(bathModel.mesh->indexCount, 1u, 0u, 0, 0u);
+				commandList->DrawIndexedInstanced(bathModel.mesh->indexCount(), 1u, 0u, 0, 0u);
 			}
 		}
 

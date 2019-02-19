@@ -197,5 +197,5 @@ void Font::create(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, unsigned 
 
 void Font::destruct(TextureManager& textureManager, D3D12GraphicsEngine& graphicsEngine, const wchar_t* const textureFile)
 {
-	textureManager.unloadTexture(textureFile, graphicsEngine);
+	textureManager.unload(textureFile, graphicsEngine);
 }

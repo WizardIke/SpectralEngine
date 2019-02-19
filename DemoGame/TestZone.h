@@ -106,7 +106,7 @@ class TestZoneFunctions
 			{
 				delete static_cast<VirtualTextureRequest*>(&request);
 			}, TextureNames::stone04, zone);
-			virtualTextureManager.loadTexture(threadResources, globalResources, stone04Request);
+			virtualTextureManager.load(stone04Request, threadResources, globalResources);
 
 			MeshManager& meshManager = globalResources.meshManager;
 			MeshRequest* HighResMesh1Request = new MeshRequest([](MeshManager::MeshStreamingRequest& request, void* tr, void* gr, Mesh& mesh)
@@ -121,7 +121,7 @@ class TestZoneFunctions
 			{
 				delete static_cast<MeshRequest*>(&request);
 			}, MeshNames::HighResMesh1, zone);
-			meshManager.loadMesh(threadResources, globalResources, HighResMesh1Request);
+			meshManager.load(HighResMesh1Request, threadResources, globalResources);
 
 			constexpr uint64_t pointLightConstantBufferAlignedSize = (sizeof(LightConstantBuffer) + (uint64_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (uint64_t)1u) & ~((uint64_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (uint64_t)1u);
 
@@ -171,7 +171,7 @@ class TestZoneFunctions
 					vtFeedbackCommandList->IASetIndexBuffer(&highResPlaneModel.mesh->indexBufferView);
 					vtFeedbackCommandList->SetGraphicsRootConstantBufferView(2u, highResPlaneModel.vsBufferGpu());
 					vtFeedbackCommandList->SetGraphicsRootConstantBufferView(3u, stone4FeedbackBufferPs);
-					vtFeedbackCommandList->DrawIndexedInstanced(highResPlaneModel.mesh->indexCount, 1u, 0u, 0, 0u);
+					vtFeedbackCommandList->DrawIndexedInstanced(highResPlaneModel.mesh->indexCount(), 1u, 0u, 0, 0u);
 				}
 
 				commandList->SetGraphicsRootConstantBufferView(1u, pointLightConstantBufferGpuAddress);
@@ -180,7 +180,7 @@ class TestZoneFunctions
 				commandList->IASetIndexBuffer(&highResPlaneModel.mesh->indexBufferView);
 				commandList->SetGraphicsRootConstantBufferView(2u, highResPlaneModel.vsBufferGpu());
 				commandList->SetGraphicsRootConstantBufferView(3u, highResPlaneModel.psBufferGpu());
-				commandList->DrawIndexedInstanced(highResPlaneModel.mesh->indexCount, 1u, 0u, 0, 0u);
+				commandList->DrawIndexedInstanced(highResPlaneModel.mesh->indexCount(), 1u, 0u, 0, 0u);
 			}
 		}
 
@@ -197,9 +197,9 @@ class TestZoneFunctions
 			MeshManager& meshManager = globalResources.meshManager;
 			VirtualTextureManager& virtualTextureManager = globalResources.virtualTextureManager;
 
-			virtualTextureManager.unloadTexture(TextureNames::stone04, globalResources);
+			virtualTextureManager.unload(TextureNames::stone04, globalResources);
 
-			meshManager.unloadMesh(MeshNames::HighResMesh1);
+			meshManager.unload(MeshNames::HighResMesh1);
 		}
 	};
 

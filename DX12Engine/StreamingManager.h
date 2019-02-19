@@ -7,8 +7,6 @@
 #include <memory>
 #include <cassert>
 #include "D3D12Resource.h"
-#include <mutex>
-#include <atomic>
 #include "GpuCompletionEventManager.h"
 #include "ActorQueue.h"
 #include "SinglyLinked.h"

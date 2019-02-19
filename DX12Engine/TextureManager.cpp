@@ -9,28 +9,17 @@ TextureManager::~TextureManager() {}
 
 void TextureManager::unloadTexture(const wchar_t* filename, D3D12GraphicsEngine& graphicsEngine)
 {
-	unsigned int descriptorIndex = std::numeric_limits<unsigned int>::max();
-	ID3D12Resource* resource = nullptr;
+	auto texurePtr = textures.find(filename);
+	auto& texture = texurePtr->second;
+	texture.numUsers -= 1u;
+	if(texture.numUsers == 0u)
 	{
-		std::lock_guard<std::mutex> lock(mutex);
-		auto texurePtr = textures.find(filename);
-		auto& texture = texurePtr->second;
-		texture.numUsers -= 1u;
-		if (texture.numUsers == 0u)
-		{
-			descriptorIndex = texture.descriptorIndex;
-			resource = texture.resource.steal();
-			textures.erase(texurePtr);
-		}
-	}
-	if (descriptorIndex != std::numeric_limits<unsigned int>::max())
-	{
-		graphicsEngine.descriptorAllocator.deallocate(descriptorIndex);
-		resource->Release();
+		graphicsEngine.descriptorAllocator.deallocate(texture.descriptorIndex);
+		textures.erase(texurePtr);
 	}
 }
 
-ID3D12Resource* TextureManager::createTexture(const TextureStreamingRequest& uploadRequest, TextureManager& textureManager, D3D12GraphicsEngine& graphicsEngine, const wchar_t* filename)
+ID3D12Resource* TextureManager::createTexture(const TextureStreamingRequest& uploadRequest, D3D12GraphicsEngine& graphicsEngine, unsigned int& discriptorIndex, const wchar_t* filename)
 {
 	D3D12_HEAP_PROPERTIES textureHeapProperties;
 	textureHeapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
@@ -61,7 +50,7 @@ ID3D12Resource* TextureManager::createTexture(const TextureStreamingRequest& upl
 	resource->SetName(name.c_str());
 #endif // NDEBUG
 
-	auto discriptorIndex = graphicsEngine.descriptorAllocator.allocate();
+	discriptorIndex = graphicsEngine.descriptorAllocator.allocate();
 	D3D12_CPU_DESCRIPTOR_HANDLE discriptorHandle = graphicsEngine.mainDescriptorHeap->GetCPUDescriptorHandleForHeapStart() +
 		discriptorIndex * graphicsEngine.cbvAndSrvAndUavDescriptorSize;
 
@@ -116,15 +105,7 @@ ID3D12Resource* TextureManager::createTexture(const TextureStreamingRequest& upl
 		break;
 	}
 	graphicsEngine.graphicsDevice->CreateShaderResourceView(resource, &srvDesc, discriptorHandle);
-
-	ID3D12Resource* res = resource;
-	{
-		std::lock_guard<decltype(textureManager.mutex)> lock(textureManager.mutex);
-		Texture& texture = textureManager.textures[filename];
-		texture.resource = std::move(resource);
-		texture.descriptorIndex = discriptorIndex;
-	}
-	return res;
+	return resource.steal();
 }
 
 void TextureManager::loadTextureFromMemory(const unsigned char* buffer, TextureStreamingRequest& uploadRequest,
@@ -153,20 +134,17 @@ void TextureManager::loadTextureFromMemory(const unsigned char* buffer, TextureS
 		uploadRequest.mipLevels, uploadRequest.arraySize, uploadRequest.format);
 }
 
-void TextureManager::notifyTextureReady(TextureStreamingRequest* request, void* tr, void* gr)
+void TextureManager::notifyTextureReadyHelper(TextureStreamingRequest* request, void* tr, void* gr)
 {
-	unsigned int descriptorIndex;
-	{
-		std::lock_guard<decltype(mutex)> lock(mutex);
-		auto& texture = textures[request->filename];
-		texture.lastRequest = nullptr;
-		descriptorIndex = texture.descriptorIndex;
-	}
+	auto& texture = textures[request->filename];
+	texture.lastRequest = nullptr;
+	texture.resource.set() = request->resource;
+	texture.descriptorIndex = request->discriptorIndex;
 	do
 	{
 		auto old = request;
 		request = request->nextTextureRequest; //Need to do this now as old could be deleted by the next line
-		old->textureLoaded(*old, tr, gr, descriptorIndex);
+		old->textureLoaded(*old, tr, gr, request->discriptorIndex);
 	} while(request != nullptr);
 }
 

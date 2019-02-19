@@ -10,5 +10,5 @@ public:
 	D3D12Heap buffer;
 	D3D12_VERTEX_BUFFER_VIEW vertexBufferView;
 	D3D12_INDEX_BUFFER_VIEW indexBufferView;
-	uint32_t indexCount;
+	uint32_t indexCount() { return indexBufferView.SizeInBytes / 4u; }
 };

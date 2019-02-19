@@ -102,7 +102,7 @@ namespace Cave
 			{
 				delete static_cast<VirtualTextureRequest*>(&request);
 			}, TextureNames::stone04, zone);
-			virtualTextureManager.loadTexture(threadResources, globalResources, stone04Request);
+			virtualTextureManager.load(stone04Request, threadResources, globalResources);
 
 			MeshManager& meshManager = globalResources.meshManager;
 			MeshRequest* squareWithNormalsRequest = new MeshRequest([](MeshManager::MeshStreamingRequest& request, void* tr, void* gr, Mesh& mesh)
@@ -117,7 +117,7 @@ namespace Cave
 			{
 				delete static_cast<MeshRequest*>(&request);
 			}, MeshNames::squareWithNormals, zone);
-			meshManager.loadMesh(threadResources, globalResources, squareWithNormalsRequest);
+			meshManager.load(squareWithNormalsRequest, threadResources, globalResources);
 
 			constexpr uint64_t pointLightConstantBufferAlignedSize = (sizeof(LightConstantBuffer) + (uint64_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (uint64_t)1u) &
 				~((uint64_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (uint64_t)1u);
@@ -183,9 +183,9 @@ namespace Cave
 			auto& meshManager = globalResources.meshManager;
 			auto& virtualTextureManager = globalResources.virtualTextureManager;
 
-			virtualTextureManager.unloadTexture(TextureNames::stone04, globalResources);
+			virtualTextureManager.unload(TextureNames::stone04, globalResources);
 
-			meshManager.unloadMesh(MeshNames::squareWithNormals);
+			meshManager.unload(MeshNames::squareWithNormals);
 		}
 	};
 
