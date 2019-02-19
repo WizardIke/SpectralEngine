@@ -424,7 +424,7 @@ void MeshManager::CalculateTangentBitangent(const unsigned char* start, const un
 void MeshManager::freeRequestMemory(StreamingManager::StreamingRequest* request1, void*, void*)
 {
 	auto request = static_cast<MeshStreamingRequest*>(request1);
-	if(request->numberOfComponentsReadyToDelete.fetch_add(1u) == (MeshStreamingRequest::numberOfComponents - 1u))
+	if(request->numberOfComponentsReadyToDelete.fetch_add(1u, std::memory_order::memory_order_acq_rel) == (MeshStreamingRequest::numberOfComponents - 1u))
 	{
 		do
 		{

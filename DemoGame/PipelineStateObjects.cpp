@@ -35,7 +35,7 @@ namespace
 		static void freeRequestMemory(AsynchronousFileManager::ReadRequest& request1, void*, void*)
 		{
 			ShaderRequestVP& request = *static_cast<RequestHelper&>(request1).request;
-			if(request.numberOfComponentsReadyToDelete.fetch_add(1u) == (numberOfComponents - 1u))
+			if(request.numberOfComponentsReadyToDelete.fetch_add(1u, std::memory_order::memory_order_acq_rel) == (numberOfComponents - 1u))
 			{
 				delete &request;
 			}

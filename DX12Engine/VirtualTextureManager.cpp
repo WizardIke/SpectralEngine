@@ -296,7 +296,7 @@ void VirtualTextureManager::textureUseResourceHelper(TextureStreamingRequest& up
 void VirtualTextureManager::freeRequestMemory(StreamingManager::StreamingRequest* request1, void*, void*)
 {
 	auto request = static_cast<TextureStreamingRequest*>(request1);
-	if(request->numberOfComponentsReadyToDelete.fetch_add(1u) == (TextureStreamingRequest::numberOfComponents - 1u))
+	if(request->numberOfComponentsReadyToDelete.fetch_add(1u, std::memory_order::memory_order_acq_rel) == (TextureStreamingRequest::numberOfComponents - 1u))
 	{
 		do
 		{
