@@ -58,7 +58,16 @@ struct Font
 		create(constantBufferGpuAddress, constantBufferCpuAddress, filename, windowWidth, windowHeight);
 	}
 
-	void destruct(TextureManager& textureManager, D3D12GraphicsEngine& graphicsEngine, const wchar_t* const textureFile);
+	template<class ThreadResources, class GlobalResources>
+	void destruct(ThreadResources& threadResources, GlobalResources& globalResources, const wchar_t* const textureFile)
+	{
+		auto textureUnloader = new TextureManager::Message(textureFile, [](AsynchronousFileManager::ReadRequest& request, void*, void*)
+		{
+			delete static_cast<TextureManager::Message*>(&request);
+		});
+		globalResources.textureManager.unload(textureUnloader, threadResources, globalResources);
+	}
+
 	~Font() {}
 
 	void setDiffuseTexture(uint32_t diffuseTexture, unsigned char* cpuStartAddress, D3D12_GPU_VIRTUAL_ADDRESS gpuStartAddress)

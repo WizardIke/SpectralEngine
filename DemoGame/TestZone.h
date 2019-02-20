@@ -192,14 +192,22 @@ class TestZoneFunctions
 			componentUploaded(&zone, threadResources, globalResources);
 		}
 
-		void destruct(ThreadResources&, GlobalResources& globalResources)
+		void destruct(ThreadResources& threadResources, GlobalResources& globalResources)
 		{
 			MeshManager& meshManager = globalResources.meshManager;
 			VirtualTextureManager& virtualTextureManager = globalResources.virtualTextureManager;
 
-			virtualTextureManager.unload(TextureNames::stone04, globalResources);
+			auto unloadTexture = new VirtualTextureManager::Message(TextureNames::stone04, [](AsynchronousFileManager::ReadRequest& request, void*, void*)
+			{
+				delete static_cast<VirtualTextureManager::Message*>(&request);
+			});
+			virtualTextureManager.unload(unloadTexture, threadResources, globalResources);
 
-			meshManager.unload(MeshNames::HighResMesh1);
+			auto unloadMesh = new MeshManager::Message(MeshNames::HighResMesh1, [](AsynchronousFileManager::ReadRequest& request, void*, void*)
+			{
+				delete static_cast<MeshManager::Message*>(&request);
+			});
+			meshManager.unload(unloadMesh, threadResources, globalResources);
 		}
 	};
 

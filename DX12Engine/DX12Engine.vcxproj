@@ -312,7 +312,6 @@
     <ClInclude Include="InputManager.h" />
     <ClInclude Include="Light.h" />
     <ClInclude Include="D3D12GraphicsEngine.h" />
-    <ClInclude Include="d3dx12.h" />
     <ClInclude Include="FontChar.h" />
     <ClInclude Include="Font.h" />
     <ClInclude Include="Frustum.h" />
@@ -331,7 +330,12 @@
     <ClInclude Include="XAudio2SourceVoice.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="AABBSweepTest.cpp" />
+    <ClCompile Include="AABBSweepTest.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="AsynchronousFileManager.cpp" />
     <ClCompile Include="BaseSentence.cpp" />
     <ClCompile Include="CameraUtil.cpp" />

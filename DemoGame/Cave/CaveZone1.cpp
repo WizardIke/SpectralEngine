@@ -178,14 +178,22 @@ namespace Cave
 			componentUploaded(&zone, threadResources, globalResources);
 		}
 
-		void destruct(ThreadResources&, GlobalResources& globalResources)
+		void destruct(ThreadResources& threadResources, GlobalResources& globalResources)
 		{
 			auto& meshManager = globalResources.meshManager;
 			auto& virtualTextureManager = globalResources.virtualTextureManager;
 
-			virtualTextureManager.unload(TextureNames::stone04, globalResources);
+			auto unloadTexture = new VirtualTextureManager::Message(TextureNames::stone04, [](AsynchronousFileManager::ReadRequest& request, void*, void*)
+			{
+				delete static_cast<VirtualTextureManager::Message*>(&request);
+			});
+			virtualTextureManager.unload(unloadTexture, threadResources, globalResources);
 
-			meshManager.unload(MeshNames::squareWithNormals);
+			auto unloadMesh = new MeshManager::Message(MeshNames::squareWithNormals, [](AsynchronousFileManager::ReadRequest& request, void*, void*)
+			{
+				delete static_cast<MeshManager::Message*>(&request);
+			});
+			meshManager.unload(unloadMesh, threadResources, globalResources);
 		}
 	};
 

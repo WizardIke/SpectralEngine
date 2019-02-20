@@ -194,8 +194,3 @@ void Font::create(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, unsigned 
 	}
 	std::sort(&kerningsList[0u], &kerningsList[numKernings], [](const FontKerning& lhs, const FontKerning& rhs) {return lhs.firstIdAndSecoundId < rhs.firstIdAndSecoundId; });
 }
-
-void Font::destruct(TextureManager& textureManager, D3D12GraphicsEngine& graphicsEngine, const wchar_t* const textureFile)
-{
-	textureManager.unload(textureFile, graphicsEngine);
-}

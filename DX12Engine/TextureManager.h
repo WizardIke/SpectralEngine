@@ -23,6 +23,13 @@ public:
 	{
 	public:
 		Action textureAction;
+
+		Message() {}
+		Message(const wchar_t* filename, void(*deleteRequest)(ReadRequest& request, void* tr, void* gr))
+		{
+			this->filename = filename;
+			this->deleteReadRequest = deleteRequest;
+		}
 	};
 
 	class TextureStreamingRequest : public StreamingManager::StreamingRequest, public Message

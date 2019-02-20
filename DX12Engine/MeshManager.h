@@ -15,13 +15,20 @@ class MeshManager
 		notifyMeshReady,
 	};
 public:
-	class Messgage : public AsynchronousFileManager::ReadRequest
+	class Message : public AsynchronousFileManager::ReadRequest
 	{
 	public:
-		Action action;
+		Action meshAction;
+
+		Message() {}
+		Message(const wchar_t* filename, void(*deleteRequest)(ReadRequest& request, void* tr, void* gr))
+		{
+			this->filename = filename;
+			this->deleteReadRequest = deleteRequest;
+		}
 	};
 
-	class MeshStreamingRequest : public StreamingManager::StreamingRequest, public Messgage
+	class MeshStreamingRequest : public StreamingManager::StreamingRequest, public Message
 	{
 	public:
 		constexpr static unsigned int numberOfComponents = 3u; //mesh header, mesh data, stream to gpu request
@@ -107,7 +114,7 @@ private:
 	std::unordered_map<const wchar_t* const, MeshInfo, std::hash<const wchar_t*>> meshInfos;
 
 	template<class ThreadResources, class GlobalResources>
-	void addMessage(SinglyLinked* request, ThreadResources& threadResources, GlobalResources& globalResources)
+	void addMessage(SinglyLinked* request, ThreadResources& threadResources, GlobalResources&)
 	{
 		bool needsStarting = messageQueue.push(request);
 		if(needsStarting)
@@ -140,8 +147,8 @@ private:
 		GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
 
 		MeshManager& meshManager = globalResources.meshManager;
-		request->action = Action::notifyMeshReady;
-		meshManager.addMessage(request, threadResources, globalResources);
+		request->meshAction = Action::notifyMeshReady;
+		meshManager.addMessage(static_cast<Message*>(request), threadResources, globalResources);
 	}
 
 	template<class ThreadResources, class GlobalResources, void(*useResourceHelper)(MeshStreamingRequest&, const unsigned char*, ID3D12Device*,
@@ -265,7 +272,7 @@ private:
 	static void fillMesh(Mesh& mesh, MeshStreamingRequest& request);
 
 	template<class ThreadResources, class GlobalResources>
-	void loadMesh(ThreadResources& executor, GlobalResources& sharedResources, MeshStreamingRequest* request)
+	void loadMesh(MeshStreamingRequest* request, ThreadResources& executor, GlobalResources& sharedResources)
 	{
 		MeshInfo& meshInfo = meshInfos[request->filename];
 		meshInfo.numUsers += 1u;
@@ -299,13 +306,13 @@ private:
 			SinglyLinked* temp = messageQueue.popAll();
 			for(; temp != nullptr;)
 			{
-				auto& message = *static_cast<Messgage*>(temp);
+				auto& message = *static_cast<Message*>(temp);
 				temp = temp->next; //Allow reuse of next
-				if(message.action == Action::unloadMesh)
+				if(message.meshAction == Action::unloadMesh)
 				{
 					unloadMesh(message.filename);
 				}
-				else if(message.action == Action::loadMesh)
+				else if(message.meshAction == Action::loadMesh)
 				{
 					loadMesh(static_cast<MeshStreamingRequest*>(&message), threadResources, globalResources);
 				}
@@ -323,14 +330,14 @@ public:
 	template<class ThreadResources, class GlobalResources>
 	void load(MeshStreamingRequest* request, ThreadResources& threadResources, GlobalResources& globalResources)
 	{
-		request->action = Action::loadMesh;
-		addMessage(request, threadResources, globalResources);
+		request->meshAction = Action::loadMesh;
+		addMessage(static_cast<Message*>(request), threadResources, globalResources);
 	}
 
 	template<class ThreadResources, class GlobalResources>
-	void unload(Messgage* request, ThreadResources& threadResources, GlobalResources& globalResources)
+	void unload(Message* request, ThreadResources& threadResources, GlobalResources& globalResources)
 	{
-		request->action = Action::unloadMesh;
+		request->meshAction = Action::unloadMesh;
 		addMessage(request, threadResources, globalResources);
 	}
 };

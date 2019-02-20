@@ -144,7 +144,7 @@ void TextureManager::notifyTextureReadyHelper(TextureStreamingRequest* request, 
 	{
 		auto old = request;
 		request = request->nextTextureRequest; //Need to do this now as old could be deleted by the next line
-		old->textureLoaded(*old, tr, gr, request->discriptorIndex);
+		old->textureLoaded(*old, tr, gr, old->discriptorIndex);
 	} while(request != nullptr);
 }
 

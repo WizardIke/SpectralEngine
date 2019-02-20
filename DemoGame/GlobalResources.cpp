@@ -72,7 +72,6 @@ namespace
 		{
 			InitialResourceLoader& request1 = static_cast<InitialResourceLoader&>(pipelineLoader);
 			request1.componentLoaded(threadResources, globalResources);
-			freeRequestMemory(request1);
 		}
 
 		void componentLoaded(ThreadResources& threadResources, GlobalResources& globalResources)
@@ -232,7 +231,7 @@ GlobalResources::~GlobalResources()
 	graphicsEngine.descriptorAllocator.deallocate(warpTextureDescriptorIndex);
 	mainCamera().destruct(graphicsEngine);
 	renderPass.virtualTextureFeedbackSubPass().destruct();
-	arial.destruct(textureManager, graphicsEngine, TextureNames::Arial);
+	arial.destruct(mainThreadResources, *this, TextureNames::Arial);
 }
 
 void GlobalResources::update()

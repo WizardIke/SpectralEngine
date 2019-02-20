@@ -253,7 +253,6 @@
     <ClInclude Include="StreamingManager.h">
       <Filter>StreamingManager</Filter>
     </ClInclude>
-    <ClInclude Include="d3dx12.h" />
     <ClInclude Include="for_each.h" />
     <ClInclude Include="TemplateFloat.h" />
     <ClInclude Include="Vector4.h">

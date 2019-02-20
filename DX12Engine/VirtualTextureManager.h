@@ -34,13 +34,20 @@ public:
 		TextureStreamingRequest* lastRequest;
 	};
 
-	class Messgage : public AsynchronousFileManager::ReadRequest
+	class Message : public AsynchronousFileManager::ReadRequest
 	{
 	public:
-		Action action;
+		Action textureAction;
+
+		Message() {}
+		Message(const wchar_t* filename, void(*deleteRequest)(ReadRequest& request, void* tr, void* gr))
+		{
+			this->filename = filename;
+			this->deleteReadRequest = deleteRequest;
+		}
 	};
 
-	class TextureStreamingRequest : public StreamingManager::StreamingRequest, public Messgage
+	class TextureStreamingRequest : public StreamingManager::StreamingRequest, public Message
 	{
 	public:
 		constexpr static unsigned int numberOfComponents = 3u; //texture header, texture data, stream to gpu request
@@ -101,8 +108,8 @@ private:
 		GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
 
 		auto& virtualTextureManager = globalResources.virtualTextureManager;
-		request->action = Action::notifyReady;
-		virtualTextureManager.addMessage(request, threadResources, globalResources);
+		request->textureAction = Action::notifyReady;
+		virtualTextureManager.addMessage(static_cast<Message*>(request), threadResources, globalResources);
 	}
 
 	static void textureUseResourceHelper(TextureStreamingRequest& uploadRequest, void(*fileLoadedCallback)(AsynchronousFileManager::ReadRequest& request, void* tr, void*, const unsigned char* buffer));
@@ -192,7 +199,7 @@ private:
 	void unloadTexture(const wchar_t* filename, D3D12GraphicsEngine& graphicsEngine, StreamingManager& streamingManager);
 
 	template<class ThreadResources, class GlobalResources>
-	void addMessage(SinglyLinked* request, ThreadResources& threadResources, GlobalResources& globalResources)
+	void addMessage(SinglyLinked* request, ThreadResources& threadResources, GlobalResources&)
 	{
 		bool needsStarting = messageQueue.push(request);
 		if(needsStarting)
@@ -213,13 +220,13 @@ private:
 			SinglyLinked* temp = messageQueue.popAll();
 			for(; temp != nullptr;)
 			{
-				auto& message = *static_cast<Messgage*>(temp);
+				auto& message = *static_cast<Message*>(temp);
 				temp = temp->next; //Allow reuse of next
-				if(message.action == Action::unload)
+				if(message.textureAction == Action::unload)
 				{
 					unloadTexture(message.filename, globalResources.graphicsEngine, globalResources.streamingManager);
 				}
-				else if(message.action == Action::load)
+				else if(message.textureAction == Action::load)
 				{
 					loadTexture(threadResources, globalResources, static_cast<TextureStreamingRequest*>(&message));
 				}
@@ -237,14 +244,14 @@ public:
 	template<class ThreadResources, class GlobalResources>
 	void load(TextureStreamingRequest* request, ThreadResources& threadResources, GlobalResources& globalResources)
 	{
-		request->action = Action::load;
-		addMessage(request, threadResources, globalResources);
+		request->textureAction = Action::load;
+		addMessage(static_cast<Message*>(request), threadResources, globalResources);
 	}
 
 	template<class ThreadResources, class GlobalResources>
-	void unload(Messgage* request, ThreadResources& threadResources, GlobalResources& globalResources)
+	void unload(Message* request, ThreadResources& threadResources, GlobalResources& globalResources)
 	{
-		request->action = Action::unload;
+		request->textureAction = Action::unload;
 		addMessage(request, threadResources, globalResources);
 	}
 };
