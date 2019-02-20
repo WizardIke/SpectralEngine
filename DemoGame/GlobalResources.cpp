@@ -102,7 +102,10 @@ namespace
 		{
 			freeRequestMemory(static_cast<InitialResourceLoader&>(request));
 		}, fontFilename),
-			PipelineStateObjects::PipelineLoader(pipelineStateObjectsLoadedCallback) {}
+			PipelineStateObjects::PipelineLoader(pipelineStateObjectsLoadedCallback, [](PipelineStateObjects::PipelineLoader& pipelineLoader)
+		{
+			freeRequestMemory(static_cast<InitialResourceLoader&>(pipelineLoader));
+		}) {}
 	};
 }
 
@@ -131,7 +134,7 @@ GlobalResources::GlobalResources(const unsigned int numberOfThreads, bool fullSc
 	inputManager(),
 	inputHandler(window, { PlayerPosition::mouseMoved, &playerPosition }),
 	rootSignatures(graphicsEngine.graphicsDevice),
-	pipelineStateObjects(mainThreadResources, *this, static_cast<InitialResourceLoader*>(initialResourceLoader)),
+	pipelineStateObjects(mainThreadResources, *this, *static_cast<InitialResourceLoader*>(initialResourceLoader)),
 	virtualTextureManager(),
 	sharedConstantBuffer(graphicsEngine.graphicsDevice, []()
 	{
@@ -182,8 +185,8 @@ GlobalResources::GlobalResources(const unsigned int numberOfThreads, bool fullSc
 	}()),
 	readyToPresentEvent(nullptr, FALSE, FALSE, nullptr)
 {
-	ambientMusic.start(mainThreadResources, *this);
 	ioCompletionQueue.start(mainThreadResources, *this);
+	ambientMusic.start(mainThreadResources, *this);
 
 	D3D12_RANGE readRange{ 0u, 0u };
 	HRESULT hr = sharedConstantBuffer->Map(0u, &readRange, reinterpret_cast<void**>(&constantBuffersCpuAddress));

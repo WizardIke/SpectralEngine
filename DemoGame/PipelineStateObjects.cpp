@@ -1,129 +1,23 @@
 #include "PipelineStateObjects.h"
 #include <d3d12.h>
 #include <IOCompletionQueue.h>
-#include <AsynchronousFileManager.h>
 #include "GlobalResources.h"
 #include "ThreadResources.h"
 
 namespace
 {
-	class ShaderRequestVP
+	using ShaderInfo = PipelineStateObjects::PipelineLoaderImpl::ShaderInfo;
+	using ShaderRequestVP = PipelineStateObjects::ShaderRequestVP;
+	ShaderInfo textShaderInfo(ID3D12RootSignature* rootSignature)
 	{
-		constexpr static unsigned int numberOfComponents = 2u;
-
-		class RequestHelper : public AsynchronousFileManager::ReadRequest
+		return 
 		{
-		public:
-			ShaderRequestVP* request;
-		};
-
-		ID3D12RootSignature* rootSignature;
-		ID3D12Device* device;
-		PipelineStateObjects::PipelineLoader* pipelineLoader;
-
-		RequestHelper vertexHelper;
-		const unsigned char* vertexShaderData;
-
-		RequestHelper pixelHelper;
-		const unsigned char* pixelShaderData;
-
-		std::atomic<unsigned int> numberOfComponentsLoaded = 0u;
-		std::atomic<unsigned int> numberOfComponentsReadyToDelete = 0u;
-		void(*loadingFinished)(const unsigned char* vertexShaderData, std::size_t vertexShaderDataLength, const unsigned char* pixelShaderData, std::size_t pixelShaderDataLength,
-			ThreadResources& threadResources, GlobalResources& globalResources, ID3D12RootSignature* rootSignature, ID3D12Device* device, ShaderRequestVP* requests);
-
-		static void freeRequestMemory(AsynchronousFileManager::ReadRequest& request1, void*, void*)
-		{
-			ShaderRequestVP& request = *static_cast<RequestHelper&>(request1).request;
-			if(request.numberOfComponentsReadyToDelete.fetch_add(1u, std::memory_order::memory_order_acq_rel) == (numberOfComponents - 1u))
-			{
-				delete &request;
-			}
-		}
-
-		void shaderFileLoaded(ThreadResources& threadResources, GlobalResources& globalResources)
-		{
-			if(numberOfComponentsLoaded.fetch_add(1u, std::memory_order::memory_order_acq_rel) == (numberOfComponents - 1u))
-			{
-				loadingFinished(vertexShaderData, vertexHelper.end, pixelShaderData, pixelHelper.end,
-					threadResources, globalResources, rootSignature, device, this);
-				globalResources.asynchronousFileManager.discard(&vertexHelper, threadResources, globalResources);
-				globalResources.asynchronousFileManager.discard(&pixelHelper, threadResources, globalResources);
-			}
-		}
-	
-		ShaderRequestVP(ThreadResources& threadResources, GlobalResources& globalResources, const wchar_t* vertexFile, const wchar_t* pixelFile, ID3D12RootSignature* rootSignature1, ID3D12Device* device1,
-			PipelineStateObjects::PipelineLoader* pipelineLoader1,
-			void(*loadingFinished1)(const unsigned char* vertexShaderData, std::size_t vertexShaderDataLength, const unsigned char* pixelShaderData, std::size_t pixelShaderDataLength,
-				ThreadResources& threadResources, GlobalResources& globalResources, ID3D12RootSignature* rootSignature, ID3D12Device* device, ShaderRequestVP* requests)) :
-			loadingFinished(loadingFinished1),
-			pipelineLoader(pipelineLoader1)
-		{
-			vertexHelper.request = this;
-			pixelHelper.request = this;
-			rootSignature = rootSignature1;
-			device = device1;
-
-			AsynchronousFileManager& fileManager = globalResources.asynchronousFileManager;
-			IOCompletionQueue& ioCompletionQueue = globalResources.ioCompletionQueue;
-
-			File vsFile = fileManager.openFileForReading<GlobalResources>(ioCompletionQueue, vertexFile);
-			RequestHelper& request1 = vertexHelper;
-			request1.filename = vertexFile;
-			request1.file = vsFile;
-			request1.start = 0u;
-			request1.end = vsFile.size();
-			request1.fileLoadedCallback = [](AsynchronousFileManager::ReadRequest& request, void* executor, void* sharedResources, const unsigned char* data)
-			{
-				request.file.close();
-
-				ShaderRequestVP& request1 = *static_cast<RequestHelper&>(request).request;
-				request1.vertexShaderData = data;
-				request1.shaderFileLoaded(*static_cast<ThreadResources*>(executor), *static_cast<GlobalResources*>(sharedResources));
-			};
-			request1.deleteReadRequest = freeRequestMemory;
-			fileManager.readFile(&request1, threadResources, globalResources);
-
-			File psFile = fileManager.openFileForReading<GlobalResources>(ioCompletionQueue, pixelFile);
-			RequestHelper& request2 = pixelHelper;
-			request2.filename = pixelFile;
-			request2.file = psFile;
-			request2.start = 0u;
-			request2.end = psFile.size();
-			request2.fileLoadedCallback = [](AsynchronousFileManager::ReadRequest& request, void* executor, void* sharedResources, const unsigned char* data)
-			{
-				request.file.close();
-
-				ShaderRequestVP& request1 = *static_cast<RequestHelper&>(request).request;
-				request1.pixelShaderData = data;
-				request1.shaderFileLoaded(*static_cast<ThreadResources*>(executor), *static_cast<GlobalResources*>(sharedResources));
-			};
-			request2.deleteReadRequest = freeRequestMemory;
-			fileManager.readFile(&request2, threadResources, globalResources);
-		}
-	public:
-		static ShaderRequestVP* create(ThreadResources& threadResources, GlobalResources& globalResources, const wchar_t* vertexFile, const wchar_t* pixelFile, ID3D12RootSignature* rootSignature1, ID3D12Device* device1,
-			PipelineStateObjects::PipelineLoader* pipelineLoader1,
-			void(*loadingFinished1)(const unsigned char* vertexShaderData, std::size_t vertexShaderDataLength, const unsigned char* pixelShaderData, std::size_t pixelShaderDataLength,
-				ThreadResources& threadResources, GlobalResources& globalResources, ID3D12RootSignature* rootSignature, ID3D12Device* device, ShaderRequestVP* requests))
-		{
-			return new ShaderRequestVP(threadResources, globalResources, vertexFile, pixelFile, rootSignature1, device1, pipelineLoader1, loadingFinished1);
-		}
-
-		void componentLoaded(ThreadResources& threadResources, GlobalResources& globalResources)
-		{
-			pipelineLoader->componentLoaded(threadResources, globalResources);
-		}
-	};
-
-
-	void loadTextShader(ThreadResources& threadResources, GlobalResources& globalResources, ID3D12RootSignature* rootSignature, ID3D12Device* device, PipelineStateObjects::PipelineLoader* pipelineLoader)
-	{
-		ShaderRequestVP::create(threadResources, globalResources, L"../DemoGame/CompiledShaders/TextVS.cso", L"../DemoGame/CompiledShaders/TextPS.cso", rootSignature, device, pipelineLoader,
+			L"../DemoGame/CompiledShaders/TextVS.cso",
+			L"../DemoGame/CompiledShaders/TextPS.cso",
+			rootSignature,
 			[](const unsigned char* vertexShaderData, std::size_t vertexShaderDataLength, const unsigned char* pixelShaderData, std::size_t pixelShaderDataLength,
-				ThreadResources& threadResources, GlobalResources& globalResources, ID3D12RootSignature* rootSignature, ID3D12Device* device, ShaderRequestVP* requests)
+				PipelineStateObjects& pipelineStateObjects, ID3D12RootSignature* rootSignature, ID3D12Device* device)
 		{
-			PipelineStateObjects& pipelineStateObjects = globalResources.pipelineStateObjects;
 			D3D12_INPUT_ELEMENT_DESC inputLayout[] =
 			{
 				{ "POSITION", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA, 1 },
@@ -281,18 +175,20 @@ namespace
 #ifndef NDEBUG
 			pipelineStateObjects.text->SetName(L"Text");
 #endif
-
-			requests->componentLoaded(threadResources, globalResources);
-		});
+		}
+		};
 	}
 
-	void loadDirectionalLightShader(ThreadResources& threadResources, GlobalResources& globalResources, ID3D12RootSignature* rootSignature, ID3D12Device* device, PipelineStateObjects::PipelineLoader* pipelineLoader)
+	ShaderInfo directionalLightShaderInfo(ID3D12RootSignature* rootSignature)
 	{
-		ShaderRequestVP::create(threadResources, globalResources, L"../DemoGame/CompiledShaders/LightVS.cso", L"../DemoGame/CompiledShaders/DirectionalLightPS.cso", rootSignature, device, pipelineLoader,
-			[](const unsigned char* vertexShaderData, std::size_t vertexShaderDataLength, const unsigned char* pixelShaderData, std::size_t pixelShaderDataLength,
-				ThreadResources& threadResources, GlobalResources& globalResources, ID3D12RootSignature* rootSignature, ID3D12Device* device, ShaderRequestVP* requests)
+		return
 		{
-			PipelineStateObjects& pipelineStateObjects = globalResources.pipelineStateObjects;
+			L"../DemoGame/CompiledShaders/LightVS.cso",
+			L"../DemoGame/CompiledShaders/DirectionalLightPS.cso",
+			rootSignature,
+			[](const unsigned char* vertexShaderData, std::size_t vertexShaderDataLength, const unsigned char* pixelShaderData, std::size_t pixelShaderDataLength,
+				PipelineStateObjects& pipelineStateObjects, ID3D12RootSignature* rootSignature, ID3D12Device* device)
+		{
 			D3D12_INPUT_ELEMENT_DESC inputLayout[] =
 			{
 				{ "POSITION", 0u, DXGI_FORMAT_R32G32B32_FLOAT, 0u, 0u, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0u },
@@ -450,18 +346,20 @@ namespace
 #ifndef NDEBUG
 			pipelineStateObjects.directionalLight->SetName(L"DirectionalLight");
 #endif
-
-			requests->componentLoaded(threadResources, globalResources);
-		});
+		}
+		};
 	}
 
-	void loadDirectionalLightVtShader(ThreadResources& threadResources, GlobalResources& globalResources, ID3D12RootSignature* rootSignature, ID3D12Device* device, PipelineStateObjects::PipelineLoader* pipelineLoader)
+	ShaderInfo directionalLightVtShaderInfo(ID3D12RootSignature* rootSignature)
 	{
-		ShaderRequestVP::create(threadResources, globalResources, L"../DemoGame/CompiledShaders/LightVS.cso", L"../DemoGame/CompiledShaders/DirectionalLightVtPS.cso", rootSignature, device, pipelineLoader,
-			[](const unsigned char* vertexShaderData, std::size_t vertexShaderDataLength, const unsigned char* pixelShaderData, std::size_t pixelShaderDataLength,
-				ThreadResources& threadResources, GlobalResources& globalResources, ID3D12RootSignature* rootSignature, ID3D12Device* device, ShaderRequestVP* requests)
+		return
 		{
-			PipelineStateObjects& pipelineStateObjects = globalResources.pipelineStateObjects;
+			 L"../DemoGame/CompiledShaders/LightVS.cso",
+			 L"../DemoGame/CompiledShaders/DirectionalLightVtPS.cso",
+			 rootSignature,
+			 [](const unsigned char* vertexShaderData, std::size_t vertexShaderDataLength, const unsigned char* pixelShaderData, std::size_t pixelShaderDataLength,
+				PipelineStateObjects& pipelineStateObjects, ID3D12RootSignature* rootSignature, ID3D12Device* device)
+		{
 			D3D12_INPUT_ELEMENT_DESC inputLayout[] =
 			{
 				{ "POSITION", 0u, DXGI_FORMAT_R32G32B32_FLOAT, 0u, 0u, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0u },
@@ -619,18 +517,20 @@ namespace
 #ifndef NDEBUG
 			pipelineStateObjects.directionalLightVt->SetName(L"directionalLightVt");
 #endif
-
-			requests->componentLoaded(threadResources, globalResources);
-		});
+		}
+		};
 	}
 
-	void loadDirectionalLightVtTwoSidedShader(ThreadResources& threadResources, GlobalResources& globalResources, ID3D12RootSignature* rootSignature, ID3D12Device* device, PipelineStateObjects::PipelineLoader* pipelineLoader)
+	ShaderInfo directionalLightVtTwoSidedShaderInfo(ID3D12RootSignature* rootSignature)
 	{
-		ShaderRequestVP::create(threadResources, globalResources, L"../DemoGame/CompiledShaders/LightVS.cso", L"../DemoGame/CompiledShaders/DirectionalLightVtPS.cso", rootSignature, device, pipelineLoader,
-			[](const unsigned char* vertexShaderData, std::size_t vertexShaderDataLength, const unsigned char* pixelShaderData, std::size_t pixelShaderDataLength,
-				ThreadResources& threadResources, GlobalResources& globalResources, ID3D12RootSignature* rootSignature, ID3D12Device* device, ShaderRequestVP* requests)
+		return
 		{
-			PipelineStateObjects& pipelineStateObjects = globalResources.pipelineStateObjects;
+			L"../DemoGame/CompiledShaders/LightVS.cso",
+			L"../DemoGame/CompiledShaders/DirectionalLightVtPS.cso",
+			rootSignature,
+			[](const unsigned char* vertexShaderData, std::size_t vertexShaderDataLength, const unsigned char* pixelShaderData, std::size_t pixelShaderDataLength,
+				PipelineStateObjects& pipelineStateObjects, ID3D12RootSignature* rootSignature, ID3D12Device* device)
+		{
 			D3D12_INPUT_ELEMENT_DESC inputLayout[] =
 			{
 				{ "POSITION", 0u, DXGI_FORMAT_R32G32B32_FLOAT, 0u, 0u, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0u },
@@ -788,18 +688,20 @@ namespace
 #ifndef NDEBUG
 			pipelineStateObjects.directionalLightVtTwoSided->SetName(L"directionalLightVtTwoSided");
 #endif
-
-			requests->componentLoaded(threadResources, globalResources);
-		});
+		}
+		};
 	}
 
-	void loadPointLightShader(ThreadResources& threadResources, GlobalResources& globalResources, ID3D12RootSignature* rootSignature, ID3D12Device* device, PipelineStateObjects::PipelineLoader* pipelineLoader)
+	ShaderInfo pointLightShaderInfo(ID3D12RootSignature* rootSignature)
 	{
-		ShaderRequestVP::create(threadResources, globalResources, L"../DemoGame/CompiledShaders/LightVS.cso", L"../DemoGame/CompiledShaders/PointLightPS.cso", rootSignature, device, pipelineLoader,
-			[](const unsigned char* vertexShaderData, std::size_t vertexShaderDataLength, const unsigned char* pixelShaderData, std::size_t pixelShaderDataLength,
-				ThreadResources& threadResources, GlobalResources& globalResources, ID3D12RootSignature* rootSignature, ID3D12Device* device, ShaderRequestVP* requests)
+		return
 		{
-			PipelineStateObjects& pipelineStateObjects = globalResources.pipelineStateObjects;
+			L"../DemoGame/CompiledShaders/LightVS.cso",
+			L"../DemoGame/CompiledShaders/PointLightPS.cso",
+			rootSignature,
+			[](const unsigned char* vertexShaderData, std::size_t vertexShaderDataLength, const unsigned char* pixelShaderData, std::size_t pixelShaderDataLength,
+				PipelineStateObjects& pipelineStateObjects, ID3D12RootSignature* rootSignature, ID3D12Device* device)
+		{
 			D3D12_INPUT_ELEMENT_DESC inputLayout[] =
 			{
 				{ "POSITION", 0u, DXGI_FORMAT_R32G32B32_FLOAT, 0u, 0u, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0u },
@@ -957,19 +859,21 @@ namespace
 #ifndef NDEBUG
 			pipelineStateObjects.pointLight->SetName(L"pointLight");
 #endif
-
-			requests->componentLoaded(threadResources, globalResources);
-		});
+		}
+		};
 	}
 
-	void loadWaterWithReflectionTextureShader(ThreadResources& threadResources, GlobalResources& globalResources, ID3D12RootSignature* rootSignature, ID3D12Device* device, PipelineStateObjects::PipelineLoader* pipelineLoader)
+	ShaderInfo waterWithReflectionTextureShaderInfo(ID3D12RootSignature* rootSignature)
 	{
-		ShaderRequestVP::create(threadResources, globalResources, L"../DemoGame/CompiledShaders/WaterVS.cso", L"../DemoGame/CompiledShaders/WaterWithReflectionTexturePS.cso", rootSignature, device, pipelineLoader,
-			[](const unsigned char* vertexShaderData, std::size_t vertexShaderDataLength, const unsigned char* pixelShaderData, std::size_t pixelShaderDataLength,
-				ThreadResources& threadResources, GlobalResources& globalResources, ID3D12RootSignature* rootSignature, ID3D12Device* device, ShaderRequestVP* requests)
+		return
 		{
-			PipelineStateObjects& pipelineStateObjects = globalResources.pipelineStateObjects;
-			const D3D12_INPUT_ELEMENT_DESC inputLayout[] = //texturedInputLayout
+			L"../DemoGame/CompiledShaders/WaterVS.cso",
+			L"../DemoGame/CompiledShaders/WaterWithReflectionTexturePS.cso",
+			rootSignature,
+			[](const unsigned char* vertexShaderData, std::size_t vertexShaderDataLength, const unsigned char* pixelShaderData, std::size_t pixelShaderDataLength,
+				PipelineStateObjects& pipelineStateObjects, ID3D12RootSignature* rootSignature, ID3D12Device* device)
+		{
+			const D3D12_INPUT_ELEMENT_DESC inputLayout[] =
 			{
 				{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
 				{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
@@ -1125,19 +1029,21 @@ namespace
 #ifndef NDEBUG
 			pipelineStateObjects.waterWithReflectionTexture->SetName(L"waterWithReflectionTexture");
 #endif
-
-			requests->componentLoaded(threadResources, globalResources);
-		});
+		}
+		};
 	}
 
-	void loadWaterNoReflectionTextureShader(ThreadResources& threadResources, GlobalResources& globalResources, ID3D12RootSignature* rootSignature, ID3D12Device* device, PipelineStateObjects::PipelineLoader* pipelineLoader)
+	ShaderInfo waterNoReflectionTextureShaderInfo(ID3D12RootSignature* rootSignature)
 	{
-		ShaderRequestVP::create(threadResources, globalResources, L"../DemoGame/CompiledShaders/WaterVS.cso", L"../DemoGame/CompiledShaders/WaterNoReflectionTexturePS.cso", rootSignature, device, pipelineLoader,
-			[](const unsigned char* vertexShaderData, std::size_t vertexShaderDataLength, const unsigned char* pixelShaderData, std::size_t pixelShaderDataLength,
-				ThreadResources& threadResources, GlobalResources& globalResources, ID3D12RootSignature* rootSignature, ID3D12Device* device, ShaderRequestVP* requests)
+		return
 		{
-			PipelineStateObjects& pipelineStateObjects = globalResources.pipelineStateObjects;
-			const D3D12_INPUT_ELEMENT_DESC inputLayout[] = //texturedInputLayout
+			L"../DemoGame/CompiledShaders/WaterVS.cso",
+			L"../DemoGame/CompiledShaders/WaterNoReflectionTexturePS.cso",
+			rootSignature,
+			[](const unsigned char* vertexShaderData, std::size_t vertexShaderDataLength, const unsigned char* pixelShaderData, std::size_t pixelShaderDataLength,
+				PipelineStateObjects& pipelineStateObjects, ID3D12RootSignature* rootSignature, ID3D12Device* device)
+		{
+			const D3D12_INPUT_ELEMENT_DESC inputLayout[] =
 			{
 				{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
 				{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
@@ -1293,19 +1199,21 @@ namespace
 #ifndef NDEBUG
 			pipelineStateObjects.waterNoReflectionTexture->SetName(L"waterNoReflectionTexture");
 #endif
-
-			requests->componentLoaded(threadResources, globalResources);
-		});
+		}
+		};
 	}
 
-	void loadGlassShader(ThreadResources& threadResources, GlobalResources& globalResources, ID3D12RootSignature* rootSignature, ID3D12Device* device, PipelineStateObjects::PipelineLoader* pipelineLoader)
+	ShaderInfo glassShaderInfo(ID3D12RootSignature* rootSignature)
 	{
-		ShaderRequestVP::create(threadResources, globalResources, L"../DemoGame/CompiledShaders/GlassVS.cso", L"../DemoGame/CompiledShaders/GlassPS.cso", rootSignature, device, pipelineLoader,
-			[](const unsigned char* vertexShaderData, std::size_t vertexShaderDataLength, const unsigned char* pixelShaderData, std::size_t pixelShaderDataLength,
-				ThreadResources& threadResources, GlobalResources& globalResources, ID3D12RootSignature* rootSignature, ID3D12Device* device, ShaderRequestVP* requests)
+		return
 		{
-			PipelineStateObjects& pipelineStateObjects = globalResources.pipelineStateObjects;
-			const D3D12_INPUT_ELEMENT_DESC inputLayout[] = //texturedInputLayout
+			L"../DemoGame/CompiledShaders/GlassVS.cso",
+			L"../DemoGame/CompiledShaders/GlassPS.cso",
+			rootSignature,
+			[](const unsigned char* vertexShaderData, std::size_t vertexShaderDataLength, const unsigned char* pixelShaderData, std::size_t pixelShaderDataLength,
+				PipelineStateObjects& pipelineStateObjects, ID3D12RootSignature* rootSignature, ID3D12Device* device)
+		{
+			const D3D12_INPUT_ELEMENT_DESC inputLayout[] =
 			{
 				{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
 				{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
@@ -1461,19 +1369,21 @@ namespace
 #ifndef NDEBUG
 			pipelineStateObjects.glass->SetName(L"glass");
 #endif
-
-			requests->componentLoaded(threadResources, globalResources);
-		});
+		}
+		};
 	}
 
-	void loadBasicShader(ThreadResources& threadResources, GlobalResources& globalResources, ID3D12RootSignature* rootSignature, ID3D12Device* device, PipelineStateObjects::PipelineLoader* pipelineLoader)
+	ShaderInfo basicShaderInfo(ID3D12RootSignature* rootSignature)
 	{
-		ShaderRequestVP::create(threadResources, globalResources, L"../DemoGame/CompiledShaders/BasicVS.cso", L"../DemoGame/CompiledShaders/BasicPS.cso", rootSignature, device, pipelineLoader,
-			[](const unsigned char* vertexShaderData, std::size_t vertexShaderDataLength, const unsigned char* pixelShaderData, std::size_t pixelShaderDataLength,
-				ThreadResources& threadResources, GlobalResources& globalResources, ID3D12RootSignature* rootSignature, ID3D12Device* device, ShaderRequestVP* requests)
+		return
 		{
-			PipelineStateObjects& pipelineStateObjects = globalResources.pipelineStateObjects;
-			const D3D12_INPUT_ELEMENT_DESC inputLayout[] = //texturedInputLayout
+			L"../DemoGame/CompiledShaders/BasicVS.cso",
+			L"../DemoGame/CompiledShaders/BasicPS.cso",
+			rootSignature,
+			[](const unsigned char* vertexShaderData, std::size_t vertexShaderDataLength, const unsigned char* pixelShaderData, std::size_t pixelShaderDataLength,
+				PipelineStateObjects& pipelineStateObjects, ID3D12RootSignature* rootSignature, ID3D12Device* device)
+		{
+			const D3D12_INPUT_ELEMENT_DESC inputLayout[] =
 			{
 				{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
 				{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
@@ -1629,19 +1539,21 @@ namespace
 #ifndef NDEBUG
 			pipelineStateObjects.basic->SetName(L"basic");
 #endif
-
-			requests->componentLoaded(threadResources, globalResources);
-		});
+		}
+		};
 	}
 
-	void loadVtFeedbackShader(ThreadResources& threadResources, GlobalResources& globalResources, ID3D12RootSignature* rootSignature, ID3D12Device* device, PipelineStateObjects::PipelineLoader* pipelineLoader)
+	ShaderInfo vtFeedbackShaderInfo(ID3D12RootSignature* rootSignature)
 	{
-		ShaderRequestVP::create(threadResources, globalResources, L"../DemoGame/CompiledShaders/BasicVS.cso", L"../DemoGame/CompiledShaders/VtFeedbackPS.cso", rootSignature, device, pipelineLoader,
-			[](const unsigned char* vertexShaderData, std::size_t vertexShaderDataLength, const unsigned char* pixelShaderData, std::size_t pixelShaderDataLength,
-				ThreadResources& threadResources, GlobalResources& globalResources, ID3D12RootSignature* rootSignature, ID3D12Device* device, ShaderRequestVP* requests)
+		return
 		{
-			PipelineStateObjects& pipelineStateObjects = globalResources.pipelineStateObjects;
-			const D3D12_INPUT_ELEMENT_DESC inputLayout[] = //texturedInputLayout
+			L"../DemoGame/CompiledShaders/BasicVS.cso",
+			L"../DemoGame/CompiledShaders/VtFeedbackPS.cso",
+			rootSignature,
+			[](const unsigned char* vertexShaderData, std::size_t vertexShaderDataLength, const unsigned char* pixelShaderData, std::size_t pixelShaderDataLength,
+				PipelineStateObjects& pipelineStateObjects, ID3D12RootSignature* rootSignature, ID3D12Device* device)
+		{
+			const D3D12_INPUT_ELEMENT_DESC inputLayout[] =
 			{
 				{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
 				{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
@@ -1797,18 +1709,20 @@ namespace
 #ifndef NDEBUG
 			pipelineStateObjects.vtFeedback->SetName(L"Virtual texture feedback");
 #endif
-
-			requests->componentLoaded(threadResources, globalResources);
-		});
+		}
+		};
 	}
 
-	void loadVtFeedbackWithNormalsShader(ThreadResources& threadResources, GlobalResources& globalResources, ID3D12RootSignature* rootSignature, ID3D12Device* device, PipelineStateObjects::PipelineLoader* pipelineLoader)
+	ShaderInfo vtFeedbackWithNormalsShaderInfo(ID3D12RootSignature* rootSignature)
 	{
-		ShaderRequestVP::create(threadResources, globalResources, L"../DemoGame/CompiledShaders/BasicVS.cso", L"../DemoGame/CompiledShaders/VtFeedbackPS.cso", rootSignature, device, pipelineLoader,
-			[](const unsigned char* vertexShaderData, std::size_t vertexShaderDataLength, const unsigned char* pixelShaderData, std::size_t pixelShaderDataLength,
-				ThreadResources& threadResources, GlobalResources& globalResources, ID3D12RootSignature* rootSignature, ID3D12Device* device, ShaderRequestVP* requests)
+		return
 		{
-			PipelineStateObjects& pipelineStateObjects = globalResources.pipelineStateObjects;
+			L"../DemoGame/CompiledShaders/BasicVS.cso",
+			L"../DemoGame/CompiledShaders/VtFeedbackPS.cso",
+			rootSignature,
+			[](const unsigned char* vertexShaderData, std::size_t vertexShaderDataLength, const unsigned char* pixelShaderData, std::size_t pixelShaderDataLength,
+				PipelineStateObjects& pipelineStateObjects, ID3D12RootSignature* rootSignature, ID3D12Device* device)
+		{
 			const D3D12_INPUT_ELEMENT_DESC inputLayout[] =
 			{
 				{ "POSITION", 0u, DXGI_FORMAT_R32G32B32_FLOAT, 0u, 0u, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0u },
@@ -1966,18 +1880,20 @@ namespace
 #ifndef NDEBUG
 			pipelineStateObjects.vtFeedbackWithNormals->SetName(L"Virtual texture feedback with normals");
 #endif
-
-			requests->componentLoaded(threadResources, globalResources);
-		});
+		}
+		};
 	}
 
-	void loadVtFeedbackWithNormalsTwoSidedShader(ThreadResources& threadResources, GlobalResources& globalResources, ID3D12RootSignature* rootSignature, ID3D12Device* device, PipelineStateObjects::PipelineLoader* pipelineLoader)
+	ShaderInfo vtFeedbackWithNormalsTwoSidedShaderInfo(ID3D12RootSignature* rootSignature)
 	{
-		ShaderRequestVP::create(threadResources, globalResources, L"../DemoGame/CompiledShaders/BasicVS.cso", L"../DemoGame/CompiledShaders/VtFeedbackPS.cso", rootSignature, device, pipelineLoader,
-			[](const unsigned char* vertexShaderData, std::size_t vertexShaderDataLength, const unsigned char* pixelShaderData, std::size_t pixelShaderDataLength,
-				ThreadResources& threadResources, GlobalResources& globalResources, ID3D12RootSignature* rootSignature, ID3D12Device* device, ShaderRequestVP* requests)
+		return
 		{
-			PipelineStateObjects& pipelineStateObjects = globalResources.pipelineStateObjects;
+			L"../DemoGame/CompiledShaders/BasicVS.cso",
+			L"../DemoGame/CompiledShaders/VtFeedbackPS.cso",
+			rootSignature,
+			[](const unsigned char* vertexShaderData, std::size_t vertexShaderDataLength, const unsigned char* pixelShaderData, std::size_t pixelShaderDataLength,
+				PipelineStateObjects& pipelineStateObjects, ID3D12RootSignature* rootSignature, ID3D12Device* device)
+		{
 			const D3D12_INPUT_ELEMENT_DESC inputLayout[] =
 			{
 				{ "POSITION", 0u, DXGI_FORMAT_R32G32B32_FLOAT, 0u, 0u, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0u },
@@ -2135,19 +2051,21 @@ namespace
 #ifndef NDEBUG
 			pipelineStateObjects.vtFeedbackWithNormalsTwoSided->SetName(L"Virtual texture feedback with normals two sided");
 #endif
-
-			requests->componentLoaded(threadResources, globalResources);
-		});
+		}
+		};
 	}
 
-	void loadVtDebugDrawShader(ThreadResources& threadResources, GlobalResources& globalResources, ID3D12RootSignature* rootSignature, ID3D12Device* device, PipelineStateObjects::PipelineLoader* pipelineLoader)
+	ShaderInfo vtDebugDrawShaderInfo(ID3D12RootSignature* rootSignature)
 	{
-		ShaderRequestVP::create(threadResources, globalResources, L"../DemoGame/CompiledShaders/TexturedQuadVS.cso", L"../DemoGame/CompiledShaders/VtDebugDrawPs.cso", rootSignature, device, pipelineLoader,
-			[](const unsigned char* vertexShaderData, std::size_t vertexShaderDataLength, const unsigned char* pixelShaderData, std::size_t pixelShaderDataLength,
-				ThreadResources& threadResources, GlobalResources& globalResources, ID3D12RootSignature* rootSignature, ID3D12Device* device, ShaderRequestVP* requests)
+		return
 		{
-			PipelineStateObjects& pipelineStateObjects = globalResources.pipelineStateObjects;
-			const D3D12_INPUT_ELEMENT_DESC inputLayout[] = //texturedInputLayout
+			L"../DemoGame/CompiledShaders/TexturedQuadVS.cso",
+			L"../DemoGame/CompiledShaders/VtDebugDrawPs.cso",
+			rootSignature,
+			[](const unsigned char* vertexShaderData, std::size_t vertexShaderDataLength, const unsigned char* pixelShaderData, std::size_t pixelShaderDataLength,
+				PipelineStateObjects& pipelineStateObjects, ID3D12RootSignature* rootSignature, ID3D12Device* device)
+		{
+			const D3D12_INPUT_ELEMENT_DESC inputLayout[] =
 			{
 				{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
 				{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
@@ -2303,18 +2221,20 @@ namespace
 #ifndef NDEBUG
 			pipelineStateObjects.vtDebugDraw->SetName(L"virtual texture feedback debug draw");
 #endif
-
-			requests->componentLoaded(threadResources, globalResources);
-		});
+		}
+		};
 	}
 
-	void loadCopyShader(ThreadResources& threadResources, GlobalResources& globalResources, ID3D12RootSignature* rootSignature, ID3D12Device* device, PipelineStateObjects::PipelineLoader* pipelineLoader)
+	ShaderInfo copyShaderInfo(ID3D12RootSignature* rootSignature)
 	{
-		ShaderRequestVP::create(threadResources, globalResources, L"../DemoGame/CompiledShaders/PositionOnlyVS.cso", L"../DemoGame/CompiledShaders/CopyPS.cso", rootSignature, device, pipelineLoader,
-			[](const unsigned char* vertexShaderData, std::size_t vertexShaderDataLength, const unsigned char* pixelShaderData, std::size_t pixelShaderDataLength,
-				ThreadResources& threadResources, GlobalResources& globalResources, ID3D12RootSignature* rootSignature, ID3D12Device* device, ShaderRequestVP* requests)
+		return
 		{
-			PipelineStateObjects& pipelineStateObjects = globalResources.pipelineStateObjects;
+			L"../DemoGame/CompiledShaders/PositionOnlyVS.cso",
+			L"../DemoGame/CompiledShaders/CopyPS.cso",
+			rootSignature,
+			[](const unsigned char* vertexShaderData, std::size_t vertexShaderDataLength, const unsigned char* pixelShaderData, std::size_t pixelShaderDataLength,
+				PipelineStateObjects& pipelineStateObjects, ID3D12RootSignature* rootSignature, ID3D12Device* device)
+		{
 			const D3D12_INPUT_ELEMENT_DESC inputLayout[] =
 			{
 				{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
@@ -2470,19 +2390,21 @@ namespace
 #ifndef NDEBUG
 			pipelineStateObjects.copy->SetName(L"Copy");
 #endif
-
-			requests->componentLoaded(threadResources, globalResources);
-		});
+		}
+		};
 	}
 
-	void loadFireShader(ThreadResources& threadResources, GlobalResources& globalResources, ID3D12RootSignature* rootSignature, ID3D12Device* device, PipelineStateObjects::PipelineLoader* pipelineLoader)
+	ShaderInfo fireShaderInfo(ID3D12RootSignature* rootSignature)
 	{
-		ShaderRequestVP::create(threadResources, globalResources, L"../DemoGame/CompiledShaders/FireVS.cso", L"../DemoGame/CompiledShaders/FirePS.cso", rootSignature, device, pipelineLoader,
-			[](const unsigned char* vertexShaderData, std::size_t vertexShaderDataLength, const unsigned char* pixelShaderData, std::size_t pixelShaderDataLength,
-				ThreadResources& threadResources, GlobalResources& globalResources, ID3D12RootSignature* rootSignature, ID3D12Device* device, ShaderRequestVP* requests)
+		return
 		{
-			PipelineStateObjects& pipelineStateObjects = globalResources.pipelineStateObjects;
-			const D3D12_INPUT_ELEMENT_DESC inputLayout[] = //texturedInputLayout
+			L"../DemoGame/CompiledShaders/FireVS.cso",
+			L"../DemoGame/CompiledShaders/FirePS.cso",
+			rootSignature,
+			[](const unsigned char* vertexShaderData, std::size_t vertexShaderDataLength, const unsigned char* pixelShaderData, std::size_t pixelShaderDataLength,
+				PipelineStateObjects& pipelineStateObjects, ID3D12RootSignature* rootSignature, ID3D12Device* device)
+		{
+			const D3D12_INPUT_ELEMENT_DESC inputLayout[] =
 			{
 				{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
 				{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
@@ -2638,32 +2560,138 @@ namespace
 #ifndef NDEBUG
 			pipelineStateObjects.fire->SetName(L"fire");
 #endif
-
-			requests->componentLoaded(threadResources, globalResources);
-		});
+		}
+		};
 	}
 }
 
-PipelineStateObjects::PipelineStateObjects(ThreadResources& threadResources, GlobalResources& globalResources, PipelineLoader* pipelineLoader)
+PipelineStateObjects::PipelineStateObjects(ThreadResources& threadResources, GlobalResources& globalResources, PipelineLoader& pipelineLoader)
 {
 	ID3D12RootSignature* const rootSignature = globalResources.rootSignatures.rootSignature;
-	ID3D12Device* device = globalResources.graphicsEngine.graphicsDevice;
 
-	loadTextShader(threadResources, globalResources, rootSignature, device, pipelineLoader);
-	loadDirectionalLightShader(threadResources, globalResources, rootSignature, device, pipelineLoader);
-	loadDirectionalLightVtShader(threadResources, globalResources, rootSignature, device, pipelineLoader);
-	loadDirectionalLightVtTwoSidedShader(threadResources, globalResources, rootSignature, device, pipelineLoader);
-	loadPointLightShader(threadResources, globalResources, rootSignature, device, pipelineLoader);
-	loadWaterWithReflectionTextureShader(threadResources, globalResources, rootSignature, device, pipelineLoader);
-	loadWaterNoReflectionTextureShader(threadResources, globalResources, rootSignature, device, pipelineLoader);
-	loadGlassShader(threadResources, globalResources, rootSignature, device, pipelineLoader);
-	loadBasicShader(threadResources, globalResources, rootSignature, device, pipelineLoader);
-	loadVtFeedbackShader(threadResources, globalResources, rootSignature, device, pipelineLoader);
-	loadVtFeedbackWithNormalsShader(threadResources, globalResources, rootSignature, device, pipelineLoader);
-	loadVtFeedbackWithNormalsTwoSidedShader(threadResources, globalResources, rootSignature, device, pipelineLoader);
-	loadVtDebugDrawShader(threadResources, globalResources, rootSignature, device, pipelineLoader);
-	loadCopyShader(threadResources, globalResources, rootSignature, device, pipelineLoader);
-	loadFireShader(threadResources, globalResources, rootSignature, device, pipelineLoader);
+	new(&pipelineLoader.impl) PipelineLoaderImpl(
+		{
+			textShaderInfo(rootSignature),
+			directionalLightShaderInfo(rootSignature),
+			directionalLightVtShaderInfo(rootSignature),
+			directionalLightVtTwoSidedShaderInfo(rootSignature),
+			pointLightShaderInfo(rootSignature),
+			waterWithReflectionTextureShaderInfo(rootSignature),
+			waterNoReflectionTextureShaderInfo(rootSignature),
+			glassShaderInfo(rootSignature),
+			basicShaderInfo(rootSignature),
+			vtFeedbackShaderInfo(rootSignature),
+			vtFeedbackWithNormalsShaderInfo(rootSignature),
+			vtFeedbackWithNormalsTwoSidedShaderInfo(rootSignature),
+			vtDebugDrawShaderInfo(rootSignature),
+			copyShaderInfo(rootSignature),
+			fireShaderInfo(rootSignature)
+		}, threadResources, globalResources, pipelineLoader);
 }
 
-PipelineStateObjects::~PipelineStateObjects() {}
+void PipelineStateObjects::ShaderRequestVP::freeRequestMemory(AsynchronousFileManager::ReadRequest& request1, void*, void*)
+{
+	ShaderRequestVP& request = *static_cast<RequestHelper&>(request1).request;
+	if(request.numberOfComponentsReadyToDelete.fetch_add(1u, std::memory_order::memory_order_acq_rel) == (numberOfComponents - 1u))
+	{
+		request.deleteRequest(request);
+	}
+}
+
+void PipelineStateObjects::ShaderRequestVP::shaderFileLoaded(ThreadResources& threadResources, GlobalResources& globalResources)
+{
+	if(numberOfComponentsLoaded.fetch_add(1u, std::memory_order::memory_order_acq_rel) == (numberOfComponents - 1u))
+	{
+		loadDescription(vertexShaderData, vertexHelper.end, pixelShaderData, pixelHelper.end,
+			globalResources.pipelineStateObjects, rootSignature, globalResources.graphicsEngine.graphicsDevice);
+		loadingFinished(*this, threadResources, globalResources);
+		globalResources.asynchronousFileManager.discard(&vertexHelper, threadResources, globalResources);
+		globalResources.asynchronousFileManager.discard(&pixelHelper, threadResources, globalResources);
+	}
+}
+
+PipelineStateObjects::ShaderRequestVP::ShaderRequestVP(ThreadResources& threadResources, GlobalResources& globalResources, const wchar_t* vertexFile, const wchar_t* pixelFile, ID3D12RootSignature* rootSignature1,
+	void(*loadingFinished1)(ShaderRequestVP& request, ThreadResources& threadResources, GlobalResources& globalResources),
+	void(*loadDescription1)(const unsigned char* vertexShaderData, std::size_t vertexShaderDataLength, const unsigned char* pixelShaderData, std::size_t pixelShaderDataLength,
+		PipelineStateObjects& pipelineStateObjects, ID3D12RootSignature* rootSignature, ID3D12Device* device),
+	void(*deleteRequest1)(ShaderRequestVP& request)) :
+	loadDescription(loadDescription1),
+	loadingFinished(loadingFinished1),
+	deleteRequest(deleteRequest1)
+{
+	vertexHelper.request = this;
+	pixelHelper.request = this;
+	rootSignature = rootSignature1;
+
+	AsynchronousFileManager& fileManager = globalResources.asynchronousFileManager;
+	IOCompletionQueue& ioCompletionQueue = globalResources.ioCompletionQueue;
+
+	File vsFile = fileManager.openFileForReading<GlobalResources>(ioCompletionQueue, vertexFile);
+	RequestHelper& request1 = vertexHelper;
+	request1.filename = vertexFile;
+	request1.file = vsFile;
+	request1.start = 0u;
+	request1.end = vsFile.size();
+	request1.fileLoadedCallback = [](AsynchronousFileManager::ReadRequest& request, void* executor, void* sharedResources, const unsigned char* data)
+	{
+		request.file.close();
+
+		ShaderRequestVP& request1 = *static_cast<RequestHelper&>(request).request;
+		request1.vertexShaderData = data;
+		request1.shaderFileLoaded(*static_cast<ThreadResources*>(executor), *static_cast<GlobalResources*>(sharedResources));
+	};
+	request1.deleteReadRequest = freeRequestMemory;
+	fileManager.readFile(&request1, threadResources, globalResources);
+
+	File psFile = fileManager.openFileForReading<GlobalResources>(ioCompletionQueue, pixelFile);
+	RequestHelper& request2 = pixelHelper;
+	request2.filename = pixelFile;
+	request2.file = psFile;
+	request2.start = 0u;
+	request2.end = psFile.size();
+	request2.fileLoadedCallback = [](AsynchronousFileManager::ReadRequest& request, void* executor, void* sharedResources, const unsigned char* data)
+	{
+		request.file.close();
+
+		ShaderRequestVP& request1 = *static_cast<RequestHelper&>(request).request;
+		request1.pixelShaderData = data;
+		request1.shaderFileLoaded(*static_cast<ThreadResources*>(executor), *static_cast<GlobalResources*>(sharedResources));
+	};
+	request2.deleteReadRequest = freeRequestMemory;
+	fileManager.readFile(&request2, threadResources, globalResources);
+}
+
+PipelineStateObjects::PipelineLoaderImpl::PipelineLoaderImpl(const ShaderInfo(&shadowInfos)[numberOfComponents], ThreadResources& threadResources, GlobalResources& globalResources, PipelineLoader& pipelineLoader) :
+	shaderLoaders([&](std::size_t i, ShaderLoader& shaderLoader)
+{
+	new(&shaderLoader) ShaderLoader(threadResources, globalResources, shadowInfos[i].vertexShader, shadowInfos[i].pixelShader, shadowInfos[i].rootSignature, componentLoaded, shadowInfos[i].loadDescription, freeComponent, &pipelineLoader);
+})
+{}
+
+void PipelineStateObjects::PipelineLoaderImpl::componentLoaded(ShaderRequestVP& request1, ThreadResources& threadResources, GlobalResources& globalResources)
+{
+	auto& request = static_cast<ShaderLoader&>(request1);
+	auto pipelineLoader = request.pipelineLoader;
+	if(pipelineLoader->impl.numberOfcomponentsLoaded.fetch_add(1u, std::memory_order::memory_order_acq_rel) == (numberOfComponents - 1u))
+	{
+		pipelineLoader->loadingFinished(*pipelineLoader, threadResources, globalResources);
+	}
+}
+
+void PipelineStateObjects::PipelineLoaderImpl::freeComponent(ShaderRequestVP& request1)
+{
+	auto pipelineLoader = static_cast<ShaderLoader&>(request1).pipelineLoader;
+	if(pipelineLoader->impl.numberOfComponentsReadyToDelete.fetch_add(1u, std::memory_order::memory_order_acq_rel) == (numberOfComponents - 1u))
+	{
+		pipelineLoader->impl.~PipelineLoaderImpl();
+		pipelineLoader->deleteRequest(*pipelineLoader);
+	}
+}
+
+PipelineStateObjects::PipelineLoaderImpl::ShaderLoader::ShaderLoader(ThreadResources& threadResources, GlobalResources& globalResources, const wchar_t* vertexFile, const wchar_t* pixelFile, ID3D12RootSignature* rootSignature1,
+	void(*loadingFinished1)(ShaderRequestVP& request, ThreadResources& threadResources, GlobalResources& globalResources),
+	void(*loadDescription1)(const unsigned char* vertexShaderData, std::size_t vertexShaderDataLength, const unsigned char* pixelShaderData, std::size_t pixelShaderDataLength,
+		PipelineStateObjects& pipelineStateObjects, ID3D12RootSignature* rootSignature, ID3D12Device* device),
+	void(*deleteRequest1)(ShaderRequestVP& request), PipelineLoader* pipelineLoader) :
+	ShaderRequestVP(threadResources, globalResources, vertexFile, pixelFile, rootSignature1, loadingFinished1, loadDescription1, deleteRequest1),
+	pipelineLoader(pipelineLoader) {}

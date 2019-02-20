@@ -30,7 +30,7 @@
 class GlobalResources
 {
 	friend class ThreadResources;
-	GlobalResources(unsigned int numberOfThreads, bool fullScreen, bool vSync, bool enableGpuDebugging, void* initialResourceLoader);
+	GlobalResources(unsigned int numberOfThreads, bool fullScreen, bool vSync, bool enableGpuDebugging, void*);
 
 	void update();
 	void beforeRender();
