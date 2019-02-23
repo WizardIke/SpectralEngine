@@ -14,9 +14,8 @@ class VirtualTextureRequest : public VirtualTextureManager::TextureStreamingRequ
 public:
 	Zone<ThreadResources, GlobalResources>& zone;
 	VirtualTextureRequest(void(*textureLoaded)(VirtualTextureManager::TextureStreamingRequest& request, void* tr, void* gr, const VirtualTextureManager::Texture& texture),
-		void(*deleteRequest)(VirtualTextureManager::TextureStreamingRequest& request),
 		const wchar_t * filename, Zone<ThreadResources, GlobalResources>& zone) :
-		VirtualTextureManager::TextureStreamingRequest(textureLoaded, deleteRequest, filename),
+		VirtualTextureManager::TextureStreamingRequest(textureLoaded, filename),
 		zone(zone)
 	{}
 };
@@ -26,9 +25,8 @@ class TextureRequest : public TextureManager::TextureStreamingRequest
 public:
 	Zone<ThreadResources, GlobalResources>& zone;
 	TextureRequest(void(*textureLoaded)(TextureManager::TextureStreamingRequest& request, void* tr, void* gr, unsigned int textureDescriptor),
-		void(*deleteRequest)(TextureManager::TextureStreamingRequest& request),
 		const wchar_t * filename, Zone<ThreadResources, GlobalResources>& zone) :
-		TextureManager::TextureStreamingRequest(textureLoaded, deleteRequest, filename),
+		TextureManager::TextureStreamingRequest(textureLoaded, filename),
 		zone(zone)
 	{}
 };
@@ -38,9 +36,8 @@ class MeshRequest : public MeshManager::MeshStreamingRequest
 public:
 	Zone<ThreadResources, GlobalResources>& zone;
 	MeshRequest(void(*textureLoaded)(MeshManager::MeshStreamingRequest& request, void* tr, void* gr, Mesh& mesh),
-		void(*deleteRequest)(MeshManager::MeshStreamingRequest& request),
 		const wchar_t * filename, Zone<ThreadResources, GlobalResources>& zone) :
-		MeshManager::MeshStreamingRequest(textureLoaded, deleteRequest, filename),
+		MeshManager::MeshStreamingRequest(textureLoaded, filename),
 		zone(zone)
 	{}
 };
@@ -150,18 +147,16 @@ private:
 		TextureRequests* requests;
 
 		Request(void(*textureLoaded)(TextureManager::TextureStreamingRequest& request, void* tr, void* gr, unsigned int textureDescriptor),
-			void(*deleteRequest)(TextureManager::TextureStreamingRequest& request),
 			const wchar_t* filename,
 			Zone<ThreadResources, GlobalResources>& zone,
 			void(*loadingFinished)(TextureManager::TextureStreamingRequest& request, void* tr, void* gr, unsigned int textureDescriptor),
 			TextureRequests* requests) :
-			TextureRequest(textureLoaded, deleteRequest, filename, zone),
+			TextureRequest(textureLoaded, filename, zone),
 			loadingFinished(loadingFinished),
 			requests(requests)
 		{}
 	};
 	std::atomic<unsigned int> numberOfcomponentsLoaded = 0u;
-	std::atomic<unsigned int> numberOfComponentsReadyToDelete = 0u;
 
 	union
 	{
@@ -169,7 +164,6 @@ private:
 	};
 
 	void(*loadingFinished)(TextureRequests& request, ThreadResources& threadResources, GlobalResources& globalResources);
-	void(*deleteRequest)(TextureRequests& request);
 
 	static void componentLoaded(TextureManager::TextureStreamingRequest& request1, void* tr, void* gr, unsigned int textureDescriptor)
 	{
@@ -180,23 +174,13 @@ private:
 		{
 			ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
 			GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
+			requests->requestLoaders.~Array();
 			requests->loadingFinished(*requests, threadResources, globalResources);
 		}
 	}
-
-	static void freeComponent(TextureManager::TextureStreamingRequest& request)
-	{
-		auto requests = static_cast<Request&>(request).requests;
-		if(requests->numberOfComponentsReadyToDelete.fetch_add(1u, std::memory_order::memory_order_acq_rel) == (numberOfComponents - 1u))
-		{
-			requests->requestLoaders.~Array();
-			requests->deleteRequest(*requests);
-		}
-	}
 public:
-	TextureRequests(void(*loadingFinished)(TextureRequests& request, ThreadResources& threadResources, GlobalResources& globalResources), void(*deleteRequest)(TextureRequests& request)) :
-		loadingFinished(loadingFinished),
-		deleteRequest(deleteRequest)
+	TextureRequests(void(*loadingFinished)(TextureRequests& request, ThreadResources& threadResources, GlobalResources& globalResources)) :
+		loadingFinished(loadingFinished)
 	{}
 
 	~TextureRequests() {}
@@ -207,7 +191,7 @@ public:
 		{
 			[&](std::size_t i, Request& request)
 			{
-				new(&request) Request(componentLoaded, freeComponent, requestInfos[i].filename, zone, requestInfos[i].loadingFinished, this);
+				new(&request) Request(componentLoaded, requestInfos[i].filename, zone, requestInfos[i].loadingFinished, this);
 			}
 		};
 
@@ -239,18 +223,16 @@ private:
 		MeshRequests* requests;
 
 		Request(void(*meshLoaded)(MeshManager::MeshStreamingRequest& request, void* tr, void* gr, Mesh& mesh),
-			void(*deleteRequest)(MeshManager::MeshStreamingRequest& request),
 			const wchar_t* filename,
 			Zone<ThreadResources, GlobalResources>& zone,
 			void(*loadingFinished)(MeshManager::MeshStreamingRequest& request, void* tr, void* gr, Mesh& mesh),
 			MeshRequests* requests) :
-			MeshRequest(meshLoaded, deleteRequest, filename, zone),
+			MeshRequest(meshLoaded, filename, zone),
 			loadingFinished(loadingFinished),
 			requests(requests)
 		{}
 	};
 	std::atomic<unsigned int> numberOfcomponentsLoaded = 0u;
-	std::atomic<unsigned int> numberOfComponentsReadyToDelete = 0u;
 
 	union
 	{
@@ -258,7 +240,6 @@ private:
 	};
 
 	void(*loadingFinished)(MeshRequests& request, ThreadResources& threadResources, GlobalResources& globalResources);
-	void(*deleteRequest)(MeshRequests& request);
 
 	static void componentLoaded(MeshManager::MeshStreamingRequest& request1, void* tr, void* gr, Mesh& mesh)
 	{
@@ -269,23 +250,13 @@ private:
 		{
 			ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
 			GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
+			requests->requestLoaders.~Array();
 			requests->loadingFinished(*requests, threadResources, globalResources);
 		}
 	}
-
-	static void freeComponent(MeshManager::MeshStreamingRequest& request)
-	{
-		auto requests = static_cast<Request&>(request).requests;
-		if(requests->numberOfComponentsReadyToDelete.fetch_add(1u, std::memory_order::memory_order_acq_rel) == (numberOfComponents - 1u))
-		{
-			requests->requestLoaders.~Array();
-			requests->deleteRequest(*requests);
-		}
-	}
 public:
-	MeshRequests(void(*loadingFinished)(MeshRequests& request, ThreadResources& threadResources, GlobalResources& globalResources), void(*deleteRequest)(MeshRequests& request)) :
-		loadingFinished(loadingFinished),
-		deleteRequest(deleteRequest)
+	MeshRequests(void(*loadingFinished)(MeshRequests& request, ThreadResources& threadResources, GlobalResources& globalResources)) :
+		loadingFinished(loadingFinished)
 	{}
 
 	~MeshRequests() {}
@@ -296,7 +267,7 @@ public:
 		{
 			[&](std::size_t i, Request& request)
 			{
-				new(&request) Request(componentLoaded, freeComponent, requestInfos[i].filename, zone, requestInfos[i].loadingFinished, this);
+				new(&request) Request(componentLoaded, requestInfos[i].filename, zone, requestInfos[i].loadingFinished, this);
 			}
 		};
 

@@ -66,6 +66,7 @@ namespace
 
 			InitialResourceLoader& request1 = static_cast<InitialResourceLoader&>(request);
 			request1.componentLoaded(threadResources, globalResources);
+			freeRequestMemory(request1);
 		}
 
 		static void pipelineStateObjectsLoadedCallback(PipelineStateObjects::PipelineLoader& pipelineLoader, ThreadResources& threadResources, GlobalResources& globalResources)
@@ -97,10 +98,7 @@ namespace
 		std::atomic<unsigned int> numberOfComponentsReadyToDelete = 0u;
 	public:
 		InitialResourceLoader(const wchar_t* fontFilename) :
-			TextureManager::TextureStreamingRequest(fontsLoadedCallback, [](TextureManager::TextureStreamingRequest& request)
-		{
-			freeRequestMemory(static_cast<InitialResourceLoader&>(request));
-		}, fontFilename),
+			TextureManager::TextureStreamingRequest(fontsLoadedCallback, fontFilename),
 			PipelineStateObjects::PipelineLoader(pipelineStateObjectsLoadedCallback, [](PipelineStateObjects::PipelineLoader& pipelineLoader)
 		{
 			freeRequestMemory(static_cast<InitialResourceLoader&>(pipelineLoader));

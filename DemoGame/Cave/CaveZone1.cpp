@@ -79,9 +79,9 @@ namespace Cave
 			VirtualTextureManager& virtualTextureManager = globalResources.virtualTextureManager;
 			VirtualTextureRequest* stone04Request = new VirtualTextureRequest([](VirtualTextureManager::TextureStreamingRequest& request, void* tr, void* gr, const VirtualTextureManager::Texture& texture)
 			{
-				ThreadResources& threadResources = *reinterpret_cast<ThreadResources*>(tr);
-				GlobalResources& globalResources = *reinterpret_cast<GlobalResources*>(gr);
-				auto& zone = reinterpret_cast<VirtualTextureRequest&>(request).zone;
+				ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
+				GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
+				auto& zone = static_cast<VirtualTextureRequest&>(request).zone;
 				auto resources = ((HDResources*)zone.newData);
 				const auto cpuStartAddress = resources->perObjectConstantBuffersCpuAddress;
 				const auto gpuStartAddress = resources->perObjectConstantBuffers->GetGPUVirtualAddress();
@@ -97,10 +97,8 @@ namespace Cave
 				stone4FeedbackBufferPsCpu->usefulTextureHeight = (float)(textureInfo.height);
 				stone4FeedbackBufferPsCpu->usefulTextureWidth = (float)(textureInfo.width);
 
-				componentUploaded(&zone, threadResources, globalResources);
-			}, [](VirtualTextureManager::TextureStreamingRequest& request)
-			{
 				delete static_cast<VirtualTextureRequest*>(&request);
+				componentUploaded(&zone, threadResources, globalResources);
 			}, TextureNames::stone04, zone);
 			virtualTextureManager.load(stone04Request, threadResources, globalResources);
 
@@ -112,10 +110,9 @@ namespace Cave
 				auto& zone = static_cast<MeshRequest&>(request).zone;
 				const auto resources = ((HDResources*)zone.newData);
 				resources->caveModelPart1.mesh = &mesh;
-				componentUploaded(&zone, threadResources, globalResources);
-			}, [](MeshManager::MeshStreamingRequest& request)
-			{
+
 				delete static_cast<MeshRequest*>(&request);
+				componentUploaded(&zone, threadResources, globalResources);
 			}, MeshNames::squareWithNormals, zone);
 			meshManager.load(squareWithNormalsRequest, threadResources, globalResources);
 

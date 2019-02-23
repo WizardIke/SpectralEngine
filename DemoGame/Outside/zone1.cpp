@@ -227,11 +227,9 @@ namespace
 
 			auto textureRequests = new TextureRequests<numTextures>([](TextureRequests<numTextures>& request, ThreadResources& threadResources, GlobalResources& globalResources)
 			{
-				componentUploaded(request.zone(), threadResources, globalResources);
-			},
-				[](TextureRequests<numTextures>& request)
-			{
+				auto& zone = request.zone();
 				delete &request;
+				componentUploaded(zone, threadResources, globalResources);
 			});
 			textureRequests->load(
 				{
@@ -314,11 +312,9 @@ namespace
 
 			auto meshRequests = new MeshRequests<numMeshes>([](MeshRequests<numMeshes>& request, ThreadResources& threadResources, GlobalResources& globalResources)
 			{
-				componentUploaded(request.zone(), threadResources, globalResources);
-			},
-				[](MeshRequests<numMeshes>& request)
-			{
+				auto& zone = request.zone();
 				delete &request;
+				componentUploaded(zone, threadResources, globalResources);
 			});
 			meshRequests->load(
 				{
@@ -817,10 +813,9 @@ namespace
 				auto& zone = static_cast<TextureRequest&>(request).zone;
 				auto resources = ((MDResources*)zone.newData);
 				resources->bathModel.setDiffuseTexture(textureDescriptor, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
-				callback(zone, threadResources, globalResources);
-			}, [](TextureManager::TextureStreamingRequest& request)
-			{
+
 				delete static_cast<TextureRequest*>(&request);
+				callback(zone, threadResources, globalResources);
 			}, TextureNames::marble01, zone);
 			textureManager.load(marble01Request, threadResources, globalResources);
 
@@ -832,10 +827,9 @@ namespace
 				auto& zone = static_cast<MeshRequest&>(request).zone;
 				auto resources = ((MDResources*)zone.newData);
 				resources->bathModel.mesh = &mesh;
-				callback(zone, threadResources, globalResources);
-			}, [](MeshManager::MeshStreamingRequest& request)
-			{
+
 				delete static_cast<MeshRequest*>(&request);
+				callback(zone, threadResources, globalResources);
 			}, MeshNames::bath, zone);
 			meshManager.load(bathRequest, threadResources, globalResources);
 

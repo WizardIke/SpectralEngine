@@ -10,7 +10,6 @@ void VirtualTextureManager::loadTextureUncachedHelper(TextureStreamingRequest& u
 	if (!valid) throw false;
 
 	uploadRequest.streamResource = useSubresource;
-	uploadRequest.deleteStreamingRequest = freeRequestMemory;
 	uploadRequest.width = header.width;
 	uploadRequest.height = header.height;
 	uploadRequest.format = header.dxgiFormat;
@@ -291,20 +290,6 @@ void VirtualTextureManager::textureUseResourceHelper(TextureStreamingRequest& up
 	uploadRequest.start = fileOffset;
 	uploadRequest.end = fileOffset + subresourceSize;
 	uploadRequest.fileLoadedCallback = fileLoadedCallback;
-}
-
-void VirtualTextureManager::freeRequestMemory(StreamingManager::StreamingRequest* request1, void*, void*)
-{
-	auto request = static_cast<TextureStreamingRequest*>(request1);
-	if(request->numberOfComponentsReadyToDelete.fetch_add(1u, std::memory_order::memory_order_acq_rel) == (TextureStreamingRequest::numberOfComponents - 1u))
-	{
-		do
-		{
-			auto old = request;
-			request = request->nextTextureRequest; //Need to do this now as old could be deleted by the next line
-			old->deleteTextureRequest(*old);
-		} while(request != nullptr);
-	}
 }
 
 void VirtualTextureManager::fileLoadedCallbackHelper(TextureStreamingRequest& uploadRequest, const unsigned char* buffer, StreamingManager::ThreadLocal& streamingManager,

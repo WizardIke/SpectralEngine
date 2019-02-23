@@ -115,7 +115,6 @@ void TextureManager::loadTextureFromMemory(const unsigned char* buffer, TextureS
 	bool valid = DDSFileLoader::validateDdsHeader(header);
 	if(!valid) throw false;
 	uploadRequest.streamResource = streamResource;
-	uploadRequest.deleteStreamingRequest = freeRequestMemory;
 	uploadRequest.width = header.width;
 	uploadRequest.height = header.height;
 	uploadRequest.format = header.dxgiFormat;
@@ -146,18 +145,4 @@ void TextureManager::notifyTextureReadyHelper(TextureStreamingRequest* request, 
 		request = request->nextTextureRequest; //Need to do this now as old could be deleted by the next line
 		old->textureLoaded(*old, tr, gr, old->discriptorIndex);
 	} while(request != nullptr);
-}
-
-void TextureManager::freeRequestMemory(StreamingManager::StreamingRequest* request1, void*, void*)
-{
-	auto request = static_cast<TextureStreamingRequest*>(request1);
-	if(request->numberOfComponentsReadyToDelete.fetch_add(1u, std::memory_order::memory_order_acq_rel) == (TextureStreamingRequest::numberOfComponents - 1u))
-	{
-		do
-		{
-			auto old = request;
-			request = request->nextTextureRequest; //Need to do this now as old could be deleted by the next line
-			old->deleteTextureRequest(*old);
-		} while(request != nullptr);
-	}
 }

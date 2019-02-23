@@ -6,8 +6,6 @@ MeshManager::~MeshManager() {}
 
 void MeshManager::fillUploadRequestHelper(MeshStreamingRequest& uploadRequest, uint32_t vertexCount, uint32_t indexCount, uint32_t vertexStride)
 {
-	uploadRequest.deleteStreamingRequest = freeRequestMemory;
-
 	uint32_t indicesSize;
 	if (indexCount != 0u) indicesSize = sizeof(uint32_t) * indexCount;
 	else indicesSize = sizeof(uint32_t) * vertexCount;
@@ -418,19 +416,5 @@ void MeshManager::CalculateTangentBitangent(const unsigned char* start, const un
 		Mesh->by = meshes[0].by;
 		Mesh->bz = meshes[0].bz;
 		++Mesh;
-	}
-}
-
-void MeshManager::freeRequestMemory(StreamingManager::StreamingRequest* request1, void*, void*)
-{
-	auto request = static_cast<MeshStreamingRequest*>(request1);
-	if(request->numberOfComponentsReadyToDelete.fetch_add(1u, std::memory_order::memory_order_acq_rel) == (MeshStreamingRequest::numberOfComponents - 1u))
-	{
-		do
-		{
-			auto old = request;
-			request = request->nextMeshRequest; //Need to do this now as old could be deleted by the next line
-			old->deleteMeshRequest(*old);
-		} while(request != nullptr);
 	}
 }

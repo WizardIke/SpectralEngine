@@ -50,8 +50,6 @@ public:
 	class TextureStreamingRequest : public StreamingManager::StreamingRequest, public Message
 	{
 	public:
-		constexpr static unsigned int numberOfComponents = 3u; //texture header, texture data, stream to gpu request
-		std::atomic<unsigned int> numberOfComponentsReadyToDelete = 0u;
 		DXGI_FORMAT format;
 		D3D12_RESOURCE_DIMENSION dimension;
 		ID3D12Resource* resource;
@@ -67,13 +65,10 @@ public:
 		TextureStreamingRequest* nextTextureRequest;
 
 		void(*textureLoaded)(TextureStreamingRequest& request, void* tr, void* gr, const Texture& texture);
-		void(*deleteTextureRequest)(TextureStreamingRequest& request);
 
 		TextureStreamingRequest(void(*textureLoaded)(TextureStreamingRequest& request, void* tr, void* gr, const Texture& texture),
-			void(*deleteTextureRequest)(TextureStreamingRequest& request),
 			const wchar_t * filename) :
-			textureLoaded(textureLoaded),
-			deleteTextureRequest(deleteTextureRequest)
+			textureLoaded(textureLoaded)
 		{
 			this->filename = filename;
 		}
@@ -85,7 +80,6 @@ public:
 	VirtualTextureInfoByID texturesByID;
 	PageProvider pageProvider;
 private:
-	static void freeRequestMemory(StreamingManager::StreamingRequest* request, void*, void*);
 	void loadTextureUncachedHelper(TextureStreamingRequest& uploadRequest, StreamingManager& streamingManager, D3D12GraphicsEngine& graphicsEngine,
 		void(*useSubresource)(StreamingManager::StreamingRequest* request, void* threadResources, void* globalResources),
 		const DDSFileLoader::DdsHeaderDx12& header);
@@ -95,7 +89,12 @@ private:
 	template<class ThreadResources, class GlobalResources>
 	void notifyTextureReady(TextureStreamingRequest* request, ThreadResources& threadResources, GlobalResources& globalResources)
 	{
-		notifyTextureReadyHelper(request, &threadResources, &globalResources);
+		request->deleteStreamingRequest = [](StreamingManager::StreamingRequest* request, void* tr, void* gr)
+		{
+			GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
+			VirtualTextureManager& virtualTextureManager = globalResources.virtualTextureManager;
+			virtualTextureManager.notifyTextureReadyHelper(static_cast<TextureStreamingRequest*>(request), tr, gr);
+		};
 		StreamingManager& streamingManager = globalResources.streamingManager;
 		streamingManager.uploadFinished(request, threadResources, globalResources);
 	}
@@ -107,9 +106,17 @@ private:
 		ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
 		GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
 
-		auto& virtualTextureManager = globalResources.virtualTextureManager;
-		request->textureAction = Action::notifyReady;
-		virtualTextureManager.addMessage(static_cast<Message*>(request), threadResources, globalResources);
+		request->deleteReadRequest = [](AsynchronousFileManager::ReadRequest& request1, void* tr, void* gr)
+		{
+			TextureStreamingRequest* request = static_cast<TextureStreamingRequest*>(&request1);
+			ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
+			GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
+
+			VirtualTextureManager& virtualTextureManager = globalResources.virtualTextureManager;
+			request->textureAction = Action::notifyReady;
+			virtualTextureManager.addMessage(request, threadResources, globalResources);
+		};
+		globalResources.asynchronousFileManager.discard(request, threadResources, globalResources);
 	}
 
 	static void textureUseResourceHelper(TextureStreamingRequest& uploadRequest, void(*fileLoadedCallback)(AsynchronousFileManager::ReadRequest& request, void* tr, void*, const unsigned char* buffer));
@@ -123,15 +130,13 @@ private:
 		threadResources.taskShedular.backgroundQueue().push({ useSubresourceRequest, [](void* context, ThreadResources& threadResources, GlobalResources& globalResources)
 		{
 			auto& uploadRequest = *static_cast<TextureStreamingRequest*>(static_cast<StreamingManager::StreamingRequest*>(context));
-			textureUseResourceHelper(uploadRequest, [](AsynchronousFileManager::ReadRequest& request, void* tr, void* gr, const unsigned char* buffer)
+			textureUseResourceHelper(uploadRequest, [](AsynchronousFileManager::ReadRequest& request, void* tr, void*, const unsigned char* buffer)
 			{
 				ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
-				GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
 				TextureStreamingRequest& uploadRequest = static_cast<TextureStreamingRequest&>(request);
 				auto& streamingManager = threadResources.streamingManager;
 
 				fileLoadedCallbackHelper(uploadRequest, buffer, streamingManager, copyFinished<ThreadResources, GlobalResources>);
-				globalResources.asynchronousFileManager.discard(&request, threadResources, globalResources);
 			});
 			globalResources.asynchronousFileManager.readFile(&uploadRequest, threadResources, globalResources);
 		} });
@@ -149,17 +154,19 @@ private:
 			TextureStreamingRequest& uploadRequest = static_cast<TextureStreamingRequest&>(request);
 			ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
 			GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
-			auto& virtualTextureManager = globalResources.virtualTextureManager;
+			VirtualTextureManager& virtualTextureManager = globalResources.virtualTextureManager;
 			auto& streamingManager = globalResources.streamingManager;
 			auto& graphicsEngine = globalResources.graphicsEngine;
 			virtualTextureManager.loadTextureUncachedHelper(uploadRequest, streamingManager, graphicsEngine, textureUseResource<ThreadResources, GlobalResources>,
 				*reinterpret_cast<const DDSFileLoader::DdsHeaderDx12*>(buffer));
 			globalResources.asynchronousFileManager.discard(&request, threadResources, globalResources);
-			streamingManager.addUploadRequest(&uploadRequest, threadResources, globalResources);
 		};
 		uploadRequest.deleteReadRequest = [](AsynchronousFileManager::ReadRequest& request, void* tr, void* gr)
 		{
-			freeRequestMemory(static_cast<TextureStreamingRequest*>(&request), tr, gr);
+			ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
+			GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
+			auto& streamingManager = globalResources.streamingManager;
+			streamingManager.addUploadRequest(static_cast<TextureStreamingRequest*>(&request), threadResources, globalResources);
 		};
 		sharedResources.asynchronousFileManager.readFile(&uploadRequest, executor, sharedResources);
 	}
@@ -199,7 +206,7 @@ private:
 	void unloadTexture(const wchar_t* filename, D3D12GraphicsEngine& graphicsEngine, StreamingManager& streamingManager);
 
 	template<class ThreadResources, class GlobalResources>
-	void addMessage(SinglyLinked* request, ThreadResources& threadResources, GlobalResources&)
+	void addMessage(Message* request, ThreadResources& threadResources, GlobalResources&)
 	{
 		bool needsStarting = messageQueue.push(request);
 		if(needsStarting)
@@ -245,7 +252,7 @@ public:
 	void load(TextureStreamingRequest* request, ThreadResources& threadResources, GlobalResources& globalResources)
 	{
 		request->textureAction = Action::load;
-		addMessage(static_cast<Message*>(request), threadResources, globalResources);
+		addMessage(request, threadResources, globalResources);
 	}
 
 	template<class ThreadResources, class GlobalResources>
