@@ -4,7 +4,7 @@
 #include "for_each.h"
 #include <utility>
 #include <atomic>
-#include "D3D12GraphicsEngine.h"
+#include "GraphicsEngine.h"
 #include "ActorQueue.h"
 #include "RenderPassMessage.h"
 class Window;
@@ -25,9 +25,10 @@ class RenderPass
 	std::tuple<RenderSubPass_t...> mSubPasses;
 	ActorQueue messageQueue;
 
-	void update1(D3D12GraphicsEngine& graphicsEngine)
+	template<class ThreadResources, class GlobalResources>
+	void update1(ThreadResources& threadResources, GlobalResources& globalResources)
 	{
-		graphicsEngine.startFrame();
+		globalResources.graphicsEngine.startFrame(&threadResources, &globalResources);
 	}
 
 	void run(void* tr, void* gr)
@@ -380,20 +381,20 @@ public:
 			addEndOnlyBarriers<nextIndex>(renderPass.mSubPasses, renderPass.barriers.get(), barrierCount);
 		}
 	public:
-		ThreadLocal(D3D12GraphicsEngine& graphicsEngine) : subPassesThreadLocal((sizeof(typename RenderSubPass_t::ThreadLocal), graphicsEngine)...) {}
+		ThreadLocal(GraphicsEngine& graphicsEngine) : subPassesThreadLocal((sizeof(typename RenderSubPass_t::ThreadLocal), graphicsEngine)...) {}
 
-		template<class Executor>
-		void update1(Executor& executor, D3D12GraphicsEngine& graphicsEngine, RenderPass<RenderSubPass_t...>& renderPass, bool firstThread)
+		template<class ThreadResources, class GlobalResources>
+		void update1(ThreadResources& threadResources, GlobalResources& globalResources, RenderPass<RenderSubPass_t...>& renderPass, bool firstThread)
 		{
 			if (firstThread)
 			{
-				renderPass.firstExector = &executor;
+				renderPass.firstExector = &threadResources;
 				renderPass.mCurrentIndex.store(0u, std::memory_order::memory_order_relaxed);
-				renderPass.update1(graphicsEngine);
+				renderPass.update1(threadResources, globalResources);
 			}
 		}
 
-		void update1After(D3D12GraphicsEngine& graphicsEngine, RenderPass<RenderSubPass_t...>& renderPass, ID3D12RootSignature* rootSignature, bool firstThread)
+		void update1After(GraphicsEngine& graphicsEngine, RenderPass<RenderSubPass_t...>& renderPass, ID3D12RootSignature* rootSignature, bool firstThread)
 		{
 			if (firstThread)
 			{
@@ -434,7 +435,7 @@ public:
 			}
 		}
 
-		void present(unsigned int primaryThreadCount, D3D12GraphicsEngine& graphicsEngine, Window& window, RenderPass<RenderSubPass_t...>& renderPass)
+		void present(unsigned int primaryThreadCount, GraphicsEngine& graphicsEngine, Window& window, RenderPass<RenderSubPass_t...>& renderPass)
 		{
 			unsigned int commandListCount = commandListPerThread(renderPass.mSubPasses) * primaryThreadCount;
 			graphicsEngine.endFrame(window, renderPass.commandLists.get(), commandListCount);
@@ -464,11 +465,11 @@ public:
 		}
 
 		template<unsigned int start, unsigned int end, bool firstThread>
-		std::enable_if_t<!(start != end), void> update1After(D3D12GraphicsEngine&, RenderPass<RenderSubPass_t...>&, ID3D12RootSignature*) {}
+		std::enable_if_t<!(start != end), void> update1After(GraphicsEngine&, RenderPass<RenderSubPass_t...>&, ID3D12RootSignature*) {}
 
 		template<unsigned int start, unsigned int end, bool firstThread>
 		std::enable_if_t<start != end, void>
-			update1After(D3D12GraphicsEngine& graphicsEngine, RenderPass<RenderSubPass_t...>& renderPass, ID3D12RootSignature* rootSignature)
+			update1After(GraphicsEngine& graphicsEngine, RenderPass<RenderSubPass_t...>& renderPass, ID3D12RootSignature* rootSignature)
 		{
 			auto& subPassLocal = std::get<start>(subPassesThreadLocal);
 			auto& subPass = std::get<start>(renderPass.mSubPasses);

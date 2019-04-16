@@ -1,9 +1,9 @@
 #include "MainCamera.h"
 #include "CameraUtil.h"
 #include "Window.h"
-#include "D3D12GraphicsEngine.h"
+#include "GraphicsEngine.h"
 
-MainCamera::MainCamera(Window& window, D3D12GraphicsEngine& graphicsEngine, unsigned int width, unsigned int height, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1,
+MainCamera::MainCamera(Window& window, GraphicsEngine& graphicsEngine, unsigned int width, unsigned int height, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1,
 	unsigned char*& constantBufferCpuAddress1, float fieldOfView, const Transform& target) :
 	renderTargetViewDescriptorHeap(graphicsEngine.graphicsDevice, []()
 {
@@ -79,7 +79,7 @@ MainCamera::MainCamera(Window& window, D3D12GraphicsEngine& graphicsEngine, unsi
 	mFrustum.update(mProjectionMatrix, mViewMatrix, screenNear, screenDepth);
 }
 
-void MainCamera::destruct(D3D12GraphicsEngine& graphicsEngine)
+void MainCamera::destruct(GraphicsEngine& graphicsEngine)
 {
 	for (auto i = 0u; i < frameBufferCount; ++i)
 	{
@@ -95,7 +95,7 @@ void MainCamera::update(const Transform& target)
 	mLocation.rotation = target.rotation;
 }
 
-void MainCamera::render(Window& window, D3D12GraphicsEngine& graphicsEngine)
+void MainCamera::render(Window& window, GraphicsEngine& graphicsEngine)
 {
 	DirectX::XMMATRIX mViewMatrix = mLocation.toMatrix();
 	mImage = window.getBuffer(graphicsEngine.frameIndex);

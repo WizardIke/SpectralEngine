@@ -135,7 +135,7 @@ void UserInterface::start(ThreadResources& threadResources, GlobalResources&)
 	threadResources.taskShedular.pushPrimaryTask(0u, {this, [](void* requester, ThreadResources& threadResources, GlobalResources& globalResources)
 	{
 		UserInterface* const ui = static_cast<UserInterface*>(requester);
-		auto stopRequest = ui->mStopRequest.load(std::memory_order_acquire);
+		auto stopRequest = ui->mStopRequest;
 		if(stopRequest != nullptr)
 		{
 			stopRequest->callback(*stopRequest, &threadResources, &globalResources);
@@ -151,7 +151,12 @@ void UserInterface::start(ThreadResources& threadResources, GlobalResources&)
 	}});
 }
 
-void UserInterface::stop(StopRequest& stopRequest)
+void UserInterface::stop(StopRequest& stopRequest, ThreadResources& threadResources, GlobalResources&)
 {
-	mStopRequest.store(&stopRequest, std::memory_order_release);
+	stopRequest.stopRequest = &mStopRequest;
+	threadResources.taskShedular.pushPrimaryTask(1u, {&stopRequest, [](void* requester, ThreadResources&, GlobalResources&)
+	{
+		StopRequest& stopRequest = *static_cast<StopRequest*>(requester);
+		*stopRequest.stopRequest = &stopRequest;
+	}});
 }

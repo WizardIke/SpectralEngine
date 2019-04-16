@@ -2,12 +2,12 @@
 #include "DDSFileLoader.h"
 #include "TextureIndexOutOfRangeException.h"
 #include <d3d12.h>
-#include "D3D12GraphicsEngine.h"
+#include "GraphicsEngine.h"
 
 TextureManager::TextureManager() {}
 TextureManager::~TextureManager() {}
 
-void TextureManager::unloadTexture(const wchar_t* filename, D3D12GraphicsEngine& graphicsEngine)
+void TextureManager::unloadTexture(const wchar_t* filename, GraphicsEngine& graphicsEngine)
 {
 	auto texurePtr = textures.find(filename);
 	auto& texture = texurePtr->second;
@@ -19,7 +19,7 @@ void TextureManager::unloadTexture(const wchar_t* filename, D3D12GraphicsEngine&
 	}
 }
 
-ID3D12Resource* TextureManager::createTexture(const TextureStreamingRequest& uploadRequest, D3D12GraphicsEngine& graphicsEngine, unsigned int& discriptorIndex, const wchar_t* filename)
+ID3D12Resource* TextureManager::createTexture(const TextureStreamingRequest& uploadRequest, GraphicsEngine& graphicsEngine, unsigned int& discriptorIndex, const wchar_t* filename)
 {
 	D3D12_HEAP_PROPERTIES textureHeapProperties;
 	textureHeapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;

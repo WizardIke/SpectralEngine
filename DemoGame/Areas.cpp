@@ -34,9 +34,9 @@ void Areas::start(ThreadResources& executor, GlobalResources& sharedResources)
 	worldManager.start(executor, sharedResources);
 }
 
-void Areas::stop(StopRequest& stopRequest)
+void Areas::stop(StopRequest& stopRequest, ThreadResources& threadResources, GlobalResources& globalResources)
 {
-	worldManager.stop(stopRequest);
+	worldManager.stop(stopRequest, threadResources, globalResources);
 }
 
 void Areas::setPosition(const Vector3& position, unsigned long worldIndex)

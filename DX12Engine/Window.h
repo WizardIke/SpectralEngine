@@ -7,12 +7,12 @@
 #undef WIN32_LEAN_AND_MEAN
 #include "DXGISwapChain4.h"
 #include <cstdint>
-class D3D12GraphicsEngine;
+class GraphicsEngine;
 struct ID3D12Resource;
 
 class Window
 {
-	friend D3D12GraphicsEngine;
+	friend GraphicsEngine;
 	static constexpr auto applicationName = L"DX12Engine";
 	constexpr static float fieldOfView = 3.141592654f / 4.0f;
 
@@ -22,7 +22,7 @@ class Window
 	bool fullScreen;
 	bool vSync;
 
-	void createSwapChain(D3D12GraphicsEngine& graphicsEngine, IDXGIFactory5* dxgiFactory);
+	void createSwapChain(GraphicsEngine& graphicsEngine, IDXGIFactory5* dxgiFactory);
 public:
 	Window(void* callbackData, LRESULT CALLBACK WndProc(HWND hwnd, UINT umessage, WPARAM wparam, LPARAM lparam),
 		unsigned int width, unsigned int height, int positionX, int positionY, bool fullScreen, bool vSync);

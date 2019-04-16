@@ -47,13 +47,13 @@ class VirtualFeedbackSubPass : public RenderSubPass<VirtualPageCamera, D3D12_RES
 
 	unsigned char* mapReadbackTexture(unsigned long totalSize);
 	void unmapReadbackTexture();
-	void createResources(D3D12GraphicsEngine& graphicsEngine, Transform& mainCameraTransform, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1, unsigned char*& constantBufferCpuAddress1, uint32_t width, uint32_t height, float fieldOfView);
+	void createResources(GraphicsEngine& graphicsEngine, Transform& mainCameraTransform, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1, unsigned char*& constantBufferCpuAddress1, uint32_t width, uint32_t height, float fieldOfView);
 public:
 	float mipBias;
 	float desiredMipBias;
 
 	VirtualFeedbackSubPass() {}
-	VirtualFeedbackSubPass(D3D12GraphicsEngine& graphicsEngine, Transform& mainCameraTransform, uint32_t width, uint32_t height, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1,
+	VirtualFeedbackSubPass(GraphicsEngine& graphicsEngine, Transform& mainCameraTransform, uint32_t width, uint32_t height, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1,
 		unsigned char*& constantBufferCpuAddress1, float fieldOfView)
 	{
 		createResources(graphicsEngine, mainCameraTransform, constantBufferGpuAddress1, constantBufferCpuAddress1, width, height, fieldOfView);
@@ -75,9 +75,9 @@ public:
 	{
 		using Base = Base::ThreadLocal;
 	public:
-		ThreadLocal(D3D12GraphicsEngine& graphicsEngine) : Base(graphicsEngine) {}
+		ThreadLocal(GraphicsEngine& graphicsEngine) : Base(graphicsEngine) {}
 
-		void update1AfterFirstThread(D3D12GraphicsEngine& graphicsEngine, VirtualFeedbackSubPass& renderSubPass,
+		void update1AfterFirstThread(GraphicsEngine& graphicsEngine, VirtualFeedbackSubPass& renderSubPass,
 			ID3D12RootSignature* rootSignature, uint32_t barrierCount, D3D12_RESOURCE_BARRIER* barriers);
 
 		template<class ThreadResources, class GlobalResources>
@@ -91,7 +91,7 @@ public:
 				VirtualFeedbackSubPass& renderSubPass = *static_cast<VirtualFeedbackSubPass*>(context);
 				renderSubPass.inView = false;
 				StreamingManager& streamingManager = sharedResources.streamingManager;
-				D3D12GraphicsEngine& graphicsEngine = sharedResources.graphicsEngine;
+				GraphicsEngine& graphicsEngine = sharedResources.graphicsEngine;
 				StreamingManager::ThreadLocal& streamingManagerLocal = executor.streamingManager;
 
 				graphicsEngine.waitForPreviousFrame(streamingManager.commandQueue()); //Should be delayed after update2 so the command lists have been executed.

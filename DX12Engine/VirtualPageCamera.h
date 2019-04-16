@@ -7,7 +7,7 @@
 #include "Shaders/VtFeedbackCameraMaterial.h"
 #include <new>
 #include "CameraUtil.h"
-class D3D12GraphicsEngine;
+class GraphicsEngine;
 
 class VirtualPageCamera
 {
@@ -39,7 +39,7 @@ public:
 	}
 	~VirtualPageCamera();
 
-	void render(const D3D12GraphicsEngine& graphicsEngine, float mipBias);
+	void render(const GraphicsEngine& graphicsEngine, float mipBias);
 	bool isInView() const { return true; }
 	void bind(uint32_t frameIndex, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end)
 	{

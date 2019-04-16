@@ -56,7 +56,7 @@ bool ThreadResources::endUpdate1(ThreadResources& threadResources, GlobalResourc
 	unsigned int primaryThreadCount;
 	const unsigned int updateIndex = globalResources.taskShedular.incrementUpdateIndex(primaryThreadCount);
 	const bool isFirstThread = updateIndex == 0u;
-	threadResources.renderPass.update1(threadResources, globalResources.graphicsEngine, globalResources.renderPass, isFirstThread);
+	threadResources.renderPass.update1(threadResources, globalResources, globalResources.renderPass, isFirstThread);
 	if(isFirstThread)
 	{
 		globalResources.beforeRender();

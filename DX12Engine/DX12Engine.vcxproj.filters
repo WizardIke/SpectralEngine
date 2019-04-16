@@ -7,9 +7,6 @@
     <Filter Include="D3D12">
       <UniqueIdentifier>{c582a5a5-f13d-4097-b4f2-062e04285dce}</UniqueIdentifier>
     </Filter>
-    <Filter Include="D3D12GraphicsEngine">
-      <UniqueIdentifier>{d02ae592-3868-41a5-9496-362b2a37f08e}</UniqueIdentifier>
-    </Filter>
     <Filter Include="DDSFileLoader">
       <UniqueIdentifier>{b8c2e5b5-1fb1-4d05-ab86-d9b9ab3cbb58}</UniqueIdentifier>
     </Filter>
@@ -94,6 +91,9 @@
     <Filter Include="HashSets">
       <UniqueIdentifier>{b6b8e4e6-ce22-468d-954e-846b18be89b9}</UniqueIdentifier>
     </Filter>
+    <Filter Include="GraphicsEngine">
+      <UniqueIdentifier>{d02ae592-3868-41a5-9496-362b2a37f08e}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="HresultException.h">
@@ -155,9 +155,6 @@
     </ClInclude>
     <ClInclude Include="D3D12GraphicsCommandList.h">
       <Filter>D3D12</Filter>
-    </ClInclude>
-    <ClInclude Include="D3D12GraphicsEngine.h">
-      <Filter>D3D12GraphicsEngine</Filter>
     </ClInclude>
     <ClInclude Include="D3D12CommandAllocator.h">
       <Filter>D3D12</Filter>
@@ -414,13 +411,13 @@
       <Filter>TaskShedular</Filter>
     </ClInclude>
     <ClInclude Include="LinkedTask.h" />
+    <ClInclude Include="GraphicsEngine.h">
+      <Filter>GraphicsEngine</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DDSFileLoader.cpp">
       <Filter>DDSFileLoader</Filter>
-    </ClCompile>
-    <ClCompile Include="D3D12GraphicsEngine.cpp">
-      <Filter>D3D12GraphicsEngine</Filter>
     </ClCompile>
     <ClCompile Include="TextureManager.cpp">
       <Filter>TextureManager</Filter>
@@ -495,6 +492,9 @@
     </ClCompile>
     <ClCompile Include="VirtualFeedbackSubPass.cpp">
       <Filter>VirtualTexturing</Filter>
+    </ClCompile>
+    <ClCompile Include="GraphicsEngine.cpp">
+      <Filter>GraphicsEngine</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

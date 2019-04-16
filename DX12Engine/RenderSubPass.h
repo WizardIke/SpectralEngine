@@ -8,7 +8,7 @@
 #include "ResizingArray.h"
 #include "FastIterationHashSet.h"
 #include "ReflectionCamera.h"
-#include "D3D12GraphicsEngine.h"
+#include "GraphicsEngine.h"
 #include "RenderPassMessage.h"
 
 template<class Camera_t, bool isStaticNumberOfCameras, std::size_t initialSize>
@@ -204,7 +204,7 @@ public:
 				}
 			}
 		}
-		ThreadLocal(D3D12GraphicsEngine& graphicsEngine)
+		ThreadLocal(GraphicsEngine& graphicsEngine)
 		{
 			auto frameIndex = graphicsEngine.frameIndex;
 			auto i = 0u;
@@ -241,7 +241,7 @@ public:
 			new(this) ThreadLocal(std::move(other));
 		}
 
-		void update1After(D3D12GraphicsEngine& graphicsEngine, RenderSubPass<Camera, state1, Dependencies_t, DependencyStates_t, commandListsPerFrame, stateAfter1, isStaticNumberOfCameras, initialSize>& renderSubPass,
+		void update1After(GraphicsEngine& graphicsEngine, RenderSubPass<Camera, state1, Dependencies_t, DependencyStates_t, commandListsPerFrame, stateAfter1, isStaticNumberOfCameras, initialSize>& renderSubPass,
 			ID3D12RootSignature* rootSignature)
 		{
 			auto frameIndex = graphicsEngine.frameIndex;
@@ -258,7 +258,7 @@ public:
 			}
 		}
 
-		void update1AfterFirstThread(D3D12GraphicsEngine& graphicsEngine, RenderSubPass<Camera, state1, Dependencies_t, DependencyStates_t, commandListsPerFrame, stateAfter1, isStaticNumberOfCameras, initialSize>& renderSubPass,
+		void update1AfterFirstThread(GraphicsEngine& graphicsEngine, RenderSubPass<Camera, state1, Dependencies_t, DependencyStates_t, commandListsPerFrame, stateAfter1, isStaticNumberOfCameras, initialSize>& renderSubPass,
 			ID3D12RootSignature* rootSignature, uint32_t barrierCount, const D3D12_RESOURCE_BARRIER* barriers)
 		{
 			auto frameIndex = graphicsEngine.frameIndex;
@@ -277,7 +277,7 @@ public:
 			}
 		}
 
-		void update1AfterFirstThread(D3D12GraphicsEngine& graphicsEngine, RenderSubPass<Camera, state1, Dependencies_t, DependencyStates_t, commandListsPerFrame, stateAfter1, isStaticNumberOfCameras, initialSize>& renderSubPass,
+		void update1AfterFirstThread(GraphicsEngine& graphicsEngine, RenderSubPass<Camera, state1, Dependencies_t, DependencyStates_t, commandListsPerFrame, stateAfter1, isStaticNumberOfCameras, initialSize>& renderSubPass,
 			ID3D12RootSignature* rootSignature)
 		{
 			auto frameIndex = graphicsEngine.frameIndex;
@@ -338,7 +338,7 @@ public:
 	class ThreadLocal : public RenderSubPass<Camera_t, state1, Dependencies_t, DependencyStates_t, commandListsPerFrame1, stateAfter1, true, 1u>::ThreadLocal
 	{
 	public:
-		ThreadLocal(D3D12GraphicsEngine& graphicsEngine) : RenderSubPass<Camera_t, state1, Dependencies_t, DependencyStates_t, commandListsPerFrame1, stateAfter1, true, 1u>::ThreadLocal(graphicsEngine) {}
+		ThreadLocal(GraphicsEngine& graphicsEngine) : RenderSubPass<Camera_t, state1, Dependencies_t, DependencyStates_t, commandListsPerFrame1, stateAfter1, true, 1u>::ThreadLocal(graphicsEngine) {}
 
 		template<class ThreadResources, class GlobalResources>
 		void update2LastThread(ID3D12CommandList**& commandLists, unsigned int numThreads, RenderMainSubPass<Camera_t, state1, Dependencies_t, DependencyStates_t, commandListsPerFrame, stateAfter1>& renderSubPass,
@@ -530,7 +530,7 @@ public:
 	{
 		ResizingArray<typename RenderSubPass_t::ThreadLocal> mSubPasses;
 	public:
-		ThreadLocal(D3D12GraphicsEngine& graphicsEngine) {}
+		ThreadLocal(GraphicsEngine& graphicsEngine) {}
 
 		using SubPass = typename RenderSubPass_t::ThreadLocal;
 
@@ -539,7 +539,7 @@ public:
 			return { mSubPasses.begin(), mSubPasses.end() };
 		}
 
-		void update1After(D3D12GraphicsEngine& graphicsEngine, RenderSubPassGroup<RenderSubPass_t>& renderSubPassGruop,
+		void update1After(GraphicsEngine& graphicsEngine, RenderSubPassGroup<RenderSubPass_t>& renderSubPassGruop,
 			ID3D12RootSignature* rootSignature)
 		{
 			auto subPass = renderSubPassGruop.mSubPasses.begin();
@@ -550,7 +550,7 @@ public:
 			}
 		}
 
-		void update1AfterFirstThread(D3D12GraphicsEngine& graphicsEngine, RenderSubPassGroup<RenderSubPass_t>& renderSubPassGroup,
+		void update1AfterFirstThread(GraphicsEngine& graphicsEngine, RenderSubPassGroup<RenderSubPass_t>& renderSubPassGroup,
 			ID3D12RootSignature* rootSignature, uint32_t barrierCount, const D3D12_RESOURCE_BARRIER* barriers)
 		{
 			auto subPass = renderSubPassGroup.mSubPasses.begin();
@@ -592,7 +592,7 @@ public:
 			return lastSubPass->lastCommandList();
 		}
 
-		void addSubPass(D3D12GraphicsEngine& graphicsEngine)
+		void addSubPass(GraphicsEngine& graphicsEngine)
 		{
 			mSubPasses.emplace_back(graphicsEngine);
 		}

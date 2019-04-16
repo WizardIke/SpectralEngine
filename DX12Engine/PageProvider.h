@@ -8,7 +8,7 @@
 #include <d3d12.h>
 #include "D3D12Resource.h"
 #include "PageDeleter.h" 
-#include "D3D12GraphicsEngine.h"
+#include "GraphicsEngine.h"
 #include "frameBufferCount.h"
 #include "AsynchronousFileManager.h"
 #include "StreamingManager.h"
@@ -135,11 +135,11 @@ private:
 		}
 	}
 
-	void addNewPagesToResources(D3D12GraphicsEngine& graphicsEngine, VirtualTextureInfoByID& texturesByID,
+	void addNewPagesToResources(GraphicsEngine& graphicsEngine, VirtualTextureInfoByID& texturesByID,
 		ID3D12GraphicsCommandList* commandList, void(*uploadComplete)(PrimaryTaskFromOtherThreadQueue::Task& task, void* gr, void* tr));
 
 	static void addPageDataToResource(ID3D12Resource* resource, D3D12_TILED_RESOURCE_COORDINATE* newPageCoordinates, PageLoadRequest** pageLoadRequests, std::size_t pageCount,
-		D3D12_TILE_REGION_SIZE& tileSize, PageCache& pageCache, ID3D12GraphicsCommandList* commandList, D3D12GraphicsEngine& graphicsEngine,
+		D3D12_TILE_REGION_SIZE& tileSize, PageCache& pageCache, ID3D12GraphicsCommandList* commandList, GraphicsEngine& graphicsEngine,
 		void(*uploadComplete)(PrimaryTaskFromOtherThreadQueue::Task& task, void* gr, void* tr));
 
 	static void checkCacheForPages(decltype(uniqueRequests)& pageRequests, VirtualTextureInfoByID& texturesByID, PageCache& pageCache,

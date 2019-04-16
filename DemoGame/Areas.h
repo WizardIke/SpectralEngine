@@ -18,6 +18,6 @@ public:
 
 	Areas();
 	void start(ThreadResources& executor, GlobalResources& sharedResources);
-	void stop(StopRequest& stopRequest);
+	void stop(StopRequest& stopRequest, ThreadResources& threadResources, GlobalResources& globalResources);
 	void setPosition(const Vector3& position, unsigned long worldIndex);
 };

@@ -2,7 +2,7 @@
 #include <TaskShedular.h>
 #include "ThreadResources.h"
 #include <Window.h>
-#include <D3D12GraphicsEngine.h>
+#include <GraphicsEngine.h>
 #include <StreamingManager.h>
 #include <RunnableIOCompletionQueue.h>
 #include <AsynchronousFileManager.h>
@@ -48,7 +48,7 @@ class GlobalResources
 	static void backgroundThreadFunction(unsigned int i, unsigned int threadCount, GlobalResources& globalReources);
 public:
 	Window window;
-	D3D12GraphicsEngine graphicsEngine;
+	GraphicsEngine graphicsEngine;
 	StreamingManager streamingManager; //thread safe
 	TaskShedular<ThreadResources, GlobalResources> taskShedular;
 	ThreadResources mainThreadResources;

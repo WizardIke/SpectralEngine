@@ -2,7 +2,7 @@
 
 VirtualTextureManager::VirtualTextureManager() {}
 
-void VirtualTextureManager::loadTextureUncachedHelper(TextureStreamingRequest& uploadRequest, StreamingManager& streamingManager, D3D12GraphicsEngine& graphicsEngine,
+void VirtualTextureManager::loadTextureUncachedHelper(TextureStreamingRequest& uploadRequest, StreamingManager& streamingManager, GraphicsEngine& graphicsEngine,
 	void(*useSubresource)(StreamingManager::StreamingRequest* request, void* threadResources, void* globalResources),
 	const DDSFileLoader::DdsHeaderDx12& header)
 {
@@ -48,7 +48,7 @@ D3D12Resource VirtualTextureManager::createTexture(ID3D12Device* graphicsDevice,
 	return D3D12Resource(graphicsDevice, textureDesc, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_COMMON);
 }
 
-unsigned int VirtualTextureManager::createTextureDescriptor(D3D12GraphicsEngine& graphicsEngine, ID3D12Resource* texture, const TextureStreamingRequest& request)
+unsigned int VirtualTextureManager::createTextureDescriptor(GraphicsEngine& graphicsEngine, ID3D12Resource* texture, const TextureStreamingRequest& request)
 {
 	auto discriptorIndex = graphicsEngine.descriptorAllocator.allocate();
 	D3D12_CPU_DESCRIPTOR_HANDLE discriptorHandle = graphicsEngine.mainDescriptorHeap->GetCPUDescriptorHandleForHeapStart() +
@@ -84,7 +84,7 @@ unsigned int VirtualTextureManager::createTextureDescriptor(D3D12GraphicsEngine&
 	return discriptorIndex;
 }
 
-void VirtualTextureManager::unloadTexture(const wchar_t * filename, D3D12GraphicsEngine& graphicsEngine, StreamingManager& streamingManager)
+void VirtualTextureManager::unloadTexture(const wchar_t * filename, GraphicsEngine& graphicsEngine, StreamingManager& streamingManager)
 {
 	//unsigned int descriptorIndex = std::numeric_limits<unsigned int>::max();
 	//unsigned int textureID = 255;
@@ -156,7 +156,7 @@ void VirtualTextureManager::unloadTexture(const wchar_t * filename, D3D12Graphic
 	}
 }
 
-void VirtualTextureManager::createTextureWithResitencyInfo(D3D12GraphicsEngine& graphicsEngine, ID3D12CommandQueue& commandQueue, TextureStreamingRequest& vramRequest)
+void VirtualTextureManager::createTextureWithResitencyInfo(GraphicsEngine& graphicsEngine, ID3D12CommandQueue& commandQueue, TextureStreamingRequest& vramRequest)
 {
 	D3D12Resource resource = createTexture(graphicsEngine.graphicsDevice, vramRequest);
 #ifndef NDEBUG

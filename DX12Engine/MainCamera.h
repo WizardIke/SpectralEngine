@@ -8,7 +8,7 @@
 #include "frameBufferCount.h"
 #include <new>
 class Window;
-class D3D12GraphicsEngine;
+class GraphicsEngine;
 
 class MainCamera
 {
@@ -33,20 +33,20 @@ public:
 	constexpr static float screenNear = 0.1f;
 
 	MainCamera() {}
-	MainCamera(Window& window, D3D12GraphicsEngine& graphicsEngine, unsigned int width, unsigned int height, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1,
+	MainCamera(Window& window, GraphicsEngine& graphicsEngine, unsigned int width, unsigned int height, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1,
 		unsigned char*& constantBufferCpuAddress1, float fieldOfView, const Transform& target);
-	void init(Window& window, D3D12GraphicsEngine& graphicsEngine, unsigned int width, unsigned int height, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1,
+	void init(Window& window, GraphicsEngine& graphicsEngine, unsigned int width, unsigned int height, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1,
 		unsigned char*& constantBufferCpuAddress1, float fieldOfView, const Transform& target)
 	{
 		this->~MainCamera();
 		new(this) MainCamera(window, graphicsEngine, width, height, constantBufferGpuAddress1, constantBufferCpuAddress1, fieldOfView, target);
 	}
 
-	void destruct(D3D12GraphicsEngine& graphicsEngine);
+	void destruct(GraphicsEngine& graphicsEngine);
 	~MainCamera();
 
 	void update(const Transform& target);
-	void render(Window& window, D3D12GraphicsEngine& graphicsEngine);
+	void render(Window& window, GraphicsEngine& graphicsEngine);
 	bool isInView() const { return true; }
 	void bind(uint32_t frameIndex, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end);
 	void bindFirstThread(uint32_t frameIndex, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end);

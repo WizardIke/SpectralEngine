@@ -13,11 +13,14 @@ class UserInterface
 public:
 	class StopRequest
 	{
-	public:
+		friend class UserInterface;
+		StopRequest** stopRequest;
 		void(*callback)(StopRequest& stopRequest, void* tr, void* gr);
+	public:
+		StopRequest(void(*callback1)(StopRequest& stopRequest, void* tr, void* gr)) : callback(callback1) {}
 	};
 private:
-	std::atomic<StopRequest*> mStopRequest = nullptr;
+	StopRequest* mStopRequest = nullptr;
 
 	CPUUsageSentence CPUUsageSentence;
 	FPSSentence FPSSentence;
@@ -40,7 +43,10 @@ public:
 	*/
 	void start(ThreadResources& executor, GlobalResources& sharedResources);
 
-	void stop(StopRequest& stopRequest);
+	/*
+	Must be called from primary thread
+	*/
+	void stop(StopRequest& stopRequest, ThreadResources& threadResources, GlobalResources& globalResources);
 
 	void setDisplayVirtualFeedbackTexture(bool value) { displayVirtualFeedbackTexture = value; }
 };

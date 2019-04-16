@@ -1,14 +1,14 @@
-#include "D3D12GraphicsEngine.h"
+#include "GraphicsEngine.h"
 #include "HresultException.h"
 #include <d3d12.h>
 #include "DXGIAdapter.h"
 #include "Window.h"
 #include "GraphicsAdapterNotFound.h"
 
-D3D12GraphicsEngine::D3D12GraphicsEngine(Window& window, bool enableGpuDebugging, DXGI_ADAPTER_FLAG avoidedAdapterFlags) : D3D12GraphicsEngine(window, DXGIFactory(enableGpuDebugging), avoidedAdapterFlags)
+GraphicsEngine::GraphicsEngine(Window& window, bool enableGpuDebugging, DXGI_ADAPTER_FLAG avoidedAdapterFlags) : GraphicsEngine(window, DXGIFactory(enableGpuDebugging), avoidedAdapterFlags)
 {}
 
-D3D12GraphicsEngine::D3D12GraphicsEngine(Window& window, DXGIFactory factory, DXGI_ADAPTER_FLAG avoidedAdapterFlags) : D3D12GraphicsEngine(window, factory, [&factory, &window, avoidedAdapterFlags]()
+GraphicsEngine::GraphicsEngine(Window& window, DXGIFactory factory, DXGI_ADAPTER_FLAG avoidedAdapterFlags) : GraphicsEngine(window, factory, [&factory, &window, avoidedAdapterFlags]()
 {
 	AdapterAndDeviceAndResourceBindingTier adapterAndDeviceAndResourceBindingTier = {};
 
@@ -61,7 +61,7 @@ D3D12GraphicsEngine::D3D12GraphicsEngine(Window& window, DXGIFactory factory, DX
 	return adapterAndDeviceAndResourceBindingTier;
 }()) {}
 
-D3D12GraphicsEngine::D3D12GraphicsEngine(Window& window, IDXGIFactory5* factory, AdapterAndDeviceAndResourceBindingTier adapterAndDeviceAndResourceBindingTier) :
+GraphicsEngine::GraphicsEngine(Window& window, IDXGIFactory5* factory, AdapterAndDeviceAndResourceBindingTier adapterAndDeviceAndResourceBindingTier) :
 	adapter(adapterAndDeviceAndResourceBindingTier.adapter),
 	graphicsDevice(adapterAndDeviceAndResourceBindingTier.device),
 	directCommandQueue(graphicsDevice, []()
@@ -170,9 +170,9 @@ depthStencilHeap(graphicsDevice, []()
 	window.setForgroundAndShow();
 }
 
-D3D12GraphicsEngine::~D3D12GraphicsEngine() {}
+GraphicsEngine::~GraphicsEngine() {}
 
-void D3D12GraphicsEngine::endFrame(Window& window, ID3D12CommandList** const commandLists, const unsigned int numLists)
+void GraphicsEngine::endFrame(Window& window, ID3D12CommandList** const commandLists, const unsigned int numLists)
 {
 	directCommandQueue->ExecuteCommandLists(numLists, commandLists);
 	auto hr = directCommandQueue->Signal(directFence, fenceValue);
@@ -184,7 +184,7 @@ void D3D12GraphicsEngine::endFrame(Window& window, ID3D12CommandList** const com
 	frameIndex = window.getCurrentBackBufferIndex();
 }
 
-void D3D12GraphicsEngine::startFrame()
+void GraphicsEngine::startFrame(void* tr, void* gr)
 {
 	const uint64_t fenceValueToWaitFor = fenceValue - frameBufferCount;
 	if (directFence->GetCompletedValue() < fenceValueToWaitFor)
@@ -193,14 +193,16 @@ void D3D12GraphicsEngine::startFrame()
 		if (FAILED(hr)) throw HresultException(hr);
 		WaitForSingleObject(directFenceEvent, INFINITE);
 	}
+
+	gpuFrameCompletionQueue.update(frameIndex, tr, gr);
 }
 
-void D3D12GraphicsEngine::waitForPreviousFrame(ID3D12CommandQueue& commandQueue)
+void GraphicsEngine::waitForPreviousFrame(ID3D12CommandQueue& commandQueue)
 {
 	commandQueue.Wait(directFence, fenceValue - 1u);
 }
 
-void D3D12GraphicsEngine::executeWhenGpuFinishesCurrentFrame(Task& task)
+void GraphicsEngine::executeWhenGpuFinishesCurrentFrame(Task& task)
 {
 	gpuFrameCompletionQueue.push(frameIndex, task);
 }
@@ -217,7 +219,7 @@ D3D12_CPU_DESCRIPTOR_HANDLE operator+(D3D12_CPU_DESCRIPTOR_HANDLE handle, std::s
 	return retval;
 }
 
-void D3D12GraphicsEngine::GpuFrameCompletionQueue::push(unsigned long frameIndex, Task& task)
+void GraphicsEngine::GpuFrameCompletionQueue::push(unsigned long frameIndex, Task& task)
 {
 	assert(frameIndex < frameBufferCount);
 	queues[frameIndex].push(&task);

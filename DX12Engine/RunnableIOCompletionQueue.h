@@ -1,17 +1,19 @@
 #pragma once
 #include "IOCompletionQueue.h"
-#include <atomic>
 
 class RunnableIOCompletionQueue : public IOCompletionQueue
 {
 public:
 	class StopRequest
 	{
-	public:
+		friend class RunnableIOCompletionQueue;
+		StopRequest** stopRequest;
 		void(*callback)(StopRequest& stopRequest, void* tr, void* gr);
+	public:
+		StopRequest(void(*callback1)(StopRequest& stopRequest, void* tr, void* gr)) : callback(callback1) {}
 	};
 private:
-	std::atomic<StopRequest*> mStopRequest = nullptr;
+	StopRequest* mStopRequest = nullptr;
 public:
 	template<class ThreadResources, class GlobalResources>
 	void start(ThreadResources& threadResources, GlobalResources&)
@@ -19,7 +21,7 @@ public:
 		threadResources.taskShedular.pushPrimaryTask(0u, { this, [](void* requester, ThreadResources& threadResources, GlobalResources& sharedResources)
 		{
 			RunnableIOCompletionQueue& queue = *static_cast<RunnableIOCompletionQueue*>(requester);
-			auto stopRequest = queue.mStopRequest.load(std::memory_order_acquire);
+			auto stopRequest = queue.mStopRequest;
 			if(stopRequest != nullptr)
 			{
 				stopRequest->callback(*stopRequest, &threadResources, &sharedResources);
@@ -34,8 +36,13 @@ public:
 		} });
 	}
 
-	void stop(StopRequest& stopRequest)
+	void stop(StopRequest& stopRequest, ThreadResources& threadResources, GlobalResources&)
 	{
-		mStopRequest.store(&stopRequest, std::memory_order_release);
+		stopRequest.stopRequest = &mStopRequest;
+		threadResources.taskShedular.pushPrimaryTask(1u, {&stopRequest, [](void* requester, ThreadResources&, GlobalResources&)
+		{
+			StopRequest& stopRequest = *static_cast<StopRequest*>(requester);
+			*stopRequest.stopRequest = &stopRequest;
+		}});
 	}
 };

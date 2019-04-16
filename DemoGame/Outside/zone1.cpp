@@ -1,5 +1,5 @@
 #include "zone1.h"
-#include <D3D12GraphicsEngine.h>
+#include <GraphicsEngine.h>
 #include <HresultException.h>
 #include <TextureManager.h>
 #include <MeshManager.h>

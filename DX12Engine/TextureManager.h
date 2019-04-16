@@ -8,7 +8,7 @@
 #include "AsynchronousFileManager.h"
 #include "IOCompletionQueue.h"
 #include "ActorQueue.h"
-class D3D12GraphicsEngine;
+class GraphicsEngine;
 
 class TextureManager
 {
@@ -68,7 +68,7 @@ private:
 	ActorQueue messageQueue;
 	std::unordered_map<const wchar_t* const, Texture, std::hash<const wchar_t *>> textures;
 
-	static ID3D12Resource* createTexture(const TextureStreamingRequest& useSubresourceRequest, D3D12GraphicsEngine& graphicsEngine, unsigned int& discriptorIndex, const wchar_t* filename);
+	static ID3D12Resource* createTexture(const TextureStreamingRequest& useSubresourceRequest, GraphicsEngine& graphicsEngine, unsigned int& discriptorIndex, const wchar_t* filename);
 
 	void notifyTextureReady(TextureStreamingRequest* request, void* tr, void* gr);
 
@@ -184,7 +184,7 @@ private:
 	}
 
 	/*the texture must no longer be in use, including by the GPU*/
-	void unloadTexture(const wchar_t* filename, D3D12GraphicsEngine& graphicsEngine);
+	void unloadTexture(const wchar_t* filename, GraphicsEngine& graphicsEngine);
 
 	template<class ThreadResources, class GlobalResources>
 	void addMessage(Message* request, ThreadResources& threadResources, GlobalResources&)

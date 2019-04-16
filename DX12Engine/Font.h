@@ -5,7 +5,7 @@
 #include <memory>
 #include <d3d12.h>
 #include "TextureManager.h"
-class D3D12GraphicsEngine;
+class GraphicsEngine;
 
 struct Font
 {

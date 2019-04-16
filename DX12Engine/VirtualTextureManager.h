@@ -3,7 +3,7 @@
 #include <unordered_map>
 #include "StreamingManager.h"
 #include "DDSFileLoader.h"
-#include "D3D12GraphicsEngine.h"
+#include "GraphicsEngine.h"
 #include "VirtualTextureInfo.h"
 #include "PageProvider.h"
 #include "VirtualTextureInfoByID.h"
@@ -80,7 +80,7 @@ public:
 	VirtualTextureInfoByID texturesByID;
 	PageProvider pageProvider;
 private:
-	void loadTextureUncachedHelper(TextureStreamingRequest& uploadRequest, StreamingManager& streamingManager, D3D12GraphicsEngine& graphicsEngine,
+	void loadTextureUncachedHelper(TextureStreamingRequest& uploadRequest, StreamingManager& streamingManager, GraphicsEngine& graphicsEngine,
 		void(*useSubresource)(StreamingManager::StreamingRequest* request, void* threadResources, void* globalResources),
 		const DDSFileLoader::DdsHeaderDx12& header);
 
@@ -167,8 +167,8 @@ private:
 	}
 
 	static D3D12Resource createTexture(ID3D12Device* graphicsDevice, const TextureStreamingRequest& request);
-	static unsigned int createTextureDescriptor(D3D12GraphicsEngine& graphicsEngine, ID3D12Resource* texture, const TextureStreamingRequest& request);
-	void createTextureWithResitencyInfo(D3D12GraphicsEngine& graphicsEngine, ID3D12CommandQueue& commandQueue, TextureStreamingRequest& vramRequest);
+	static unsigned int createTextureDescriptor(GraphicsEngine& graphicsEngine, ID3D12Resource* texture, const TextureStreamingRequest& request);
+	void createTextureWithResitencyInfo(GraphicsEngine& graphicsEngine, ID3D12CommandQueue& commandQueue, TextureStreamingRequest& vramRequest);
 
 	template<class ThreadResources, class GlobalResources>
 	void loadTexture(ThreadResources& executor, GlobalResources& sharedResources, TextureStreamingRequest* request)
@@ -198,7 +198,7 @@ private:
 	}
 
 	/*the texture must no longer be in use, including by the GPU*/
-	void unloadTexture(const wchar_t* filename, D3D12GraphicsEngine& graphicsEngine, StreamingManager& streamingManager);
+	void unloadTexture(const wchar_t* filename, GraphicsEngine& graphicsEngine, StreamingManager& streamingManager);
 
 	template<class ThreadResources, class GlobalResources>
 	void addMessage(Message* request, ThreadResources& threadResources, GlobalResources&)

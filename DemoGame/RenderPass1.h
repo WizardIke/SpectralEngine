@@ -33,7 +33,7 @@ public:
 	{
 		RenderPass11::ThreadLocal data;
 	public:
-		Local(D3D12GraphicsEngine& graphicsEngine) : data(graphicsEngine) {}
+		Local(GraphicsEngine& graphicsEngine) : data(graphicsEngine) {}
 
 		class ColorSubPass
 		{
@@ -51,19 +51,19 @@ public:
 		RenderToTextureSubPass::ThreadLocal& renderToTextureSubPass() { return std::get<renderToTextureSubPassIndex>(data.subPassesThreadLocal); }
 		VirtualFeedbackSubPass::ThreadLocal& virtualTextureFeedbackSubPass() { return std::get<virtualTextureFeedbackSubPassIndex>(data.subPassesThreadLocal); }
 
-		void update1(ThreadResources& threadResources, D3D12GraphicsEngine& graphicsEngine, RenderPass1& renderPass, bool firstThread)
+		void update1(ThreadResources& threadResources, GlobalResources& globalResources, RenderPass1& renderPass, bool firstThread)
 		{
-			data.update1(threadResources, graphicsEngine, renderPass.data, firstThread);
+			data.update1(threadResources, globalResources, renderPass.data, firstThread);
 		}
 
-		void update1After(D3D12GraphicsEngine& graphicsEngine, RenderPass1& renderPass, ID3D12RootSignature* rootSignature, bool firstThread)
+		void update1After(GraphicsEngine& graphicsEngine, RenderPass1& renderPass, ID3D12RootSignature* rootSignature, bool firstThread)
 		{
 			data.update1After(graphicsEngine, renderPass.data, rootSignature, firstThread);
 		}
 
 		void update2(ThreadResources& threadResources, GlobalResources& globalResources, RenderPass1& renderPass, unsigned int threadCount) { data.update2(threadResources, globalResources, renderPass.data, threadCount); }
 		
-		void present(unsigned int primaryThreadCount, D3D12GraphicsEngine& graphicsEngine, Window& window, RenderPass1& renderPass) { data.present(primaryThreadCount, graphicsEngine, window, renderPass.data); }
+		void present(unsigned int primaryThreadCount, GraphicsEngine& graphicsEngine, Window& window, RenderPass1& renderPass) { data.present(primaryThreadCount, graphicsEngine, window, renderPass.data); }
 	};
 
 	ColorSubPass& colorSubPass() { return std::get<colorSubPassIndex>(data.subPasses()); }

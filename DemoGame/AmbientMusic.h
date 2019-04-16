@@ -1,7 +1,6 @@
 #pragma once
 #include <XAudio2SourceVoice.h>
 #include <File.h>
-#include <atomic>
 #include <cstdint>
 #include <AsynchronousFileManager.h>
 #include <ActorQueue.h>

@@ -3,7 +3,7 @@
 #include <Shaders/WaterMaterialPS.h>
 #undef USE_REFLECTION_TEXTURE
 #include <Shaders/WaterMaterialVS.h>
-#include <D3D12GraphicsEngine.h>
+#include <GraphicsEngine.h>
 
 struct AABBMaterial
 {
@@ -52,7 +52,7 @@ void WaterModel2::update(float frameTime)
 	}
 }
 
-void WaterModel2::beforeRender(D3D12GraphicsEngine& graphicsEngine)
+void WaterModel2::beforeRender(GraphicsEngine& graphicsEngine)
 {
 	auto frameIndex = graphicsEngine.frameIndex;
 	auto buffer = reinterpret_cast<WaterMaterialVS*>(vertexConstantBufferCpu + frameIndex * vertexConstantBufferSize);

@@ -329,7 +329,7 @@
     <ClInclude Include="GraphicsAdapterNotFound.h" />
     <ClInclude Include="InputManager.h" />
     <ClInclude Include="Light.h" />
-    <ClInclude Include="D3D12GraphicsEngine.h" />
+    <ClInclude Include="GraphicsEngine.h" />
     <ClInclude Include="FontChar.h" />
     <ClInclude Include="Font.h" />
     <ClInclude Include="Frustum.h" />
@@ -370,7 +370,7 @@
     <ClCompile Include="Quaternion.cpp" />
     <ClCompile Include="File.cpp" />
     <ClCompile Include="DDSFileLoader.cpp" />
-    <ClCompile Include="D3D12GraphicsEngine.cpp" />
+    <ClCompile Include="GraphicsEngine.cpp" />
     <ClCompile Include="Frustum.cpp" />
     <ClCompile Include="PlayerPosition.cpp" />
     <ClCompile Include="StreamingManager.cpp" />

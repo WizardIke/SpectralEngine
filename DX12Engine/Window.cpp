@@ -1,5 +1,5 @@
 #include "Window.h"
-#include "D3D12GraphicsEngine.h"
+#include "GraphicsEngine.h"
 #include "frameBufferCount.h"
 #ifndef NDEBUG
 #include <string>
@@ -62,7 +62,7 @@ Window::~Window()
 	UnregisterClassW(applicationName, nullptr);
 }
 
-void Window::createSwapChain(D3D12GraphicsEngine& graphicsEngine, IDXGIFactory5* dxgiFactory)
+void Window::createSwapChain(GraphicsEngine& graphicsEngine, IDXGIFactory5* dxgiFactory)
 {
 	DXGI_SWAP_CHAIN_FULLSCREEN_DESC fullscreenDesc;
 	DXGI_SWAP_CHAIN_FULLSCREEN_DESC* fullscreenDescPointer = nullptr;

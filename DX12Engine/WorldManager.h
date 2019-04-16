@@ -8,7 +8,6 @@
 #include "PriorityQueue.h"
 #include "HashSet.h"
 #include "ResizingArray.h"
-#include <atomic>
 #include "WorldManagerStopRequest.h"
 
 template<class ThreadResources, class GlobalResources>
@@ -141,7 +140,7 @@ private:
 	HashSet<unsigned long, std::hash<unsigned long>, std::equal_to<unsigned long>, std::allocator<unsigned long>, unsigned long> loadedZones[2];
 	HashSet<SearchNode, SearchNodeHasher, SearchNodeEqual> visitedNodes;
 	PriorityQueue<SearchNodeTracker, ResizingArray<SearchNodeTracker>, SearchNodePriority> frontierNodes;
-	std::atomic<StopRequest*> mStopRequest = nullptr;
+	StopRequest* mStopRequest = nullptr;
 
 	void load(ThreadResources& threadResources, GlobalResources& globalResources)
 	{
@@ -378,7 +377,7 @@ private:
 		{
 			const auto manager = static_cast<WorldManager*>(requester);
 
-			StopRequest* stopRequest = manager->mStopRequest.load(std::memory_order_acquire);
+			StopRequest* stopRequest = manager->mStopRequest;
 			if(stopRequest != nullptr)
 			{
 				manager->stopZones(stopRequest, threadResources, globalResources);
@@ -396,18 +395,31 @@ public:
 	/*
 	must be called from primary thread
 	*/
-	void start(ThreadResources& threadResources, GlobalResources& globalResources)
+	void start(ThreadResources& threadResources, GlobalResources&)
 	{
-		loadedPosition = (*position / zoneRadius + 0.5f).floor() * zoneRadius;
+		threadResources.taskShedular.pushPrimaryTask(0u, {this, [](void*const requester, ThreadResources& threadResources, GlobalResources& globalResources)
+		{
+			auto& manager = *static_cast<WorldManager*>(requester);
 
-		load(threadResources, globalResources);
-		currentLoadedZonesIndex ^= 1u;
-		run(threadResources, globalResources);
+			manager.loadedPosition = (*manager.position / zoneRadius + 0.5f).floor() * zoneRadius;
+
+			manager.load(threadResources, globalResources);
+			manager.currentLoadedZonesIndex ^= 1u;
+			manager.run(threadResources, globalResources);
+		}});
 	}
 
-	void stop(StopRequest& stopRequest)
+	/*
+	Must be called from primary thread
+	*/
+	void stop(StopRequest& stopRequest, ThreadResources& threadResources, GlobalResources&)
 	{
-		mStopRequest.store(&stopRequest, std::memory_order_release);
+		stopRequest.stopRequest = &mStopRequest;
+		threadResources.taskShedular.pushPrimaryTask(1u, {&stopRequest, [](void* requester, ThreadResources&, GlobalResources&)
+		{
+			StopRequest& stopRequest = *static_cast<StopRequest*>(requester);
+			*stopRequest.stopRequest = &stopRequest;
+		}});
 	}
 
 	/*

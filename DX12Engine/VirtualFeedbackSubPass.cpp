@@ -17,7 +17,7 @@ void VirtualFeedbackSubPass::unmapReadbackTexture()
 
 void VirtualFeedbackSubPass::destruct() {}
 
-void VirtualFeedbackSubPass::createResources(D3D12GraphicsEngine& graphicsEngine, Transform& mainCameraTransform, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1, unsigned char*& constantBufferCpuAddress1,
+void VirtualFeedbackSubPass::createResources(GraphicsEngine& graphicsEngine, Transform& mainCameraTransform, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1, unsigned char*& constantBufferCpuAddress1,
 	uint32_t width, uint32_t height, float fieldOfView)
 {
 	ID3D12Device* graphicsDevice = graphicsEngine.graphicsDevice;
@@ -117,7 +117,7 @@ void VirtualFeedbackSubPass::createResources(D3D12GraphicsEngine& graphicsEngine
 
 }
 
-void VirtualFeedbackSubPass::ThreadLocal::update1AfterFirstThread(D3D12GraphicsEngine& graphicsEngine, VirtualFeedbackSubPass& renderSubPass,
+void VirtualFeedbackSubPass::ThreadLocal::update1AfterFirstThread(GraphicsEngine& graphicsEngine, VirtualFeedbackSubPass& renderSubPass,
 	ID3D12RootSignature* rootSignature, uint32_t barrierCount, D3D12_RESOURCE_BARRIER* barriers)
 {
 	auto frameIndex = graphicsEngine.frameIndex;

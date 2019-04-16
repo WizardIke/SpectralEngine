@@ -2,7 +2,6 @@
 #include "VirtualTextureManager.h"
 #include <d3d12.h>
 #include "File.h"
-#include "D3D12GraphicsEngine.h"
 #include "VirtualFeedbackSubPass.h"
 
 PageProvider::PageProvider() : freePageLoadRequestsCount{maxPagesLoading}
@@ -113,7 +112,7 @@ void PageProvider::addPageLoadRequestHelper(PageLoadRequest& streamingRequest, V
 }
 
 void PageProvider::addPageDataToResource(ID3D12Resource* resource, D3D12_TILED_RESOURCE_COORDINATE* newPageCoordinates, PageLoadRequest** pageLoadRequests, std::size_t pageCount,
-	D3D12_TILE_REGION_SIZE& tileSize, PageCache& pageCache, ID3D12GraphicsCommandList* commandList, D3D12GraphicsEngine& graphicsEngine,
+	D3D12_TILE_REGION_SIZE& tileSize, PageCache& pageCache, ID3D12GraphicsCommandList* commandList, GraphicsEngine& graphicsEngine,
 	void(*uploadComplete)(PrimaryTaskFromOtherThreadQueue::Task& task, void* gr, void* tr))
 {
 	D3D12_RESOURCE_BARRIER barriers[1];
@@ -265,7 +264,7 @@ void PageProvider::checkCacheForPages(decltype(uniqueRequests)& pageRequests, Vi
 	}
 }
 
-void PageProvider::addNewPagesToResources(D3D12GraphicsEngine& graphicsEngine, VirtualTextureInfoByID& texturesByID,
+void PageProvider::addNewPagesToResources(GraphicsEngine& graphicsEngine, VirtualTextureInfoByID& texturesByID,
 	ID3D12GraphicsCommandList* commandList, void(*uploadComplete)(PrimaryTaskFromOtherThreadQueue::Task& task, void* gr, void* tr))
 {
 	ID3D12CommandQueue* commandQueue = graphicsEngine.directCommandQueue;

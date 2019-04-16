@@ -193,7 +193,6 @@ GlobalResources::GlobalResources(const unsigned int numberOfThreads, bool fullSc
 	taskShedular.start(mainThreadResources, *this);
 	ioCompletionQueue.start(mainThreadResources, *this);
 	ambientMusic.start(mainThreadResources, *this);
-	graphicsEngine.start(mainThreadResources, *this);
 
 	D3D12_RANGE readRange{ 0u, 0u };
 	HRESULT hr = sharedConstantBuffer->Map(0u, &readRange, reinterpret_cast<void**>(&constantBuffersCpuAddress));
@@ -304,7 +303,7 @@ void GlobalResources::start()
 	worker.join();
 }
 
-class GlobalResources::Unloader
+class GlobalResources::Unloader : private PrimaryTaskFromOtherThreadQueue::Task
 {
 	class AmbientMusicStopRequests : public AmbientMusic::StopRequest
 	{
@@ -319,18 +318,27 @@ class GlobalResources::Unloader
 	{
 	public:
 		Unloader* unloader;
+
+		UserInterfaceStopRequest(Unloader* unloader, void(*callback)(UserInterface::StopRequest& stopRequest, void* tr, void* gr)) :
+			unloader(unloader), UserInterface::StopRequest(callback) {}
 	};
 
 	class AreasStopRequest : public Areas::StopRequest
 	{
 	public:
 		Unloader* unloader;
+
+		AreasStopRequest(Unloader* unloader, void(*callback)(Areas::StopRequest& stopRequest, void* tr, void* gr)) :
+			unloader(unloader), Areas::StopRequest(callback) {}
 	};
 
 	class IoCompletionQueueStopRequest : public RunnableIOCompletionQueue::StopRequest
 	{
 	public:
 		Unloader* unloader;
+
+		IoCompletionQueueStopRequest(Unloader* unloader, void(*callback)(RunnableIOCompletionQueue::StopRequest& stopRequest, void* tr, void* gr)) :
+			unloader(unloader), RunnableIOCompletionQueue::StopRequest::StopRequest(callback) {}
 	};
 
 	class TaskShedularStopRequest : public TaskShedular<ThreadResources, GlobalResources>::StopRequest
@@ -342,40 +350,37 @@ class GlobalResources::Unloader
 			unloader(unloader), TaskShedular<ThreadResources, GlobalResources>::StopRequest(callback) {}
 	};
 
-	class GraphicsEngineStopRequest : public D3D12GraphicsEngine::StopRequest
-	{
-	public:
-		Unloader* unloader;
-
-		GraphicsEngineStopRequest(Unloader* unloader, void(*callback)(D3D12GraphicsEngine::StopRequest& stopRequest, void* tr, void* gr)) :
-			unloader(unloader), D3D12GraphicsEngine::StopRequest::StopRequest(callback) {}
-	};
-
 	AmbientMusicStopRequests ambientMusicStopRequests;
 	UserInterfaceStopRequest userInterfaceStopRequest;
 	AreasStopRequest areasStopRequest;
 
 	IoCompletionQueueStopRequest ioCompletionQueueStopRequest;
 	TaskShedularStopRequest taskShedularStopRequest;
-	GraphicsEngineStopRequest graphicsEngineStopRequest;
 
 
 	constexpr static unsigned int numberOfNumponentsToUnload1 = 3u; //AmbientMusic, UserInterface, Areas
 	std::atomic<unsigned int> numberOfComponentsUnloaded = 0u;
 
-	constexpr static unsigned int numberOfNumponentsToUnload2 = 3u; //IoCompletionQueue, TaskShedular, GraphicsEngine
+	constexpr static unsigned int numberOfNumponentsToUnload2 = 2u; //IoCompletionQueue, TaskShedular
 
-	void componentUnloaded1(void* tr, void* gr)
+	void componentUnloaded1(void*, void* gr)
 	{
 		if(numberOfComponentsUnloaded.fetch_add(1u, std::memory_order::memory_order_acq_rel) == (numberOfNumponentsToUnload1 - 1u))
 		{
 			numberOfComponentsUnloaded.store(0u, std::memory_order_relaxed);
-			ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
+
 			GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
 
-			globalResources.ioCompletionQueue.stop(ioCompletionQueueStopRequest);
-			globalResources.taskShedular.stop(taskShedularStopRequest, threadResources, globalResources);
-			globalResources.graphicsEngine.stop(graphicsEngineStopRequest, threadResources, globalResources);
+			execute = [](PrimaryTaskFromOtherThreadQueue::Task& task, void* tr, void* gr)
+			{
+				Unloader& unloader = static_cast<Unloader&>(task);
+				ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
+				GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
+
+				globalResources.ioCompletionQueue.stop(unloader.ioCompletionQueueStopRequest, threadResources, globalResources);
+				globalResources.taskShedular.stop(unloader.taskShedularStopRequest, threadResources, globalResources);
+			};
+			globalResources.taskShedular.pushPrimaryTaskFromOtherThread(1u, *this);
 		}
 	}
 
@@ -394,38 +399,27 @@ public:
 	{
 		static_cast<AmbientMusicStopRequests&>(stopRequest).unloader->componentUnloaded1(tr, gr);
 	}),
+		userInterfaceStopRequest(this, [](UserInterface::StopRequest& stopRequest, void* tr, void* gr)
+	{
+		static_cast<UserInterfaceStopRequest&>(stopRequest).unloader->componentUnloaded1(tr, gr);
+	}),
+		areasStopRequest(this, [](Areas::StopRequest& stopRequest, void* tr, void* gr)
+	{
+		static_cast<AreasStopRequest&>(stopRequest).unloader->componentUnloaded1(tr, gr);
+	}),
 		taskShedularStopRequest(this, [](TaskShedular<ThreadResources, GlobalResources>::StopRequest& stopRequest, void* tr, void*)
 	{
 		static_cast<TaskShedularStopRequest&>(stopRequest).unloader->componentUnloaded2(tr);
 	}),
-		graphicsEngineStopRequest(this, [](D3D12GraphicsEngine::StopRequest& stopRequest, void* tr, void*)
+		ioCompletionQueueStopRequest(this, [](RunnableIOCompletionQueue::StopRequest& stopRequest, void*, void* gr)
 	{
-		static_cast<GraphicsEngineStopRequest&>(stopRequest).unloader->componentUnloaded2(tr);
-	})
-	{
-		userInterfaceStopRequest.unloader = this;
-		userInterfaceStopRequest.callback = [](UserInterface::StopRequest& stopRequest, void* tr, void* gr)
-		{
-			static_cast<UserInterfaceStopRequest&>(stopRequest).unloader->componentUnloaded1(tr, gr);
-		};
-
-		ioCompletionQueueStopRequest.unloader = this;
-		ioCompletionQueueStopRequest.callback = [](RunnableIOCompletionQueue::StopRequest& stopRequest, void*, void* gr)
-		{
-			static_cast<IoCompletionQueueStopRequest&>(stopRequest).unloader->componentUnloaded2(gr);
-		};
-
-		areasStopRequest.unloader = this;
-		areasStopRequest.callback = [](Areas::StopRequest& stopRequest, void* tr, void* gr)
-		{
-			static_cast<AreasStopRequest&>(stopRequest).unloader->componentUnloaded1(tr, gr);
-		};
-	}
+		static_cast<IoCompletionQueueStopRequest&>(stopRequest).unloader->componentUnloaded2(gr);
+	}) {}
 
 	void unload(ThreadResources& threadResources, GlobalResources& globalReources)
 	{
-		globalReources.areas.stop(areasStopRequest);
-		globalReources.userInterface.stop(userInterfaceStopRequest);
+		globalReources.areas.stop(areasStopRequest, threadResources, globalReources);
+		globalReources.userInterface.stop(userInterfaceStopRequest, threadResources, globalReources);
 		globalReources.ambientMusic.stop(ambientMusicStopRequests, threadResources, globalReources);
 	}
 };

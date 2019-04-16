@@ -64,7 +64,7 @@ public:
 	unsigned int highestSupportedState;
 private:
 	std::atomic<unsigned int> numComponentsLoaded = 0;
-	WorldManagerStopRequest* stopRequest;
+	WorldManagerStopRequest* stopRequest = nullptr;
 public:
 
 	void componentUploaded(ThreadResources& threadResources, GlobalResources& globalResources, unsigned int numComponents)
