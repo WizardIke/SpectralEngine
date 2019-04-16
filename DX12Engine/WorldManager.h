@@ -194,7 +194,7 @@ private:
 				visitZone(zoneX + 1u, zoneY, zoneZ, zoneIndex + sizeY * sizeZ, currentNode, visitedNodes, frontierNodes, maxTotalDistance);
 				currentNode = currentNodeTracker.node;
 			}
-			else if(zoneX != 0u) //move toward -x
+			if(zoneX != 0u) //move toward -x
 			{
 				visitZone(zoneX - 1u, zoneY, zoneZ, zoneIndex - sizeY * sizeZ, currentNode, visitedNodes, frontierNodes, maxTotalDistance);
 				currentNode = currentNodeTracker.node;
@@ -204,7 +204,7 @@ private:
 				visitZone(zoneX, zoneY + 1u, zoneZ, zoneIndex + sizeZ, currentNode, visitedNodes, frontierNodes, maxTotalDistance);
 				currentNode = currentNodeTracker.node;
 			}
-			else if(zoneY != 0u) //move toward -y
+			if(zoneY != 0u) //move toward -y
 			{
 				visitZone(zoneX, zoneY - 1u, zoneZ, zoneIndex - sizeZ, currentNode, visitedNodes, frontierNodes, maxTotalDistance);
 				currentNode = currentNodeTracker.node;
@@ -214,7 +214,7 @@ private:
 				visitZone(zoneX, zoneY, zoneZ + 1u, zoneIndex + 1u, currentNode, visitedNodes, frontierNodes, maxTotalDistance);
 				currentNode = currentNodeTracker.node;
 			}
-			else if(zoneZ != 0u) //move toward -z
+			if(zoneZ != 0u) //move toward -z
 			{
 				visitZone(zoneX, zoneY, zoneZ - 1u, zoneIndex - 1u, currentNode, visitedNodes, frontierNodes, maxTotalDistance);
 				currentNode = currentNodeTracker.node;
