@@ -36,26 +36,25 @@ namespace
 	{
 		constexpr static unsigned char numMeshes = 8u;
 		constexpr static unsigned char numTextures = 9u;
-		constexpr static unsigned char numComponents = 4u; //loading cameras, setting constant buffers, loading textures, loading meshes
-		constexpr static unsigned int numRenderTargetTextures = 1u;
 		constexpr static unsigned int numPointLights = 4u;
+		constexpr static unsigned char numComponents = 4u; //loading camera, setting constant buffers, loading textures, loading meshes
 
 
-		static void componentUploaded(Zone<ThreadResources, GlobalResources>& zone, ThreadResources& executor, GlobalResources&)
+		static void componentUploaded(Zone<ThreadResources, GlobalResources>& zone, ThreadResources& executor, GlobalResources& globalResources)
 		{
-			zone.componentUploaded(executor, numComponents);
+			zone.componentUploaded(executor, globalResources, numComponents);
 		}
 	public:
 		Mesh* squareWithPos;
 		Mesh* cubeWithPos;
 		D3D12Resource perObjectConstantBuffers;
 		unsigned char* perObjectConstantBuffersCpuAddress;
-		Array<D3D12Resource, numRenderTargetTextures> renderTargetTextures;
+		D3D12Resource renderTargetTexture;
 		D3D12_RESOURCE_STATES waterRenderTargetTextureState;
 		D3D12DescriptorHeap renderTargetTexturesDescriptorHeap;
-		unsigned int shaderResourceViews[numRenderTargetTextures];
-		Array<ReflectionCamera*, numRenderTargetTextures> reflectionCameras;
-		unsigned int reflectionCameraBackBuffers[numRenderTargetTextures];
+		unsigned int shaderResourceView;
+		unsigned long zoneEntity;
+		unsigned int reflectionCameraBackBuffer;
 
 		Light light;
 		PointLight pointLights[numPointLights];
@@ -101,7 +100,7 @@ namespace
 			renderTargetTexturesDescriptorHeap(globalResources.graphicsEngine.graphicsDevice, []()
 		{
 			D3D12_DESCRIPTOR_HEAP_DESC descriptorheapDesc;
-			descriptorheapDesc.NumDescriptors = numRenderTargetTextures;
+			descriptorheapDesc.NumDescriptors = 1u;
 			descriptorheapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE; //RTVs aren't shader visable
 			descriptorheapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
 			descriptorheapDesc.NodeMask = 0u;
@@ -149,17 +148,14 @@ namespace
 			clearValue.Color[2] = 0.0f;
 			clearValue.Color[3] = 1.0f;
 
-			for (auto i = 0u; i < numRenderTargetTextures; ++i)
-			{
-				new(&renderTargetTextures[i]) D3D12Resource(globalResources.graphicsEngine.graphicsDevice, heapProperties, D3D12_HEAP_FLAG_ALLOW_ALL_BUFFERS_AND_TEXTURES, resourcesDesc,
-					D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, clearValue);
+			
+			new(&renderTargetTexture) D3D12Resource(globalResources.graphicsEngine.graphicsDevice, heapProperties, D3D12_HEAP_FLAG_ALLOW_ALL_BUFFERS_AND_TEXTURES, resourcesDesc,
+				D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, clearValue);
 
 #ifdef _DEBUG
-				std::wstring name = L" zone1 render to texture ";
-				name += std::to_wstring(i);
-				renderTargetTextures[i]->SetName(name.c_str());
+			std::wstring name = L" zone1 render to texture 0";
+			renderTargetTexture->SetName(name.c_str());
 #endif // _DEBUG
-			}
 
 			{
 				D3D12_RENDER_TARGET_VIEW_DESC HDRenderTargetViewDesc;
@@ -190,19 +186,14 @@ namespace
 				backBufferSrvDesc.Texture2D.PlaneSlice = 0u;
 				backBufferSrvDesc.Texture2D.ResourceMinLODClamp = 0u;
 
-				for (auto i = 0u; i < numRenderTargetTextures; ++i)
-				{
-					shaderResourceViews[i] = globalResources.graphicsEngine.descriptorAllocator.allocate();
-					globalResources.graphicsEngine.graphicsDevice->CreateShaderResourceView(renderTargetTextures[i], &HDSHaderResourceViewDesc, shaderResourceViewCpuDescriptorHandle + srvSize * shaderResourceViews[i]);
+				shaderResourceView = globalResources.graphicsEngine.descriptorAllocator.allocate();
+				globalResources.graphicsEngine.graphicsDevice->CreateShaderResourceView(renderTargetTexture, &HDSHaderResourceViewDesc, shaderResourceViewCpuDescriptorHandle + srvSize * shaderResourceView);
 
-					globalResources.graphicsEngine.graphicsDevice->CreateRenderTargetView(renderTargetTextures[i], &HDRenderTargetViewDesc, tempRenderTargetTexturesCpuDescriptorHandle);
+				globalResources.graphicsEngine.graphicsDevice->CreateRenderTargetView(renderTargetTexture, &HDRenderTargetViewDesc, tempRenderTargetTexturesCpuDescriptorHandle);
 
-					reflectionCameraBackBuffers[i] = globalResources.graphicsEngine.descriptorAllocator.allocate();
-					globalResources.graphicsEngine.graphicsDevice->CreateShaderResourceView(renderTargetTextures[i], &backBufferSrvDesc,
-						shaderResourceViewCpuDescriptorHandle + reflectionCameraBackBuffers[i] * globalResources.graphicsEngine.cbvAndSrvAndUavDescriptorSize);
-
-					tempRenderTargetTexturesCpuDescriptorHandle.ptr += globalResources.graphicsEngine.renderTargetViewDescriptorSize;
-				}
+				reflectionCameraBackBuffer = globalResources.graphicsEngine.descriptorAllocator.allocate();
+				globalResources.graphicsEngine.graphicsDevice->CreateShaderResourceView(renderTargetTexture, &backBufferSrvDesc,
+					shaderResourceViewCpuDescriptorHandle + reflectionCameraBackBuffer * globalResources.graphicsEngine.cbvAndSrvAndUavDescriptorSize);
 			}
 
 			PerObjectConstantBuffersGpuAddress += ReflectionCamera::totalConstantBufferRequired;
@@ -214,7 +205,7 @@ namespace
 
 			new(&wallModel) WallModel2(PerObjectConstantBuffersGpuAddress, cpuConstantBuffer);
 
-			new(&waterModel) WaterModel2(PerObjectConstantBuffersGpuAddress, cpuConstantBuffer, shaderResourceViews[0],
+			new(&waterModel) WaterModel2(PerObjectConstantBuffersGpuAddress, cpuConstantBuffer, shaderResourceView,
 				globalResources.warpTextureDescriptorIndex);
 
 			new(&iceModel) IceModel2(PerObjectConstantBuffersGpuAddress, cpuConstantBuffer, globalResources.warpTextureDescriptorIndex);
@@ -384,35 +375,31 @@ namespace
 						}
 					},
 				}, zone, threadResources, globalResources);
-			
-			threadResources.taskShedular.update1NextQueue().concurrentPush({ &zone, [](void* context, ThreadResources& threadResources, GlobalResources& globalResources)
+
+			zoneEntity = globalResources.entityGenerator.generate();
 			{
-				auto& zone = *static_cast<Zone<ThreadResources, GlobalResources>*>(context);
-				const auto resource = static_cast<HDResources*>(zone.newData);
-
-				auto tempRenderTargetTexturesCpuDescriptorHandle = resource->renderTargetTexturesDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
+				auto tempRenderTargetTexturesCpuDescriptorHandle = renderTargetTexturesDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
 				auto depthStencilHandle = globalResources.graphicsEngine.depthStencilDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
-				Transform transform = globalResources.mainCamera().transform().reflection(resource->waterModel.reflectionHeight());
-				unsigned char* cpuConstantBuffer = resource->perObjectConstantBuffersCpuAddress;
-				D3D12_GPU_VIRTUAL_ADDRESS PerObjectConstantBuffersGpuAddress = resource->perObjectConstantBuffers->GetGPUVirtualAddress();
+				Transform transform = globalResources.mainCamera().transform().reflection(waterModel.reflectionHeight());
+				D3D12_GPU_VIRTUAL_ADDRESS PerObjectConstantBuffersGpuAddress1 = perObjectConstantBuffers->GetGPUVirtualAddress();
 
-				for (auto i = 0u; i != numRenderTargetTextures; ++i)
+				uint32_t backBuffers[frameBufferCount];
+				for(auto j = 0u; j != frameBufferCount; ++j)
 				{
-					uint32_t backBuffers[frameBufferCount];
-					for (auto j = 0u; j != frameBufferCount; ++j)
-					{
-						backBuffers[j] = resource->reflectionCameraBackBuffers[i];
-					}
-
-					resource->reflectionCameras[i] = &globalResources.renderPass.renderToTextureSubPass().addCamera(globalResources, globalResources.renderPass, ReflectionCamera(
-						resource->renderTargetTextures[i], tempRenderTargetTexturesCpuDescriptorHandle, depthStencilHandle, globalResources.window.width(), globalResources.window.height(), PerObjectConstantBuffersGpuAddress,
-						cpuConstantBuffer, 0.25f * 3.141f, transform, backBuffers));
-
-					tempRenderTargetTexturesCpuDescriptorHandle.ptr += globalResources.graphicsEngine.renderTargetViewDescriptorSize;
+					backBuffers[j] = reflectionCameraBackBuffer;
 				}
+				AddReflectionCamera* addCameraRequest = new AddReflectionCamera(zoneEntity, ReflectionCamera(
+					renderTargetTexture, tempRenderTargetTexturesCpuDescriptorHandle, depthStencilHandle, globalResources.window.width(), globalResources.window.height(), PerObjectConstantBuffersGpuAddress1,
+					perObjectConstantBuffersCpuAddress, 0.25f * 3.141f, transform, backBuffers), [](auto& request, void* tr, void* gr)
+				{
+					AddReflectionCamera& addRequest = static_cast<AddReflectionCamera&>(request);
+					componentUploaded(addRequest.zone, *static_cast<ThreadResources*>(tr), *static_cast<GlobalResources*>(gr));
+					delete &addRequest;
+				}, zone);
+				globalResources.renderPass.renderToTextureSubPass().addCamera(*addCameraRequest, globalResources.renderPass, threadResources, globalResources);
 
-				componentUploaded(zone, threadResources, globalResources);
-			} });
+				tempRenderTargetTexturesCpuDescriptorHandle.ptr += globalResources.graphicsEngine.renderTargetViewDescriptorSize;
+			}
 
 			constexpr uint64_t pointLightConstantBufferAlignedSize = (sizeof(LightConstantBuffer) + (uint64_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (uint64_t)1u) & 
 				~((uint64_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (uint64_t)1u);
@@ -449,10 +436,8 @@ namespace
 			waterModel.beforeRender(globalResources.graphicsEngine);
 			fireModel1.beforeRender(frameIndex, cameraPos);
 			fireModel2.beforeRender(frameIndex, cameraPos);
-			for(auto& camera : reflectionCameras)
-			{
-				camera->render(frameIndex, globalResources.mainCamera().transform().reflection(waterModel.reflectionHeight()).toMatrix());
-			}
+			auto& reflectionCamera = *globalResources.renderPass.renderToTextureSubPass().findCamera(zoneEntity);
+			reflectionCamera.beforeRender(frameIndex, globalResources.mainCamera().transform().reflection(waterModel.reflectionHeight()).toMatrix());
 
 			const auto frameTime = globalResources.timer.frameTime();
 			auto rotationMatrix = DirectX::XMMatrixTranslation(-64.0f, -5.0f, -64.0f) * DirectX::XMMatrixRotationAxis(DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f), frameTime) * DirectX::XMMatrixTranslation(64.0f, 5.0f, 64.0f);
@@ -483,7 +468,7 @@ namespace
 			auto depthStencilHandle = globalResources.graphicsEngine.depthStencilDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
 			if (waterModel.isInView(globalResources.mainCamera().frustum()))
 			{
-				auto& camera = *reflectionCameras[0];
+				auto& camera = *globalResources.renderPass.renderToTextureSubPass().findCamera(zoneEntity);
 				const auto& frustum = camera.frustum();
 				const auto commandList = threadResources.renderPass.renderToTextureSubPass().firstCommandList();
 				auto warpTextureCpuDescriptorHandle = globalResources.warpTextureCpuDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
@@ -701,17 +686,16 @@ namespace
 		void destruct(ThreadResources& threadResources, GlobalResources& globalResources)
 		{
 			auto& graphicsEngine = globalResources.graphicsEngine;
-			for (auto i = 0u; i < numRenderTargetTextures; ++i)
-			{
-				graphicsEngine.descriptorAllocator.deallocate(shaderResourceViews[i]);
-				graphicsEngine.descriptorAllocator.deallocate(reflectionCameraBackBuffers[i]);
+			
+			graphicsEngine.descriptorAllocator.deallocate(shaderResourceView);
+			graphicsEngine.descriptorAllocator.deallocate(reflectionCameraBackBuffer);
 
-				threadResources.taskShedular.update1NextQueue().concurrentPush({ reflectionCameras[i], [](void* context, ThreadResources&, GlobalResources& globalResources)
-				{
-					auto camera = static_cast<ReflectionCamera*>(context);
-					globalResources.renderPass.renderToTextureSubPass().removeCamera(globalResources, *camera);
-				} });
-			}
+			RenderPass1::RenderToTextureSubPass::RemoveCamerasRequest* removeReflectionCameraRequest = new RenderPass1::RenderToTextureSubPass::RemoveCamerasRequest(zoneEntity, 
+				[](RenderPass1::RenderToTextureSubPass::RemoveCamerasRequest& request, void*, void*)
+			{
+				delete &request;
+			});
+			globalResources.renderPass.renderToTextureSubPass().removeCamera(*removeReflectionCameraRequest, globalResources.renderPass, threadResources, globalResources);
 
 			auto textureUnloader = new TextureUnloader<numTextures>([](TextureUnloader<numTextures>& unloader)
 			{
@@ -755,9 +739,9 @@ namespace
 		constexpr static unsigned int numTextures = 1u;
 
 
-		static void callback(Zone<ThreadResources, GlobalResources>& zone, ThreadResources& threadResources, GlobalResources&)
+		static void callback(Zone<ThreadResources, GlobalResources>& zone, ThreadResources& threadResources, GlobalResources& globalResources)
 		{
-			zone.componentUploaded(threadResources, numComponents);
+			zone.componentUploaded(threadResources, globalResources, numComponents);
 		}
 	public:
 		D3D12Resource perObjectConstantBuffers;
@@ -913,12 +897,12 @@ namespace
 		switch (zone.currentState)
 		{
 		case 0u:
-			reinterpret_cast<HDResources*>(zone.currentData)->update1(threadResources, globalResources);
-			threadResources.taskShedular.update2NextQueue().push({ &zone, update2 });
+			static_cast<HDResources*>(zone.currentData)->update1(threadResources, globalResources);
+			threadResources.taskShedular.pushPrimaryTask(1u, { &zone, update2 });
 			break;
 		case 1u:
-			reinterpret_cast<MDResources*>(zone.currentData)->update1(threadResources, globalResources);
-			threadResources.taskShedular.update2NextQueue().push({ &zone, update2 });
+			static_cast<MDResources*>(zone.currentData)->update1(threadResources, globalResources);
+			threadResources.taskShedular.pushPrimaryTask(1u, { &zone, update2 });
 			break;
 		}
 	}
@@ -930,14 +914,14 @@ namespace
 		switch (zone.lastUsedState)
 		{
 		case 0u:
-			reinterpret_cast<HDResources*>(zone.lastUsedData)->update2(threadResources, globalResources);
+			static_cast<HDResources*>(zone.lastUsedData)->update2(threadResources, globalResources);
 			break;
 		case 1u:
-			reinterpret_cast<MDResources*>(zone.lastUsedData)->update2(threadResources, globalResources);
+			static_cast<MDResources*>(zone.lastUsedData)->update2(threadResources, globalResources);
 			break;
 		}
 
-		threadResources.taskShedular.update1NextQueue().push({ &zone, update1});
+		threadResources.taskShedular.pushPrimaryTask(0u, { &zone, update1});
 	}
 
 	struct Zone1Functions
@@ -947,10 +931,10 @@ namespace
 			switch (zone.newState)
 			{
 			case 0u:
-				threadResources.taskShedular.backgroundQueue().push({ &zone, &HDResources::create });
+				threadResources.taskShedular.pushBackgroundTask({ &zone, &HDResources::create });
 				break;
 			case 1u:
-				threadResources.taskShedular.backgroundQueue().push({ &zone, &MDResources::create });
+				threadResources.taskShedular.pushBackgroundTask({ &zone, &MDResources::create });
 				break;
 			}
 		}
@@ -960,48 +944,39 @@ namespace
 			switch (zone.oldState)
 			{
 			case 0u:
-				threadResources.taskShedular.backgroundQueue().push({ &zone, [](void* context, ThreadResources& threadResources, GlobalResources& globalResources)
+				threadResources.taskShedular.pushBackgroundTask({ &zone, [](void* context, ThreadResources& threadResources, GlobalResources& globalResources)
 				{
 					Zone<ThreadResources, GlobalResources>& zone = *static_cast<Zone<ThreadResources, GlobalResources>*>(context);
-					auto resource = reinterpret_cast<HDResources*>(zone.oldData);
+					auto resource = static_cast<HDResources*>(zone.oldData);
 					resource->destruct(threadResources, globalResources);
 					resource->~HDResources();
 					free(resource);
-					zone.finishedDeletingOldState(threadResources);
+					zone.finishedDeletingOldState(threadResources, globalResources);
 				} });
 				break;
 			case 1u:
-				threadResources.taskShedular.backgroundQueue().push({ &zone, [](void* context, ThreadResources& threadResources, GlobalResources& globalResources)
+				threadResources.taskShedular.pushBackgroundTask({ &zone, [](void* context, ThreadResources& threadResources, GlobalResources& globalResources)
 				{
 					Zone<ThreadResources, GlobalResources>& zone = *static_cast<Zone<ThreadResources, GlobalResources>*>(context);
 					auto resource = static_cast<MDResources*>(zone.oldData);
 					resource->destruct(threadResources, globalResources);
 					resource->~MDResources();
 					free(resource);
-					zone.finishedDeletingOldState(threadResources);
+					zone.finishedDeletingOldState(threadResources, globalResources);
 				} });
 				break;
 			}
 		}
 
-		static void loadConnectedAreas(Zone<ThreadResources, GlobalResources>&, ThreadResources& threadResources, GlobalResources& globalResources, float distance, Area::VisitedNode* loadedAreas)
+		static Range<Portal*> getPortals(Zone<ThreadResources, GlobalResources>&)
 		{
-			globalResources.areas.cave.load(threadResources, globalResources, Vector2{ 0.0f, 91.0f }, distance, loadedAreas);
-		}
-		static bool changeArea(Zone<ThreadResources, GlobalResources>&, ThreadResources& threadResources, GlobalResources& globalResources)
-		{
-			auto& playerPosition = globalResources.playerPosition.location.position;
-			if ((playerPosition.x - 74.0f) * (playerPosition.x - 74.0f) + (playerPosition.y + 30.0f) * (playerPosition.y + 30.0f) + (playerPosition.z - 51.0f) * (playerPosition.z - 51.0f) < 202.0f)
-			{
-				globalResources.areas.cave.setAsCurrentArea(threadResources, globalResources);
-				return true;
-			}
-			return false;
+			static Portal portals[1] = {Portal{Vector3(64.0f, 6.0f, 84.0f), Vector3(64.0f, 6.0f, 84.0f), 1u}};
+			return range(portals, portals + 1u);
 		}
 
 		static void start(Zone<ThreadResources, GlobalResources>& zone, ThreadResources& threadResources, GlobalResources&)
 		{
-			threadResources.taskShedular.update1NextQueue().push({ &zone, update1 });
+			threadResources.taskShedular.pushPrimaryTask(0u, { &zone, update1 });
 		}
 	};
 }

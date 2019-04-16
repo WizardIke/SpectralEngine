@@ -133,7 +133,7 @@ void TextureManager::loadTextureFromMemory(const unsigned char* buffer, TextureS
 		uploadRequest.mipLevels, uploadRequest.arraySize, uploadRequest.format);
 }
 
-void TextureManager::notifyTextureReadyHelper(TextureStreamingRequest* request, void* tr, void* gr)
+void TextureManager::notifyTextureReady(TextureStreamingRequest* request, void* tr, void* gr)
 {
 	auto& texture = textures[request->filename];
 	texture.lastRequest = nullptr;

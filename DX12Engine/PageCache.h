@@ -2,7 +2,7 @@
 #include <cstdint>
 #undef min
 #undef max
-#include "HashMultiSet.h"
+#include "HashSet.h"
 #include "PageAllocationInfo.h"
 #include "Range.h"
 #include <cassert>
@@ -50,7 +50,7 @@ class PageCache
 
 	Node mFront;
 	Node mBack;
-	HashMultiSet<Node, Hash, KeyEqual> pageLookUp;// this could be an std::unordered_map but the textureLocation would have to by duplicated in key and value; or getPage would have to return a pair
+	HashSet<Node, Hash, KeyEqual> pageLookUp;// this could be an std::unordered_map but the textureLocation would have to by duplicated in key and value; or getPage would have to return a pair
 	std::size_t maxPages = 0u;
 
 	void moveNodeToFront(Node* node);
@@ -59,8 +59,8 @@ public:
 	PageCache();
 	/* gets a page and marks it as the most recently used */
 	PageAllocationInfo* getPage(const TextureLocation& location);
-	std::size_t capacity() { return maxPages; }
-	std::size_t size() { return pageLookUp.size(); }
+	std::size_t capacity() const { return maxPages; }
+	std::size_t size() const { return pageLookUp.size(); }
 	void increaseSize(std::size_t newMaxPages);
 
 	/*

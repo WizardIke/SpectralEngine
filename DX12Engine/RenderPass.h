@@ -2,10 +2,11 @@
 #include <d3d12.h>
 #include <memory>
 #include "for_each.h"
-#include "Frustum.h"
 #include <utility>
 #include <atomic>
 #include "D3D12GraphicsEngine.h"
+#include "ActorQueue.h"
+#include "RenderPassMessage.h"
 class Window;
 
 #if defined(_MSC_VER)
@@ -21,53 +22,87 @@ class RenderPass
 	void* firstExector;
 	unsigned int maxBarriers = 0u;
 	std::unique_ptr<D3D12_RESOURCE_BARRIER[]> barriers;//size = maxDependences * 2u * maxCameras * maxCommandListsPerFrame
+	std::tuple<RenderSubPass_t...> mSubPasses;
+	ActorQueue messageQueue;
 
 	void update1(D3D12GraphicsEngine& graphicsEngine)
 	{
-		graphicsEngine.waitForPreviousFrame();
-	}
-public:
-	RenderPass() {}
-	RenderPass(unsigned int threadCount)
-	{
-		unsigned int commandListCount = 0u;
-		for_each(subPasses, [&commandListCount](auto& subPass)
-		{
-			commandListCount += subPass.commandListsPerFrame;
-		});
-		commandListCount += threadCount;
-		commandLists.reset(new ID3D12CommandList*[commandListCount]);
-		updateBarrierCount();
+		graphicsEngine.startFrame();
 	}
 
-	std::tuple<RenderSubPass_t...> subPasses;
+	void run(void* tr, void* gr)
+	{
+		do
+		{
+			SinglyLinked* temp = messageQueue.popAll();
+			while(temp != nullptr)
+			{
+				auto& message = *static_cast<RenderPassMessage*>(temp);
+				temp = temp->next; //Allow reuse of next
+				message.execute(message, tr, gr);
+				updateBarrierCount();
+			}
+		} while(!messageQueue.stop());
+	}
 
 	void updateBarrierCount()
 	{
 		//grow barriers if needed
 		unsigned int maxDependences = 0u, maxCameras = 0u, maxCommandListsPerFrame = 0u;
-		for_each(subPasses, [&maxDependences, &maxCameras, &maxCommandListsPerFrame](auto& subPass)
+		for_each(mSubPasses, [&maxDependences, &maxCameras, &maxCommandListsPerFrame](auto& subPass)
 		{
-			if (std::tuple_size<typename std::remove_reference_t<decltype(subPass)>::Dependencies>::value > maxDependences)
+			if(std::tuple_size<typename std::remove_reference_t<decltype(subPass)>::Dependencies>::value > maxDependences)
 			{
 				maxDependences = (unsigned int)std::tuple_size<typename std::remove_reference_t<decltype(subPass)>::Dependencies>::value;
 			}
-			if (subPass.cameraCount() > maxCameras)
+			if(subPass.cameraCount() > maxCameras)
 			{
 				maxCameras = subPass.cameraCount();
 			}
-			if (subPass.commandListsPerFrame > maxCommandListsPerFrame)
+			if(subPass.commandListsPerFrame > maxCommandListsPerFrame)
 			{
 				maxCommandListsPerFrame = subPass.commandListsPerFrame;
 			}
 		});
 
 		auto newSize = maxDependences * maxCameras * maxCommandListsPerFrame * 2u;
-		if (newSize > maxBarriers)
+		if(newSize > maxBarriers)
 		{
 			barriers.reset(new D3D12_RESOURCE_BARRIER[newSize]);
 			maxBarriers = newSize;
 		}
+	}
+public:
+	RenderPass() {}
+	RenderPass(unsigned int threadCount)
+	{
+		unsigned int commandListCount = 0u;
+		for_each(mSubPasses, [&commandListCount](auto& subPass)
+		{
+			commandListCount += subPass.commandListsPerFrame;
+		});
+		commandListCount *= threadCount;
+		commandLists.reset(new ID3D12CommandList*[commandListCount]);
+		updateBarrierCount();
+	}
+
+	template<class ThreadResources, class GlobalResources>
+	void addMessage(RenderPassMessage& message, ThreadResources& threadResources, GlobalResources&)
+	{
+		bool needsStarting = messageQueue.push(&message);
+		if(needsStarting)
+		{
+			threadResources.taskShedular.pushPrimaryTask(0u, {this, [](void* requester, ThreadResources& threadResources, GlobalResources& globalResources)
+			{
+				auto& pass = *static_cast<RenderPass*>(requester);
+				pass.run(&threadResources, &globalResources);
+			}});
+		}
+	}
+
+	std::tuple<RenderSubPass_t...>& subPasses()
+	{
+		return mSubPasses;
 	}
 
 	class ThreadLocal
@@ -341,8 +376,8 @@ public:
 		template<unsigned int nextIndex>
 		static void addBarriers(RenderPass<RenderSubPass_t...>& renderPass, unsigned int& barrierCount)
 		{
-			addBeginBarriers<nextIndex>(renderPass.subPasses, renderPass.barriers.get(), barrierCount);
-			addEndOnlyBarriers<nextIndex>(renderPass.subPasses, renderPass.barriers.get(), barrierCount);
+			addBeginBarriers<nextIndex>(renderPass.mSubPasses, renderPass.barriers.get(), barrierCount);
+			addEndOnlyBarriers<nextIndex>(renderPass.mSubPasses, renderPass.barriers.get(), barrierCount);
 		}
 	public:
 		ThreadLocal(D3D12GraphicsEngine& graphicsEngine) : subPassesThreadLocal((sizeof(typename RenderSubPass_t::ThreadLocal), graphicsEngine)...) {}
@@ -401,8 +436,8 @@ public:
 
 		void present(unsigned int primaryThreadCount, D3D12GraphicsEngine& graphicsEngine, Window& window, RenderPass<RenderSubPass_t...>& renderPass)
 		{
-			unsigned int commandListCount = commandListPerThread(renderPass.subPasses) * primaryThreadCount;
-			graphicsEngine.present(window, renderPass.commandLists.get(), commandListCount);
+			unsigned int commandListCount = commandListPerThread(renderPass.mSubPasses) * primaryThreadCount;
+			graphicsEngine.endFrame(window, renderPass.commandLists.get(), commandListCount);
 		}
 	private:
 		unsigned int commandListPerThread(std::tuple<RenderSubPass_t...>& subPasses)
@@ -436,7 +471,7 @@ public:
 			update1After(D3D12GraphicsEngine& graphicsEngine, RenderPass<RenderSubPass_t...>& renderPass, ID3D12RootSignature* rootSignature)
 		{
 			auto& subPassLocal = std::get<start>(subPassesThreadLocal);
-			auto& subPass = std::get<start>(renderPass.subPasses);
+			auto& subPass = std::get<start>(renderPass.mSubPasses);
 			if (subPass.isInView())
 			{
 				if (firstThread)
@@ -463,9 +498,9 @@ public:
 			update2(RenderPass<RenderSubPass_t...>& renderPass, ID3D12CommandList** commandLists,
 				unsigned int numThreads)
 		{
-			const auto commandListsPerFrame = std::get<start>(renderPass.subPasses).commandListsPerFrame;
+			const auto commandListsPerFrame = std::get<start>(renderPass.mSubPasses).commandListsPerFrame;
 			auto& subPassLocal = std::get<start>(subPassesThreadLocal);
-			auto& subPass = std::get<start>(renderPass.subPasses);
+			auto& subPass = std::get<start>(renderPass.mSubPasses);
 			if (subPass.isInView())
 			{
 				subPassLocal.update2(commandLists, numThreads);
@@ -485,7 +520,7 @@ public:
 				unsigned int numThreads)
 		{
 			constexpr auto subPassCount = sizeof...(RenderSubPass_t);
-			auto& subPass = std::get<start>(renderPass.subPasses);
+			auto& subPass = std::get<start>(renderPass.mSubPasses);
 			if (subPass.isInView())
 			{
 				auto& subPassLocal = std::get<start>(subPassesThreadLocal);

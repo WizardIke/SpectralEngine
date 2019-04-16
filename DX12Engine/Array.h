@@ -185,17 +185,13 @@ public:
 		}
 		return buffer[pos];
 	}
-	Element& operator[](const std::size_t pos)
+	Element& operator[](const std::size_t pos) noexcept
 	{
 		return buffer[pos];
 	}
-	constexpr Element& operator[](const std::size_t pos) const
+	constexpr Element& operator[](const std::size_t pos) const noexcept
 	{
 		return buffer[pos];
-	}
-	constexpr Element& get(const std::size_t pos) const
-	{
-		return *(&buffer[0] + pos);
 	}
 	Element& front() noexcept
 	{
@@ -283,7 +279,7 @@ bool operator==(const Array<Element, capacity>& lhs, const Array<Element, capaci
 {
 	for (std::size_t i = 0u; i < capacity; ++i)
 	{
-		if (lhs.get(i) != rhs.get(i)) return false;
+		if (lhs[i] != rhs[i]) return false;
 	}
 	return true;
 }
@@ -299,8 +295,8 @@ bool operator<(const Array<Element, capacity>& lhs, const Array<Element, capacit
 {
 	for (std::size_t i = 0u; i < capacity; ++i)
 	{
-		if (lhs.get(i) < rhs.get(i)) return true;
-		else if (lhs.get(i) > rhs.get(i)) return false;
+		if (lhs[i] < rhs[i]) return true;
+		else if (lhs[i] > rhs[i]) return false;
 	}
 	return false;
 }
@@ -310,8 +306,8 @@ bool operator<=(const Array<Element, capacity>& lhs, const Array<Element, capaci
 {
 	for (std::size_t i = 0u; i < capacity; ++i)
 	{
-		if (lhs.get(i) < rhs.get(i)) return true;
-		else if (lhs.get(i) > rhs.get(i)) return false;
+		if (lhs[i] < rhs[i]) return true;
+		else if (lhs[i] > rhs[i]) return false;
 	}
 	return true;
 }

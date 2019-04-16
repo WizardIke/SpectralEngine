@@ -4,21 +4,6 @@
     <Filter Include="Areas">
       <UniqueIdentifier>{a861972b-407e-4867-a0aa-cdb7b66d0013}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Areas\Cave">
-      <UniqueIdentifier>{c518d3bd-919c-4b3d-9f82-24ef1f1d62b0}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Areas\Outside">
-      <UniqueIdentifier>{15969435-0dab-441b-b752-15fd74519ebd}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Areas\Cave\Models">
-      <UniqueIdentifier>{08e73ed4-9e87-4dc3-a124-a7d15624c691}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Areas\Cave\Zones">
-      <UniqueIdentifier>{ff654034-1a9f-4b08-aa04-e81dfe4799a0}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Areas\Outside\Zones">
-      <UniqueIdentifier>{9e83f29a-fd97-483d-add6-990d3286b62a}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Meshes">
       <UniqueIdentifier>{ac795ac9-e9e2-4ade-aab0-e330efc4c12a}</UniqueIdentifier>
     </Filter>
@@ -55,9 +40,6 @@
     <Filter Include="AmbientMusic">
       <UniqueIdentifier>{09e79b3c-09df-4a55-ad80-f7e66f2c888b}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Areas\Outside\Models">
-      <UniqueIdentifier>{a72817e4-81db-4081-ac17-578ae0c72784}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Shaders\Vertex">
       <UniqueIdentifier>{43307102-236a-4ab4-98f4-bb8e2fda6c4b}</UniqueIdentifier>
     </Filter>
@@ -67,23 +49,11 @@
     <Filter Include="GlobalResources">
       <UniqueIdentifier>{5bd3483d-e26a-44f5-ad2e-740b9cf78ea7}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Areas\Zones">
+      <UniqueIdentifier>{909ef4df-7027-41c2-8d60-3e8bfb306b0c}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Cave\CaveArea.cpp">
-      <Filter>Areas\Cave</Filter>
-    </ClCompile>
-    <ClCompile Include="Cave\CaveModelPart1.cpp">
-      <Filter>Areas\Cave\Models</Filter>
-    </ClCompile>
-    <ClCompile Include="Cave\CaveZone1.cpp">
-      <Filter>Areas\Cave\Zones</Filter>
-    </ClCompile>
-    <ClCompile Include="Outside\OutSideArea.cpp">
-      <Filter>Areas\Outside</Filter>
-    </ClCompile>
-    <ClCompile Include="Outside\zone1.cpp">
-      <Filter>Areas\Outside\Zones</Filter>
-    </ClCompile>
     <ClCompile Include="Models\WaterModel2.cpp">
       <Filter>Models</Filter>
     </ClCompile>
@@ -130,20 +100,17 @@
       <Filter>GlobalResources</Filter>
     </ClCompile>
     <ClCompile Include="RenderPass1.cpp" />
+    <ClCompile Include="Outside\zone1.cpp">
+      <Filter>Areas\Zones</Filter>
+    </ClCompile>
+    <ClCompile Include="Cave\CaveZone1.cpp">
+      <Filter>Areas\Zones</Filter>
+    </ClCompile>
+    <ClCompile Include="Cave\CaveModelPart1.cpp">
+      <Filter>Models</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Cave\CaveArea.h">
-      <Filter>Areas\Cave</Filter>
-    </ClInclude>
-    <ClInclude Include="Cave\CaveZone1.h">
-      <Filter>Areas\Cave\Zones</Filter>
-    </ClInclude>
-    <ClInclude Include="Outside\OutSideArea.h">
-      <Filter>Areas\Outside</Filter>
-    </ClInclude>
-    <ClInclude Include="Outside\zone1.h">
-      <Filter>Areas\Outside\Zones</Filter>
-    </ClInclude>
     <ClInclude Include="Models\BathModel2.h">
       <Filter>Models</Filter>
     </ClInclude>
@@ -193,12 +160,6 @@
     <ClInclude Include="MeshNames.h">
       <Filter>Meshes</Filter>
     </ClInclude>
-    <ClInclude Include="TestZone.h">
-      <Filter>Areas\Outside\Zones</Filter>
-    </ClInclude>
-    <ClInclude Include="HighResPlane.h">
-      <Filter>Areas\Outside\Models</Filter>
-    </ClInclude>
     <ClInclude Include="RenderPass1.h" />
     <ClInclude Include="Models\FireModel.h">
       <Filter>Models</Filter>
@@ -213,9 +174,6 @@
     <ClInclude Include="Shaders\DirectionalLightMaterialPS.h">
       <Filter>Shaders\Pixel</Filter>
     </ClInclude>
-    <ClInclude Include="Cave\CaveModelPart1.h">
-      <Filter>Areas\Cave\Models</Filter>
-    </ClInclude>
     <ClInclude Include="Shaders\VtFeedbackMaterialPS.h">
       <Filter>Shaders\Pixel</Filter>
     </ClInclude>
@@ -226,6 +184,21 @@
       <Filter>GlobalResources</Filter>
     </ClInclude>
     <ClInclude Include="StreamingRequests.h" />
+    <ClInclude Include="Outside\zone1.h">
+      <Filter>Areas\Zones</Filter>
+    </ClInclude>
+    <ClInclude Include="TestZone.h">
+      <Filter>Areas\Zones</Filter>
+    </ClInclude>
+    <ClInclude Include="Cave\CaveZone1.h">
+      <Filter>Areas\Zones</Filter>
+    </ClInclude>
+    <ClInclude Include="HighResPlane.h">
+      <Filter>Models</Filter>
+    </ClInclude>
+    <ClInclude Include="Cave\CaveModelPart1.h">
+      <Filter>Models</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="Meshes\bath.mesh">

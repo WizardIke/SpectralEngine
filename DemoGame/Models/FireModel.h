@@ -6,6 +6,7 @@
 #include <d3d12.h>
 #include <Shaders/FireMaterialVS.h>
 #include <Shaders/FireMaterialPS.h>
+#include <Vector3.h>
 
 template<class X, class Y, class Z>
 class FireModel
@@ -67,9 +68,9 @@ public:
 			flameTime -= 100.0f;
 		}
 	}
-	void beforeRender(uint32_t frameIndex, const DirectX::XMFLOAT3& position)
+	void beforeRender(uint32_t frameIndex, const Vector3& position)
 	{
-		float rotation = atan2(positionX - position.x, positionZ - position.z);
+		float rotation = atan2(positionX - position.x(), positionZ - position.z());
 
 		auto constantBuffer = reinterpret_cast<FireMaterialVS*>(constantBufferCpu + frameIndex * VSPerObjectConstantBufferSize);
 		constantBuffer->worldMatrix = DirectX::XMMatrixRotationY(rotation) * DirectX::XMMatrixTranslation(positionX, positionY, positionZ);

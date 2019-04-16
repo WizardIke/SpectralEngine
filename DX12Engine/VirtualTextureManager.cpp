@@ -238,7 +238,7 @@ static void addResitencyInfo(VirtualTextureInfoByID& texturesByID, VirtualTextur
 	resitencyInfo.pinnedHeapLocations = request.pinnedHeapLocations;
 }
 
-void VirtualTextureManager::notifyTextureReadyHelper(TextureStreamingRequest* request, void* tr, void* gr)
+void VirtualTextureManager::notifyTextureReady(TextureStreamingRequest* request, void* tr, void* gr)
 {
 	auto& texture = textures[request->filename];
 	texture.lastRequest = nullptr;

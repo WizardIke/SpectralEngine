@@ -30,13 +30,13 @@ private:
 			return result;
 		}
 	};
-
+public:
 	enum class Action : short
 	{
 		allocate,
 		deallocate,
 	};
-public:
+
 	class ReadRequest : public OVERLAPPED, public SinglyLinked, public ResourceId
 	{
 	public:
@@ -87,7 +87,7 @@ public:
 	template<class GlobalResources>
 	static bool processIOCompletion(void* executor, void* sharedResources, DWORD numberOfBytes, LPOVERLAPPED overlapped)
 	{
-		GlobalResources& globalResources = *reinterpret_cast<GlobalResources*>(sharedResources);
+		GlobalResources& globalResources = *static_cast<GlobalResources*>(sharedResources);
 		return processIOCompletionHelper(globalResources.asynchronousFileManager, executor, sharedResources, numberOfBytes, overlapped);
 	}
 
@@ -100,32 +100,44 @@ public:
 	}
 
 	template<class ThreadResources, class GlobalResources>
-	void readFile(ReadRequest* request, ThreadResources& threadResources, GlobalResources&)
+	void readFile(ReadRequest* request, ThreadResources&, GlobalResources& globalResources)
 	{
 		request->action = Action::allocate;
 		bool needsStarting = messageQueue.push(request);
 		if(needsStarting)
 		{
-			threadResources.taskShedular.backgroundQueue().push({this, [](void* requester, ThreadResources& threadResources, GlobalResources& globalResources)
+			IOCompletionPacket task;
+			task.numberOfBytesTransfered = 0u;
+			task.overlapped = reinterpret_cast<LPOVERLAPPED>(this);
+			task.completionKey = reinterpret_cast<ULONG_PTR>(static_cast<bool(*)(void* executor, void* sharedResources, DWORD numberOfBytes, LPOVERLAPPED overlapped)>(
+				[](void* tr, void* gr, DWORD, LPOVERLAPPED overlapped)
 			{
-				auto& afm = *static_cast<AsynchronousFileManager*>(requester);
-				afm.run(&threadResources, &globalResources);
-			}});
+				auto& afm = *reinterpret_cast<AsynchronousFileManager*>(overlapped);
+				afm.run(tr, gr);
+				return true;
+			}));
+			globalResources.ioCompletionQueue.push(task);
 		}
 	}
 
 	template<class ThreadResources, class GlobalResources>
-	void discard(ReadRequest* request, ThreadResources& threadResources, GlobalResources&)
+	void discard(ReadRequest* request, ThreadResources&, GlobalResources& globalResources)
 	{
 		request->action = Action::deallocate;
 		bool needsStarting = messageQueue.push(request);
 		if(needsStarting)
 		{
-			threadResources.taskShedular.backgroundQueue().push({this, [](void* requester, ThreadResources& threadResources, GlobalResources& globalResources)
+			IOCompletionPacket task;
+			task.numberOfBytesTransfered = 0u;
+			task.overlapped = reinterpret_cast<LPOVERLAPPED>(this);
+			task.completionKey = reinterpret_cast<ULONG_PTR>(static_cast<bool(*)(void* executor, void* sharedResources, DWORD numberOfBytes, LPOVERLAPPED overlapped)>(
+				[](void* tr, void* gr, DWORD, LPOVERLAPPED overlapped)
 			{
-				auto& afm = *static_cast<AsynchronousFileManager*>(requester);
-				afm.run(&threadResources, &globalResources);
-			}});
+				auto& afm = *reinterpret_cast<AsynchronousFileManager*>(overlapped);
+				afm.run(tr, gr);
+				return true;
+			}));
+			globalResources.ioCompletionQueue.push(task);
 		}
 	}
 };

@@ -114,7 +114,7 @@ private:
 		bool needsStarting = messageQueue.push(request);
 		if(needsStarting)
 		{
-			threadResources.taskShedular.backgroundQueue().push({this, [](void* requester, ThreadResources& threadResources, GlobalResources& globalResources)
+			threadResources.taskShedular.pushBackgroundTask({this, [](void* requester, ThreadResources& threadResources, GlobalResources& globalResources)
 			{
 				auto& manager = *static_cast<MeshManager*>(requester);
 				manager.run(threadResources, globalResources);
@@ -122,20 +122,7 @@ private:
 		}
 	}
 
-	void notifyMeshReadyHelper(MeshStreamingRequest* request, void* executor, void* sharedResources);
-
-	template<class ThreadResources, class GlobalResources>
-	void notifyMeshReady(MeshStreamingRequest* request, ThreadResources& threadResources, GlobalResources& globalResources)
-	{
-		request->deleteStreamingRequest = [](StreamingManager::StreamingRequest* request, void* tr, void* gr)
-		{
-			GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
-			MeshManager& meshManager = globalResources.meshManager;
-			meshManager.notifyMeshReadyHelper(static_cast<MeshStreamingRequest*>(request), tr, gr);
-		};
-		StreamingManager& streamingManager = globalResources.streamingManager;
-		streamingManager.uploadFinished(request, threadResources, globalResources);
-	}
+	void notifyMeshReady(MeshStreamingRequest* request, void* executor, void* sharedResources);
 
 	template<class ThreadResources, class GlobalResources>
 	static void copyFinished(void* requester, void* tr, void* gr)
@@ -150,9 +137,17 @@ private:
 			ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
 			GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
 
-			MeshManager& meshManager = globalResources.meshManager;
-			request->meshAction = Action::notifyReady;
-			meshManager.addMessage(request, threadResources, globalResources);
+			request->deleteStreamingRequest = [](StreamingManager::StreamingRequest* request1, void* tr, void* gr)
+			{
+				ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
+				GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
+				MeshManager& meshManager = globalResources.meshManager;
+				auto request = static_cast<MeshStreamingRequest*>(request1);
+				request->meshAction = Action::notifyReady;
+				meshManager.addMessage(request, threadResources, globalResources);
+			};
+			StreamingManager& streamingManager = globalResources.streamingManager;
+			streamingManager.uploadFinished(request, threadResources, globalResources);
 		};
 		globalResources.asynchronousFileManager.discard(request, threadResources, globalResources);
 	}
@@ -162,7 +157,7 @@ private:
 	static void useResource(StreamingManager::StreamingRequest* useSubresourceRequest, void* tr, void*)
 	{
 		ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
-		threadResources.taskShedular.backgroundQueue().push({useSubresourceRequest, [](void* requester, ThreadResources& threadResources, GlobalResources& globalResources)
+		threadResources.taskShedular.pushBackgroundTask({useSubresourceRequest, [](void* requester, ThreadResources& threadResources, GlobalResources& globalResources)
 		{
 			auto& uploadRequest = *static_cast<MeshStreamingRequest*>(static_cast<StreamingManager::StreamingRequest*>(requester));
 			const auto sizeOnFile = uploadRequest.sizeOnFile;
@@ -320,7 +315,7 @@ private:
 				}
 				else
 				{
-					notifyMeshReady(static_cast<MeshStreamingRequest*>(&message), threadResources, globalResources);
+					notifyMeshReady(static_cast<MeshStreamingRequest*>(&message), &threadResources, &globalResources);
 				}
 			}
 		} while(!messageQueue.stop());

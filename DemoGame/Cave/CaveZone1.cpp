@@ -21,9 +21,9 @@ namespace Cave
 		constexpr static unsigned int numTextures = 1u;
 		constexpr static unsigned int numComponents = 3u;
 
-		static void componentUploaded(Zone<ThreadResources, GlobalResources>* zone, ThreadResources& executor, GlobalResources&)
+		static void componentUploaded(Zone<ThreadResources, GlobalResources>* zone, ThreadResources& executor, GlobalResources& globalResources)
 		{
-			zone->componentUploaded(executor, numComponents);
+			zone->componentUploaded(executor, globalResources, numComponents);
 		}
 
 		D3D12Resource perObjectConstantBuffers;
@@ -169,7 +169,7 @@ namespace Cave
 
 		static void create(void* zone1, ThreadResources& threadResources, GlobalResources& globalResources)
 		{
-			auto& zone = *reinterpret_cast<Zone<ThreadResources, GlobalResources>*>(zone1);
+			auto& zone = *static_cast<Zone<ThreadResources, GlobalResources>*>(zone1);
 			zone.newData = malloc(sizeof(HDResources));
 			new(zone.newData) HDResources(threadResources, globalResources, zone);
 			componentUploaded(&zone, threadResources, globalResources);
@@ -197,30 +197,30 @@ namespace Cave
 	static void update2(void* requester, ThreadResources& threadResources, GlobalResources& globalResources);
 	static void update1(void* requester, ThreadResources& threadResources, GlobalResources& globalResources)
 	{
-		auto& zone = *reinterpret_cast<Zone<ThreadResources, GlobalResources>*>(requester);
+		auto& zone = *static_cast<Zone<ThreadResources, GlobalResources>*>(requester);
 		zone.lastUsedData = zone.currentData;
 		zone.lastUsedState = zone.currentState;
 
 		switch (zone.currentState)
 		{
 		case 0u:
-			reinterpret_cast<HDResources*>(zone.currentData)->update1(threadResources, globalResources);
-			threadResources.taskShedular.update2NextQueue().push({ &zone, update2 });
+			static_cast<HDResources*>(zone.currentData)->update1(threadResources, globalResources);
+			threadResources.taskShedular.pushPrimaryTask(1u, { &zone, update2 });
 			break;
 		}
 	}
 
 	static void update2(void* requester, ThreadResources& threadResources, GlobalResources& globalResources)
 	{
-		auto& zone = *reinterpret_cast<Zone<ThreadResources, GlobalResources>*>(requester);
+		auto& zone = *static_cast<Zone<ThreadResources, GlobalResources>*>(requester);
 
 		switch (zone.lastUsedState)
 		{
 		case 0u:
-			reinterpret_cast<HDResources*>(zone.lastUsedData)->update2(threadResources, globalResources);
+			static_cast<HDResources*>(zone.lastUsedData)->update2(threadResources, globalResources);
 			break;
 		}
-		threadResources.taskShedular.update1NextQueue().push({ &zone, update1 });
+		threadResources.taskShedular.pushPrimaryTask(0u, { &zone, update1 });
 	}
 
 	struct Zone1Functions
@@ -230,7 +230,7 @@ namespace Cave
 			switch (zone.newState)
 			{
 			case 0u:
-				threadResources.taskShedular.backgroundQueue().push({ &zone, &HDResources::create });
+				threadResources.taskShedular.pushBackgroundTask({ &zone, &HDResources::create });
 				break;
 			}
 		}
@@ -240,39 +240,28 @@ namespace Cave
 			switch (zone.oldState)
 			{
 			case 0u:
-				threadResources.taskShedular.backgroundQueue().push({ &zone, [](void* context, ThreadResources& threadResources, GlobalResources& globalResources)
+				threadResources.taskShedular.pushBackgroundTask({ &zone, [](void* context, ThreadResources& threadResources, GlobalResources& globalResources)
 				{
-					auto& zone = *reinterpret_cast<Zone<ThreadResources, GlobalResources>*>(context);
-					auto resource = reinterpret_cast<HDResources*>(zone.oldData);
+					auto& zone = *static_cast<Zone<ThreadResources, GlobalResources>*>(context);
+					auto resource = static_cast<HDResources*>(zone.oldData);
 					resource->destruct(threadResources, globalResources);
 					resource->~HDResources();
 					free(resource);
-					zone.finishedDeletingOldState(threadResources);
+					zone.finishedDeletingOldState(threadResources, globalResources);
 				} });
 				break;
 			}
 		}
 
-		static void loadConnectedAreas(Zone<ThreadResources, GlobalResources>&, ThreadResources& threadResources, GlobalResources& globalResources, float distance, Area::VisitedNode* loadedAreas)
+		static Range<Portal*> getPortals(Zone<ThreadResources, GlobalResources>&)
 		{
-			globalResources.areas.outside.load(threadResources, globalResources, Vector2{ 0.0f, 91.0f }, distance, loadedAreas);
-		}
-
-		static bool changeArea(Zone<ThreadResources, GlobalResources>&, ThreadResources& threadResources, GlobalResources& globalResources)
-		{
-			auto& playerPosition = globalResources.playerPosition.location.position;
-			if ((playerPosition.x - 74.0f) * (playerPosition.x - 74.0f) + (playerPosition.y + 10.0f) * (playerPosition.y + 10.0f) + (playerPosition.z - 71.0f) * (playerPosition.z - 71.0f) < 400)
-			{
-				globalResources.areas.cave.setAsCurrentArea(threadResources, globalResources);
-				return true;
-			}
-
-			return false;
+			static Portal portals[1] = {Portal{Vector3(64.0f, 6.0f, 84.0f), Vector3(64.0f, 6.0f, 84.0f), 0u}};
+			return range(portals, portals + 1u);
 		}
 
 		static void start(Zone<ThreadResources, GlobalResources>& zone, ThreadResources& threadResources, GlobalResources&)
 		{
-			threadResources.taskShedular.update1NextQueue().push({ &zone, update1 });
+			threadResources.taskShedular.pushPrimaryTask(0u, { &zone, update1 });
 		}
 	};
 

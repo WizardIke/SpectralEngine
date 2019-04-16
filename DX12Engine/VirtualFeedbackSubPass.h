@@ -27,20 +27,22 @@ class VirtualFeedbackSubPass : public RenderSubPass<VirtualPageCamera, D3D12_RES
 	bool inView = true;
 
 	template<class ThreadResources, class GlobalResources>
-	static void readbackTextureReady(void* requester, void* tr, void* gr)
+	static void readbackTextureReady(void* requester, void* tr, void*)
 	{
-		ThreadResources& threadResources = *reinterpret_cast<ThreadResources*>(tr);
-		GlobalResources& globalResources = *reinterpret_cast<GlobalResources*>(gr);
-		VirtualTextureManager& virtualTextureManager = globalResources.virtualTextureManager;
-		VirtualFeedbackSubPass& analyser = *reinterpret_cast<VirtualFeedbackSubPass*>(requester);
-		PageProvider& pageProvider = virtualTextureManager.pageProvider;
-		VirtualTextureInfoByID& texturesByID = virtualTextureManager.texturesByID;
+		ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
+		threadResources.taskShedular.pushBackgroundTask({requester, [](void* requester, ThreadResources& threadResources, GlobalResources& globalResources)
+		{
+			VirtualTextureManager& virtualTextureManager = globalResources.virtualTextureManager;
+			VirtualFeedbackSubPass& analyser = *static_cast<VirtualFeedbackSubPass*>(requester);
+			PageProvider& pageProvider = virtualTextureManager.pageProvider;
+			VirtualTextureInfoByID& texturesByID = virtualTextureManager.texturesByID;
 
-		const unsigned long totalSize = analyser.textureWidth * analyser.textureHeight * 8u;
-		unsigned char* feadBackBuffer = analyser.mapReadbackTexture(totalSize);
-		pageProvider.gatherPageRequests(feadBackBuffer, totalSize, texturesByID);
-		analyser.unmapReadbackTexture();
-		pageProvider.processPageRequests(texturesByID, threadResources, globalResources, analyser.mipBias, analyser.desiredMipBias);
+			const unsigned long totalSize = analyser.textureWidth * analyser.textureHeight * 8u;
+			unsigned char* feadBackBuffer = analyser.mapReadbackTexture(totalSize);
+			pageProvider.gatherPageRequests(feadBackBuffer, totalSize, texturesByID);
+			analyser.unmapReadbackTexture();
+			pageProvider.processPageRequests(texturesByID, threadResources, globalResources, analyser.mipBias, analyser.desiredMipBias);
+		}});
 	}
 
 	unsigned char* mapReadbackTexture(unsigned long totalSize);
@@ -78,21 +80,21 @@ public:
 		void update1AfterFirstThread(D3D12GraphicsEngine& graphicsEngine, VirtualFeedbackSubPass& renderSubPass,
 			ID3D12RootSignature* rootSignature, uint32_t barrierCount, D3D12_RESOURCE_BARRIER* barriers);
 
-		template<class Executor, class SharedResources_t>
-		void update2LastThread(ID3D12CommandList**& commandLists, unsigned int numThreads, VirtualFeedbackSubPass& renderSubPass, Executor& executor, SharedResources_t&)
+		template<class ThreadResources, class GlobalResources>
+		void update2LastThread(ID3D12CommandList**& commandLists, unsigned int numThreads, VirtualFeedbackSubPass& renderSubPass, ThreadResources& executor, GlobalResources&)
 		{
 			addBarrier<state, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_COMMON>(renderSubPass, lastCommandList());
 			update2(commandLists, numThreads);
 
-			executor.taskShedular.update1NextQueue().push({ &renderSubPass, [](void* context, Executor& executor, SharedResources_t& sharedResources)
+			executor.taskShedular.pushPrimaryTask(0u, { &renderSubPass, [](void* context, ThreadResources& executor, GlobalResources& sharedResources)
 			{
-				VirtualFeedbackSubPass& renderSubPass = *reinterpret_cast<VirtualFeedbackSubPass*>(context);
+				VirtualFeedbackSubPass& renderSubPass = *static_cast<VirtualFeedbackSubPass*>(context);
 				renderSubPass.inView = false;
 				StreamingManager& streamingManager = sharedResources.streamingManager;
 				D3D12GraphicsEngine& graphicsEngine = sharedResources.graphicsEngine;
 				StreamingManager::ThreadLocal& streamingManagerLocal = executor.streamingManager;
 
-				graphicsEngine.waitCommandQueueForPreviousFrame(streamingManager.commandQueue()); //Should be delayed after update2 so the command lists have been executed.
+				graphicsEngine.waitForPreviousFrame(streamingManager.commandQueue()); //Should be delayed after update2 so the command lists have been executed.
 
 				D3D12_TEXTURE_COPY_LOCATION UploadBufferLocation;
 				UploadBufferLocation.pResource = renderSubPass.feadbackTextureGpu;
@@ -110,7 +112,7 @@ public:
 				destination.PlacedFootprint.Footprint.RowPitch = static_cast<uint32_t>(renderSubPass.textureWidth * 8u);
 
 				streamingManagerLocal.copyCommandList().CopyTextureRegion(&destination, 0u, 0u, 0u, &UploadBufferLocation, nullptr);
-				streamingManagerLocal.addCopyCompletionEvent(context, readbackTextureReady<Executor, SharedResources_t>);
+				streamingManagerLocal.addCopyCompletionEvent(context, readbackTextureReady<ThreadResources, GlobalResources>);
 			} });
 		}
 

@@ -38,7 +38,7 @@ public:
 	{
 		return Delegate(c, [](void* context, Args... args)
 		{
-			C* c = reinterpret_cast<C*>(context);
+			C* c = static_cast<C*>(context);
 			return c->*memberFunction(args...);
 		});
 	}
@@ -57,7 +57,7 @@ public:
 	{
 		return Delegate(c, [](void* context, Args... args)
 		{
-			C* c = reinterpret_cast<C*>(context);
+			C* c = static_cast<C*>(context);
 			return freeFunction(c, args...);
 		});
 	}

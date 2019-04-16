@@ -68,7 +68,9 @@ MainCamera::MainCamera(Window& window, D3D12GraphicsEngine& graphicsEngine, unsi
 	{
 		auto constantBuffer = reinterpret_cast<CameraConstantBuffer*>(reinterpret_cast<unsigned char*>(constantBufferCpuAddress) + i * bufferSizePS);
 		constantBuffer->viewProjectionMatrix = mViewMatrix * mProjectionMatrix;
-		constantBuffer->cameraPosition = mLocation.position;
+		constantBuffer->cameraPosition.x = mLocation.position.x();
+		constantBuffer->cameraPosition.y = mLocation.position.y();
+		constantBuffer->cameraPosition.z = mLocation.position.z();
 		constantBuffer->screenWidth = (float)width;
 		constantBuffer->screenHeight = (float)height;
 		constantBuffer->backBufferTexture = backBufferTextures[i];
@@ -99,7 +101,9 @@ void MainCamera::render(Window& window, D3D12GraphicsEngine& graphicsEngine)
 	mImage = window.getBuffer(graphicsEngine.frameIndex);
 	const auto constantBuffer = reinterpret_cast<CameraConstantBuffer*>(reinterpret_cast<unsigned char*>(constantBufferCpuAddress) + graphicsEngine.frameIndex * bufferSizePS);
 	constantBuffer->viewProjectionMatrix = mViewMatrix * mProjectionMatrix;;
-	constantBuffer->cameraPosition = mLocation.position;
+	constantBuffer->cameraPosition.x = mLocation.position.x();
+	constantBuffer->cameraPosition.y = mLocation.position.y();
+	constantBuffer->cameraPosition.z = mLocation.position.z();
 	mFrustum.update(mProjectionMatrix, mViewMatrix, screenNear, screenDepth);
 }
 

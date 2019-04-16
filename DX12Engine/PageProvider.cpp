@@ -113,8 +113,8 @@ void PageProvider::addPageLoadRequestHelper(PageLoadRequest& streamingRequest, V
 }
 
 void PageProvider::addPageDataToResource(ID3D12Resource* resource, D3D12_TILED_RESOURCE_COORDINATE* newPageCoordinates, PageLoadRequest** pageLoadRequests, std::size_t pageCount,
-	D3D12_TILE_REGION_SIZE& tileSize, PageCache& pageCache, ID3D12GraphicsCommandList* commandList, GpuCompletionEventManager<frameBufferCount>& gpuCompletionEventManager, uint32_t frameIndex,
-	void(*uploadComplete)(void*, void*, void*))
+	D3D12_TILE_REGION_SIZE& tileSize, PageCache& pageCache, ID3D12GraphicsCommandList* commandList, D3D12GraphicsEngine& graphicsEngine,
+	void(*uploadComplete)(PrimaryTaskFromOtherThreadQueue::Task& task, void* gr, void* tr))
 {
 	D3D12_RESOURCE_BARRIER barriers[1];
 	barriers[0].Type = D3D12_RESOURCE_BARRIER_TYPE::D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
@@ -130,7 +130,8 @@ void PageProvider::addPageDataToResource(ID3D12Resource* resource, D3D12_TILED_R
 		commandList->CopyTiles(resource, &newPageCoordinates[i], &tileSize, pageLoadRequests[i]->uploadResource,
 			pageLoadRequests[i]->uploadResourceOffset,
 			D3D12_TILE_COPY_FLAGS::D3D12_TILE_COPY_FLAG_LINEAR_BUFFER_TO_SWIZZLED_TILED_RESOURCE);
-		gpuCompletionEventManager.addRequest(pageLoadRequests[i], uploadComplete, frameIndex);
+		pageLoadRequests[i]->execute = uploadComplete;
+		graphicsEngine.executeWhenGpuFinishesCurrentFrame(*pageLoadRequests[i]);
 		pageCache.setPageAsAllocated(pageLoadRequests[i]->allocationInfo.textureLocation, pageLoadRequests[i]->allocationInfo.heapLocation);
 	}
 
@@ -264,26 +265,24 @@ void PageProvider::checkCacheForPages(decltype(uniqueRequests)& pageRequests, Vi
 	}
 }
 
-void PageProvider::addNewPagesToResources(PageProvider& pageProvider, D3D12GraphicsEngine& graphicsEngine, VirtualTextureInfoByID& texturesByID,
-	GpuCompletionEventManager<frameBufferCount>& gpuCompletionEventManager, ID3D12GraphicsCommandList* commandList,
-	void(*uploadComplete)(void*, void*, void*))
+void PageProvider::addNewPagesToResources(D3D12GraphicsEngine& graphicsEngine, VirtualTextureInfoByID& texturesByID,
+	ID3D12GraphicsCommandList* commandList, void(*uploadComplete)(PrimaryTaskFromOtherThreadQueue::Task& task, void* gr, void* tr))
 {
 	ID3D12CommandQueue* commandQueue = graphicsEngine.directCommandQueue;
 	ID3D12Device* graphicsDevice = graphicsEngine.graphicsDevice;
-	PageAllocator& pageAllocator = pageProvider.pageAllocator;
-	PageCache& pageCache = pageProvider.pageCache;
-	auto frameIndex = graphicsEngine.frameIndex;
+	PageAllocator& pageAllocator1 = pageAllocator;
+	PageCache& pageCache1 = pageCache;
 
-	PageLoadRequest* halfFinishedPageRequests = pageProvider.halfFinishedPageLoadRequests.exchange(nullptr, std::memory_order::memory_order_acquire);
+	PageLoadRequest* halfFinishedPageRequests = halfFinishedPageLoadRequests.exchange(nullptr, std::memory_order::memory_order_acquire);
 
 	if(halfFinishedPageRequests == nullptr) return;
 
-	//add all remaining new pages to the cache and drop old pages from the cache
+	//add all remaining new pages to the cache
 	std::size_t newPageCount = 0;
 	PageLoadRequest* newPages[maxPagesLoading];
 	do
 	{
-		if(pageCache.contains(halfFinishedPageRequests->allocationInfo.textureLocation))
+		if(pageCache1.contains(halfFinishedPageRequests->allocationInfo.textureLocation))
 		{
 			newPages[newPageCount] = halfFinishedPageRequests;
 			++newPageCount;
@@ -316,9 +315,9 @@ void PageProvider::addNewPagesToResources(PageProvider& pageProvider, D3D12Graph
 		if(resource != previousResource)
 		{
 			const std::size_t pageCount = i - lastIndex;
-			pageAllocator.addPages(newPageCoordinates + lastIndex, pageCount, previousResource, commandQueue, graphicsDevice, HeapLocationsIterator{newPages + lastIndex});
-			pageProvider.addPageDataToResource(previousResource, newPageCoordinates + lastIndex, newPages + lastIndex, pageCount, tileSize, pageCache,
-				commandList, gpuCompletionEventManager, frameIndex, uploadComplete);
+			pageAllocator1.addPages(newPageCoordinates + lastIndex, pageCount, previousResource, commandQueue, graphicsDevice, HeapLocationsIterator{newPages + lastIndex});
+			addPageDataToResource(previousResource, newPageCoordinates + lastIndex, newPages + lastIndex, pageCount, tileSize, pageCache1,
+				commandList, graphicsEngine, uploadComplete);
 			lastIndex = i;
 			previousResource = resource;
 		}
@@ -329,9 +328,9 @@ void PageProvider::addNewPagesToResources(PageProvider& pageProvider, D3D12Graph
 		newPageCoordinates[i].Subresource = (UINT)newPages[i]->allocationInfo.textureLocation.mipLevel();
 	}
 	const std::size_t pageCount = i - lastIndex;
-	pageAllocator.addPages(newPageCoordinates + lastIndex, pageCount, previousResource, commandQueue, graphicsDevice, HeapLocationsIterator{newPages + lastIndex});
-	pageProvider.addPageDataToResource(previousResource, newPageCoordinates + lastIndex, newPages + lastIndex, pageCount, tileSize, pageCache,
-		commandList, gpuCompletionEventManager, frameIndex, uploadComplete);
+	pageAllocator1.addPages(newPageCoordinates + lastIndex, pageCount, previousResource, commandQueue, graphicsDevice, HeapLocationsIterator{newPages + lastIndex});
+	addPageDataToResource(previousResource, newPageCoordinates + lastIndex, newPages + lastIndex, pageCount, tileSize, pageCache1,
+		commandList, graphicsEngine, uploadComplete);
 }
 
 void PageProvider::shrinkNumberOfLoadRequestsIfNeeded(std::size_t numTexturePagesThatCanBeRequested)

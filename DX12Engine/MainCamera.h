@@ -4,6 +4,7 @@
 #include "Transform.h"
 #include "Frustum.h"
 #include <DirectXMath.h>
+#include "Vector3.h"
 #include "frameBufferCount.h"
 #include <new>
 class Window;
@@ -51,7 +52,7 @@ public:
 	void bindFirstThread(uint32_t frameIndex, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end);
 	ID3D12Resource* getImage() { return mImage; };
 	const ID3D12Resource* getImage() const { return mImage; }
-	DirectX::XMFLOAT3& position() { return mLocation.position; }
+	Vector3& position() { return mLocation.position; }
 	DirectX::XMMATRIX& projectionMatrix() { return mProjectionMatrix; }
 	Transform& transform() { return mLocation; }
 	const Frustum& frustum() const { return mFrustum; }

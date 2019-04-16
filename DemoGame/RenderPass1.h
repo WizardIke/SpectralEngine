@@ -15,16 +15,16 @@ class RenderPass1
 	constexpr static unsigned int virtualTextureFeedbackSubPassIndex = 0u;
 	constexpr static unsigned int renderToTextureSubPassIndex = 1u;
 	constexpr static unsigned int colorSubPassIndex = 2u;
-	using RenderToTextureSubPass1 = RenderSubPass<ReflectionCamera, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET, std::tuple<>, std::tuple<>, 1u>;
-	using ColorSubPass1 = RenderMainSubPass<MainCamera, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET,
+public:
+	using RenderToTextureSubPass = RenderSubPass<ReflectionCamera, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET, std::tuple<>, std::tuple<>, 1u>;
+	using ColorSubPass = RenderMainSubPass<MainCamera, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET,
 		std::tuple<std::integral_constant<unsigned int, renderToTextureSubPassIndex>>,
 		std::tuple<std::integral_constant<D3D12_RESOURCE_STATES, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE>>, 2u, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_PRESENT>;
-	using RenderPass11 = RenderPass<VirtualFeedbackSubPass, RenderToTextureSubPass1, ColorSubPass1>;
+private:
+	using RenderPass11 = RenderPass<VirtualFeedbackSubPass, RenderToTextureSubPass, ColorSubPass>;
 
 	RenderPass11 data;
 public:
-	using RenderToTextureSubPass = RenderToTextureSubPass1;
-
 	RenderPass1() {}
 	RenderPass1(GlobalResources& globalResources, Transform& mainCameraTransform, uint32_t virtualTextureFeedbackWidth, uint32_t virtualTextureFeedbackHeight,
 		D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpu, unsigned char*& constantBufferCpu, float feedbackFieldOfView);
@@ -38,8 +38,8 @@ public:
 		class ColorSubPass
 		{
 			friend class Local;
-			ColorSubPass1::ThreadLocal& data;
-			ColorSubPass(RenderPass1::ColorSubPass1::ThreadLocal& data) : data(data) {}
+			RenderPass1::ColorSubPass::ThreadLocal& data;
+			ColorSubPass(RenderPass1::ColorSubPass::ThreadLocal& data) : data(data) {}
 		public:
 			ColorSubPass(const ColorSubPass& other) = default;
 			ID3D12GraphicsCommandList* opaqueCommandList() { return data.currentData->commandLists[0u]; }
@@ -66,12 +66,12 @@ public:
 		void present(unsigned int primaryThreadCount, D3D12GraphicsEngine& graphicsEngine, Window& window, RenderPass1& renderPass) { data.present(primaryThreadCount, graphicsEngine, window, renderPass.data); }
 	};
 
-	ColorSubPass1& colorSubPass() { return std::get<colorSubPassIndex>(data.subPasses); }
-	RenderToTextureSubPass& renderToTextureSubPass() { return std::get<renderToTextureSubPassIndex>(data.subPasses); }
-	VirtualFeedbackSubPass& virtualTextureFeedbackSubPass() { return std::get<virtualTextureFeedbackSubPassIndex>(data.subPasses); }
+	ColorSubPass& colorSubPass() { return std::get<colorSubPassIndex>(data.subPasses()); }
+	RenderToTextureSubPass& renderToTextureSubPass() { return std::get<renderToTextureSubPassIndex>(data.subPasses()); }
+	VirtualFeedbackSubPass& virtualTextureFeedbackSubPass() { return std::get<virtualTextureFeedbackSubPassIndex>(data.subPasses()); }
 
-	void updateBarrierCount()
+	void addMessage(RenderPassMessage& message, ThreadResources& threadResources, GlobalResources& globalResources)
 	{
-		data.updateBarrierCount();
+		data.addMessage(message, threadResources, globalResources);
 	}
 };

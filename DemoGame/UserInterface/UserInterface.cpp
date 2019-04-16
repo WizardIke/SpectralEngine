@@ -130,22 +130,28 @@ void UserInterface::update2(ThreadResources& executor, GlobalResources& sharedRe
 	}
 }
 
-void UserInterface::restart(ThreadResources& threadResources)
-{
-	threadResources.taskShedular.update1NextQueue().push({this, [](void* requester, ThreadResources& threadResources, GlobalResources& globalResources)
-	{
-		UserInterface* const ui = reinterpret_cast<UserInterface* const>(requester);
-		ui->update1(globalResources);
-		threadResources.taskShedular.update2NextQueue().push({ requester, [](void*const requester, ThreadResources& threadResources, GlobalResources& globalResources)
-		{
-			UserInterface* const ui = reinterpret_cast<UserInterface* const>(requester);
-			ui->update2(threadResources, globalResources);
-			ui->restart(threadResources);
-		} });
-	} });
-}
-
 void UserInterface::start(ThreadResources& threadResources, GlobalResources&)
 {
-	restart(threadResources);
+	threadResources.taskShedular.pushPrimaryTask(0u, {this, [](void* requester, ThreadResources& threadResources, GlobalResources& globalResources)
+	{
+		UserInterface* const ui = static_cast<UserInterface*>(requester);
+		auto stopRequest = ui->mStopRequest.load(std::memory_order_acquire);
+		if(stopRequest != nullptr)
+		{
+			stopRequest->callback(*stopRequest, &threadResources, &globalResources);
+			return;
+		}
+		ui->update1(globalResources);
+		threadResources.taskShedular.pushPrimaryTask(1u, { requester, [](void*const requester, ThreadResources& threadResources, GlobalResources& globalResources)
+		{
+			UserInterface* const ui = static_cast<UserInterface*>(requester);
+			ui->update2(threadResources, globalResources);
+			ui->start(threadResources, globalResources);
+		} });
+	}});
+}
+
+void UserInterface::stop(StopRequest& stopRequest)
+{
+	mStopRequest.store(&stopRequest, std::memory_order_release);
 }

@@ -1,5 +1,6 @@
 #include "GlobalResources.h"
 #include "TextureNames.h"
+#include <thread>
 
 static LRESULT CALLBACK windowCallback(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -54,57 +55,63 @@ static LRESULT CALLBACK windowCallback(HWND hwnd, UINT message, WPARAM wParam, L
 	}
 }
 
-namespace
+class GlobalResources::InitialResourceLoader : public TextureManager::TextureStreamingRequest, public PipelineStateObjects::PipelineLoader, private PrimaryTaskFromOtherThreadQueue::Task
 {
-	class InitialResourceLoader : public TextureManager::TextureStreamingRequest, public PipelineStateObjects::PipelineLoader
+	static void fontsLoadedCallback(TextureManager::TextureStreamingRequest& request, void* tr, void* gr, unsigned int textureID)
 	{
-		static void fontsLoadedCallback(TextureManager::TextureStreamingRequest& request, void* tr, void* gr, unsigned int textureID)
-		{
-			ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
-			GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
-			globalResources.arial.setDiffuseTexture(textureID, globalResources.constantBuffersCpuAddress, globalResources.sharedConstantBuffer->GetGPUVirtualAddress());
+		ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
+		GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
+		globalResources.arial.setDiffuseTexture(textureID, globalResources.constantBuffersCpuAddress, globalResources.sharedConstantBuffer->GetGPUVirtualAddress());
 
-			InitialResourceLoader& request1 = static_cast<InitialResourceLoader&>(request);
-			request1.componentLoaded(threadResources, globalResources);
-			freeRequestMemory(request1);
-		}
+		InitialResourceLoader& request1 = static_cast<InitialResourceLoader&>(request);
+		request1.componentLoaded(threadResources, globalResources);
+		freeRequestMemory(request1);
+	}
 
-		static void pipelineStateObjectsLoadedCallback(PipelineStateObjects::PipelineLoader& pipelineLoader, ThreadResources& threadResources, GlobalResources& globalResources)
-		{
-			InitialResourceLoader& request1 = static_cast<InitialResourceLoader&>(pipelineLoader);
-			request1.componentLoaded(threadResources, globalResources);
-		}
+	static void pipelineStateObjectsLoadedCallback(PipelineStateObjects::PipelineLoader& pipelineLoader, ThreadResources& threadResources, GlobalResources& globalResources)
+	{
+		InitialResourceLoader& request1 = static_cast<InitialResourceLoader&>(pipelineLoader);
+		request1.componentLoaded(threadResources, globalResources);
+	}
 
-		void componentLoaded(ThreadResources& threadResources, GlobalResources& globalResources)
+	void componentLoaded(ThreadResources&, GlobalResources& globalResources)
+	{
+		if(numberOfComponentsLoaded.fetch_add(1u, std::memory_order::memory_order_acq_rel) == (numberOfComponentsToLoad - 1u))
 		{
-			if(numberOfComponentsLoaded.fetch_add(1u, std::memory_order::memory_order_acq_rel) == (numberOfComponents - 1u))
+			globalResources.taskShedular.setNextPhaseTask(ThreadResources::initialize2);
+			execute = [](PrimaryTaskFromOtherThreadQueue::Task& task, void* tr, void* gr)
 			{
+				ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
+				GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
+
 				globalResources.userInterface.start(threadResources, globalResources);
 				globalResources.areas.start(threadResources, globalResources);
-				globalResources.taskShedular.setNextPhaseTask(ThreadResources::initialize2);
-			}
-		}
 
-		static void freeRequestMemory(InitialResourceLoader& request)
-		{
-			if(request.numberOfComponentsReadyToDelete.fetch_add(1u) == (numberOfComponents - 1u))
-			{
-				delete &request;
-			}
+				freeRequestMemory(static_cast<InitialResourceLoader&>(task));
+			};
+			globalResources.taskShedular.pushPrimaryTaskFromOtherThread(0u, *this);
 		}
+	}
 
-		static constexpr unsigned int numberOfComponents = 2u;
-		std::atomic<unsigned int> numberOfComponentsLoaded = 0u;
-		std::atomic<unsigned int> numberOfComponentsReadyToDelete = 0u;
-	public:
-		InitialResourceLoader(const wchar_t* fontFilename) :
-			TextureManager::TextureStreamingRequest(fontsLoadedCallback, fontFilename),
-			PipelineStateObjects::PipelineLoader(pipelineStateObjectsLoadedCallback, [](PipelineStateObjects::PipelineLoader& pipelineLoader)
+	static void freeRequestMemory(InitialResourceLoader& request)
+	{
+		if(request.numberOfComponentsReadyToDelete.fetch_add(1u, std::memory_order::memory_order_acq_rel) == (numberOfComponentsToLoad))
 		{
-			freeRequestMemory(static_cast<InitialResourceLoader&>(pipelineLoader));
-		}) {}
-	};
-}
+			delete &request;
+		}
+	}
+
+	static constexpr unsigned int numberOfComponentsToLoad = 2u;
+	std::atomic<unsigned int> numberOfComponentsLoaded = 0u;
+	std::atomic<unsigned int> numberOfComponentsReadyToDelete = 0u;
+public:
+	InitialResourceLoader(const wchar_t* fontFilename) :
+		TextureManager::TextureStreamingRequest(fontsLoadedCallback, fontFilename),
+		PipelineStateObjects::PipelineLoader(pipelineStateObjectsLoadedCallback, [](PipelineStateObjects::PipelineLoader& pipelineLoader)
+	{
+		freeRequestMemory(static_cast<InitialResourceLoader&>(pipelineLoader));
+	}) {}
+};
 
 static const wchar_t* const musicFiles[] = 
 {
@@ -160,7 +167,7 @@ GlobalResources::GlobalResources(const unsigned int numberOfThreads, bool fullSc
 	}(), D3D12_RESOURCE_STATE_GENERIC_READ),
 	areas(),
 	ambientMusic(*this, musicFiles, sizeof(musicFiles) / sizeof(musicFiles[0])),
-	playerPosition(DirectX::XMFLOAT3(59.0f, 4.0f, 10.0f), DirectX::XMFLOAT3(0.0f, 0.2f, 0.0f)),
+	playerPosition(Vector3(59.0f, 4.0f, 10.0f), Vector3(0.0f, 0.2f, 0.0f)),
 	warpTexture(graphicsEngine.graphicsDevice, []()
 	{
 		D3D12_HEAP_PROPERTIES properties;
@@ -182,8 +189,11 @@ GlobalResources::GlobalResources(const unsigned int numberOfThreads, bool fullSc
 	}()),
 	readyToPresentEvent(nullptr, FALSE, FALSE, nullptr)
 {
+	areas.setPosition(playerPosition.location.position, 0u);
+	taskShedular.start(mainThreadResources, *this);
 	ioCompletionQueue.start(mainThreadResources, *this);
 	ambientMusic.start(mainThreadResources, *this);
+	graphicsEngine.start(mainThreadResources, *this);
 
 	D3D12_RANGE readRange{ 0u, 0u };
 	HRESULT hr = sharedConstantBuffer->Map(0u, &readRange, reinterpret_cast<void**>(&constantBuffersCpuAddress));
@@ -234,10 +244,10 @@ GlobalResources::~GlobalResources()
 
 void GlobalResources::update()
 {
-	bool succeeded = Window::processMessagesForAllWindowsOnCurrentThread();
+	bool succeeded = Window::processMessagesForAllWindowsCreatedOnCurrentThread();
 	if (!succeeded)
 	{
-		taskShedular.setNextPhaseTask(ThreadResources::quit);
+		stop(mainThreadResources);
 	}
 	timer.update();
 	playerPosition.update(timer.frameTime(), inputHandler.aDown, inputHandler.dDown, inputHandler.wDown, inputHandler.sDown, inputHandler.spaceDown);
@@ -249,28 +259,180 @@ void GlobalResources::beforeRender()
 	mainCamera().render(window, graphicsEngine);
 }
 
+void GlobalResources::primaryThreadFunction(unsigned int i, unsigned int primaryThreadCount, GlobalResources& globalReources)
+{
+	std::thread worker = i != primaryThreadCount ? 
+		std::thread(primaryThreadFunction, i + 1u, primaryThreadCount, std::ref(globalReources)) : 
+		std::thread(backgroundThreadFunction, i + 1u, globalReources.taskShedular.threadCount(), std::ref(globalReources));
+
+	ThreadResources threadResources(i, globalReources, ThreadResources::primaryEndUpdate2);
+	threadResources.start(globalReources);
+
+	worker.join();
+}
+
+void GlobalResources::backgroundThreadFunction(unsigned int i, unsigned int threadCount, GlobalResources& globalReources)
+{
+	if(i + 1u != threadCount)
+	{
+		std::thread worker = std::thread(backgroundThreadFunction, i + 1u, threadCount, std::ref(globalReources));
+
+		ThreadResources threadResources(i, globalReources, ThreadResources::backgroundEndUpdate2);
+		threadResources.start(globalReources);
+
+		worker.join();
+	}
+	else
+	{
+		ThreadResources threadResources(i, globalReources, ThreadResources::backgroundEndUpdate2);
+		threadResources.start(globalReources);
+	}
+}
+
 void GlobalResources::start()
 {
 	const auto threadCount = taskShedular.threadCount();
-	const auto primaryThreadCount = threadCount - (threadCount > 4u ? threadCount / 4u : 1u);
-	for (unsigned int i = 1u; i != primaryThreadCount; ++i)
-	{
-		std::thread worker([i, this]()
-		{
-			ThreadResources threadResources(i, *this, ThreadResources::primaryEndUpdate2);
-			threadResources.start(*this);
-		});
-		worker.detach();
-	}
-	for (unsigned int i = primaryThreadCount; i != threadCount; ++i)
-	{
-		std::thread worker([i, this]()
-		{
-			ThreadResources threadResources(i, *this, ThreadResources::backgroundEndUpdate2);
-			threadResources.start(*this);
-		});
-		worker.detach();
-	}
+	const auto primaryThreadCount = threadCount - (threadCount > 4u ? threadCount / 4u : 1u) - 1u;
+
+	std::thread worker = primaryThreadCount != 0u ?
+		std::thread(primaryThreadFunction, 1u, primaryThreadCount, std::ref(*this)) :
+		std::thread(backgroundThreadFunction, 1u, threadCount, std::ref(*this));
+	
 	timer.start();
 	mainThreadResources.start(*this);
+
+	worker.join();
+}
+
+class GlobalResources::Unloader
+{
+	class AmbientMusicStopRequests : public AmbientMusic::StopRequest
+	{
+	public:
+		Unloader* unloader;
+
+		AmbientMusicStopRequests(Unloader* unloader, void(*callback)(ReadRequest& request, void* tr, void* gr)) :
+			unloader(unloader), AmbientMusic::StopRequest(callback) {}
+	};
+
+	class UserInterfaceStopRequest : public UserInterface::StopRequest
+	{
+	public:
+		Unloader* unloader;
+	};
+
+	class AreasStopRequest : public Areas::StopRequest
+	{
+	public:
+		Unloader* unloader;
+	};
+
+	class IoCompletionQueueStopRequest : public RunnableIOCompletionQueue::StopRequest
+	{
+	public:
+		Unloader* unloader;
+	};
+
+	class TaskShedularStopRequest : public TaskShedular<ThreadResources, GlobalResources>::StopRequest
+	{
+	public:
+		Unloader* unloader;
+
+		TaskShedularStopRequest(Unloader* unloader, void(*callback)(TaskShedular<ThreadResources, GlobalResources>::StopRequest& stopRequest, void* tr, void* gr)) :
+			unloader(unloader), TaskShedular<ThreadResources, GlobalResources>::StopRequest(callback) {}
+	};
+
+	class GraphicsEngineStopRequest : public D3D12GraphicsEngine::StopRequest
+	{
+	public:
+		Unloader* unloader;
+
+		GraphicsEngineStopRequest(Unloader* unloader, void(*callback)(D3D12GraphicsEngine::StopRequest& stopRequest, void* tr, void* gr)) :
+			unloader(unloader), D3D12GraphicsEngine::StopRequest::StopRequest(callback) {}
+	};
+
+	AmbientMusicStopRequests ambientMusicStopRequests;
+	UserInterfaceStopRequest userInterfaceStopRequest;
+	AreasStopRequest areasStopRequest;
+
+	IoCompletionQueueStopRequest ioCompletionQueueStopRequest;
+	TaskShedularStopRequest taskShedularStopRequest;
+	GraphicsEngineStopRequest graphicsEngineStopRequest;
+
+
+	constexpr static unsigned int numberOfNumponentsToUnload1 = 3u; //AmbientMusic, UserInterface, Areas
+	std::atomic<unsigned int> numberOfComponentsUnloaded = 0u;
+
+	constexpr static unsigned int numberOfNumponentsToUnload2 = 3u; //IoCompletionQueue, TaskShedular, GraphicsEngine
+
+	void componentUnloaded1(void* tr, void* gr)
+	{
+		if(numberOfComponentsUnloaded.fetch_add(1u, std::memory_order::memory_order_acq_rel) == (numberOfNumponentsToUnload1 - 1u))
+		{
+			numberOfComponentsUnloaded.store(0u, std::memory_order_relaxed);
+			ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
+			GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
+
+			globalResources.ioCompletionQueue.stop(ioCompletionQueueStopRequest);
+			globalResources.taskShedular.stop(taskShedularStopRequest, threadResources, globalResources);
+			globalResources.graphicsEngine.stop(graphicsEngineStopRequest, threadResources, globalResources);
+		}
+	}
+
+	void componentUnloaded2(void* gr)
+	{
+		if(numberOfComponentsUnloaded.fetch_add(1u, std::memory_order::memory_order_acq_rel) == (numberOfNumponentsToUnload2 - 1u))
+		{
+			GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
+			globalResources.taskShedular.setNextPhaseTask(ThreadResources::quit2);
+			delete this;
+		}
+	}
+public:
+	Unloader() : 
+		ambientMusicStopRequests(this, [](AsynchronousFileManager::ReadRequest& stopRequest, void* tr, void* gr)
+	{
+		static_cast<AmbientMusicStopRequests&>(stopRequest).unloader->componentUnloaded1(tr, gr);
+	}),
+		taskShedularStopRequest(this, [](TaskShedular<ThreadResources, GlobalResources>::StopRequest& stopRequest, void* tr, void*)
+	{
+		static_cast<TaskShedularStopRequest&>(stopRequest).unloader->componentUnloaded2(tr);
+	}),
+		graphicsEngineStopRequest(this, [](D3D12GraphicsEngine::StopRequest& stopRequest, void* tr, void*)
+	{
+		static_cast<GraphicsEngineStopRequest&>(stopRequest).unloader->componentUnloaded2(tr);
+	})
+	{
+		userInterfaceStopRequest.unloader = this;
+		userInterfaceStopRequest.callback = [](UserInterface::StopRequest& stopRequest, void* tr, void* gr)
+		{
+			static_cast<UserInterfaceStopRequest&>(stopRequest).unloader->componentUnloaded1(tr, gr);
+		};
+
+		ioCompletionQueueStopRequest.unloader = this;
+		ioCompletionQueueStopRequest.callback = [](RunnableIOCompletionQueue::StopRequest& stopRequest, void*, void* gr)
+		{
+			static_cast<IoCompletionQueueStopRequest&>(stopRequest).unloader->componentUnloaded2(gr);
+		};
+
+		areasStopRequest.unloader = this;
+		areasStopRequest.callback = [](Areas::StopRequest& stopRequest, void* tr, void* gr)
+		{
+			static_cast<AreasStopRequest&>(stopRequest).unloader->componentUnloaded1(tr, gr);
+		};
+	}
+
+	void unload(ThreadResources& threadResources, GlobalResources& globalReources)
+	{
+		globalReources.areas.stop(areasStopRequest);
+		globalReources.userInterface.stop(userInterfaceStopRequest);
+		globalReources.ambientMusic.stop(ambientMusicStopRequests, threadResources, globalReources);
+	}
+};
+
+void GlobalResources::stop(ThreadResources& threadResources)
+{
+	taskShedular.setNextPhaseTask(ThreadResources::quit1);
+	Unloader* unloader = new Unloader();
+	unloader->unload(threadResources, *this);
 }

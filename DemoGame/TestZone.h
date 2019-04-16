@@ -22,12 +22,12 @@ class TestZoneFunctions
 	{
 		constexpr static unsigned int numMeshes = 1u;
 		constexpr static unsigned int numTextures = 1u;
-		constexpr static unsigned int numComponents = 1u + numMeshes + numTextures;
+		constexpr static unsigned int numComponents = 3u;
 
-		static void componentUploaded(void* requester, ThreadResources& executor, GlobalResources&)
+		static void componentUploaded(void* requester, ThreadResources& executor, GlobalResources& globalResources)
 		{
-			const auto zone = reinterpret_cast<Zone<ThreadResources, GlobalResources>*>(requester);
-			zone->componentUploaded(executor, numComponents);
+			const auto zone = static_cast<Zone<ThreadResources, GlobalResources>*>(requester);
+			zone->componentUploaded(executor, globalResources, numComponents);
 		}
 
 		D3D12Resource perObjectConstantBuffers;
@@ -83,9 +83,9 @@ class TestZoneFunctions
 			VirtualTextureManager& virtualTextureManager = globalResources.virtualTextureManager;
 			VirtualTextureRequest* stone04Request = new VirtualTextureRequest([](VirtualTextureManager::TextureStreamingRequest& request, void* tr, void* gr, const VirtualTextureManager::Texture& texture)
 			{
-				ThreadResources& threadResources = *reinterpret_cast<ThreadResources*>(tr);
-				GlobalResources& globalResources = *reinterpret_cast<GlobalResources*>(gr);
-				auto& zone = reinterpret_cast<VirtualTextureRequest&>(request).zone;
+				ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
+				GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
+				auto& zone = static_cast<VirtualTextureRequest&>(request).zone;
 				auto resources = ((HDResources*)zone.newData);
 				const auto cpuStartAddress = resources->perObjectConstantBuffersCpuAddress;
 				const auto gpuStartAddress = resources->perObjectConstantBuffers->GetGPUVirtualAddress();
@@ -183,7 +183,7 @@ class TestZoneFunctions
 
 		static void create(void* context, ThreadResources& threadResources, GlobalResources& globalResources)
 		{
-			auto& zone = *reinterpret_cast<Zone<ThreadResources, GlobalResources>*>(context);
+			auto& zone = *static_cast<Zone<ThreadResources, GlobalResources>*>(context);
 			zone.newData = malloc(sizeof(HDResources));
 			new(zone.newData) HDResources(threadResources, globalResources, zone);
 			componentUploaded(&zone, threadResources, globalResources);
@@ -210,30 +210,30 @@ class TestZoneFunctions
 
 	static void update1(void* context, ThreadResources& threadResources, GlobalResources& globalResources)
 	{
-		auto& zone = *reinterpret_cast<Zone<ThreadResources, GlobalResources>*>(context);
+		auto& zone = *static_cast<Zone<ThreadResources, GlobalResources>*>(context);
 		zone.lastUsedData = zone.currentData;
 		zone.lastUsedState = zone.currentState;
 
 		switch (zone.currentState)
 		{
 		case 0u:
-			reinterpret_cast<HDResources*>(zone.currentData)->update1(threadResources, globalResources);
-			threadResources.taskShedular.update2NextQueue().push({ &zone, update2 });
+			static_cast<HDResources*>(zone.currentData)->update1(threadResources, globalResources);
+			threadResources.taskShedular.pushPrimaryTask(1u, { &zone, update2 });
 			break;
 		}
 	}
 
 	static void update2(void* context, ThreadResources& threadResources, GlobalResources& globalResources)
 	{
-		auto& zone = *reinterpret_cast<Zone<ThreadResources, GlobalResources>*>(context);
+		auto& zone = *static_cast<Zone<ThreadResources, GlobalResources>*>(context);
 
 		switch (zone.lastUsedState)
 		{
 		case 0u:
-			reinterpret_cast<HDResources*>(zone.lastUsedData)->update2(threadResources, globalResources);
+			static_cast<HDResources*>(zone.lastUsedData)->update2(threadResources, globalResources);
 			break;
 		}
-		threadResources.taskShedular.update1NextQueue().push({ &zone, update1 });
+		threadResources.taskShedular.pushPrimaryTask(0u, { &zone, update1 });
 	}
 public:
 	static void createNewStateData(Zone<ThreadResources, GlobalResources>& zone, ThreadResources& threadResources, GlobalResources&)
@@ -241,7 +241,7 @@ public:
 		switch (zone.newState)
 		{
 		case 0u:
-			threadResources.taskShedular.backgroundQueue().push({ &zone, &HDResources::create });
+			threadResources.taskShedular.pushBackgroundTask({ &zone, &HDResources::create });
 			break;
 		}
 	}
@@ -251,14 +251,14 @@ public:
 		switch (zone.oldState)
 		{
 		case 0u:
-			threadResources.taskShedular.backgroundQueue().push({ &zone, [](void* context, ThreadResources& threadResources, GlobalResources& globalResources)
+			threadResources.taskShedular.pushBackgroundTask({ &zone, [](void* context, ThreadResources& threadResources, GlobalResources& globalResources)
 			{
-				auto& zone = *reinterpret_cast<Zone<ThreadResources, GlobalResources>*>(context);
-				auto resource = reinterpret_cast<HDResources*>(zone.oldData);
+				auto& zone = *static_cast<Zone<ThreadResources, GlobalResources>*>(context);
+				auto resource = static_cast<HDResources*>(zone.oldData);
 				resource->destruct(threadResources, globalResources);
 				resource->~HDResources();
 				free(resource);
-				zone.finishedDeletingOldState(threadResources);
+				zone.finishedDeletingOldState(threadResources, globalResources);
 			} });
 			break;
 		}
@@ -266,11 +266,13 @@ public:
 	
 	static void start(Zone<ThreadResources, GlobalResources>& zone, ThreadResources& threadResources, GlobalResources&)
 	{
-		threadResources.taskShedular.update1NextQueue().push({ &zone, update1 });
+		threadResources.taskShedular.pushPrimaryTask(0u, { &zone, update1 });
 	}
 
-	static void loadConnectedAreas(Zone<ThreadResources, GlobalResources>&, ThreadResources&, GlobalResources&, float, Area::VisitedNode*) {}
-	static bool changeArea(Zone<ThreadResources, GlobalResources>&, ThreadResources&, GlobalResources&) { return false; }
+	static Range<Portal*> getPortals(Zone<ThreadResources, GlobalResources>&)
+	{
+		return Range<Portal*>(nullptr, nullptr);
+	}
 };
 
 template<unsigned int x, unsigned int z>

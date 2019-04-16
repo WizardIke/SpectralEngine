@@ -133,7 +133,7 @@ void Window::setWindowed()
 	ChangeDisplaySettingsW(nullptr, 0u);
 }
 
-bool Window::processMessagesForAllWindowsOnCurrentThread()
+bool Window::processMessagesForAllWindowsCreatedOnCurrentThread()
 {
 	MSG message;
 	BOOL error;

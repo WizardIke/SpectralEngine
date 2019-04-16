@@ -1,11 +1,10 @@
 #pragma once
 #include <TaskShedular.h>
 #include "ThreadResources.h"
-#include <thread>
 #include <Window.h>
 #include <D3D12GraphicsEngine.h>
 #include <StreamingManager.h>
-#include <StartableIOCompletionQueue.h>
+#include <RunnableIOCompletionQueue.h>
 #include <AsynchronousFileManager.h>
 #include <TextureManager.h>
 #include <MeshManager.h>
@@ -26,21 +25,34 @@
 #include <D3D12DescriptorHeap.h>
 #include <Win32Event.h>
 #include <atomic>
+#include <EntityGenerator.h>
 
 class GlobalResources
 {
 	friend class ThreadResources;
+	class InitialResourceLoader;
+	friend class GlobalResources::InitialResourceLoader;
+	class Unloader;
+	friend class Unloader;
+
 	GlobalResources(unsigned int numberOfThreads, bool fullScreen, bool vSync, bool enableGpuDebugging, void*);
 
+	/*
+	Can only be called on main thread
+	*/
 	void update();
+
 	void beforeRender();
+
+	static void primaryThreadFunction(unsigned int i, unsigned int primaryThreadCount, GlobalResources& globalReources);
+	static void backgroundThreadFunction(unsigned int i, unsigned int threadCount, GlobalResources& globalReources);
 public:
 	Window window;
 	D3D12GraphicsEngine graphicsEngine;
 	StreamingManager streamingManager; //thread safe
 	TaskShedular<ThreadResources, GlobalResources> taskShedular;
 	ThreadResources mainThreadResources;
-	StartableIOCompletionQueue ioCompletionQueue;
+	RunnableIOCompletionQueue ioCompletionQueue;
 	AsynchronousFileManager asynchronousFileManager;
 	TextureManager textureManager; //thread safe
 	MeshManager meshManager; //thread safe
@@ -50,7 +62,7 @@ public:
 	InputHandler inputHandler;
 	RootSignatures rootSignatures;
 	PipelineStateObjects pipelineStateObjects; //Immutable
-	VirtualTextureManager virtualTextureManager;
+	VirtualTextureManager virtualTextureManager; //thread safe
 	D3D12Resource sharedConstantBuffer;
 	unsigned char* constantBuffersCpuAddress;
 	RenderPass1 renderPass;
@@ -64,6 +76,7 @@ public:
 	D3D12DescriptorHeap warpTextureCpuDescriptorHeap;
 	Event readyToPresentEvent;
 	std::atomic<unsigned int> readyToPresentCount = 0u;
+	EntityGenerator entityGenerator;
 
 	MainCamera& mainCamera()
 	{
@@ -74,4 +87,5 @@ public:
 	~GlobalResources();
 
 	void start();
+	void stop(ThreadResources& threadResources);
 };

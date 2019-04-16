@@ -4,7 +4,6 @@
 #include "DXGIAdapter.h"
 #include "Window.h"
 #include "GraphicsAdapterNotFound.h"
-#include "frameBufferCount.h"
 
 D3D12GraphicsEngine::D3D12GraphicsEngine(Window& window, bool enableGpuDebugging, DXGI_ADAPTER_FLAG avoidedAdapterFlags) : D3D12GraphicsEngine(window, DXGIFactory(enableGpuDebugging), avoidedAdapterFlags)
 {}
@@ -173,7 +172,7 @@ depthStencilHeap(graphicsDevice, []()
 
 D3D12GraphicsEngine::~D3D12GraphicsEngine() {}
 
-void D3D12GraphicsEngine::present(Window& window, ID3D12CommandList** const commandLists, const unsigned int numLists)
+void D3D12GraphicsEngine::endFrame(Window& window, ID3D12CommandList** const commandLists, const unsigned int numLists)
 {
 	directCommandQueue->ExecuteCommandLists(numLists, commandLists);
 	auto hr = directCommandQueue->Signal(directFence, fenceValue);
@@ -185,7 +184,7 @@ void D3D12GraphicsEngine::present(Window& window, ID3D12CommandList** const comm
 	frameIndex = window.getCurrentBackBufferIndex();
 }
 
-void D3D12GraphicsEngine::waitForPreviousFrame()
+void D3D12GraphicsEngine::startFrame()
 {
 	const uint64_t fenceValueToWaitFor = fenceValue - frameBufferCount;
 	if (directFence->GetCompletedValue() < fenceValueToWaitFor)
@@ -196,14 +195,19 @@ void D3D12GraphicsEngine::waitForPreviousFrame()
 	}
 }
 
-void D3D12GraphicsEngine::waitCommandQueueForPreviousFrame(ID3D12CommandQueue& commandQueue)
+void D3D12GraphicsEngine::waitForPreviousFrame(ID3D12CommandQueue& commandQueue)
 {
 	commandQueue.Wait(directFence, fenceValue - 1u);
 }
 
+void D3D12GraphicsEngine::executeWhenGpuFinishesCurrentFrame(Task& task)
+{
+	gpuFrameCompletionQueue.push(frameIndex, task);
+}
+
 void operator+=(D3D12_CPU_DESCRIPTOR_HANDLE& handle, std::size_t offset)
 {
-	handle.ptr = handle.ptr + offset;
+	handle.ptr += offset;
 }
 
 D3D12_CPU_DESCRIPTOR_HANDLE operator+(D3D12_CPU_DESCRIPTOR_HANDLE handle, std::size_t offset)
@@ -211,4 +215,10 @@ D3D12_CPU_DESCRIPTOR_HANDLE operator+(D3D12_CPU_DESCRIPTOR_HANDLE handle, std::s
 	D3D12_CPU_DESCRIPTOR_HANDLE retval;
 	retval.ptr = handle.ptr + offset;
 	return retval;
+}
+
+void D3D12GraphicsEngine::GpuFrameCompletionQueue::push(unsigned long frameIndex, Task& task)
+{
+	assert(frameIndex < frameBufferCount);
+	queues[frameIndex].push(&task);
 }

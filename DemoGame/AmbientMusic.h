@@ -4,11 +4,27 @@
 #include <atomic>
 #include <cstdint>
 #include <AsynchronousFileManager.h>
+#include <ActorQueue.h>
+#include <IOCompletionQueue.h>
 class ThreadResources;
 class GlobalResources;
 
 class AmbientMusic : private IXAudio2VoiceCallback
 {
+	constexpr static std::size_t numberOfBuffers = 3u;
+public:
+	class StopRequest : public AsynchronousFileManager::ReadRequest
+	{
+	public:
+		constexpr static unsigned int numberOfComponentsToUnload = numberOfBuffers;
+		unsigned int numberOfComponentsUnloaded = 0u;
+
+		StopRequest(void(*callback)(ReadRequest& request, void* tr, void* gr))
+		{
+			deleteReadRequest = callback;
+		}
+	};
+private:
 	struct Buffer : public AsynchronousFileManager::ReadRequest
 	{
 		const unsigned char* data;
@@ -18,26 +34,23 @@ class AmbientMusic : private IXAudio2VoiceCallback
 	{
 		AmbientMusic* music;
 	};
-	struct ExtraBuffer : public Buffer
-	{
-		std::atomic<bool> inUse = false;
-	};
-	//The size of one of the two sound buffers
-	constexpr static size_t rawSoundDataBufferSize = 64 * 1024;
+	//The size of one of the numberOfBuffers sound buffers
+	constexpr static std::size_t rawSoundDataBufferSize = 64u * 1024u;
 	XAudio2SourceVoice musicPlayer;
-	std::atomic<unsigned int> bufferLoadingAndIsFirstBuffer = 0u;
 	const wchar_t* const * files;
 	std::size_t fileCount;
 	File file;
 	std::size_t previousTrack;
 	std::size_t filePosition;
 	std::size_t bytesRemaining;
-	Buffer bufferDescriptors[2];
+	ActorQueue freeBufferDescriptors;
 	Buffer* currentBuffer;
-	ExtraBuffer extraBuffer;
+	IOCompletionQueue& ioCompletionQueue;
+	SinglyLinked* pendingMessages;
+	Buffer bufferDescriptors[numberOfBuffers];
 	InfoRequest infoRequest;
-	GlobalResources& globalResourcesRef;
 	void(*callback)(AmbientMusic& music, ThreadResources& threadResources, GlobalResources& globalResources);
+	StopRequest* stopRequest;
 
 	virtual void STDMETHODCALLTYPE OnBufferEnd(void* pBufferContext) override;
 	virtual void STDMETHODCALLTYPE OnBufferStart(void* pBufferContext) override;
@@ -47,16 +60,16 @@ class AmbientMusic : private IXAudio2VoiceCallback
 	virtual void STDMETHODCALLTYPE OnVoiceProcessingPassEnd() override;
 	virtual void STDMETHODCALLTYPE OnVoiceProcessingPassStart(UINT32 BytesRequired) override;
 
-	void update(ThreadResources& executor, GlobalResources& sharedResources);
+	void run(ThreadResources& threadResources, GlobalResources& globalResources);
 	void findNextMusic(ThreadResources& threadResources, GlobalResources& globalResources, void(*callback)(AmbientMusic& music, ThreadResources& threadResources, GlobalResources& globalResources));
-	static void loadSoundData(AmbientMusic& music, ThreadResources& threadResources, GlobalResources& globalResources);
-	static void loadSoundDataPart2(AmbientMusic& music, ThreadResources& threadResources, GlobalResources& globalResources);
-	static void onSoundDataLoadingFinished(AmbientMusic& music, ThreadResources& threadResources, GlobalResources& globalResources);
+	void fillAndSubmitBuffer(Buffer& buffer, ThreadResources& threadResources, GlobalResources& globalResources);
 	static void submitBuffer(IXAudio2SourceVoice* musicPlayer, void* context, const unsigned char* data, std::size_t length);
-	void startImpl(ThreadResources& executor, GlobalResources& sharedResources);
-	static void onFirstBufferFinishedLoading(AmbientMusic& music, ThreadResources& threadResources, GlobalResources& globalResources);
+	void addMessage(AsynchronousFileManager::ReadRequest& request, ThreadResources& threadResources, GlobalResources&);
+	bool processMessage(SinglyLinked*& temp, ThreadResources& threadResources, GlobalResources& globalResources);
+	void continueRunning(ThreadResources& threadResources, GlobalResources& globalResources);
 public:
 	AmbientMusic(GlobalResources& sharedResources, const wchar_t* const * files, std::size_t fileCount);
 	~AmbientMusic();
 	void start(ThreadResources& executor, GlobalResources& sharedResources);
+	void stop(StopRequest& stopRequest, ThreadResources& threadResources, GlobalResources& globalResources);
 };

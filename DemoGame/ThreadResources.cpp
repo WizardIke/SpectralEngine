@@ -3,8 +3,7 @@
 
 ThreadResources::ThreadResources(unsigned int index, GlobalResources& globalResources, void(*endUpdate2)(ThreadResources& threadResources, GlobalResources& globalResources)) :
 	mEndUpdate2(endUpdate2),
-	taskShedular(index, globalResources.taskShedular), 
-	gpuCompletionEventManager(),
+	taskShedular(index, globalResources.taskShedular),
 	randomNumberGenerator(std::chrono::high_resolution_clock::now().time_since_epoch().count()),
 	streamingManager(globalResources.graphicsEngine.graphicsDevice),
 	renderPass(globalResources.graphicsEngine) 
@@ -22,7 +21,7 @@ bool ThreadResources::initialize1(ThreadResources& threadResources, GlobalResour
 	threadResources.taskShedular.runBackgroundTasks(globalResources.taskShedular, threadResources, globalResources);
 	threadResources.streamingManager.update(globalResources.streamingManager, &threadResources, &globalResources);
 
-	globalResources.taskShedular.barrier().sync(globalResources.taskShedular.threadCount(), [&globalResources = globalResources, &threadResources = threadResources]()
+	globalResources.taskShedular.sync([&globalResources = globalResources, &threadResources = threadResources]()
 	{
 		IOCompletionPacket task;
 		while (globalResources.ioCompletionQueue.pop(task))
@@ -36,7 +35,7 @@ bool ThreadResources::initialize1(ThreadResources& threadResources, GlobalResour
 
 bool ThreadResources::initialize2(ThreadResources&, GlobalResources& globalResources)
 {
-	globalResources.taskShedular.barrier().sync(globalResources.taskShedular.threadCount(), [&taskShedular = globalResources.taskShedular]()
+	globalResources.taskShedular.sync([&taskShedular = globalResources.taskShedular]()
 	{
 		taskShedular.setNextPhaseTask(initialize3);
 	});
@@ -76,7 +75,34 @@ bool ThreadResources::endUpdate2(ThreadResources& threadResources, GlobalResourc
 	return false;
 }
 
-bool ThreadResources::quit(ThreadResources&, GlobalResources&)
+bool ThreadResources::quit1(ThreadResources& threadResources, GlobalResources& globalResources)
+{
+	threadResources.taskShedular.runBackgroundTasks(globalResources.taskShedular, threadResources, globalResources);
+	threadResources.streamingManager.update(globalResources.streamingManager, &threadResources, &globalResources);
+
+	globalResources.taskShedular.sync([&globalResources = globalResources, &threadResources = threadResources]()
+	{
+		IOCompletionPacket task;
+		while(globalResources.ioCompletionQueue.pop(task))
+		{
+			task(&threadResources, &globalResources);
+		}
+	});
+
+	return false;
+}
+
+bool ThreadResources::quit2(ThreadResources&, GlobalResources& globalResources)
+{
+	globalResources.taskShedular.sync([&taskShedular = globalResources.taskShedular]()
+	{
+		taskShedular.setNextPhaseTask(quit3);
+	});
+
+	return false;
+}
+
+bool ThreadResources::quit3(ThreadResources&, GlobalResources&)
 {
 	return true;
 }
@@ -93,8 +119,6 @@ void ThreadResources::mainEndUpdate2(ThreadResources& threadResources, GlobalRes
 	globalResources.update();
 
 	threadResources.taskShedular.endUpdate2Primary(globalResources.taskShedular, endUpdate1, primaryThreadCount, updateIndex);
-	
-	threadResources.gpuCompletionEventManager.update(globalResources.graphicsEngine.frameIndex, &threadResources, &globalResources);
 	threadResources.streamingManager.update(globalResources.streamingManager, &threadResources, &globalResources);
 }
 
@@ -112,14 +136,11 @@ void ThreadResources::primaryEndUpdate2(ThreadResources& threadResources, Global
 	}
 
 	threadResources.taskShedular.endUpdate2Primary(globalResources.taskShedular, endUpdate1, primaryThreadCount, updateIndex);
-
-	threadResources.gpuCompletionEventManager.update(globalResources.graphicsEngine.frameIndex, &threadResources, &globalResources);
 	threadResources.streamingManager.update(globalResources.streamingManager, &threadResources, &globalResources);
 }
 
 static void backgroundEndUpdate(ThreadResources& threadResources, GlobalResources& globalResources)
 {
-	threadResources.gpuCompletionEventManager.update(globalResources.graphicsEngine.frameIndex, &threadResources, &globalResources);
 	threadResources.streamingManager.update(globalResources.streamingManager, &threadResources, &globalResources);
 }
 

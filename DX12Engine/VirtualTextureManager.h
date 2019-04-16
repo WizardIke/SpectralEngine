@@ -84,20 +84,7 @@ private:
 		void(*useSubresource)(StreamingManager::StreamingRequest* request, void* threadResources, void* globalResources),
 		const DDSFileLoader::DdsHeaderDx12& header);
 
-	void notifyTextureReadyHelper(TextureStreamingRequest* request, void* tr, void* gr);
-
-	template<class ThreadResources, class GlobalResources>
-	void notifyTextureReady(TextureStreamingRequest* request, ThreadResources& threadResources, GlobalResources& globalResources)
-	{
-		request->deleteStreamingRequest = [](StreamingManager::StreamingRequest* request, void* tr, void* gr)
-		{
-			GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
-			VirtualTextureManager& virtualTextureManager = globalResources.virtualTextureManager;
-			virtualTextureManager.notifyTextureReadyHelper(static_cast<TextureStreamingRequest*>(request), tr, gr);
-		};
-		StreamingManager& streamingManager = globalResources.streamingManager;
-		streamingManager.uploadFinished(request, threadResources, globalResources);
-	}
+	void notifyTextureReady(TextureStreamingRequest* request, void* tr, void* gr);
 
 	template<class ThreadResources, class GlobalResources>
 	static void copyFinished(void* requester, void* tr, void* gr)
@@ -112,9 +99,17 @@ private:
 			ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
 			GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
 
-			VirtualTextureManager& virtualTextureManager = globalResources.virtualTextureManager;
-			request->textureAction = Action::notifyReady;
-			virtualTextureManager.addMessage(request, threadResources, globalResources);
+			request->deleteStreamingRequest = [](StreamingManager::StreamingRequest* request1, void* tr, void* gr)
+			{
+				ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
+				GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
+				VirtualTextureManager& virtualTextureManager = globalResources.virtualTextureManager;
+				auto request = static_cast<TextureStreamingRequest*>(request1);
+				request->textureAction = Action::notifyReady;
+				virtualTextureManager.addMessage(request, threadResources, globalResources);
+			};
+			StreamingManager& streamingManager = globalResources.streamingManager;
+			streamingManager.uploadFinished(request, threadResources, globalResources);
 		};
 		globalResources.asynchronousFileManager.discard(request, threadResources, globalResources);
 	}
@@ -127,7 +122,7 @@ private:
 	static void textureUseResource(StreamingManager::StreamingRequest* useSubresourceRequest, void* executor, void*)
 	{
 		ThreadResources& threadResources = *reinterpret_cast<ThreadResources*>(executor);
-		threadResources.taskShedular.backgroundQueue().push({ useSubresourceRequest, [](void* context, ThreadResources& threadResources, GlobalResources& globalResources)
+		threadResources.taskShedular.pushBackgroundTask({ useSubresourceRequest, [](void* context, ThreadResources& threadResources, GlobalResources& globalResources)
 		{
 			auto& uploadRequest = *static_cast<TextureStreamingRequest*>(static_cast<StreamingManager::StreamingRequest*>(context));
 			textureUseResourceHelper(uploadRequest, [](AsynchronousFileManager::ReadRequest& request, void* tr, void*, const unsigned char* buffer)
@@ -211,7 +206,7 @@ private:
 		bool needsStarting = messageQueue.push(request);
 		if(needsStarting)
 		{
-			threadResources.taskShedular.backgroundQueue().push({this, [](void* requester, ThreadResources& threadResources, GlobalResources& globalResources)
+			threadResources.taskShedular.pushBackgroundTask({this, [](void* requester, ThreadResources& threadResources, GlobalResources& globalResources)
 			{
 				auto& manager = *static_cast<VirtualTextureManager*>(requester);
 				manager.run(threadResources, globalResources);
@@ -239,7 +234,7 @@ private:
 				}
 				else
 				{
-					notifyTextureReady(static_cast<TextureStreamingRequest*>(&message), threadResources, globalResources);
+					notifyTextureReady(static_cast<TextureStreamingRequest*>(&message), &threadResources, &globalResources);
 				}
 			}
 		} while(!messageQueue.stop());

@@ -1,12 +1,13 @@
 #pragma once
 
 #include <DirectXMath.h>
+#include "Vector3.h"
 
 class Transform
 {
 public:
-	DirectX::XMFLOAT3 position;
-	DirectX::XMFLOAT3 rotation;
+	Vector3 position;
+	Vector3 rotation;
 
 	DirectX::XMMATRIX toMatrix();
 	Transform reflection(float height);

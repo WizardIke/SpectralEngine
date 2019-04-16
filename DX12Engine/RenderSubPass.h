@@ -2,13 +2,14 @@
 #include "D3D12CommandAllocator.h"
 #include "frameBufferCount.h"
 #include "D3D12GraphicsCommandList.h"
-#include "for_each.h"
 #include "Frustum.h"
 #include "Array.h"
 #include "Range.h"
 #include "ResizingArray.h"
+#include "FastIterationHashSet.h"
 #include "ReflectionCamera.h"
 #include "D3D12GraphicsEngine.h"
+#include "RenderPassMessage.h"
 
 template<class Camera_t, bool isStaticNumberOfCameras, std::size_t initialSize>
 struct CameraStoragePicker;
@@ -21,24 +22,15 @@ struct CameraStoragePicker<Camera_t, true, initialSize>
 	Array<Camera_t, initialSize> mCameras;
 };
 
-template<class Camera_t>
-struct CameraStoragePicker<Camera_t, false, 0u>
-{
-	using iterator = typename ResizingArray<Camera_t>::iterator;
-	using const_iterator = typename ResizingArray<Camera_t>::const_iterator;
-	ResizingArray<Camera_t> mCameras;
-};
-
 template<class Camera_t, std::size_t initialSize>
 struct CameraStoragePicker<Camera_t, false, initialSize>
 {
-	using iterator = typename ResizingArray<Camera_t>::iterator;
-	using const_iterator = typename ResizingArray<Camera_t>::const_iterator;
-	ResizingArray<Camera_t*> mCameras;
-	CameraStoragePicker()
-	{
-		mCameras.resize(initialSize);
-	}
+private:
+	using Container = FastIterationHashMap<unsigned long, Camera_t, std::hash<unsigned long>, std::equal_to<unsigned long>, std::allocator<unsigned long>, unsigned long>;
+public:
+	using iterator = typename Container::iterator;
+	using const_iterator = typename Container::const_iterator;
+	Container mCameras;
 };
 
 //use std::tuple<std::integral_constant<unsigned int, value>, ...> for dependencies
@@ -58,8 +50,43 @@ public:
 	constexpr static auto commandListsPerFrame = commandListsPerFrame1;
 	constexpr static bool isPresentSubPass = false;
 
+	class AddCameraRequest : public RenderPassMessage
+	{
+		static void execute(RenderPassMessage& message, void* tr, void* gr)
+		{
+			AddCameraRequest& addRequest = static_cast<AddCameraRequest&>(message);
+			auto& cameras = addRequest.subPass->mCameras;
+			cameras.insert(addRequest.entity, std::move(addRequest.camera));
+			addRequest.callback(addRequest, tr, gr);
+		}
+	public:
+		RenderSubPass* subPass;
+		unsigned long entity;
+		void(*callback)(AddCameraRequest&, void* tr, void* gr);
+		Camera camera;
+
+		AddCameraRequest(unsigned long entity1, Camera&& camera1, void(*callback1)(AddCameraRequest&, void* tr, void* gr)) : RenderPassMessage{execute}, entity(entity1), camera(std::move(camera1)), callback(callback1) {}
+	};
+
+	class RemoveCamerasRequest : public RenderPassMessage
+	{
+		static void execute(RenderPassMessage& message, void* tr, void* gr)
+		{
+			RemoveCamerasRequest& removeRequest = static_cast<RemoveCamerasRequest&>(message);
+			auto& cameras = removeRequest.subPass->mCameras;
+			cameras.erase(removeRequest.entity);
+			removeRequest.callback(removeRequest, tr, gr);
+		}
+	public:
+		RenderSubPass* subPass;
+		unsigned long entity;
+		void(*callback)(RemoveCamerasRequest&, void* tr, void* gr);
+
+		RemoveCamerasRequest(unsigned long entity1, void(*callback1)(RemoveCamerasRequest&, void* tr, void* gr)) : RenderPassMessage{execute}, entity(entity1), callback(callback1) {}
+	};
+
 	RenderSubPass() noexcept {}
-	RenderSubPass(RenderSubPass<Camera_t, state1, Dependencies_t, DependencyStates_t, commandListsPerFrame1, stateAfter1, isStaticNumberOfCameras, initialSize>&& other) noexcept : mCameras(std::move(other.mCameras)) {}
+	RenderSubPass(RenderSubPass<Camera_t, state1, Dependencies_t, DependencyStates_t, commandListsPerFrame1, stateAfter1, isStaticNumberOfCameras, initialSize>&& other) noexcept : CameraStoragePicker_t(std::move(static_cast<CameraStoragePicker_t&>(other))) {}
 
 	void operator=(RenderSubPass<Camera_t, state1, Dependencies_t, DependencyStates_t, commandListsPerFrame1, stateAfter1, isStaticNumberOfCameras, initialSize>&& other) noexcept
 	{
@@ -81,24 +108,29 @@ public:
 		return (unsigned int)this->mCameras.size();
 	}
 
-	template<class RenderPass, class GlobalResources>
-	Camera& addCamera(GlobalResources& globalResources, RenderPass& renderPass, Camera&& camera)
+	CameraIterator findCamera(unsigned long entity) noexcept
 	{
-		std::lock_guard<decltype(globalResources.taskShedular.barrier())> lock(globalResources.taskShedular.barrier());
-		this->mCameras.push_back(std::move(camera));
-		renderPass.updateBarrierCount();
-		return this->mCameras.back();
+		return this->mCameras.find(entity);
 	}
 
-	template<class GlobalResources>
-	void removeCamera(GlobalResources& globalResources, Camera& camera) noexcept
+	/*
+	Can be called from a primary or background thread
+	*/
+	template<class RenderPass, class ThreadResources, class GlobalResources, bool isStaticNumberOfCameras1 = isStaticNumberOfCameras>
+	std::enable_if_t<!isStaticNumberOfCameras1, void> addCamera(AddCameraRequest& addCameraRequest, RenderPass& renderPass, ThreadResources& threadResources, GlobalResources& globalResources)
 	{
-		std::lock_guard<decltype(globalResources.taskShedular.barrier())> lock(globalResources.taskShedular.barrier());
-		if (&camera != (this->mCameras.data() + this->mCameras.size() - 1u))
-		{
-			camera = std::move(*(this->mCameras.end() - 1u));
-		}
-		this->mCameras.pop_back();
+		addCameraRequest.subPass = this;
+		renderPass.addMessage(addCameraRequest, threadResources, globalResources);
+	}
+
+	/*
+	Can be called from a primary or background thread
+	*/
+	template<class RenderPass, class ThreadResources, class GlobalResources, bool isStaticNumberOfCameras1 = isStaticNumberOfCameras>
+	std::enable_if_t<!isStaticNumberOfCameras1, void> removeCamera(RemoveCamerasRequest& removeCamerasRequest, RenderPass& renderPass, ThreadResources& threadResources, GlobalResources& globalResources) noexcept
+	{
+		removeCamerasRequest.subPass = this;
+		renderPass.addMessage(removeCamerasRequest, threadResources, globalResources);
 	}
 
 	bool isInView() const noexcept
@@ -338,7 +370,6 @@ template<class RenderSubPass_t>
 class RenderSubPassGroup
 {
 	ResizingArray<RenderSubPass_t> mSubPasses;
-	//std::vector<RenderSubPass_t> mSubPasses; //doesn't support move on reallocation in some implementations
 	using SubPasses = decltype(mSubPasses);
 
 	template<class Camera, class CameraIterator, class SubPassIterator>
@@ -566,7 +597,7 @@ public:
 			mSubPasses.emplace_back(graphicsEngine);
 		}
 
-		void removeSubPass(size_t index)
+		void removeSubPass(std::size_t index)
 		{
 			using std::swap;
 			swap(mSubPasses[index], *(mSubPasses.end() - 1));

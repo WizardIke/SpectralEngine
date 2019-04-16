@@ -83,7 +83,7 @@ public:
 		bool needsStarting = messageQueue.push(request);
 		if(needsStarting)
 		{
-			threadResources.taskShedular.backgroundQueue().push({this, [](void* requester, ThreadResources& threadResources, GlobalResources& globalResources)
+			threadResources.taskShedular.pushBackgroundTask({this, [](void* requester, ThreadResources& threadResources, GlobalResources& globalResources)
 			{
 				auto& streamingManager = *static_cast<StreamingManager*>(requester);
 				streamingManager.run(*globalResources.graphicsEngine.graphicsDevice, &threadResources, &globalResources);
@@ -98,7 +98,7 @@ public:
 		bool needsStarting = messageQueue.push(request);
 		if(needsStarting)
 		{
-			threadResources.taskShedular.backgroundQueue().push({this, [](void* requester, ThreadResources& threadResources, GlobalResources& globalResources)
+			threadResources.taskShedular.pushBackgroundTask({this, [](void* requester, ThreadResources& threadResources, GlobalResources& globalResources)
 			{
 				auto& streamingManager = *static_cast<StreamingManager*>(requester);
 				streamingManager.run(*globalResources.graphicsEngine.graphicsDevice, &threadResources, &globalResources);

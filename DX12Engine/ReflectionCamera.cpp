@@ -27,7 +27,9 @@ ReflectionCamera::ReflectionCamera(ID3D12Resource* image, D3D12_CPU_DESCRIPTOR_H
 	{
 		auto constantBuffer = reinterpret_cast<CameraConstantBuffer*>(reinterpret_cast<unsigned char*>(constantBufferCpuAddress) + i * bufferSizePS);
 		constantBuffer->viewProjectionMatrix = mViewMatrix * mProjectionMatrix;
-		constantBuffer->cameraPosition = mLocation.position;
+		constantBuffer->cameraPosition.x = mLocation.position.x();
+		constantBuffer->cameraPosition.y = mLocation.position.y();
+		constantBuffer->cameraPosition.z = mLocation.position.z();
 		constantBuffer->screenWidth = (float)width;
 		constantBuffer->screenHeight = (float)height;
 		constantBuffer->backBufferTexture = backBufferTextures[i];
@@ -38,11 +40,13 @@ ReflectionCamera::ReflectionCamera(ID3D12Resource* image, D3D12_CPU_DESCRIPTOR_H
 
 ReflectionCamera::~ReflectionCamera() {}
 
-void ReflectionCamera::render(uint32_t frameIndex, const DirectX::XMMATRIX& mViewMatrix)
+void ReflectionCamera::beforeRender(uint32_t frameIndex, const DirectX::XMMATRIX& mViewMatrix)
 {
 	const auto constantBuffer = reinterpret_cast<CameraConstantBuffer*>(reinterpret_cast<unsigned char*>(constantBufferCpuAddress) + frameIndex * bufferSizePS);
 	constantBuffer->viewProjectionMatrix = mViewMatrix * mProjectionMatrix;;
-	constantBuffer->cameraPosition = mLocation.position;
+	constantBuffer->cameraPosition.x = mLocation.position.x();
+	constantBuffer->cameraPosition.y = mLocation.position.y();
+	constantBuffer->cameraPosition.z = mLocation.position.z();
 
 	mFrustum.update(mProjectionMatrix, mViewMatrix, screenNear, screenDepth);
 }

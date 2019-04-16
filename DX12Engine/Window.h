@@ -53,5 +53,5 @@ public:
 	void setVSync(bool value) { vSync = value; }
 	bool getVSync() { return vSync; }
 
-	static bool processMessagesForAllWindowsOnCurrentThread();
+	static bool processMessagesForAllWindowsCreatedOnCurrentThread();
 };

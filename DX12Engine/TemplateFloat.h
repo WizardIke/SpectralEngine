@@ -1,5 +1,5 @@
 #pragma once
-template<int power, int mantissa>
+template<int power, long mantissa>
 struct TemplateFloat
 {
 	constexpr static float value()
@@ -23,4 +23,4 @@ constexpr float getMantissa(float value)
 	return (value > 60000000.f || value < -60000000.f) ? getMantissa(value / 2) : (value < 20000000.f && value > -20000000.f) ? getMantissa(value * 2) : value;
 }
 
-#define templateFloat(value) TemplateFloat<getPower(value), (int)(getMantissa(value))>
+#define templateFloat(value) TemplateFloat<getPower(value), (long)(getMantissa(value))>

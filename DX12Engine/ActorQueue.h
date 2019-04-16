@@ -3,7 +3,7 @@
 #include "SinglyLinked.h"
 
 #pragma warning(push)
-#pragma warning(disable:4324)
+#pragma warning(disable:4324) //warns about padding due to over alignment
 
 class ActorQueue
 {
@@ -21,7 +21,6 @@ class ActorQueue
 	}
 
 	alignas(hardwareDestructiveInterferenceSize) std::atomic<SinglyLinked*> data = stub();
-	alignas(hardwareDestructiveInterferenceSize) SinglyLinked* dequeuedData = nullptr;
 public:
 	/*
 	 * Returns true if the consumer is stopped. This can be used to resume the actor.

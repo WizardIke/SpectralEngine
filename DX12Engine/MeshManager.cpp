@@ -270,7 +270,7 @@ void MeshManager::meshWithPositionUseResourceHelper(MeshStreamingRequest& upload
 	streamingManager.addCopyCompletionEvent(&uploadRequest, copyStarted);
 }
 
-void MeshManager::notifyMeshReadyHelper(MeshStreamingRequest* request, void* tr, void* gr)
+void MeshManager::notifyMeshReady(MeshStreamingRequest* request, void* tr, void* gr)
 {
 	MeshInfo& meshInfo = meshInfos[request->filename];
 	meshInfo.lastRequest = nullptr;

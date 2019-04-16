@@ -382,3 +382,12 @@ public:
 		}
 	}
 };
+
+class AddReflectionCamera : public RenderPass1::RenderToTextureSubPass::AddCameraRequest
+{
+	using Base = RenderPass1::RenderToTextureSubPass::AddCameraRequest;
+public:
+	Zone<ThreadResources, GlobalResources>& zone;
+
+	AddReflectionCamera(unsigned long entity1, ReflectionCamera&& camera1, void(*callback1)(Base&, void* tr, void* gr), Zone<ThreadResources, GlobalResources>& zone1) : Base(entity1, std::move(camera1), callback1), zone(zone1) {}
+};
