@@ -9,9 +9,9 @@
 #include "DXGIFactory.h"
 #include "SinglyLinked.h"
 #include "LinkedTask.h"
-#include "UnorderedMultiProducerSingleConsumerQueue.h"
 #include "frameBufferCount.h"
 #include <mutex>
+#include <atomic>
 #include <cassert>
 struct ID3D12GraphicsCommandList;
 struct ID3D12CommandList;
@@ -24,7 +24,44 @@ class GraphicsEngine
 	public:
 		using Task = LinkedTask;
 	private:
-		UnorderedMultiProducerSingleConsumerQueue queues[frameBufferCount];
+#pragma warning(push)
+#pragma warning(disable:4324) //warns about padding due to over alignment
+
+		/*
+		We can use std::memory_order_relaxed because items are added to the queue in update2 and removed in update1
+		*/
+		class EventQueue
+		{
+#if __cplusplus >= 201703L
+			static constexpr std::size_t hardwareDestructiveInterferenceSize
+				= std::hardware_destructive_interference_size;
+#else
+			static constexpr std::size_t hardwareDestructiveInterferenceSize = 64u;
+#endif
+			SinglyLinked head{nullptr};
+			alignas(hardwareDestructiveInterferenceSize) std::atomic<SinglyLinked*> tail = &head;
+		public:
+			void push(SinglyLinked* value) noexcept
+			{
+				SinglyLinked* oldTail = tail.exchange(value, std::memory_order_relaxed);
+				oldTail->next = value;
+			}
+
+			/*
+			 * Returns nullptr if the queue is empty.
+			 */
+			SinglyLinked* popAll() noexcept
+			{
+				tail.store(&head, std::memory_order_relaxed);
+				SinglyLinked* items = head.next;
+				head.next = nullptr;
+				return items;
+			}
+		};
+
+#pragma warning(pop)
+
+		EventQueue queues[frameBufferCount];
 	public:
 		/*
 		Must be called from startFrame

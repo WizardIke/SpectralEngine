@@ -27,13 +27,13 @@ public:
 	 */
 	bool push(SinglyLinked* value)
 	{
-		SinglyLinked* oldData = data.load(std::memory_order::memory_order_relaxed);
+		SinglyLinked* oldData = data.load(std::memory_order_relaxed);
 		while(true)
 		{
 			if(oldData == stub())
 			{
 				value->next = nullptr;
-				if(data.compare_exchange_weak(oldData, value, std::memory_order::memory_order_release, std::memory_order::memory_order_relaxed))
+				if(data.compare_exchange_weak(oldData, value, std::memory_order_release, std::memory_order_relaxed))
 				{
 					return true;
 				}
@@ -41,7 +41,7 @@ public:
 			else
 			{
 				value->next = oldData;
-				if(data.compare_exchange_weak(oldData, value, std::memory_order::memory_order_release, std::memory_order::memory_order_relaxed))
+				if(data.compare_exchange_weak(oldData, value, std::memory_order_release, std::memory_order_relaxed))
 				{
 					return false;
 				}
@@ -54,7 +54,10 @@ public:
 	 */
 	SinglyLinked* popAll()
 	{
-		return data.exchange(nullptr, std::memory_order::memory_order_acquire);
+		/*
+		We can make the whole linked list visable to this thread with one acquire operation due to the release sequence of compare_exchange_weak formed in push.
+		*/
+		return data.exchange(nullptr, std::memory_order_acquire);
 	}
 
 	/*
@@ -63,7 +66,7 @@ public:
 	bool stop()
 	{
 		SinglyLinked* oldData = nullptr;
-		return data.compare_exchange_strong(oldData, stub(), std::memory_order::memory_order_release, std::memory_order::memory_order_relaxed);
+		return data.compare_exchange_strong(oldData, stub(), std::memory_order_release, std::memory_order_relaxed);
 	}
 };
 
