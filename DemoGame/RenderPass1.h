@@ -74,4 +74,9 @@ public:
 	{
 		data.addMessage(message, threadResources, globalResources);
 	}
+
+	void addMessageFromBackground(RenderPassMessage& message, ThreadResources& threadResources, GlobalResources& globalResources)
+	{
+		data.addMessageFromBackground(message, threadResources, globalResources);
+	}
 };

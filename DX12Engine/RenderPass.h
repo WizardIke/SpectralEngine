@@ -7,6 +7,7 @@
 #include "GraphicsEngine.h"
 #include "ActorQueue.h"
 #include "RenderPassMessage.h"
+#include "PrimaryTaskFromOtherThreadQueue.h"
 class Window;
 
 #if defined(_MSC_VER)
@@ -15,7 +16,7 @@ class Window;
 #endif
 
 template<class... RenderSubPass_t>
-class RenderPass
+class RenderPass : private PrimaryTaskFromOtherThreadQueue::Task
 {
 	std::unique_ptr<ID3D12CommandList*[]> commandLists;//size = subPassCount * threadCount * commandListsPerFrame
 	std::atomic<unsigned int> mCurrentIndex = 0u;
@@ -98,6 +99,21 @@ public:
 				auto& pass = *static_cast<RenderPass*>(requester);
 				pass.run(&threadResources, &globalResources);
 			}});
+		}
+	}
+
+	template<class ThreadResources, class GlobalResources>
+	void addMessageFromBackground(RenderPassMessage& message, ThreadResources&, GlobalResources& globalResources)
+	{
+		bool needsStarting = messageQueue.push(&message);
+		if(needsStarting)
+		{
+			execute = [](PrimaryTaskFromOtherThreadQueue::Task& task, void* tr, void* gr)
+			{
+				auto& pass = static_cast<RenderPass&>(task);
+				pass.run(tr, gr);
+			};
+			globalResources.taskShedular.pushPrimaryTaskFromOtherThread(0u, *this);
 		}
 	}
 

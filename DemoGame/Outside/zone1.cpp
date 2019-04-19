@@ -396,7 +396,7 @@ namespace
 					componentUploaded(addRequest.zone, *static_cast<ThreadResources*>(tr), *static_cast<GlobalResources*>(gr));
 					delete &addRequest;
 				}, zone);
-				globalResources.renderPass.renderToTextureSubPass().addCamera(*addCameraRequest, globalResources.renderPass, threadResources, globalResources);
+				globalResources.renderPass.renderToTextureSubPass().addCameraFromBackground(*addCameraRequest, globalResources.renderPass, threadResources, globalResources);
 
 				tempRenderTargetTexturesCpuDescriptorHandle.ptr += globalResources.graphicsEngine.renderTargetViewDescriptorSize;
 			}
@@ -695,7 +695,7 @@ namespace
 			{
 				delete &request;
 			});
-			globalResources.renderPass.renderToTextureSubPass().removeCamera(*removeReflectionCameraRequest, globalResources.renderPass, threadResources, globalResources);
+			globalResources.renderPass.renderToTextureSubPass().removeCameraFromBackground(*removeReflectionCameraRequest, globalResources.renderPass, threadResources, globalResources);
 
 			auto textureUnloader = new TextureUnloader<numTextures>([](TextureUnloader<numTextures>& unloader)
 			{

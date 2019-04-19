@@ -114,7 +114,7 @@ public:
 	}
 
 	/*
-	Can be called from a primary or background thread
+	Can be called from a primary thread
 	*/
 	template<class RenderPass, class ThreadResources, class GlobalResources, bool isStaticNumberOfCameras1 = isStaticNumberOfCameras>
 	std::enable_if_t<!isStaticNumberOfCameras1, void> addCamera(AddCameraRequest& addCameraRequest, RenderPass& renderPass, ThreadResources& threadResources, GlobalResources& globalResources)
@@ -124,13 +124,33 @@ public:
 	}
 
 	/*
-	Can be called from a primary or background thread
+	Can be called from a background thread
+	*/
+	template<class RenderPass, class ThreadResources, class GlobalResources, bool isStaticNumberOfCameras1 = isStaticNumberOfCameras>
+	std::enable_if_t<!isStaticNumberOfCameras1, void> addCameraFromBackground(AddCameraRequest& addCameraRequest, RenderPass& renderPass, ThreadResources& threadResources, GlobalResources& globalResources)
+	{
+		addCameraRequest.subPass = this;
+		renderPass.addMessageFromBackground(addCameraRequest, threadResources, globalResources);
+	}
+
+	/*
+	Can be called from a primary thread
 	*/
 	template<class RenderPass, class ThreadResources, class GlobalResources, bool isStaticNumberOfCameras1 = isStaticNumberOfCameras>
 	std::enable_if_t<!isStaticNumberOfCameras1, void> removeCamera(RemoveCamerasRequest& removeCamerasRequest, RenderPass& renderPass, ThreadResources& threadResources, GlobalResources& globalResources) noexcept
 	{
 		removeCamerasRequest.subPass = this;
 		renderPass.addMessage(removeCamerasRequest, threadResources, globalResources);
+	}
+
+	/*
+	Can be called from a background thread
+	*/
+	template<class RenderPass, class ThreadResources, class GlobalResources, bool isStaticNumberOfCameras1 = isStaticNumberOfCameras>
+	std::enable_if_t<!isStaticNumberOfCameras1, void> removeCameraFromBackground(RemoveCamerasRequest& removeCamerasRequest, RenderPass& renderPass, ThreadResources& threadResources, GlobalResources& globalResources) noexcept
+	{
+		removeCamerasRequest.subPass = this;
+		renderPass.addMessageFromBackground(removeCamerasRequest, threadResources, globalResources);
 	}
 
 	bool isInView() const noexcept
