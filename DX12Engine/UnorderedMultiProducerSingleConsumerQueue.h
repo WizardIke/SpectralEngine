@@ -17,8 +17,8 @@ class UnorderedMultiProducerSingleConsumerQueue
 public:
 	void push(SinglyLinked* value) noexcept
 	{
-		value->next = data.load(std::memory_order::memory_order_relaxed);
-		while(!data.compare_exchange_weak(value->next, value, std::memory_order::memory_order_release, std::memory_order::memory_order_relaxed));
+		value->next = data.load(std::memory_order_relaxed);
+		while (!data.compare_exchange_weak(value->next, value, std::memory_order_release, std::memory_order_relaxed)) {}
 	}
 
 	/*
@@ -26,7 +26,7 @@ public:
 	 */
 	SinglyLinked* popAll() noexcept
 	{
-		return data.exchange(nullptr, std::memory_order::memory_order_acquire);
+		return data.exchange(nullptr, std::memory_order_acquire);
 	}
 };
 

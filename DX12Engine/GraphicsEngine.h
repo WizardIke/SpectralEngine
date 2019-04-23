@@ -41,22 +41,13 @@ class GraphicsEngine
 			SinglyLinked head{nullptr};
 			alignas(hardwareDestructiveInterferenceSize) std::atomic<SinglyLinked*> tail = &head;
 		public:
-			void push(SinglyLinked* value) noexcept
-			{
-				SinglyLinked* oldTail = tail.exchange(value, std::memory_order_relaxed);
-				oldTail->next = value;
-			}
+			void push(SinglyLinked* value) noexcept;
 
 			/*
 			 * Returns nullptr if the queue is empty.
+			 * Must not be called concurrently with push
 			 */
-			SinglyLinked* popAll() noexcept
-			{
-				tail.store(&head, std::memory_order_relaxed);
-				SinglyLinked* items = head.next;
-				head.next = nullptr;
-				return items;
-			}
+			SinglyLinked* popAll() noexcept;
 		};
 
 #pragma warning(pop)

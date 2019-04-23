@@ -269,10 +269,10 @@ void PageProvider::addNewPagesToResources(GraphicsEngine& graphicsEngine, Virtua
 {
 	ID3D12CommandQueue* commandQueue = graphicsEngine.directCommandQueue;
 	ID3D12Device* graphicsDevice = graphicsEngine.graphicsDevice;
-	PageAllocator& pageAllocator1 = pageAllocator;
-	PageCache& pageCache1 = pageCache;
+	PageAllocator& allocator = pageAllocator;
+	PageCache& cache = pageCache;
 
-	PageLoadRequest* halfFinishedPageRequests = halfFinishedPageLoadRequests.exchange(nullptr, std::memory_order::memory_order_acquire);
+	PageLoadRequest* halfFinishedPageRequests = halfFinishedPageLoadRequests.exchange(nullptr, std::memory_order_acquire);
 
 	if(halfFinishedPageRequests == nullptr) return;
 
@@ -281,7 +281,7 @@ void PageProvider::addNewPagesToResources(GraphicsEngine& graphicsEngine, Virtua
 	PageLoadRequest* newPages[maxPagesLoading];
 	do
 	{
-		if(pageCache1.contains(halfFinishedPageRequests->allocationInfo.textureLocation))
+		if(cache.contains(halfFinishedPageRequests->allocationInfo.textureLocation))
 		{
 			newPages[newPageCount] = halfFinishedPageRequests;
 			++newPageCount;
@@ -314,8 +314,8 @@ void PageProvider::addNewPagesToResources(GraphicsEngine& graphicsEngine, Virtua
 		if(resource != previousResource)
 		{
 			const std::size_t pageCount = i - lastIndex;
-			pageAllocator1.addPages(newPageCoordinates + lastIndex, pageCount, previousResource, commandQueue, graphicsDevice, HeapLocationsIterator{newPages + lastIndex});
-			addPageDataToResource(previousResource, newPageCoordinates + lastIndex, newPages + lastIndex, pageCount, tileSize, pageCache1,
+			allocator.addPages(newPageCoordinates + lastIndex, pageCount, previousResource, commandQueue, graphicsDevice, HeapLocationsIterator{newPages + lastIndex});
+			addPageDataToResource(previousResource, newPageCoordinates + lastIndex, newPages + lastIndex, pageCount, tileSize, cache,
 				commandList, graphicsEngine, uploadComplete);
 			lastIndex = i;
 			previousResource = resource;
@@ -327,8 +327,8 @@ void PageProvider::addNewPagesToResources(GraphicsEngine& graphicsEngine, Virtua
 		newPageCoordinates[i].Subresource = (UINT)newPages[i]->allocationInfo.textureLocation.mipLevel();
 	}
 	const std::size_t pageCount = i - lastIndex;
-	pageAllocator1.addPages(newPageCoordinates + lastIndex, pageCount, previousResource, commandQueue, graphicsDevice, HeapLocationsIterator{newPages + lastIndex});
-	addPageDataToResource(previousResource, newPageCoordinates + lastIndex, newPages + lastIndex, pageCount, tileSize, pageCache1,
+	allocator.addPages(newPageCoordinates + lastIndex, pageCount, previousResource, commandQueue, graphicsDevice, HeapLocationsIterator{newPages + lastIndex});
+	addPageDataToResource(previousResource, newPageCoordinates + lastIndex, newPages + lastIndex, pageCount, tileSize, cache,
 		commandList, graphicsEngine, uploadComplete);
 }
 
@@ -350,7 +350,7 @@ void PageProvider::shrinkNumberOfLoadRequestsIfNeeded(std::size_t numTexturePage
 
 void PageProvider::collectReturnedPageLoadRequests()
 {
-	auto oldReturnedPageLoadRequests = returnedPageLoadRequests.exchange(nullptr, std::memory_order::memory_order_acquire);
+	auto oldReturnedPageLoadRequests = returnedPageLoadRequests.exchange(nullptr, std::memory_order_acquire);
 	if(oldReturnedPageLoadRequests != nullptr)
 	{
 		auto oldFreePageLoadRequests = freePageLoadRequests;

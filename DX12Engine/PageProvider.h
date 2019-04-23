@@ -64,7 +64,7 @@ private:
 	PageLoadRequest pageLoadRequests[maxPagesLoading];
 	std::size_t freePageLoadRequestsCount;
 	PageLoadRequest* freePageLoadRequests;
-	std::atomic<PageLoadRequest*> halfFinishedPageLoadRequests;
+	std::atomic<PageLoadRequest*> halfFinishedPageLoadRequests; //page is in cpu memory waiting to be copied to gpu memory
 	std::atomic<PageLoadRequest*> returnedPageLoadRequests;
 
 	static void copyPageToUploadBuffer(StreamingManager::StreamingRequest* useSubresourceRequest, const unsigned char* data);
@@ -85,32 +85,34 @@ private:
 				ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
 				GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
 
-				uploadRequest.fileLoadedCallback = [](AsynchronousFileManager::ReadRequest& req, void*, void* gr, const unsigned char* buffer)
+				uploadRequest.fileLoadedCallback = [](AsynchronousFileManager::ReadRequest& req, void* tr, void* gr, const unsigned char* buffer)
 				{
-					PageLoadRequest* request = static_cast<PageLoadRequest*>(&req);
-					copyPageToUploadBuffer(request, buffer);
-
+					PageLoadRequest& request = static_cast<PageLoadRequest&>(req);
+					ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
 					GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
-					PageProvider& pageProvider = globalResources.virtualTextureManager.pageProvider;
-					PageLoadRequest* oldHalfFinishedPageLoadRequests = pageProvider.halfFinishedPageLoadRequests.load(std::memory_order::memory_order_relaxed);
-					request->nextPageLoadRequest = oldHalfFinishedPageLoadRequests;
-					while(!pageProvider.halfFinishedPageLoadRequests.compare_exchange_weak(oldHalfFinishedPageLoadRequests, request, std::memory_order_release, std::memory_order::memory_order_relaxed))
+					AsynchronousFileManager& asynchronousFileManager = globalResources.asynchronousFileManager;
+
+					copyPageToUploadBuffer(&request, buffer);
+					request.deleteReadRequest = [](AsynchronousFileManager::ReadRequest& req, void*, void* gr)
 					{
-						request->nextPageLoadRequest = oldHalfFinishedPageLoadRequests;
-					}
+						PageLoadRequest& request = static_cast<PageLoadRequest&>(req);
+						GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
+						PageProvider& pageProvider = globalResources.virtualTextureManager.pageProvider;
+
+						request.nextPageLoadRequest = pageProvider.halfFinishedPageLoadRequests.load(std::memory_order_relaxed);
+						while (!pageProvider.halfFinishedPageLoadRequests.compare_exchange_weak(request.nextPageLoadRequest, &request, std::memory_order_release, std::memory_order_relaxed)) {}
+					};
+					asynchronousFileManager.discard(&request, threadResources, globalResources);
 				};
 				globalResources.asynchronousFileManager.readFile(&uploadRequest, threadResources, globalResources);
 			}, [](StreamingManager::StreamingRequest* requester, void*, void* gr)
 			{
-				PageLoadRequest* request = static_cast<PageLoadRequest*>(requester);
+				PageLoadRequest& request = static_cast<PageLoadRequest&>(*requester);
 				GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
 				PageProvider& pageProvider = globalResources.virtualTextureManager.pageProvider;
-				PageLoadRequest* oldReturnedPageLoadRequests = pageProvider.returnedPageLoadRequests.load(std::memory_order::memory_order_relaxed);
-				request->nextPageLoadRequest = oldReturnedPageLoadRequests;
-				while(!pageProvider.returnedPageLoadRequests.compare_exchange_weak(oldReturnedPageLoadRequests, request, std::memory_order_release, std::memory_order::memory_order_relaxed))
-				{
-					request->nextPageLoadRequest = oldReturnedPageLoadRequests;
-				}
+
+				request.nextPageLoadRequest = pageProvider.returnedPageLoadRequests.load(std::memory_order_relaxed);
+				while (!pageProvider.returnedPageLoadRequests.compare_exchange_weak(request.nextPageLoadRequest, &request, std::memory_order_release, std::memory_order_relaxed)) {}
 			});
 			StreamingManager& streamingManager = sharedResources.streamingManager;
 			streamingManager.addUploadRequest(&pageRequest, threadResources, sharedResources);

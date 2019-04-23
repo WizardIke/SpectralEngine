@@ -224,3 +224,19 @@ void GraphicsEngine::GpuFrameCompletionQueue::push(unsigned long frameIndex, Tas
 	assert(frameIndex < frameBufferCount);
 	queues[frameIndex].push(&task);
 }
+
+void GraphicsEngine::GpuFrameCompletionQueue::EventQueue::push(SinglyLinked* value) noexcept
+{
+	SinglyLinked* oldTail = tail.exchange(value, std::memory_order_relaxed);
+	oldTail->next = value;
+}
+
+SinglyLinked* GraphicsEngine::GpuFrameCompletionQueue::EventQueue::popAll() noexcept
+{
+	SinglyLinked* oldTail = tail.load(std::memory_order_relaxed);
+	oldTail->next = nullptr;
+	tail.store(&head, std::memory_order_relaxed);
+	SinglyLinked* items = head.next;
+	head.next = nullptr;
+	return items;
+}
