@@ -3,6 +3,7 @@
 #include <d3d12.h>
 #include "File.h"
 #include <cstddef>
+#include <stdint.h> //uint32_t
 
 namespace DDSFileLoader
 {
@@ -75,8 +76,8 @@ namespace DDSFileLoader
 		uint32_t        miscFlags2;
 	};
 
-	void surfaceInfo(size_t width, size_t height, DXGI_FORMAT fmt, size_t& outNumBytes, size_t& outRowBytes, size_t& outNumRows);
-	size_t bitsPerPixel(DXGI_FORMAT fmt);
+	void surfaceInfo(std::size_t width, std::size_t height, DXGI_FORMAT fmt, std::size_t& outNumBytes, std::size_t& outRowBytes, std::size_t& outNumRows);
+	std::size_t bitsPerPixel(DXGI_FORMAT fmt);
 	void tileWidthAndHeightAndTileWidthInBytes(DXGI_FORMAT format, uint32_t& width, uint32_t& height, uint32_t& tileWidthBytes);
 	bool validateDdsHeader(const DdsHeaderDx12& header);
 	void copySubresourceToGpu(ID3D12Resource* destResource, ID3D12Resource* uploadResource, unsigned long uploadBufferOffset, uint32_t width, uint32_t height, uint32_t depth, uint32_t currentMipLevel, uint32_t mipLevels,

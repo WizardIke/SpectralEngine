@@ -52,8 +52,7 @@ namespace
 		D3D12Resource renderTargetTexture;
 		D3D12_RESOURCE_STATES waterRenderTargetTextureState;
 		D3D12DescriptorHeap renderTargetTexturesDescriptorHeap;
-		unsigned int shaderResourceView;
-		unsigned long zoneEntity;
+		unsigned long zoneEntity; //used to attach components e.g. cameras
 		unsigned int reflectionCameraBackBuffer;
 
 		Light light;
@@ -164,15 +163,6 @@ namespace
 				HDRenderTargetViewDesc.Texture2D.MipSlice = 0u;
 				HDRenderTargetViewDesc.Texture2D.PlaneSlice = 0u;
 
-				D3D12_SHADER_RESOURCE_VIEW_DESC HDSHaderResourceViewDesc;
-				HDSHaderResourceViewDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-				HDSHaderResourceViewDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-				HDSHaderResourceViewDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-				HDSHaderResourceViewDesc.Texture2D.MipLevels = 1u;
-				HDSHaderResourceViewDesc.Texture2D.MostDetailedMip = 0u;
-				HDSHaderResourceViewDesc.Texture2D.PlaneSlice = 0u;
-				HDSHaderResourceViewDesc.Texture2D.ResourceMinLODClamp = 0.0f;
-
 				auto shaderResourceViewCpuDescriptorHandle = globalResources.graphicsEngine.mainDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
 				auto srvSize = globalResources.graphicsEngine.cbvAndSrvAndUavDescriptorSize;
 				auto tempRenderTargetTexturesCpuDescriptorHandle = renderTargetTexturesDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
@@ -184,20 +174,37 @@ namespace
 				backBufferSrvDesc.Texture2D.MipLevels = 1u;
 				backBufferSrvDesc.Texture2D.MostDetailedMip = 0u;
 				backBufferSrvDesc.Texture2D.PlaneSlice = 0u;
-				backBufferSrvDesc.Texture2D.ResourceMinLODClamp = 0u;
-
-				shaderResourceView = globalResources.graphicsEngine.descriptorAllocator.allocate();
-				globalResources.graphicsEngine.graphicsDevice->CreateShaderResourceView(renderTargetTexture, &HDSHaderResourceViewDesc, shaderResourceViewCpuDescriptorHandle + srvSize * shaderResourceView);
+				backBufferSrvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
 
 				globalResources.graphicsEngine.graphicsDevice->CreateRenderTargetView(renderTargetTexture, &HDRenderTargetViewDesc, tempRenderTargetTexturesCpuDescriptorHandle);
 
 				reflectionCameraBackBuffer = globalResources.graphicsEngine.descriptorAllocator.allocate();
 				globalResources.graphicsEngine.graphicsDevice->CreateShaderResourceView(renderTargetTexture, &backBufferSrvDesc,
-					shaderResourceViewCpuDescriptorHandle + reflectionCameraBackBuffer * globalResources.graphicsEngine.cbvAndSrvAndUavDescriptorSize);
+					shaderResourceViewCpuDescriptorHandle + reflectionCameraBackBuffer * srvSize);
 			}
 
-			PerObjectConstantBuffersGpuAddress += ReflectionCamera::totalConstantBufferRequired;
-			cpuConstantBuffer += ReflectionCamera::totalConstantBufferRequired;
+			zoneEntity = globalResources.entityGenerator.generate();
+			{
+				auto tempRenderTargetTexturesCpuDescriptorHandle = renderTargetTexturesDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
+				auto depthStencilHandle = globalResources.graphicsEngine.depthStencilDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
+				Transform transform = globalResources.mainCamera().transform().reflection(waterModel.reflectionHeight());
+
+				uint32_t backBuffers[frameBufferCount];
+				for (auto j = 0u; j != frameBufferCount; ++j)
+				{
+					backBuffers[j] = reflectionCameraBackBuffer;
+				}
+				AddReflectionCamera* addCameraRequest = new AddReflectionCamera(zoneEntity, ReflectionCamera(
+					renderTargetTexture, tempRenderTargetTexturesCpuDescriptorHandle, depthStencilHandle, globalResources.window.width(), globalResources.window.height(), PerObjectConstantBuffersGpuAddress,
+					cpuConstantBuffer, 0.25f * 3.141f, transform, backBuffers), [](auto& request, void* tr, void* gr)
+					{
+						AddReflectionCamera& addRequest = static_cast<AddReflectionCamera&>(request);
+						auto& zone = addRequest.zone;
+						delete &addRequest;
+						componentUploaded(zone, *static_cast<ThreadResources*>(tr), *static_cast<GlobalResources*>(gr));
+					}, zone);
+				globalResources.renderPass.renderToTextureSubPass().addCameraFromBackground(*addCameraRequest, globalResources.renderPass, threadResources, globalResources);
+			}
 
 			new(&bathModel1) BathModel2(PerObjectConstantBuffersGpuAddress, cpuConstantBuffer);
 
@@ -205,7 +212,7 @@ namespace
 
 			new(&wallModel) WallModel2(PerObjectConstantBuffersGpuAddress, cpuConstantBuffer);
 
-			new(&waterModel) WaterModel2(PerObjectConstantBuffersGpuAddress, cpuConstantBuffer, shaderResourceView,
+			new(&waterModel) WaterModel2(PerObjectConstantBuffersGpuAddress, cpuConstantBuffer, reflectionCameraBackBuffer,
 				globalResources.warpTextureDescriptorIndex);
 
 			new(&iceModel) IceModel2(PerObjectConstantBuffersGpuAddress, cpuConstantBuffer, globalResources.warpTextureDescriptorIndex);
@@ -375,31 +382,6 @@ namespace
 						}
 					},
 				}, zone, threadResources, globalResources);
-
-			zoneEntity = globalResources.entityGenerator.generate();
-			{
-				auto tempRenderTargetTexturesCpuDescriptorHandle = renderTargetTexturesDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
-				auto depthStencilHandle = globalResources.graphicsEngine.depthStencilDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
-				Transform transform = globalResources.mainCamera().transform().reflection(waterModel.reflectionHeight());
-				D3D12_GPU_VIRTUAL_ADDRESS PerObjectConstantBuffersGpuAddress1 = perObjectConstantBuffers->GetGPUVirtualAddress();
-
-				uint32_t backBuffers[frameBufferCount];
-				for(auto j = 0u; j != frameBufferCount; ++j)
-				{
-					backBuffers[j] = reflectionCameraBackBuffer;
-				}
-				AddReflectionCamera* addCameraRequest = new AddReflectionCamera(zoneEntity, ReflectionCamera(
-					renderTargetTexture, tempRenderTargetTexturesCpuDescriptorHandle, depthStencilHandle, globalResources.window.width(), globalResources.window.height(), PerObjectConstantBuffersGpuAddress1,
-					perObjectConstantBuffersCpuAddress, 0.25f * 3.141f, transform, backBuffers), [](auto& request, void* tr, void* gr)
-				{
-					AddReflectionCamera& addRequest = static_cast<AddReflectionCamera&>(request);
-					componentUploaded(addRequest.zone, *static_cast<ThreadResources*>(tr), *static_cast<GlobalResources*>(gr));
-					delete &addRequest;
-				}, zone);
-				globalResources.renderPass.renderToTextureSubPass().addCameraFromBackground(*addCameraRequest, globalResources.renderPass, threadResources, globalResources);
-
-				tempRenderTargetTexturesCpuDescriptorHandle.ptr += globalResources.graphicsEngine.renderTargetViewDescriptorSize;
-			}
 
 			constexpr uint64_t pointLightConstantBufferAlignedSize = (sizeof(LightConstantBuffer) + (uint64_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (uint64_t)1u) & 
 				~((uint64_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (uint64_t)1u);
@@ -687,7 +669,6 @@ namespace
 		{
 			auto& graphicsEngine = globalResources.graphicsEngine;
 			
-			graphicsEngine.descriptorAllocator.deallocate(shaderResourceView);
 			graphicsEngine.descriptorAllocator.deallocate(reflectionCameraBackBuffer);
 
 			auto textureUnloader = new TextureUnloader<numTextures>([](TextureUnloader<numTextures>& unloader)

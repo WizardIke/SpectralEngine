@@ -79,26 +79,18 @@ private:
 		ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
 		GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
 
-		request->deleteReadRequest = [](AsynchronousFileManager::ReadRequest& request1, void* tr, void* gr)
+		request->deleteStreamingRequest = [](StreamingManager::StreamingRequest* request1, void* tr, void* gr)
 		{
-			TextureStreamingRequest* request = static_cast<TextureStreamingRequest*>(&request1);
-			ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
-			GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
+			auto& threadResources = *static_cast<ThreadResources*>(tr);
+			auto& globalResources = *static_cast<GlobalResources*>(gr);
+			TextureManager& textureManager = globalResources.textureManager;
+			TextureStreamingRequest* request = static_cast<TextureStreamingRequest*>(request1);
 
-			request->deleteStreamingRequest = [](StreamingManager::StreamingRequest* request1, void* tr, void* gr)
-			{
-				auto& threadResources = *static_cast<ThreadResources*>(tr);
-				auto& globalResources = *static_cast<GlobalResources*>(gr);
-				TextureManager& textureManager = globalResources.textureManager;
-				TextureStreamingRequest* request = static_cast<TextureStreamingRequest*>(request1);
-				
-				request->textureAction = Action::notifyReady;
-				textureManager.addMessage(request, threadResources, globalResources);
-			};
-			StreamingManager& streamingManager = globalResources.streamingManager;
-			streamingManager.uploadFinished(request, threadResources, globalResources);
+			request->textureAction = Action::notifyReady;
+			textureManager.addMessage(request, threadResources, globalResources);
 		};
-		globalResources.asynchronousFileManager.discard(request, threadResources, globalResources);
+		StreamingManager& streamingManager = globalResources.streamingManager;
+		streamingManager.uploadFinished(request, threadResources, globalResources);
 	}
 	
 	template<class ThreadResources, class GlobalResources>
@@ -123,7 +115,16 @@ private:
 
 				DDSFileLoader::copyResourceToGpu(uploadRequest.resource, uploadRequest.uploadResource, uploadRequest.uploadResourceOffset, uploadRequest.width, uploadRequest.height,
 					uploadRequest.depth, uploadRequest.mipLevels, uploadRequest.arraySize, uploadRequest.format, uploadRequest.uploadBufferCurrentCpuAddress, buffer, &streamingManager.copyCommandList());
-				streamingManager.addCopyCompletionEvent(&uploadRequest, copyFinished<ThreadResources, GlobalResources>);
+
+				uploadRequest.deleteReadRequest = [](AsynchronousFileManager::ReadRequest& request1, void* tr, void*)
+				{
+					TextureStreamingRequest& uploadRequest = static_cast<TextureStreamingRequest&>(request1);
+					ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
+					StreamingManager::ThreadLocal& streamingManager = threadResources.streamingManager;
+
+					streamingManager.addCopyCompletionEvent(&uploadRequest, copyFinished<ThreadResources, GlobalResources>);
+				};
+				globalResources.asynchronousFileManager.discard(&uploadRequest, threadResources, globalResources);
 			};
 			globalResources.asynchronousFileManager.readFile(&uploadRequest, threadResources, globalResources);
 		} });

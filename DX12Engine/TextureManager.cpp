@@ -138,11 +138,12 @@ void TextureManager::notifyTextureReady(TextureStreamingRequest* request, void* 
 	auto& texture = textures[request->filename];
 	texture.lastRequest = nullptr;
 	texture.resource.set() = request->resource;
-	texture.descriptorIndex = request->discriptorIndex;
+	const unsigned int discriptorIndex = request->discriptorIndex;
+	texture.descriptorIndex = discriptorIndex;
 	do
 	{
 		auto old = request;
 		request = request->nextTextureRequest; //Need to do this now as old could be deleted by the next line
-		old->textureLoaded(*old, tr, gr, old->discriptorIndex);
+		old->textureLoaded(*old, tr, gr, discriptorIndex);
 	} while(request != nullptr);
 }

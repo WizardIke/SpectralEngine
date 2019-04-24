@@ -4,9 +4,9 @@
 #undef WIN32_LEAN_AND_MEAN
 #undef min
 #undef max
-#include <fstream>
 #include "IOException.h"
 #include "WindowsFileCreationException.h"
+#include <stdint.h>
 
 class File
 {
