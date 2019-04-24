@@ -391,3 +391,12 @@ public:
 
 	AddReflectionCamera(unsigned long entity1, ReflectionCamera&& camera1, void(*callback1)(Base&, void* tr, void* gr), Zone<ThreadResources, GlobalResources>& zone1) : Base(entity1, std::move(camera1), callback1), zone(zone1) {}
 };
+
+class RemoveReflectionCameraRequest : public RenderPass1::RenderToTextureSubPass::RemoveCamerasRequest
+{
+	using Base = RenderPass1::RenderToTextureSubPass::RemoveCamerasRequest;
+public:
+	Zone<ThreadResources, GlobalResources>& zone;
+
+	RemoveReflectionCameraRequest(unsigned long entity1, void(*callback1)(Base&, void* tr, void* gr), Zone<ThreadResources, GlobalResources>& zone1) : Base(entity1, callback1), zone(zone1) {}
+};

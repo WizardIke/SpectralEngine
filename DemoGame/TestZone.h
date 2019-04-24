@@ -246,20 +246,25 @@ public:
 		}
 	}
 
-	static void deleteOldStateData(Zone<ThreadResources, GlobalResources>& zone, ThreadResources& threadResources, GlobalResources&)
+	static void deleteOldStateData(Zone<ThreadResources, GlobalResources>& zone, ThreadResources&, GlobalResources& globalResources)
 	{
 		switch (zone.oldState)
 		{
 		case 0u:
-			threadResources.taskShedular.pushBackgroundTask({ &zone, [](void* context, ThreadResources& threadResources, GlobalResources& globalResources)
+			zone.executeWhenGpuFinishesCurrentFrame(globalResources, [](LinkedTask& task, void* tr, void*)
 			{
-				auto& zone = *static_cast<Zone<ThreadResources, GlobalResources>*>(context);
-				auto resource = static_cast<HDResources*>(zone.oldData);
-				resource->destruct(threadResources, globalResources);
-				resource->~HDResources();
-				free(resource);
-				zone.finishedDeletingOldState(threadResources, globalResources);
-			} });
+				auto& zone = Zone<ThreadResources, GlobalResources>::from(task);
+				ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
+				threadResources.taskShedular.pushBackgroundTask({ &zone, [](void* context, ThreadResources& threadResources, GlobalResources& globalResources)
+				{
+					auto& zone = *static_cast<Zone<ThreadResources, GlobalResources>*>(context);
+					auto resource = static_cast<HDResources*>(zone.oldData);
+					resource->destruct(threadResources, globalResources);
+					resource->~HDResources();
+					free(resource);
+					zone.finishedDeletingOldState(threadResources, globalResources);
+				} });
+			});
 			break;
 		}
 	}

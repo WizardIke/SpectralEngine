@@ -80,7 +80,7 @@ public:
 private:
 	void moveToUnloadedState(ThreadResources& threadResources)
 	{
-		threadResources.taskShedular.pushPrimaryTask(1u, { this, [](void* context, ThreadResources&, GlobalResources& globalResources)
+		threadResources.taskShedular.pushPrimaryTask(1u, { this, [](void* context, ThreadResources& threadResources, GlobalResources& globalResources)
 		{
 			Zone& zone = *(Zone*)(context);
 			unsigned int oldState = zone.currentState;
@@ -89,14 +89,7 @@ private:
 			zone.oldData = oldData;
 			zone.oldState = oldState;
 
-			zone.execute = [](LinkedTask& task, void* tr, void* gr)
-			{
-				Zone& zone = static_cast<Zone&>(task);
-				ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
-				GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
-				zone.vTable->deleteOldStateData(zone, threadResources, globalResources);
-			};
-			globalResources.graphicsEngine.executeWhenGpuFinishesCurrentFrame(zone); //wait for cpu and gpu to stop using old state
+			zone.vTable->deleteOldStateData(zone, threadResources, globalResources);
 		} });
 	}
 public:
@@ -192,14 +185,7 @@ public:
 			}
 			else
 			{
-				zone.execute = [](LinkedTask& task, void* tr, void* gr)
-				{
-					Zone& zone = static_cast<Zone&>(task);
-					ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
-					GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
-					zone.vTable->deleteOldStateData(zone, threadResources, globalResources);
-				};
-				globalResources.graphicsEngine.executeWhenGpuFinishesCurrentFrame(zone); //wait for cpu and gpu to stop using old state
+				zone.vTable->deleteOldStateData(zone, threadResources, globalResources);
 			}
 		};
 		globalResources.taskShedular.pushPrimaryTaskFromOtherThread(1u, *this);
@@ -248,5 +234,16 @@ public:
 	Range<Portal*> getPortals()
 	{
 		return vTable->getPortals(*this);
+	}
+
+	void executeWhenGpuFinishesCurrentFrame(GlobalResources& globalResources, void(*task)(LinkedTask& task, void* tr, void* gr))
+	{
+		execute = task;
+		globalResources.graphicsEngine.executeWhenGpuFinishesCurrentFrame(*this); //wait for cpu and gpu to stop using old state
+	}
+
+	static Zone& from(LinkedTask& task)
+	{
+		return static_cast<Zone&>(task);
 	}
 };
