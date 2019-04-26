@@ -36,20 +36,6 @@ class ThreadResources
 	static void primaryEndUpdate2(ThreadResources& threadResources, GlobalResources& globalResources);
 	static void backgroundEndUpdate2(ThreadResources& threadResources, GlobalResources& globalResources);
 
-	/*
-	Uses all the threads to process backgroundTasks.
-	*/
-	static bool quit1(ThreadResources& threadResources, GlobalResources& globalResources);
-	/*
-	After setting this state, threads might disagree about weather the state is quit1 or quit2 for one frame.
-	However, this is harmless and they will all agree that the state has transitioned to state quit3 at the same time.
-	*/
-	static bool quit2(ThreadResources& threadResources, GlobalResources& globalResources);
-	/*
-	Causes the game to stop running.
-	*/
-	static bool quit3(ThreadResources& threadResources, GlobalResources& globalResources);
-
 	void start(GlobalResources& globalResources);
 	ThreadResources(unsigned int index, GlobalResources& globalResources, void(*endUpdate2)(ThreadResources& threadResources, GlobalResources& globalResources));
 public:

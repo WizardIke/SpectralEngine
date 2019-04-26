@@ -47,7 +47,8 @@ bool ThreadResources::initialize3(ThreadResources& threadResources, GlobalResour
 {
 	unsigned int primaryThreadCount;
 	const unsigned int updateIndex = globalResources.taskShedular.incrementUpdateIndex(primaryThreadCount);
-	threadResources.taskShedular.endUpdate2Primary(globalResources.taskShedular, endUpdate1, primaryThreadCount, updateIndex);
+	threadResources.taskShedular.beforeEndUpdate2(globalResources.taskShedular, endUpdate1, primaryThreadCount, updateIndex);
+	threadResources.taskShedular.endUpdate2Primary(globalResources.taskShedular, primaryThreadCount);
 	return false;
 }
 
@@ -75,42 +76,11 @@ bool ThreadResources::endUpdate2(ThreadResources& threadResources, GlobalResourc
 	return false;
 }
 
-bool ThreadResources::quit1(ThreadResources& threadResources, GlobalResources& globalResources)
-{
-	threadResources.taskShedular.runBackgroundTasks(globalResources.taskShedular, threadResources, globalResources);
-	threadResources.streamingManager.update(globalResources.streamingManager, &threadResources, &globalResources);
-
-	globalResources.taskShedular.sync([&globalResources = globalResources, &threadResources = threadResources]()
-	{
-		IOCompletionPacket task;
-		while(globalResources.ioCompletionQueue.pop(task))
-		{
-			task(&threadResources, &globalResources);
-		}
-	});
-
-	return false;
-}
-
-bool ThreadResources::quit2(ThreadResources&, GlobalResources& globalResources)
-{
-	globalResources.taskShedular.sync([&taskShedular = globalResources.taskShedular]()
-	{
-		taskShedular.setNextPhaseTask(quit3);
-	});
-
-	return false;
-}
-
-bool ThreadResources::quit3(ThreadResources&, GlobalResources&)
-{
-	return true;
-}
-
 void ThreadResources::mainEndUpdate2(ThreadResources& threadResources, GlobalResources& globalResources)
 {
 	unsigned int primaryThreadCount;
 	const unsigned int updateIndex = globalResources.taskShedular.incrementUpdateIndex(primaryThreadCount);
+	threadResources.taskShedular.beforeEndUpdate2(globalResources.taskShedular, endUpdate1, primaryThreadCount, updateIndex);
 	threadResources.renderPass.update2(threadResources, globalResources, globalResources.renderPass, primaryThreadCount);
 
 	if(primaryThreadCount != 1u) globalResources.readyToPresentEvent.wait();
@@ -118,7 +88,7 @@ void ThreadResources::mainEndUpdate2(ThreadResources& threadResources, GlobalRes
 	threadResources.renderPass.present(primaryThreadCount, globalResources.graphicsEngine, globalResources.window, globalResources.renderPass);
 	globalResources.update();
 
-	threadResources.taskShedular.endUpdate2Primary(globalResources.taskShedular, endUpdate1, primaryThreadCount, updateIndex);
+	threadResources.taskShedular.endUpdate2Primary(globalResources.taskShedular, primaryThreadCount);
 	threadResources.streamingManager.update(globalResources.streamingManager, &threadResources, &globalResources);
 }
 
@@ -126,16 +96,17 @@ void ThreadResources::primaryEndUpdate2(ThreadResources& threadResources, Global
 {
 	unsigned int primaryThreadCount;
 	const unsigned int updateIndex = globalResources.taskShedular.incrementUpdateIndex(primaryThreadCount);
+	threadResources.taskShedular.beforeEndUpdate2(globalResources.taskShedular, endUpdate1, primaryThreadCount, updateIndex);
 	threadResources.renderPass.update2(threadResources, globalResources, globalResources.renderPass, primaryThreadCount);
 
-	unsigned int presentIndex = globalResources.readyToPresentCount.fetch_add(1u, std::memory_order::memory_order_acq_rel);
+	unsigned int presentIndex = globalResources.readyToPresentCount.fetch_add(1u, std::memory_order_acq_rel);
 	if (presentIndex == primaryThreadCount - 2u)
 	{
 		globalResources.readyToPresentEvent.notify();
-		globalResources.readyToPresentCount.store(0u, std::memory_order::memory_order_relaxed);
+		globalResources.readyToPresentCount.store(0u, std::memory_order_relaxed);
 	}
 
-	threadResources.taskShedular.endUpdate2Primary(globalResources.taskShedular, endUpdate1, primaryThreadCount, updateIndex);
+	threadResources.taskShedular.endUpdate2Primary(globalResources.taskShedular, primaryThreadCount);
 	threadResources.streamingManager.update(globalResources.streamingManager, &threadResources, &globalResources);
 }
 
@@ -153,13 +124,14 @@ void ThreadResources::backgroundEndUpdate2(ThreadResources& threadResources, Glo
 {
 	unsigned int primaryThreadCount;
 	const unsigned int updateIndex = globalResources.taskShedular.incrementUpdateIndex(primaryThreadCount);
+	threadResources.taskShedular.beforeEndUpdate2(globalResources.taskShedular, endUpdate1, primaryThreadCount, updateIndex);
 	threadResources.renderPass.update2(threadResources, globalResources, globalResources.renderPass, primaryThreadCount);
 
-	unsigned int presentIndex = globalResources.readyToPresentCount.fetch_add(1u, std::memory_order::memory_order_acq_rel);
+	unsigned int presentIndex = globalResources.readyToPresentCount.fetch_add(1u, std::memory_order_acq_rel);
 	if (presentIndex == primaryThreadCount - 2u)
 	{
 		globalResources.readyToPresentEvent.notify();
-		globalResources.readyToPresentCount.store(0u, std::memory_order::memory_order_relaxed);
+		globalResources.readyToPresentCount.store(0u, std::memory_order_relaxed);
 	}
-	threadResources.taskShedular.endUpdate2Background<backgroundEndUpdate, backgroundPrepairForUpdate2>(globalResources.taskShedular, threadResources, globalResources, endUpdate1, primaryThreadCount, updateIndex);
+	threadResources.taskShedular.endUpdate2Background<backgroundEndUpdate, backgroundPrepairForUpdate2>(globalResources.taskShedular, threadResources, globalResources, primaryThreadCount);
 }

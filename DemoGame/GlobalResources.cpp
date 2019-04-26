@@ -370,7 +370,6 @@ class GlobalResources::Unloader : private PrimaryTaskFromOtherThreadQueue::Task
 			numberOfComponentsUnloaded.store(0u, std::memory_order_relaxed);
 
 			GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
-
 			execute = [](PrimaryTaskFromOtherThreadQueue::Task& task, void* tr, void* gr)
 			{
 				Unloader& unloader = static_cast<Unloader&>(task);
@@ -389,8 +388,15 @@ class GlobalResources::Unloader : private PrimaryTaskFromOtherThreadQueue::Task
 		if(numberOfComponentsUnloaded.fetch_add(1u, std::memory_order::memory_order_acq_rel) == (numberOfNumponentsToUnload2 - 1u))
 		{
 			GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
-			globalResources.taskShedular.setNextPhaseTask(ThreadResources::quit2);
-			delete this;
+			execute = [](PrimaryTaskFromOtherThreadQueue::Task& task, void*, void* gr)
+			{
+				Unloader& unloader = static_cast<Unloader&>(task);
+				delete &unloader;
+
+				GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
+				globalResources.taskShedular.setNextPhaseTask(quit2);
+			};
+			globalResources.taskShedular.pushPrimaryTaskFromOtherThread(0u, *this);
 		}
 	}
 public:
@@ -426,7 +432,39 @@ public:
 
 void GlobalResources::stop(ThreadResources& threadResources)
 {
-	taskShedular.setNextPhaseTask(ThreadResources::quit1);
+	taskShedular.setNextPhaseTask(quit1);
 	Unloader* unloader = new Unloader();
 	unloader->unload(threadResources, *this);
+}
+
+bool GlobalResources::quit1(ThreadResources& threadResources, GlobalResources& globalResources)
+{
+	threadResources.taskShedular.runBackgroundTasks(globalResources.taskShedular, threadResources, globalResources);
+	threadResources.streamingManager.update(globalResources.streamingManager, &threadResources, &globalResources);
+
+	globalResources.taskShedular.sync([&globalResources = globalResources, &threadResources = threadResources]()
+		{
+			IOCompletionPacket task;
+			while (globalResources.ioCompletionQueue.pop(task))
+			{
+				task(&threadResources, &globalResources);
+			}
+		});
+
+	return false;
+}
+
+bool GlobalResources::quit2(ThreadResources&, GlobalResources& globalResources)
+{
+	globalResources.taskShedular.sync([&taskShedular = globalResources.taskShedular]()
+	{
+		taskShedular.setNextPhaseTask(quit3);
+	});
+
+	return false;
+}
+
+bool GlobalResources::quit3(ThreadResources&, GlobalResources&)
+{
+	return true;
 }

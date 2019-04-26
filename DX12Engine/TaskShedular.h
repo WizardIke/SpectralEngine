@@ -127,20 +127,16 @@ public:
 			}
 		}
 
-		void endUpdate2End(TaskShedular& taskShedular, const unsigned int primaryThreadCount, const unsigned int)
+		void endUpdate2Sync(TaskShedular& taskShedular, const unsigned int primaryThreadCount)
 		{
 			taskShedular.mBarrier.sync(primaryThreadCount, [&mUpdateIndexAndPrimaryThreadCount = taskShedular.mUpdateIndexAndPrimaryThreadCount,
 				&primaryThreadCountDefferedDecrease = taskShedular.mPrimaryThreadCountDefferedDecrease]()
 			{
-				unsigned int amount = primaryThreadCountDefferedDecrease.load(std::memory_order::memory_order_relaxed);
-				unsigned long oldUpdateIndexAndPrimaryThreadCount = mUpdateIndexAndPrimaryThreadCount.load(std::memory_order::memory_order_relaxed);
-				mUpdateIndexAndPrimaryThreadCount.store((oldUpdateIndexAndPrimaryThreadCount - amount) & 0xffff, std::memory_order::memory_order_release);
-				primaryThreadCountDefferedDecrease.store(0u, std::memory_order::memory_order_relaxed);
+				unsigned int amount = primaryThreadCountDefferedDecrease.load(std::memory_order_relaxed);
+				unsigned long oldUpdateIndexAndPrimaryThreadCount = mUpdateIndexAndPrimaryThreadCount.load(std::memory_order_relaxed);
+				mUpdateIndexAndPrimaryThreadCount.store((oldUpdateIndexAndPrimaryThreadCount - amount) & 0xffff, std::memory_order_release);
+				primaryThreadCountDefferedDecrease.store(0u, std::memory_order_relaxed);
 			});
-
-			primaryQueues[1].currentQueue->reset();
-			swap(primaryQueues[0].currentQueue, primaryQueues[0].nextQueue);
-			mCurrentQueue = primaryQueues[0].currentQueue;
 		}
 	public:
 		ThreadLocal(unsigned int index, TaskShedular& taskShedular)
@@ -195,7 +191,7 @@ public:
 		{
 			if (updateIndex == primaryThreadCount - 1u)
 			{
-				taskShedular.mNextPhaseTask.store(nextPhaseTask, std::memory_order::memory_order_relaxed);
+				taskShedular.mNextPhaseTask.store(nextPhaseTask, std::memory_order_relaxed);
 				taskShedular.endUpdate1();
 			}
 
@@ -209,41 +205,35 @@ public:
 			mCurrentQueue = primaryQueues[1].currentQueue;
 		}
 
-		void endUpdate2Primary(TaskShedular& taskShedular, NonAtomicNextPhaseTask nextPhaseTask, const unsigned int primaryThreadCount, const unsigned int updateIndex)
+		void beforeEndUpdate2(TaskShedular& taskShedular, NonAtomicNextPhaseTask nextPhaseTask, const unsigned int primaryThreadCount, const unsigned int updateIndex)
 		{
 			if (updateIndex == primaryThreadCount - 1u)
 			{
-				taskShedular.mNextPhaseTask.store(nextPhaseTask, std::memory_order::memory_order_relaxed);
+				taskShedular.mNextPhaseTask.store(nextPhaseTask, std::memory_order_relaxed);
 				taskShedular.endUpdate2();
 			}
+		}
 
-			endUpdate2End(taskShedular, primaryThreadCount, updateIndex);
+		void endUpdate2Primary(TaskShedular& taskShedular, const unsigned int primaryThreadCount)
+		{
+			endUpdate2Sync(taskShedular, primaryThreadCount);
+
+			primaryQueues[1].currentQueue->reset();
+			swap(primaryQueues[0].currentQueue, primaryQueues[0].nextQueue);
+			mCurrentQueue = primaryQueues[0].currentQueue;
 		}
 
 		template<void(*endUpdate)(ThreadResources& threadResources, GlobalResources& globalResoureces), void(*prepairForUpdate2)(ThreadResources& threadResources, GlobalResources& globalResoureces)>
-		void endUpdate2Background(TaskShedular& taskShedular, ThreadResources& threadResources, GlobalResources& globalResoureces, NonAtomicNextPhaseTask nextPhaseTask, const unsigned int primaryThreadCount, const unsigned int updateIndex)
+		void endUpdate2Background(TaskShedular& taskShedular, ThreadResources& threadResources, GlobalResources& globalResoureces, const unsigned int primaryThreadCount)
 		{
-			if (updateIndex == primaryThreadCount - 1u)
-			{
-				taskShedular.mNextPhaseTask.store(nextPhaseTask, std::memory_order::memory_order_relaxed);
-				taskShedular.endUpdate2();
-			}
-
 			unsigned int currentQueueIndex = lockAndGetNextBackgroundQueue(mCurrentBackgroundQueueIndex, taskShedular.mThreadCount, taskShedular.mBackgroundQueues);
 			mCurrentBackgroundQueueIndex = currentQueueIndex;
 			
 			Task task;
 			if (taskShedular.mBackgroundQueues[currentQueueIndex]->pop(task))
 			{
-				taskShedular.mPrimaryThreadCountDefferedDecrease.fetch_add(1u, std::memory_order::memory_order_relaxed);
-				taskShedular.mBarrier.sync(primaryThreadCount, [&mUpdateIndexAndPrimaryThreadCount = taskShedular.mUpdateIndexAndPrimaryThreadCount,
-					&primaryThreadCountDefferedDecrease = taskShedular.mPrimaryThreadCountDefferedDecrease]()
-				{
-					unsigned int amount = primaryThreadCountDefferedDecrease.load(std::memory_order::memory_order_relaxed);
-					unsigned long oldUpdateIndexAndPrimaryThreadCount = mUpdateIndexAndPrimaryThreadCount.load(std::memory_order::memory_order_relaxed);
-					mUpdateIndexAndPrimaryThreadCount.store((oldUpdateIndexAndPrimaryThreadCount - amount) & 0xffff, std::memory_order::memory_order_release);
-					primaryThreadCountDefferedDecrease.store(0u, std::memory_order::memory_order_relaxed);
-				});
+				taskShedular.mPrimaryThreadCountDefferedDecrease.fetch_add(1u, std::memory_order_relaxed);
+				endUpdate2Sync(taskShedular, primaryThreadCount);
 
 				primaryQueues[1].currentQueue->reset();
 
@@ -257,7 +247,7 @@ public:
 			else
 			{
 				taskShedular.mBackgroundQueues[currentQueueIndex]->unlock();
-				endUpdate2End(taskShedular, primaryThreadCount, updateIndex);
+				endUpdate2Primary(taskShedular, primaryThreadCount);
 				endUpdate(threadResources, globalResoureces);
 			}
 		}
@@ -288,7 +278,7 @@ public:
 						}
 						else if (i == mIndex)
 						{
-							auto nextPhaseTask = taskShedular.mNextPhaseTask.load(std::memory_order::memory_order_relaxed);
+							auto nextPhaseTask = taskShedular.mNextPhaseTask.load(std::memory_order_relaxed);
 							bool shouldQuit = nextPhaseTask(threadResources, globalResoureces);
 							if(shouldQuit) return;
 							currentWorkStealingQueues = taskShedular.mCurrentWorkStealingQueues;
@@ -320,11 +310,11 @@ private:
 
 	bool mIncrementPrimaryThreadCountIfUpdateIndexIsZero() noexcept
 	{
-		unsigned long oldUpdateIndexAndPrimaryThreadCount = mUpdateIndexAndPrimaryThreadCount.load(std::memory_order::memory_order_relaxed);
+		unsigned long oldUpdateIndexAndPrimaryThreadCount = mUpdateIndexAndPrimaryThreadCount.load(std::memory_order_relaxed);
 		while ((oldUpdateIndexAndPrimaryThreadCount & ~(unsigned long)0xffff) == 0u)
 		{
 			bool succeeded = mUpdateIndexAndPrimaryThreadCount.compare_exchange_weak(oldUpdateIndexAndPrimaryThreadCount, oldUpdateIndexAndPrimaryThreadCount + 1u,
-				std::memory_order::memory_order_acquire, std::memory_order::memory_order_relaxed);
+				std::memory_order_acquire, std::memory_order_relaxed);
 			if (succeeded) return true;
 		}
 		return false;
@@ -332,8 +322,8 @@ private:
 
 	void mResetUpdateIndex() noexcept
 	{
-		unsigned long oldUpdateIndexAndPrimaryThreadCount = mUpdateIndexAndPrimaryThreadCount.load(std::memory_order::memory_order_relaxed);
-		mUpdateIndexAndPrimaryThreadCount.store(oldUpdateIndexAndPrimaryThreadCount & 0xffff, std::memory_order::memory_order_release);
+		unsigned long oldUpdateIndexAndPrimaryThreadCount = mUpdateIndexAndPrimaryThreadCount.load(std::memory_order_relaxed);
+		mUpdateIndexAndPrimaryThreadCount.store(oldUpdateIndexAndPrimaryThreadCount & 0xffff, std::memory_order_release);
 	}
 
 	void endUpdate1() noexcept
@@ -359,8 +349,8 @@ public:
 		mBackgroundQueues = new BackgroundQueue<Task>*[numberOfThreads];
 		mCurrentWorkStealingQueues = mWorkStealingQueuesArray + numberOfThreads;
 		mThreadCount = numberOfThreads;
-		mUpdateIndexAndPrimaryThreadCount.store(numberOfThreads, std::memory_order::memory_order_relaxed);
-		mNextPhaseTask.store(nextPhaseTask, std::memory_order::memory_order_relaxed);
+		mUpdateIndexAndPrimaryThreadCount.store(numberOfThreads, std::memory_order_relaxed);
+		mNextPhaseTask.store(nextPhaseTask, std::memory_order_relaxed);
 	}
 
 	unsigned int threadCount() noexcept
@@ -370,8 +360,8 @@ public:
 
 	unsigned int incrementUpdateIndex(unsigned int& primaryThreadCount) noexcept
 	{
-		unsigned long newUpdateIndexAndPrimaryThreadCount = mUpdateIndexAndPrimaryThreadCount.fetch_add(1ul << 16ul, std::memory_order::memory_order_relaxed);
-		primaryThreadCount = (unsigned int)(newUpdateIndexAndPrimaryThreadCount & 0xffff);
+		unsigned long newUpdateIndexAndPrimaryThreadCount = mUpdateIndexAndPrimaryThreadCount.fetch_add(1ul << 16ul, std::memory_order_acq_rel);
+		primaryThreadCount = (unsigned int)(newUpdateIndexAndPrimaryThreadCount & 0xfffful);
 		return (unsigned int)(newUpdateIndexAndPrimaryThreadCount >> 16ul);
 	}
 
@@ -382,7 +372,7 @@ public:
 
 	void setNextPhaseTask(NonAtomicNextPhaseTask nextPhaseTask) noexcept
 	{
-		mNextPhaseTask.store(nextPhaseTask, std::memory_order::memory_order_relaxed);
+		mNextPhaseTask.store(nextPhaseTask, std::memory_order_relaxed);
 	}
 
 	template<class OnLastThread>

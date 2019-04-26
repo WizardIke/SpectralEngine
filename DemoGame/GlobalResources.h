@@ -46,14 +46,28 @@ class GlobalResources
 
 	static void primaryThreadFunction(unsigned int i, unsigned int primaryThreadCount, GlobalResources& globalReources);
 	static void backgroundThreadFunction(unsigned int i, unsigned int threadCount, GlobalResources& globalReources);
+
+	/*
+	Uses all the threads to process backgroundTasks.
+	*/
+	static bool quit1(ThreadResources& threadResources, GlobalResources& globalResources);
+	/*
+	After setting this state, threads might disagree about weather the state is quit1 or quit2 for one frame.
+	However, this is harmless and they will all agree that the state has transitioned to state quit3 at the same time.
+	*/
+	static bool quit2(ThreadResources& threadResources, GlobalResources& globalResources);
+	/*
+	Causes the game to stop running.
+	*/
+	static bool quit3(ThreadResources& threadResources, GlobalResources& globalResources);
 public:
-	Window window;
+	Window window; //must only be used on main thread
 	GraphicsEngine graphicsEngine;
 	StreamingManager streamingManager; //thread safe
 	TaskShedular<ThreadResources, GlobalResources> taskShedular;
 	ThreadResources mainThreadResources;
 	RunnableIOCompletionQueue ioCompletionQueue;
-	AsynchronousFileManager asynchronousFileManager;
+	AsynchronousFileManager asynchronousFileManager; //thread safe
 	TextureManager textureManager; //thread safe
 	MeshManager meshManager; //thread safe
 	SoundEngine soundEngine;
