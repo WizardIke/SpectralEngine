@@ -137,7 +137,7 @@ public:
 			}
 			else
 			{
-				stopRequest1->callback(*stopRequest1, &threadResources, &globalResources);
+				stopRequest1->onZoneStopped(&threadResources, &globalResources);
 			}
 		}
 		else
@@ -219,7 +219,7 @@ public:
 				auto stopRequest1 = zone.stopRequest;
 				if(stopRequest1 != nullptr)
 				{
-					stopRequest1->callback(*stopRequest1, &threadResources, &globalResources);
+					stopRequest1->onZoneStopped(&threadResources, &globalResources);
 				}
 			}
 		};

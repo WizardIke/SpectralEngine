@@ -53,6 +53,20 @@ void Window::setForgroundAndShow()
 
 Window::~Window() 
 {
+	if (windowHandle != nullptr)
+	{
+		shutdown();
+	}
+}
+
+void Window::destroy()
+{
+	shutdown();
+	windowHandle = nullptr;
+}
+
+void Window::shutdown()
+{
 	ShowCursor(TRUE);
 	if (fullScreen)
 	{
@@ -136,16 +150,10 @@ void Window::setWindowed()
 bool Window::processMessagesForAllWindowsCreatedOnCurrentThread()
 {
 	MSG message;
-	BOOL error;
-	while (true)
+	while (PeekMessage(&message, nullptr, 0, 0, PM_REMOVE) != FALSE)
 	{
-		error = (PeekMessage(&message, nullptr, 0, 0, PM_REMOVE));
-		if (error == 0) { break; } //no messages
-		else if (error < 0) //error reading message
-		{
-			return false;
-		}
+		if (message.message == WM_QUIT) return true;
 		DispatchMessage(&message);
 	}
-	return true;
+	return false;
 }

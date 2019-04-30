@@ -23,6 +23,8 @@ class Window
 	bool vSync;
 
 	void createSwapChain(GraphicsEngine& graphicsEngine, IDXGIFactory5* dxgiFactory);
+
+	void shutdown();
 public:
 	Window(void* callbackData, LRESULT CALLBACK WndProc(HWND hwnd, UINT umessage, WPARAM wparam, LPARAM lparam),
 		unsigned int width, unsigned int height, int positionX, int positionY, bool fullScreen, bool vSync);
@@ -53,5 +55,10 @@ public:
 	void setVSync(bool value) { vSync = value; }
 	bool getVSync() { return vSync; }
 
+	void destroy();
+
+	/*
+	Returns true if the program should quit
+	*/
 	static bool processMessagesForAllWindowsCreatedOnCurrentThread();
 };

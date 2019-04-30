@@ -198,7 +198,7 @@ private:
 	}
 
 	/*the texture must no longer be in use, including by the GPU*/
-	void unloadTexture(const wchar_t* filename, GraphicsEngine& graphicsEngine, StreamingManager& streamingManager);
+	void unloadTexture(const wchar_t* filename, GraphicsEngine& graphicsEngine);
 
 	template<class ThreadResources, class GlobalResources>
 	void addMessage(Message* request, ThreadResources& threadResources, GlobalResources&)
@@ -226,7 +226,7 @@ private:
 				temp = temp->next; //Allow reuse of next
 				if(message.textureAction == Action::unload)
 				{
-					unloadTexture(message.filename, globalResources.graphicsEngine, globalResources.streamingManager);
+					unloadTexture(message.filename, globalResources.graphicsEngine);
 				}
 				else if(message.textureAction == Action::load)
 				{

@@ -55,7 +55,7 @@ bool InputHandler::keyDown(UINT keyCode, UINT, GlobalResources& globalResources)
 		spaceDown = true;
 		return true;
 	case Keys::escape:
-		globalResources.stop(globalResources.mainThreadResources); //will be called on main thread so this is ok.
+		globalResources.stop(); //will be called on main thread so this is ok.
 		return true;
 	case Keys::f1:
 		if(!f1Down)

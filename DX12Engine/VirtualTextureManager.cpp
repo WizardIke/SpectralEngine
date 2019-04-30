@@ -84,7 +84,7 @@ unsigned int VirtualTextureManager::createTextureDescriptor(GraphicsEngine& grap
 	return discriptorIndex;
 }
 
-void VirtualTextureManager::unloadTexture(const wchar_t * filename, GraphicsEngine& graphicsEngine, StreamingManager& streamingManager)
+void VirtualTextureManager::unloadTexture(const wchar_t * filename, GraphicsEngine& graphicsEngine)
 {
 	//unsigned int descriptorIndex = std::numeric_limits<unsigned int>::max();
 	//unsigned int textureID = 255;
@@ -107,20 +107,6 @@ void VirtualTextureManager::unloadTexture(const wchar_t * filename, GraphicsEngi
 			if(packedMipInfo.NumPackedMips != 0u)
 			{
 				pageProvider.pageAllocator.removePinnedPages(resitencyInfo.pinnedHeapLocations, packedMipInfo.NumTilesForPackedMips);
-
-				D3D12_TILED_RESOURCE_COORDINATE resourceTileCoord;
-				resourceTileCoord.X = 0u;
-				resourceTileCoord.Y = 0u;
-				resourceTileCoord.Z = 0u;
-				resourceTileCoord.Subresource = resitencyInfo.lowestPinnedMip;
-
-				D3D12_TILE_REGION_SIZE tileRegion;
-				tileRegion.NumTiles = packedMipInfo.NumTilesForPackedMips;
-				tileRegion.UseBox = FALSE;
-
-				D3D12_TILE_RANGE_FLAGS rangeFlags = D3D12_TILE_RANGE_FLAG_NULL;
-				streamingManager.commandQueue().UpdateTileMappings(resitencyInfo.resource, 1u, &resourceTileCoord, &tileRegion, nullptr, 1u, &rangeFlags, nullptr,
-					nullptr, D3D12_TILE_MAPPING_FLAG_NONE);
 			}
 			else
 			{
@@ -130,23 +116,6 @@ void VirtualTextureManager::unloadTexture(const wchar_t * filename, GraphicsEngi
 				if(height == 0u) height = 1u;
 				auto numPages = width * height;
 				pageProvider.pageAllocator.removePinnedPages(resitencyInfo.pinnedHeapLocations, numPages);
-
-				D3D12_TILED_RESOURCE_COORDINATE resourceTileCoord;
-				resourceTileCoord.X = 0u;
-				resourceTileCoord.Y = 0u;
-				resourceTileCoord.Z = 0u;
-				resourceTileCoord.Subresource = resitencyInfo.lowestPinnedMip;
-
-				D3D12_TILE_REGION_SIZE tileRegion;
-				tileRegion.NumTiles = numPages;
-				tileRegion.UseBox = TRUE;
-				tileRegion.Width = (uint32_t)width;
-				tileRegion.Height = (uint16_t)height;
-				tileRegion.Depth = 1u;
-
-				D3D12_TILE_RANGE_FLAGS rangeFlags = D3D12_TILE_RANGE_FLAG_NULL;
-				streamingManager.commandQueue().UpdateTileMappings(resitencyInfo.resource, 1u, &resourceTileCoord, &tileRegion, nullptr, 1u, &rangeFlags, nullptr,
-					nullptr, D3D12_TILE_MAPPING_FLAG_NONE);
 			}
 
 			delete[] resitencyInfo.pinnedHeapLocations;

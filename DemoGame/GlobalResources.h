@@ -47,19 +47,13 @@ class GlobalResources
 	static void primaryThreadFunction(unsigned int i, unsigned int primaryThreadCount, GlobalResources& globalReources);
 	static void backgroundThreadFunction(unsigned int i, unsigned int threadCount, GlobalResources& globalReources);
 
+	static LRESULT CALLBACK windowCallback(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
+
 	/*
-	Uses all the threads to process backgroundTasks.
+	Causes the program to stop running.
 	*/
-	static bool quit1(ThreadResources& threadResources, GlobalResources& globalResources);
-	/*
-	After setting this state, threads might disagree about weather the state is quit1 or quit2 for one frame.
-	However, this is harmless and they will all agree that the state has transitioned to state quit3 at the same time.
-	*/
-	static bool quit2(ThreadResources& threadResources, GlobalResources& globalResources);
-	/*
-	Causes the game to stop running.
-	*/
-	static bool quit3(ThreadResources& threadResources, GlobalResources& globalResources);
+	static bool quit(ThreadResources& threadResources, GlobalResources& globalResources);
+	bool isQuitiing = false;
 public:
 	Window window; //must only be used on main thread
 	GraphicsEngine graphicsEngine;
@@ -98,8 +92,12 @@ public:
 	}
 
 	GlobalResources();
+
+	/*
+	Must be called on the main thread after all other threads have stopped using GlobalResources
+	*/
 	~GlobalResources();
 
 	void start();
-	void stop(ThreadResources& threadResources);
+	void stop();
 };
