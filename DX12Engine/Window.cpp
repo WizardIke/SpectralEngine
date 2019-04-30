@@ -152,7 +152,10 @@ bool Window::processMessagesForAllWindowsCreatedOnCurrentThread()
 	MSG message;
 	while (PeekMessage(&message, nullptr, 0, 0, PM_REMOVE) != FALSE)
 	{
-		if (message.message == WM_QUIT) return true;
+		if (message.message == WM_QUIT)
+		{
+			return true;
+		}
 		DispatchMessage(&message);
 	}
 	return false;

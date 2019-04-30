@@ -922,47 +922,51 @@ namespace
 				auto resource = static_cast<HDResources*>(zone.oldData);
 				auto zoneEntity = resource->zoneEntity;
 				RemoveReflectionCameraRequest* removeReflectionCameraRequest = new RemoveReflectionCameraRequest(zoneEntity,
-					[](RenderPass1::RenderToTextureSubPass::RemoveCamerasRequest& req, void*, void* gr)
-					{
-						auto& request = static_cast<RemoveReflectionCameraRequest&>(req);
-						auto& zone = request.zone;
-						delete &request;
+					[](RenderPass1::RenderToTextureSubPass::RemoveCamerasRequest& req, void* tr, void*)
+				{
+					auto& request = static_cast<RemoveReflectionCameraRequest&>(req);
+					auto& zone = request.zone;
+					delete &request;
 
-						GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
+					ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
+					threadResources.taskShedular.pushPrimaryTask(1u, { &zone, [](void* requester, ThreadResources&, GlobalResources& globalResources)
+					{
+						auto& zone = *static_cast<Zone<ThreadResources, GlobalResources>*>(requester);
 						zone.executeWhenGpuFinishesCurrentFrame(globalResources, [](LinkedTask& task, void* tr, void*)
+						{
+							auto& zone = Zone<ThreadResources, GlobalResources>::from(task);
+							ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
+							threadResources.taskShedular.pushBackgroundTask({ &zone, [](void* context, ThreadResources& threadResources, GlobalResources& globalResources)
 							{
-								auto& zone = Zone<ThreadResources, GlobalResources>::from(task);
-								ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
-								threadResources.taskShedular.pushBackgroundTask({ &zone, [](void* context, ThreadResources& threadResources, GlobalResources& globalResources)
-								{
-									Zone<ThreadResources, GlobalResources>& zone = *static_cast<Zone<ThreadResources, GlobalResources>*>(context);
-									auto resource = static_cast<HDResources*>(zone.oldData);
-									resource->destruct(threadResources, globalResources);
-									resource->~HDResources();
-									free(resource);
-									zone.finishedDeletingOldState(threadResources, globalResources);
-								} });
-							});
-					}, zone);
+								Zone<ThreadResources, GlobalResources>& zone = *static_cast<Zone<ThreadResources, GlobalResources>*>(context);
+								auto resource = static_cast<HDResources*>(zone.oldData);
+								resource->destruct(threadResources, globalResources);
+								resource->~HDResources();
+								free(resource);
+								zone.finishedDeletingOldState(threadResources, globalResources);
+							} });
+						});
+					} });
+				}, zone);
 				globalResources.renderPass.renderToTextureSubPass().removeCamera(*removeReflectionCameraRequest, globalResources.renderPass, threadResources, globalResources);
 				break;
 			}
 			case 1u:
 			{
 				zone.executeWhenGpuFinishesCurrentFrame(globalResources, [](LinkedTask& task, void* tr, void*)
+				{
+					auto& zone = Zone<ThreadResources, GlobalResources>::from(task);
+					ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
+					threadResources.taskShedular.pushBackgroundTask({ &zone, [](void* context, ThreadResources& threadResources, GlobalResources& globalResources)
 					{
-						auto& zone = Zone<ThreadResources, GlobalResources>::from(task);
-						ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
-						threadResources.taskShedular.pushBackgroundTask({ &zone, [](void* context, ThreadResources& threadResources, GlobalResources& globalResources)
-						{
-							auto& zone = *static_cast<Zone<ThreadResources, GlobalResources>*>(context);
-							auto resource = static_cast<MDResources*>(zone.oldData);
-							resource->destruct(threadResources, globalResources);
-							resource->~MDResources();
-							free(resource);
-							zone.finishedDeletingOldState(threadResources, globalResources);
-						} });
-					});
+						auto& zone = *static_cast<Zone<ThreadResources, GlobalResources>*>(context);
+						auto resource = static_cast<MDResources*>(zone.oldData);
+						resource->destruct(threadResources, globalResources);
+						resource->~MDResources();
+						free(resource);
+						zone.finishedDeletingOldState(threadResources, globalResources);
+					} });
+				});
 				break;
 			}
 			}

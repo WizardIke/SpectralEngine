@@ -64,7 +64,7 @@ class GlobalResources::Unloader : private PrimaryTaskFromOtherThreadQueue::Task
 
 	void componentUnloaded1(void*, void* gr)
 	{
-		if (numberOfComponentsUnloaded.fetch_add(1u, std::memory_order::memory_order_acq_rel) == (numberOfNumponentsToUnload1 - 1u))
+		if (numberOfComponentsUnloaded.fetch_add(1u, std::memory_order_acq_rel) == (numberOfNumponentsToUnload1 - 1u))
 		{
 			numberOfComponentsUnloaded.store(0u, std::memory_order_relaxed);
 
@@ -84,17 +84,12 @@ class GlobalResources::Unloader : private PrimaryTaskFromOtherThreadQueue::Task
 
 	void componentUnloaded2(void* gr)
 	{
-		if (numberOfComponentsUnloaded.fetch_add(1u, std::memory_order::memory_order_acq_rel) == (numberOfNumponentsToUnload2 - 1u))
+		if (numberOfComponentsUnloaded.fetch_add(1u, std::memory_order_acq_rel) == (numberOfNumponentsToUnload2 - 1u))
 		{
-			GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
-			execute = [](PrimaryTaskFromOtherThreadQueue::Task& task, void*, void*)
-			{
-				Unloader& unloader = static_cast<Unloader&>(task);
-				delete &unloader;
+			delete this;
 
-				PostQuitMessage(0);
-			};
-			globalResources.taskShedular.pushPrimaryTaskFromOtherThread(0u, *this);
+			GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
+			SendMessage(globalResources.window.native_handle(), WM_QUIT, 0, 0);
 		}
 	}
 public:
@@ -179,6 +174,9 @@ LRESULT CALLBACK GlobalResources::windowCallback(HWND hwnd, UINT message, WPARAM
 		}
 		return 0;
 	}
+	case WM_QUIT:
+		PostQuitMessage(0);
+		return 0;
 	default:
 		return DefWindowProc(hwnd, message, wParam, lParam);
 	}
@@ -205,7 +203,7 @@ class GlobalResources::InitialResourceLoader : public TextureManager::TextureStr
 
 	void componentLoaded(ThreadResources&, GlobalResources& globalResources)
 	{
-		if(numberOfComponentsLoaded.fetch_add(1u, std::memory_order::memory_order_acq_rel) == (numberOfComponentsToLoad - 1u))
+		if(numberOfComponentsLoaded.fetch_add(1u, std::memory_order_acq_rel) == (numberOfComponentsToLoad - 1u))
 		{
 			globalResources.taskShedular.setNextPhaseTask(ThreadResources::initialize2);
 			execute = [](PrimaryTaskFromOtherThreadQueue::Task& task, void* tr, void* gr)
@@ -224,7 +222,7 @@ class GlobalResources::InitialResourceLoader : public TextureManager::TextureStr
 
 	static void freeRequestMemory(InitialResourceLoader& request)
 	{
-		if(request.numberOfComponentsReadyToDelete.fetch_add(1u, std::memory_order::memory_order_acq_rel) == (numberOfComponentsToLoad))
+		if(request.numberOfComponentsReadyToDelete.fetch_add(1u, std::memory_order_acq_rel) == (numberOfComponentsToLoad))
 		{
 			delete &request;
 		}
