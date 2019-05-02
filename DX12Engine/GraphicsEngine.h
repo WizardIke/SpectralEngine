@@ -141,6 +141,9 @@ public:
 
 	using Task = GpuFrameCompletionQueue::Task;
 	void executeWhenGpuFinishesCurrentFrame(Task& task);
+
+	void stop();
+	HANDLE getFrameEvent();
 };
 void operator+=(D3D12_CPU_DESCRIPTOR_HANDLE& handle, std::size_t offset);
 D3D12_CPU_DESCRIPTOR_HANDLE operator+(D3D12_CPU_DESCRIPTOR_HANDLE handle, std::size_t offset);

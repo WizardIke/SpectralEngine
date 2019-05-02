@@ -48,6 +48,9 @@ public:
 		GpuCompletionEventManager<2> completionEventManager;
 
 		std::size_t bufferIndex() { return currentCommandList == commandLists[1] ? 1u : 0u; }
+
+		friend class StreamingManager;
+		void stop(StreamingManager& streamingManager, HANDLE fenceEvent);
 	public:
 		ThreadLocal(ID3D12Device* const graphicsDevice);
 		ID3D12GraphicsCommandList& copyCommandList() { return *currentCommandList; }
@@ -107,4 +110,5 @@ public:
 	}
 
 	ID3D12CommandQueue& commandQueue() { return *copyCommandQueue; }
+	void stop(StreamingManager::ThreadLocal& local, HANDLE fenceEvent);
 };

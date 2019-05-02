@@ -110,11 +110,6 @@ void ThreadResources::primaryEndUpdate2(ThreadResources& threadResources, Global
 	threadResources.streamingManager.update(globalResources.streamingManager, &threadResources, &globalResources);
 }
 
-static void backgroundEndUpdate(ThreadResources& threadResources, GlobalResources& globalResources)
-{
-	threadResources.streamingManager.update(globalResources.streamingManager, &threadResources, &globalResources);
-}
-
 static void backgroundPrepairForUpdate2(ThreadResources& threadResources, GlobalResources& globalResources)
 {
 	threadResources.renderPass.update1After(globalResources.graphicsEngine, globalResources.renderPass, globalResources.rootSignatures.rootSignature, false);
@@ -133,5 +128,6 @@ void ThreadResources::backgroundEndUpdate2(ThreadResources& threadResources, Glo
 		globalResources.readyToPresentEvent.notify();
 		globalResources.readyToPresentCount.store(0u, std::memory_order_relaxed);
 	}
-	threadResources.taskShedular.endUpdate2Background<backgroundEndUpdate, backgroundPrepairForUpdate2>(globalResources.taskShedular, threadResources, globalResources, primaryThreadCount);
+	threadResources.taskShedular.endUpdate2Background<backgroundPrepairForUpdate2>(globalResources.taskShedular, threadResources, globalResources, primaryThreadCount);
+	threadResources.streamingManager.update(globalResources.streamingManager, &threadResources, &globalResources);
 }

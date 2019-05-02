@@ -223,7 +223,7 @@ public:
 			mCurrentQueue = primaryQueues[0].currentQueue;
 		}
 
-		template<void(*endUpdate)(ThreadResources& threadResources, GlobalResources& globalResoureces), void(*prepairForUpdate2)(ThreadResources& threadResources, GlobalResources& globalResoureces)>
+		template<void(*prepairForUpdate2)(ThreadResources& threadResources, GlobalResources& globalResoureces)>
 		void endUpdate2Background(TaskShedular& taskShedular, ThreadResources& threadResources, GlobalResources& globalResoureces, const unsigned int primaryThreadCount)
 		{
 			unsigned int currentQueueIndex = lockAndGetNextBackgroundQueue(mCurrentBackgroundQueueIndex, taskShedular.mThreadCount, taskShedular.mBackgroundQueues);
@@ -237,8 +237,6 @@ public:
 
 				primaryQueues[1].currentQueue->reset();
 
-				endUpdate(threadResources, globalResoureces);
-
 				task(threadResources, globalResoureces);
 
 				runBackgroundTasks(taskShedular, threadResources, globalResoureces, currentQueueIndex);
@@ -248,7 +246,6 @@ public:
 			{
 				taskShedular.mBackgroundQueues[currentQueueIndex]->unlock();
 				endUpdate2Primary(taskShedular, primaryThreadCount);
-				endUpdate(threadResources, globalResoureces);
 			}
 		}
 		

@@ -82,7 +82,7 @@ class GlobalResources::Unloader : private PrimaryTaskFromOtherThreadQueue::Task
 		}
 	}
 
-	void componentUnloaded2(void* gr)
+	void componentUnloaded2(void*, void* gr)
 	{
 		if (numberOfComponentsUnloaded.fetch_add(1u, std::memory_order_acq_rel) == (numberOfNumponentsToUnload2 - 1u))
 		{
@@ -106,13 +106,13 @@ public:
 		{
 			static_cast<AreasStopRequest&>(stopRequest).unloader->componentUnloaded1(tr, gr);
 		}),
-		taskShedularStopRequest(this, [](TaskShedular<ThreadResources, GlobalResources>::StopRequest& stopRequest, void* tr, void*)
+		taskShedularStopRequest(this, [](TaskShedular<ThreadResources, GlobalResources>::StopRequest& stopRequest, void* tr, void* gr)
 		{
-			static_cast<TaskShedularStopRequest&>(stopRequest).unloader->componentUnloaded2(tr);
+			static_cast<TaskShedularStopRequest&>(stopRequest).unloader->componentUnloaded2(tr, gr);
 		}),
-		ioCompletionQueueStopRequest(this, [](RunnableIOCompletionQueue::StopRequest& stopRequest, void*, void* gr)
+		ioCompletionQueueStopRequest(this, [](RunnableIOCompletionQueue::StopRequest& stopRequest, void* tr, void* gr)
 		{
-			static_cast<IoCompletionQueueStopRequest&>(stopRequest).unloader->componentUnloaded2(gr);
+			static_cast<IoCompletionQueueStopRequest&>(stopRequest).unloader->componentUnloaded2(tr, gr);
 		}) {}
 
 		void unload(ThreadResources& threadResources, GlobalResources& globalReources)
@@ -428,6 +428,9 @@ void GlobalResources::start()
 	mainThreadResources.start(*this);
 
 	worker.join();
+
+	graphicsEngine.stop();
+	streamingManager.stop(mainThreadResources.streamingManager, graphicsEngine.getFrameEvent());
 }
 
 void GlobalResources::stop()

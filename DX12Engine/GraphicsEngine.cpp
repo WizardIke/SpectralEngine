@@ -240,3 +240,21 @@ SinglyLinked* GraphicsEngine::GpuFrameCompletionQueue::EventQueue::popAll() noex
 	head.next = nullptr;
 	return items;
 }
+
+void GraphicsEngine::stop()
+{
+	auto hr = directCommandQueue->Signal(directFence, fenceValue);
+	if (FAILED(hr)) throw HresultException(hr);
+
+	if (directFence->GetCompletedValue() < fenceValue)
+	{
+		hr = directFence->SetEventOnCompletion(fenceValue, directFenceEvent);
+		if (FAILED(hr)) throw HresultException(hr);
+		WaitForSingleObject(directFenceEvent, INFINITE);
+	}
+}
+
+HANDLE GraphicsEngine::getFrameEvent()
+{
+	return directFenceEvent;
+}

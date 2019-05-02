@@ -205,6 +205,11 @@ void StreamingManager::increaseBufferCapacity(ID3D12Device& graphicsDevice)
 	uploadBuffer->Map(0u, &readRange, reinterpret_cast<void**>(&uploadBufferCpuAddress));
 }
 
+void StreamingManager::stop(StreamingManager::ThreadLocal& local, HANDLE fenceEvent)
+{
+	local.stop(*this, fenceEvent);
+}
+
 StreamingManager::ThreadLocal::ThreadLocal(ID3D12Device* const graphicsDevice) :
 	commandAllocators([graphicsDevice](std::size_t, D3D12CommandAllocator& allocator)
 {
@@ -265,4 +270,17 @@ void StreamingManager::ThreadLocal::update(StreamingManager& streamingManager, v
 void StreamingManager::ThreadLocal::addCopyCompletionEvent(void* requester, void(*unloadCallback)(void* const requester, void* executor, void* sharedResources))
 {
 	completionEventManager.addRequest(requester, unloadCallback, bufferIndex());
+}
+
+void StreamingManager::ThreadLocal::stop(StreamingManager& streamingManager, HANDLE fenceEvent)
+{
+	++fenceValue;
+	auto hr = streamingManager.copyCommandQueue->Signal(copyFence, fenceValue);
+
+	if (copyFence->GetCompletedValue() < fenceValue)
+	{
+		hr = copyFence->SetEventOnCompletion(fenceValue, fenceEvent);
+		if (FAILED(hr)) throw HresultException(hr);
+		WaitForSingleObject(fenceEvent, INFINITE);
+	}
 }
