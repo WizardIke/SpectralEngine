@@ -16,20 +16,6 @@ class ThreadResources
 
 	void (*mEndUpdate2)(ThreadResources& threadResources, GlobalResources& globalResources);
 
-	/*
-	Uses all the threads to process backgroundTasks.
-	*/
-	static bool initialize1(ThreadResources& threadResources, GlobalResources& globalResources);
-	/*
-	After setting this state, threads might disagree about weather the state is initialize1 or initialize2 for one frame.
-	However, this is harmless and they will all agree that the state has transitioned to state initialize3 at the same time.
-	*/
-	static bool initialize2(ThreadResources& threadResources, GlobalResources& globalResources);
-	/*
-	Finishes initializing.
-	*/
-	static bool initialize3(ThreadResources& threadResources, GlobalResources& globalResources);
-
 	static bool endUpdate1(ThreadResources& threadResources, GlobalResources& globalResources);
 	static bool endUpdate2(ThreadResources& threadResources, GlobalResources& globalResources);
 	static void mainEndUpdate2(ThreadResources& threadResources, GlobalResources& globalResources);

@@ -16,42 +16,6 @@ void ThreadResources::start(GlobalResources& globalResources)
 	taskShedular.start(globalResources.taskShedular, *this, globalResources);
 }
 
-bool ThreadResources::initialize1(ThreadResources& threadResources, GlobalResources& globalResources)
-{
-	threadResources.taskShedular.runBackgroundTasks(globalResources.taskShedular, threadResources, globalResources);
-	threadResources.streamingManager.update(globalResources.streamingManager, &threadResources, &globalResources);
-
-	globalResources.taskShedular.sync([&globalResources = globalResources, &threadResources = threadResources]()
-	{
-		IOCompletionPacket task;
-		while (globalResources.ioCompletionQueue.pop(task))
-		{
-			task(&threadResources, &globalResources);
-		}
-	});
-
-	return false;
-}
-
-bool ThreadResources::initialize2(ThreadResources&, GlobalResources& globalResources)
-{
-	globalResources.taskShedular.sync([&taskShedular = globalResources.taskShedular]()
-	{
-		taskShedular.setNextPhaseTask(initialize3);
-	});
-
-	return false;
-}
-
-bool ThreadResources::initialize3(ThreadResources& threadResources, GlobalResources& globalResources)
-{
-	unsigned int primaryThreadCount;
-	const unsigned int updateIndex = globalResources.taskShedular.incrementUpdateIndex(primaryThreadCount);
-	threadResources.taskShedular.beforeEndUpdate2(globalResources.taskShedular, endUpdate1, primaryThreadCount, updateIndex);
-	threadResources.taskShedular.endUpdate2Primary(globalResources.taskShedular, primaryThreadCount);
-	return false;
-}
-
 bool ThreadResources::endUpdate1(ThreadResources& threadResources, GlobalResources& globalResources)
 {
 	unsigned int primaryThreadCount;

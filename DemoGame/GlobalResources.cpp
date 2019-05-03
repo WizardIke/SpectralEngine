@@ -205,7 +205,6 @@ class GlobalResources::InitialResourceLoader : public TextureManager::TextureStr
 	{
 		if(numberOfComponentsLoaded.fetch_add(1u, std::memory_order_acq_rel) == (numberOfComponentsToLoad - 1u))
 		{
-			globalResources.taskShedular.setNextPhaseTask(ThreadResources::initialize2);
 			execute = [](PrimaryTaskFromOtherThreadQueue::Task& task, void* tr, void* gr)
 			{
 				ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
@@ -255,7 +254,7 @@ GlobalResources::GlobalResources(const unsigned int numberOfThreads, bool fullSc
 		[fullScreen]() {if (fullScreen) { return 0; } else return GetSystemMetrics(SM_CYSCREEN) / 5; }(), fullScreen, vSync),
 	graphicsEngine(window, enableGpuDebugging, /*DXGI_ADAPTER_FLAG::DXGI_ADAPTER_FLAG_SOFTWARE*/DXGI_ADAPTER_FLAG::DXGI_ADAPTER_FLAG_NONE),
 	streamingManager(*graphicsEngine.graphicsDevice, 32u * 1024u * 1024u),
-	taskShedular(numberOfThreads > 2u ? numberOfThreads : 2u, ThreadResources::initialize1),
+	taskShedular(numberOfThreads > 2u ? numberOfThreads : 2u, ThreadResources::endUpdate1),
 	mainThreadResources(0u, *this, ThreadResources::mainEndUpdate2),
 	asynchronousFileManager(),
 	textureManager(),

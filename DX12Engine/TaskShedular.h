@@ -18,8 +18,7 @@ private:
 public:
 	using Task = Delegate<void(ThreadResources& threadResources,
 		GlobalResources& globalResoureces)>;
-	using NonAtomicNextPhaseTask = bool(*)(ThreadResources& threadResources, GlobalResources& globalResoureces);
-	using NextPhaseTask = std::atomic<NonAtomicNextPhaseTask>;
+	using NextPhaseTask = bool(*)(ThreadResources& threadResources, GlobalResources& globalResoureces);
 
 	class ThreadLocal
 	{
@@ -144,22 +143,25 @@ public:
 			mIndex = index;
 			mCurrentBackgroundQueueIndex = index;
 			taskShedular.mBackgroundQueues[index] = &mBackgroundQueue;
+			const auto threadCount = taskShedular.mThreadCount;
 			for(auto& queue : primaryQueues)
 			{
 				taskShedular.mWorkStealingQueuesArray[index] = &queue.queues[0];
-				index += taskShedular.mThreadCount;
+				index += threadCount;
 			}
 			for(auto& queue : primaryQueues)
 			{
 				taskShedular.mWorkStealingQueuesArray[index] = &queue.queues[1];
-				index += taskShedular.mThreadCount;
+				index += threadCount;
 			}
 
-			mCurrentQueue = &primaryQueues[1].queues[0];
-			for(auto& queue : primaryQueues)
+			mCurrentQueue = &primaryQueues[0u].queues[0u];
+			primaryQueues[0u].currentQueue = &primaryQueues[0u].queues[0u];
+			primaryQueues[0u].nextQueue = &primaryQueues[0u].queues[1u];
+			for (std::size_t i = 1u; i != numberOfPrimaryQueues; ++i)
 			{
-				queue.currentQueue = &queue.queues[0];
-				queue.nextQueue = &queue.queues[1];
+				primaryQueues[i].currentQueue = &primaryQueues[i].queues[1u];
+				primaryQueues[i].nextQueue = &primaryQueues[i].queues[0u];
 			}
 		}
 
@@ -187,11 +189,11 @@ public:
 			return mIndex;
 		}
 		
-		void endUpdate1(TaskShedular& taskShedular, NonAtomicNextPhaseTask nextPhaseTask, const unsigned int updateIndex, const unsigned int primaryThreadCount) noexcept
+		void endUpdate1(TaskShedular& taskShedular, NextPhaseTask nextPhaseTask, const unsigned int updateIndex, const unsigned int primaryThreadCount) noexcept
 		{
 			if (updateIndex == primaryThreadCount - 1u)
 			{
-				taskShedular.mNextPhaseTask.store(nextPhaseTask, std::memory_order_relaxed);
+				taskShedular.mNextPhaseTask = nextPhaseTask;
 				taskShedular.endUpdate1();
 			}
 
@@ -205,11 +207,11 @@ public:
 			mCurrentQueue = primaryQueues[1].currentQueue;
 		}
 
-		void beforeEndUpdate2(TaskShedular& taskShedular, NonAtomicNextPhaseTask nextPhaseTask, const unsigned int primaryThreadCount, const unsigned int updateIndex)
+		void beforeEndUpdate2(TaskShedular& taskShedular, NextPhaseTask nextPhaseTask, const unsigned int primaryThreadCount, const unsigned int updateIndex)
 		{
 			if (updateIndex == primaryThreadCount - 1u)
 			{
-				taskShedular.mNextPhaseTask.store(nextPhaseTask, std::memory_order_relaxed);
+				taskShedular.mNextPhaseTask = nextPhaseTask;
 				taskShedular.endUpdate2();
 			}
 		}
@@ -275,7 +277,7 @@ public:
 						}
 						else if (i == mIndex)
 						{
-							auto nextPhaseTask = taskShedular.mNextPhaseTask.load(std::memory_order_relaxed);
+							const auto nextPhaseTask = taskShedular.mNextPhaseTask;
 							bool shouldQuit = nextPhaseTask(threadResources, globalResoureces);
 							if(shouldQuit) return;
 							currentWorkStealingQueues = taskShedular.mCurrentWorkStealingQueues;
@@ -337,17 +339,17 @@ private:
 		}
 	}
 public:
-	TaskShedular(unsigned int numberOfThreads, NonAtomicNextPhaseTask nextPhaseTask) : primaryFromOtherThreadQueues{[](std::size_t i, PrimaryTaskFromOtherThreadQueue& element)
-		{
-			new(&element) PrimaryTaskFromOtherThreadQueue(i);
-		}}
+	TaskShedular(unsigned int numberOfThreads, NextPhaseTask nextPhaseTask) : primaryFromOtherThreadQueues{[](std::size_t i, PrimaryTaskFromOtherThreadQueue& element)
+	{
+		new(&element) PrimaryTaskFromOtherThreadQueue(i);
+	}},
+		mNextPhaseTask(nextPhaseTask)
 	{
 		mWorkStealingQueuesArray = new WorkStealingQueue<Task>*[numberOfThreads * 2u * numberOfPrimaryQueues];
 		mBackgroundQueues = new BackgroundQueue<Task>*[numberOfThreads];
-		mCurrentWorkStealingQueues = mWorkStealingQueuesArray + numberOfThreads;
+		mCurrentWorkStealingQueues = mWorkStealingQueuesArray;
 		mThreadCount = numberOfThreads;
 		mUpdateIndexAndPrimaryThreadCount.store(numberOfThreads, std::memory_order_relaxed);
-		mNextPhaseTask.store(nextPhaseTask, std::memory_order_relaxed);
 	}
 
 	unsigned int threadCount() noexcept
@@ -362,14 +364,17 @@ public:
 		return (unsigned int)(newUpdateIndexAndPrimaryThreadCount >> 16ul);
 	}
 
-	NonAtomicNextPhaseTask getNextPhaseTask() noexcept
+	NextPhaseTask getNextPhaseTask() noexcept
 	{
-		return mNextPhaseTask.load(std::memory_order_relaxed);
+		return mNextPhaseTask;
 	}
 
-	void setNextPhaseTask(NonAtomicNextPhaseTask nextPhaseTask) noexcept
+	/*
+	Must be called will care!!! Can only be called from very specific parts of the frame.
+	*/
+	void setNextPhaseTask(NextPhaseTask nextPhaseTask) noexcept
 	{
-		mNextPhaseTask.store(nextPhaseTask, std::memory_order_relaxed);
+		mNextPhaseTask = nextPhaseTask;
 	}
 
 	template<class OnLastThread>
@@ -380,7 +385,7 @@ public:
 
 	/*
 		Can be called from any thread
-		*/
+	*/
 	void pushPrimaryTaskFromOtherThread(std::size_t index, PrimaryTaskFromOtherThreadQueue::Task& task) noexcept
 	{
 		assert(index < numberOfPrimaryQueues);
