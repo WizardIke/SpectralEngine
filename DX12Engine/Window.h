@@ -7,8 +7,9 @@
 #undef WIN32_LEAN_AND_MEAN
 #include "DXGISwapChain4.h"
 #include <cstdint>
+#include "D3D12Resource.h"
+#include "frameBufferCount.h"
 class GraphicsEngine;
-struct ID3D12Resource;
 
 class Window
 {
@@ -18,6 +19,7 @@ class Window
 
 	HWND windowHandle;
 	DXGISwapChain4 swapChain;
+	D3D12Resource buffers[frameBufferCount];
 	unsigned int mwidth, mheight;
 	bool fullScreen;
 	bool vSync;

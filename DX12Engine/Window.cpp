@@ -1,6 +1,5 @@
 #include "Window.h"
 #include "GraphicsEngine.h"
-#include "frameBufferCount.h"
 #ifndef NDEBUG
 #include <string>
 #endif
@@ -105,15 +104,17 @@ void Window::createSwapChain(GraphicsEngine& graphicsEngine, IDXGIFactory5* dxgi
 
 	swapChain = DXGISwapChain4(dxgiFactory, graphicsEngine.directCommandQueue, windowHandle, &swapChainDesc, fullscreenDescPointer, nullptr);
 
-
-#ifndef NDEBUG
-	for (auto i = 0u; i < frameBufferCount; ++i)
+	for (unsigned int i = 0u; i != frameBufferCount; ++i)
 	{
+		HRESULT hr = swapChain->GetBuffer(i, IID_PPV_ARGS(&buffers[i].set()));
+		assert(hr == S_OK);
+
+#ifndef ndebug
 		std::wstring name = L"backbuffer render target ";
 		name += std::to_wstring(i);
-		getBuffer(i)->SetName(name.c_str());
-	}
+		buffers[i]->SetName(name.c_str());
 #endif
+	}
 }
 
 uint32_t Window::getCurrentBackBufferIndex()
@@ -123,10 +124,7 @@ uint32_t Window::getCurrentBackBufferIndex()
 
 ID3D12Resource* Window::getBuffer(uint32_t index)
 {
-	ID3D12Resource* buffer;
-	HRESULT hr = swapChain->GetBuffer(index, IID_PPV_ARGS(&buffer));
-	assert(hr == S_OK);
-	return buffer;
+	return buffers[index];
 }
 
 void Window::present()
