@@ -239,7 +239,7 @@ public:
 					new(commandList) D3D12GraphicsCommandList(graphicsEngine.graphicsDevice, 0u, D3D12_COMMAND_LIST_TYPE_DIRECT, allocator, nullptr);
 					(*commandList)->Close();
 
-#ifdef _DEBUG
+#ifndef ndebug
 					std::wstring name = L"Direct command allocator ";
 					name += std::to_wstring(i);
 					allocator->SetName(name.c_str());
@@ -247,7 +247,7 @@ public:
 					name = L"Direct command list ";
 					name += std::to_wstring(i);
 					(*commandList)->SetName(name.c_str());
-#endif // _DEBUG
+#endif // ndebug
 					++commandList;
 				}
 				++i;

@@ -2,6 +2,40 @@
 #include "TextureNames.h"
 #include <thread>
 
+#ifdef _WIN32_WINNT
+#include <windows.h>
+#include <string>
+ 
+namespace
+{
+	const DWORD MS_VC_EXCEPTION = 0x406D1388;
+#pragma pack(push,8)  
+	typedef struct tagTHREADNAME_INFO
+	{
+		DWORD dwType; // Must be 0x1000.  
+		LPCSTR szName; // Pointer to name (in user addr space).  
+		DWORD dwThreadID; // Thread ID (-1=caller thread).  
+		DWORD dwFlags; // Reserved for future use, must be zero.  
+	} THREADNAME_INFO;
+#pragma pack(pop)  
+	void SetThreadName(DWORD dwThreadID, const char* threadName) {
+		THREADNAME_INFO info;
+		info.dwType = 0x1000;
+		info.szName = threadName;
+		info.dwThreadID = dwThreadID;
+		info.dwFlags = 0;
+#pragma warning(push)  
+#pragma warning(disable: 6320 6322)  
+		__try {
+			RaiseException(MS_VC_EXCEPTION, 0, sizeof(info) / sizeof(ULONG_PTR), (ULONG_PTR*)&info);
+		}
+		__except (EXCEPTION_EXECUTE_HANDLER) {
+		}
+#pragma warning(pop) 
+	}
+}
+#endif
+
 class GlobalResources::Unloader : private PrimaryTaskFromOtherThreadQueue::Task
 {
 	class AmbientMusicStopRequests : public AmbientMusic::StopRequest
@@ -89,7 +123,8 @@ class GlobalResources::Unloader : private PrimaryTaskFromOtherThreadQueue::Task
 			delete this;
 
 			GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
-			SendMessage(globalResources.window.native_handle(), WM_QUIT, 0, 0);
+			auto result = PostMessage(globalResources.window.native_handle(), WM_QUIT, 0, 0);
+			assert(result == TRUE);
 		}
 	}
 public:
@@ -174,9 +209,6 @@ LRESULT CALLBACK GlobalResources::windowCallback(HWND hwnd, UINT message, WPARAM
 		}
 		return 0;
 	}
-	case WM_QUIT:
-		PostQuitMessage(0);
-		return 0;
 	default:
 		return DefWindowProc(hwnd, message, wParam, lParam);
 	}
@@ -386,6 +418,11 @@ void GlobalResources::beforeRender()
 
 void GlobalResources::primaryThreadFunction(unsigned int i, unsigned int primaryThreadCount, GlobalResources& globalReources)
 {
+#ifdef _WIN32_WINNT
+	std::string threadName = "Primary thread ";
+	threadName += std::to_string(i);
+	SetThreadName((DWORD)-1, threadName.c_str());
+#endif
 	std::thread worker = i != primaryThreadCount ? 
 		std::thread(primaryThreadFunction, i + 1u, primaryThreadCount, std::ref(globalReources)) : 
 		std::thread(backgroundThreadFunction, i + 1u, globalReources.taskShedular.threadCount(), std::ref(globalReources));
@@ -398,19 +435,19 @@ void GlobalResources::primaryThreadFunction(unsigned int i, unsigned int primary
 
 void GlobalResources::backgroundThreadFunction(unsigned int i, unsigned int threadCount, GlobalResources& globalReources)
 {
-	if(i + 1u != threadCount)
+#ifdef _WIN32_WINNT
+	std::string threadName = "Background thread ";
+	threadName += std::to_string(i);
+	SetThreadName((DWORD)-1, threadName.c_str());
+#endif
+	std::thread worker = i + 1u != threadCount ? std::thread(backgroundThreadFunction, i + 1u, threadCount, std::ref(globalReources)) : std::thread();
+
+	ThreadResources threadResources(i, globalReources, ThreadResources::backgroundEndUpdate2);
+	threadResources.start(globalReources);
+
+	if (worker.joinable())
 	{
-		std::thread worker = std::thread(backgroundThreadFunction, i + 1u, threadCount, std::ref(globalReources));
-
-		ThreadResources threadResources(i, globalReources, ThreadResources::backgroundEndUpdate2);
-		threadResources.start(globalReources);
-
 		worker.join();
-	}
-	else
-	{
-		ThreadResources threadResources(i, globalReources, ThreadResources::backgroundEndUpdate2);
-		threadResources.start(globalReources);
 	}
 }
 

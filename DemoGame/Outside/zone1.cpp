@@ -151,10 +151,10 @@ namespace
 			new(&renderTargetTexture) D3D12Resource(globalResources.graphicsEngine.graphicsDevice, heapProperties, D3D12_HEAP_FLAG_ALLOW_ALL_BUFFERS_AND_TEXTURES, resourcesDesc,
 				D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, clearValue);
 
-#ifdef _DEBUG
+#ifndef ndebug
 			std::wstring name = L" zone1 render to texture 0";
 			renderTargetTexture->SetName(name.c_str());
-#endif // _DEBUG
+#endif // ndebug
 
 			{
 				D3D12_RENDER_TARGET_VIEW_DESC HDRenderTargetViewDesc;
