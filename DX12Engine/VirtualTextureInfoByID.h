@@ -46,6 +46,7 @@ public:
 
 	void deallocate(unsigned int index)
 	{
+		assert(index != 255u);
 		mData[index].next = freeList;
 		freeList = &mData[index];
 	}

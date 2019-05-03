@@ -427,9 +427,6 @@ void GlobalResources::start()
 	mainThreadResources.start(*this);
 
 	worker.join();
-
-	graphicsEngine.stop();
-	streamingManager.stop(mainThreadResources.streamingManager, graphicsEngine.getFrameEvent());
 }
 
 void GlobalResources::stop()
@@ -437,7 +434,13 @@ void GlobalResources::stop()
 	SendMessage(window.native_handle(), WM_CLOSE, 0, 0);
 }
 
-bool GlobalResources::quit(ThreadResources&, GlobalResources&)
+bool GlobalResources::quit(ThreadResources& threadResources, GlobalResources& globalResources)
 {
+	globalResources.taskShedular.sync([&globalResources = globalResources, &threadResources = threadResources]()
+	{
+		globalResources.graphicsEngine.stop();
+		globalResources.streamingManager.stop(threadResources.streamingManager, globalResources.graphicsEngine.getFrameEvent());
+	});
+
 	return true;
 }
