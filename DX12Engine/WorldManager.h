@@ -366,6 +366,7 @@ private:
 		if (stopRequest->numberOfComponentsToUnload == 0u)
 		{
 			stopRequest->callback(*stopRequest, &threadResources, &globalResources);
+			return;
 		}
 		unsigned long i = 0u;
 		for(unsigned long zoneIndex : loadedZones[currentLoadedZonesIndex ^ 1u])
