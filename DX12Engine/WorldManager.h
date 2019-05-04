@@ -363,6 +363,10 @@ private:
 	{
 		auto zonesTemp = zones;
 		stopRequest->numberOfComponentsToUnload = loadedZones[currentLoadedZonesIndex ^ 1u].size();
+		if (stopRequest->numberOfComponentsToUnload == 0u)
+		{
+			stopRequest->callback(*stopRequest, &threadResources, &globalResources);
+		}
 		unsigned long i = 0u;
 		for(unsigned long zoneIndex : loadedZones[currentLoadedZonesIndex ^ 1u])
 		{
