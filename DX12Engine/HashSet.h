@@ -524,6 +524,7 @@ public:
 					current->distanceFromIdealPosition() = 0u;
 				}
 			}
+			impl.mSize = 0u;
 		}
 	}
 
@@ -577,7 +578,11 @@ public:
 			{
 				++current;
 			}
-			if(current == endData) return;
+			if (current == endData)
+			{
+				impl.mSize = (size_type)0u;
+				return;
+			}
 			f(std::move(current->data()));
 			current->data().~value_type();
 			current->distanceFromIdealPosition() = 0u;
@@ -586,6 +591,7 @@ public:
 
 	void shrink_to_size(size_type size)
 	{
+		assert(size >= impl.mSize);
 		if(size >= impl.loadThreshold) return; //already small enough
 		const size_type newMaxBucketCount = roundUpToPowerOf2((size_type)((double)size / impl.maxLoadFactor) + (size_type)1u);
 		rehashNoChecks(newMaxBucketCount, (size_type)(newMaxBucketCount * (double)impl.maxLoadFactor));
