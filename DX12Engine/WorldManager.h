@@ -173,7 +173,7 @@ private:
 
 			auto& zone = zones[currentNode->zoneIndex];
 			{ //load zone
-				if(zone)
+				if(zone && zone.usesLevelOfDetail(levelOfDetail))
 				{
 					loadedZones[currentLoadedZonesIndex].insert(currentNode->zoneIndex);
 					loadedZones[currentLoadedZonesIndex ^ 1u].erase(currentNode->zoneIndex);

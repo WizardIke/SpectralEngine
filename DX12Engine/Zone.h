@@ -246,4 +246,9 @@ public:
 	{
 		return static_cast<Zone&>(task);
 	}
+
+	bool usesLevelOfDetail(unsigned int levelOfDetail)
+	{
+		return levelOfDetail < highestSupportedState;
+	}
 };
