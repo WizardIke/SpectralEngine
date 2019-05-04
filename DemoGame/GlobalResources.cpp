@@ -200,12 +200,12 @@ LRESULT CALLBACK GlobalResources::windowCallback(HWND hwnd, UINT message, WPARAM
 		}
 	case WM_CLOSE:
 	{
-		if (!globalResources.isQuitiing)
+		if (globalResources.isRunning)
 		{
 			//The main window is closing so we should unload and quit
 			Unloader* unloader = new Unloader();
 			unloader->unload(globalResources.mainThreadResources, globalResources);
-			globalResources.isQuitiing = true;
+			globalResources.isRunning = false;
 		}
 		return 0;
 	}
@@ -241,6 +241,8 @@ class GlobalResources::InitialResourceLoader : public TextureManager::TextureStr
 			{
 				ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
 				GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
+
+				globalResources.isRunning = true;
 
 				globalResources.userInterface.start(threadResources, globalResources);
 				globalResources.areas.start(threadResources, globalResources);
@@ -280,6 +282,7 @@ static const wchar_t* const musicFiles[] =
 GlobalResources::GlobalResources() : GlobalResources(std::thread::hardware_concurrency(), false, false, false, new InitialResourceLoader(TextureNames::Arial)) {}
 
 GlobalResources::GlobalResources(const unsigned int numberOfThreads, bool fullScreen, bool vSync, bool enableGpuDebugging, void* initialResourceLoader) :
+	isRunning(false),
 	window(this, windowCallback, [fullScreen]() {if (fullScreen) { return GetSystemMetrics(SM_CXVIRTUALSCREEN); } else return GetSystemMetrics(SM_CXSCREEN) / 2; }(),
 		[fullScreen]() {if (fullScreen) { return GetSystemMetrics(SM_CYVIRTUALSCREEN); } else return GetSystemMetrics(SM_CYSCREEN) / 2; }(),
 		[fullScreen]() {if (fullScreen) { return 0; } else return GetSystemMetrics(SM_CXSCREEN) / 5; }(),

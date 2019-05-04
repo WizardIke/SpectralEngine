@@ -53,7 +53,7 @@ class GlobalResources
 	Causes the program to stop running.
 	*/
 	static bool quit(ThreadResources& threadResources, GlobalResources& globalResources);
-	bool isQuitiing = false;
+	bool isRunning;
 public:
 	Window window; //must only be used on main thread
 	GraphicsEngine graphicsEngine;
