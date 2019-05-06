@@ -165,11 +165,18 @@ public:
 				unsigned int currentState = zone.currentState;
 				if(zone.nextState != currentState)
 				{
+					void* currentData = zone.currentData;
+
 					zone.newState = zone.nextState;
 					if(zone.nextState == zone.highestSupportedState)
 					{
 						zone.currentState = zone.highestSupportedState;
-						zone.nextState = undefinedState;
+#ifndef ndebug
+						zone.currentData = nullptr;
+#endif
+						zone.oldState = currentState;
+						zone.oldData = currentData;
+						zone.vTable->deleteOldStateData(zone, threadResources, globalResources);
 					}
 					else
 					{
