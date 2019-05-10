@@ -511,6 +511,12 @@ public:
 		return const_iterator(findImpl(value...));
 	}
 
+	template<class... Key>
+	bool contains(const Key&... values) const
+	{
+		return findImpl(values...) != impl.data + impl.maxBucketCount;
+	}
+
 	void clear()
 	{
 		if(impl.mSize != 0u)
