@@ -38,14 +38,14 @@ class VirtualFeedbackSubPass : public RenderSubPass<VirtualPageCamera, D3D12_RES
 			VirtualTextureInfoByID& texturesByID = virtualTextureManager.texturesByID;
 
 			const unsigned long totalSize = analyser.textureWidth * analyser.textureHeight * 8u;
-			unsigned char* feadBackBuffer = analyser.mapReadbackTexture(totalSize);
+			void* feadBackBuffer = analyser.mapReadbackTexture(totalSize);
 			pageProvider.gatherPageRequests(feadBackBuffer, totalSize, texturesByID);
 			analyser.unmapReadbackTexture();
 			pageProvider.processPageRequests(texturesByID, threadResources, globalResources, analyser.mipBias, analyser.desiredMipBias);
 		}});
 	}
 
-	unsigned char* mapReadbackTexture(unsigned long totalSize);
+	void* mapReadbackTexture(unsigned long totalSize);
 	void unmapReadbackTexture();
 	void createResources(GraphicsEngine& graphicsEngine, Transform& mainCameraTransform, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1, unsigned char*& constantBufferCpuAddress1, uint32_t width, uint32_t height, float fieldOfView);
 public:

@@ -1,11 +1,11 @@
 #include "VirtualFeedbackSubPass.h"
 #include "VirtualTextureInfo.h"
 
-unsigned char* VirtualFeedbackSubPass::mapReadbackTexture(unsigned long totalSize)
+void* VirtualFeedbackSubPass::mapReadbackTexture(unsigned long totalSize)
 {
 	D3D12_RANGE readRange{0u, totalSize};
-	unsigned char* feadBackBuffer;
-	readbackTexture->Map(0u, &readRange, reinterpret_cast<void**>(&feadBackBuffer));
+	void* feadBackBuffer;
+	readbackTexture->Map(0u, &readRange, &feadBackBuffer);
 	return feadBackBuffer;
 }
 

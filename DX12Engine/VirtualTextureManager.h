@@ -5,6 +5,7 @@
 #include "DDSFileLoader.h"
 #include "GraphicsEngine.h"
 #include "VirtualTextureInfo.h"
+#include "GpuHeapLocation.h"
 #include "PageProvider.h"
 #include "VirtualTextureInfoByID.h"
 #include "AsynchronousFileManager.h"
@@ -61,7 +62,8 @@ public:
 		unsigned int widthInPages;
 		unsigned int heightInPages;
 		unsigned int descriptorIndex;
-		HeapLocation* pinnedHeapLocations;
+		GpuHeapLocation* pinnedHeapLocations;
+		unsigned long pinnedPageCount;
 		TextureStreamingRequest* nextTextureRequest;
 
 		void(*textureLoaded)(TextureStreamingRequest& request, void* tr, void* gr, const Texture& texture);

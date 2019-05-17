@@ -101,25 +101,11 @@ void VirtualTextureManager::unloadTexture(const wchar_t * filename, GraphicsEngi
 			assert(textureID != 255);
 			auto& resitencyInfo = texturesByID[textureID];
 
-			D3D12_PACKED_MIP_INFO packedMipInfo;
-			D3D12_SUBRESOURCE_TILING subresourceTiling;
-			graphicsEngine.graphicsDevice->GetResourceTiling(resitencyInfo.resource, nullptr, &packedMipInfo, nullptr, nullptr, 0u, &subresourceTiling);
-			if(packedMipInfo.NumPackedMips != 0u)
-			{
-				pageProvider.pageAllocator.removePinnedPages(resitencyInfo.pinnedHeapLocations, packedMipInfo.NumTilesForPackedMips);
-			}
-			else
-			{
-				auto width = resitencyInfo.widthInPages >> resitencyInfo.lowestPinnedMip;
-				if(width == 0u) width = 1u;
-				auto height = resitencyInfo.heightInPages >> resitencyInfo.lowestPinnedMip;
-				if(height == 0u) height = 1u;
-				auto numPages = width * height;
-				pageProvider.pageAllocator.removePinnedPages(resitencyInfo.pinnedHeapLocations, numPages);
-			}
+			pageProvider.pageAllocator.removePinnedPages(resitencyInfo.pinnedHeapLocations, resitencyInfo.pinnedPageCount);
 
 			delete[] resitencyInfo.pinnedHeapLocations;
 			resitencyInfo.resource->Release();
+			resitencyInfo.~VirtualTextureInfo();
 			texturesByID.deallocate(textureID);
 		}
 	}
@@ -159,7 +145,8 @@ void VirtualTextureManager::createTextureWithResitencyInfo(GraphicsEngine& graph
 		if (width == 0u) width = 1u;
 		auto height = vramRequest.heightInPages >> vramRequest.lowestPinnedMip;
 		if (height == 0u) height = 1u;
-		vramRequest.pinnedHeapLocations = new HeapLocation[width * height];
+		vramRequest.pinnedPageCount = width * height;
+		vramRequest.pinnedHeapLocations = new GpuHeapLocation[vramRequest.pinnedPageCount];
 		for (auto y = 0u; y < height; ++y)
 		{
 			for (auto x = 0u; x < width; ++x)
@@ -180,7 +167,8 @@ void VirtualTextureManager::createTextureWithResitencyInfo(GraphicsEngine& graph
 	}
 	else
 	{
-		vramRequest.pinnedHeapLocations = new HeapLocation[packedMipInfo.NumPackedMips];
+		vramRequest.pinnedPageCount = packedMipInfo.NumPackedMips;
+		vramRequest.pinnedHeapLocations = new GpuHeapLocation[packedMipInfo.NumPackedMips];
 		vramRequest.lowestPinnedMip = vramRequest.mipLevels - packedMipInfo.NumPackedMips;
 		pageProvider.pageAllocator.addPinnedPages(vramRequest.resource, vramRequest.pinnedHeapLocations, vramRequest.lowestPinnedMip, packedMipInfo.NumTilesForPackedMips, &commandQueue, graphicsEngine.graphicsDevice);
 	}
@@ -194,6 +182,7 @@ static void addResitencyInfo(VirtualTextureInfoByID& texturesByID, VirtualTextur
 	textureInfo.textureID = textureID;
 
 	auto& resitencyInfo = texturesByID[textureID];
+	new(&resitencyInfo) VirtualTextureInfo{};
 	resitencyInfo.resource = request.resource;
 	resitencyInfo.widthInPages = request.widthInPages;
 	resitencyInfo.heightInPages = request.heightInPages;
@@ -205,6 +194,7 @@ static void addResitencyInfo(VirtualTextureInfoByID& texturesByID, VirtualTextur
 	resitencyInfo.file = request.file;
 	resitencyInfo.filename = request.filename;
 	resitencyInfo.pinnedHeapLocations = request.pinnedHeapLocations;
+	resitencyInfo.pinnedPageCount = request.pinnedPageCount;
 }
 
 void VirtualTextureManager::notifyTextureReady(TextureStreamingRequest* request, void* tr, void* gr)

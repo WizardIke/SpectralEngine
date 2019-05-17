@@ -1,7 +1,9 @@
 #pragma once
 #include <d3d12.h>
 #include "File.h"
+#include "GpuHeapLocation.h"
 #include "PageAllocationInfo.h"
+#include "PageCachePerTextureData.h"
 
 struct VirtualTextureInfo
 {
@@ -15,5 +17,7 @@ struct VirtualTextureInfo
 	unsigned int height;
 	File file;
 	const wchar_t* filename;
-	HeapLocation* pinnedHeapLocations;
+	GpuHeapLocation* pinnedHeapLocations;
+	unsigned long pinnedPageCount;
+	PageCachePerTextureData pageCacheData;
 };

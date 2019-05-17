@@ -414,6 +414,15 @@
     <ClInclude Include="GraphicsEngine.h">
       <Filter>GraphicsEngine</Filter>
     </ClInclude>
+    <ClInclude Include="PageCachePerTextureData.h">
+      <Filter>VirtualTexturing</Filter>
+    </ClInclude>
+    <ClInclude Include="GpuHeapLocation.h">
+      <Filter>VirtualTexturing</Filter>
+    </ClInclude>
+    <ClInclude Include="PageResourceLocation.h">
+      <Filter>VirtualTexturing</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DDSFileLoader.cpp">
@@ -495,6 +504,9 @@
     </ClCompile>
     <ClCompile Include="GraphicsEngine.cpp">
       <Filter>GraphicsEngine</Filter>
+    </ClCompile>
+    <ClCompile Include="PageCachePerTextureData.cpp">
+      <Filter>VirtualTexturing</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

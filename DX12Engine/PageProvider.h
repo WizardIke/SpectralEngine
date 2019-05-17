@@ -1,6 +1,7 @@
 #pragma once
 #include "PageAllocator.h"
 #include "PageCache.h"
+#include "GpuHeapLocation.h"
 #include "PageAllocationInfo.h"
 #include "Range.h"
 #include <atomic>
@@ -16,6 +17,7 @@
 class VirtualTextureManager;
 struct IDXGIAdapter3;
 class VirtualFeedbackSubPass;
+class VirtualTextureInfoByID;
 #undef min
 #undef max
 
@@ -42,25 +44,22 @@ class PageProvider : private PrimaryTaskFromOtherThreadQueue::Task
 	public:
 		HeapLocationsIterator(PageLoadRequest** pageLoadRequests) : pageLoadRequests(pageLoadRequests) {}
 
-		HeapLocation& operator[](std::size_t i)
+		GpuHeapLocation& operator[](std::size_t i)
 		{
 			return pageLoadRequests[i]->allocationInfo.heapLocation;
 		}
 	};
 
-	struct TextureLocationHasher : std::hash<uint64_t>
+	struct PageRequestData
 	{
-		size_t operator()(TextureLocation location) const
-		{
-			return (*(std::hash<uint64_t>*)(this))(location.value);
-		}
+		unsigned long long count = 0u;
 	};
 public:
 	PageAllocator pageAllocator;
 private:
 	PageCache pageCache;
-	std::unordered_map<TextureLocation, PageRequestData, TextureLocationHasher> uniqueRequests;
-	ResizingArray<std::pair<TextureLocation, unsigned long long>> posableLoadRequests;
+	std::unordered_map<PageResourceLocation, PageRequestData, PageResourceLocation::Hash> uniqueRequests;
+	ResizingArray<std::pair<PageResourceLocation, unsigned long long>> posableLoadRequests;
 	PageLoadRequest pageLoadRequests[maxPagesLoading];
 	std::size_t freePageLoadRequestsCount;
 	PageLoadRequest* freePageLoadRequests;
@@ -120,7 +119,7 @@ private:
 	}
 
 	template<class ThreadResources, class GlobalResources>
-	void startLoadingRequiredPages(ThreadResources& threadResources, GlobalResources& globalResources, PageDeleter& pageDeleter)
+	void startLoadingRequiredPages(ThreadResources& threadResources, GlobalResources& globalResources, VirtualTextureInfoByID& textureInfoById, PageDeleter& pageDeleter)
 	{
 		if (!posableLoadRequests.empty())
 		{
@@ -130,7 +129,8 @@ private:
 				freePageLoadRequests = freePageLoadRequests->nextPageLoadRequest;
 				pageRequest.allocationInfo.textureLocation = requestInfo.first;
 				addPageLoadRequest(pageRequest, threadResources, globalResources);
-				pageCache.addNonAllocatedPage(requestInfo.first, pageDeleter);
+				VirtualTextureInfo& textureInfo = textureInfoById[requestInfo.first.textureId];
+				pageCache.addNonAllocatedPage(requestInfo.first, textureInfo, textureInfoById, pageDeleter);
 			}
 			freePageLoadRequestsCount -= posableLoadRequests.size();
 			posableLoadRequests.clear();
@@ -140,31 +140,33 @@ private:
 	void addNewPagesToResources(GraphicsEngine& graphicsEngine, VirtualTextureInfoByID& texturesByID,
 		ID3D12GraphicsCommandList* commandList, void(*uploadComplete)(PrimaryTaskFromOtherThreadQueue::Task& task, void* gr, void* tr));
 
-	static void addPageDataToResource(ID3D12Resource* resource, D3D12_TILED_RESOURCE_COORDINATE* newPageCoordinates, PageLoadRequest** pageLoadRequests, std::size_t pageCount,
+	static void addPageDataToResource(VirtualTextureInfo& textureInfo, D3D12_TILED_RESOURCE_COORDINATE* newPageCoordinates, PageLoadRequest** pageLoadRequests, std::size_t pageCount,
 		D3D12_TILE_REGION_SIZE& tileSize, PageCache& pageCache, ID3D12GraphicsCommandList* commandList, GraphicsEngine& graphicsEngine,
 		void(*uploadComplete)(PrimaryTaskFromOtherThreadQueue::Task& task, void* gr, void* tr));
 
+	static void checkCacheForPage(std::pair<const PageResourceLocation, PageRequestData>& request, VirtualTextureInfoByID& texturesByID, PageCache& pageCache,
+		ResizingArray<std::pair<PageResourceLocation, unsigned long long>>& posableLoadRequests);
 	static void checkCacheForPages(decltype(uniqueRequests)& pageRequests, VirtualTextureInfoByID& texturesByID, PageCache& pageCache,
-		ResizingArray<std::pair<TextureLocation, unsigned long long>>& posableLoadRequests);
+		ResizingArray<std::pair<PageResourceLocation, unsigned long long>>& posableLoadRequests);
 	void shrinkNumberOfLoadRequestsIfNeeded(std::size_t numTexturePagesThatCanBeRequested);
 	void collectReturnedPageLoadRequests();
-	bool recalculateCacheSize(float& mipBias, float desiredMipBias, long long maxPages, std::size_t totalPagesNeeded, PageDeleter& pageDeleter);
+	bool recalculateCacheSize(float& mipBias, float desiredMipBias, long long maxPages, std::size_t totalPagesNeeded, VirtualTextureInfoByID& texturesById, PageDeleter& pageDeleter);
 	long long calculateMemoryBudgetInPages(IDXGIAdapter3* adapter);
 	void processPageRequestsHelper(IDXGIAdapter3* adapter, VirtualTextureInfoByID& texturesByID, float& mipBias, float desiredMipBias, PageDeleter& pageDeleter);
 	void increaseMipBias(decltype(uniqueRequests)& pageRequests, VirtualTextureInfoByID& texturesByID);
 public:
 	PageProvider();
 
-	void gatherPageRequests(unsigned char* feadBackBuffer, unsigned long sizeInBytes, VirtualTextureInfoByID& texturesByID);
+	void gatherPageRequests(void* feadBackBuffer, unsigned long sizeInBytes, VirtualTextureInfoByID& texturesByID);
 
 	template<class ThreadResources, class GlobalResources>
 	void processPageRequests(VirtualTextureInfoByID& texturesByID,
 		ThreadResources& executor, GlobalResources& globalResources, float& mipBias, float desiredMipBias)
 	{
-		PageDeleter pageDeleter(pageAllocator, texturesByID, globalResources.graphicsEngine.directCommandQueue);
+		PageDeleter pageDeleter(pageAllocator, globalResources.graphicsEngine.directCommandQueue);
 		processPageRequestsHelper(globalResources.graphicsEngine.adapter, texturesByID, mipBias, desiredMipBias, pageDeleter);
-		startLoadingRequiredPages(executor, globalResources, pageDeleter);
-		pageDeleter.finish();
+		startLoadingRequiredPages(executor, globalResources, texturesByID, pageDeleter);
+		pageDeleter.finish(texturesByID);
 
 		execute = [](PrimaryTaskFromOtherThreadQueue::Task& task, void* tr, void* gr)
 		{

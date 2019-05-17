@@ -232,9 +232,12 @@
     <ClInclude Include="BackgroundQueue.h" />
     <ClInclude Include="EntityGenerator.h" />
     <ClInclude Include="FastIterationHashSet.h" />
+    <ClInclude Include="GpuHeapLocation.h" />
     <ClInclude Include="HashSet.h" />
     <ClInclude Include="LinkedTask.h" />
     <ClInclude Include="PageAllocationInfo.h" />
+    <ClInclude Include="PageCachePerTextureData.h" />
+    <ClInclude Include="PageResourceLocation.h" />
     <ClInclude Include="Portal.h" />
     <ClInclude Include="PrimaryTaskFromOtherThreadQueue.h" />
     <ClInclude Include="PriorityQueue.h" />
@@ -357,6 +360,7 @@
     <ClCompile Include="AsynchronousFileManager.cpp" />
     <ClCompile Include="BaseSentence.cpp" />
     <ClCompile Include="CameraUtil.cpp" />
+    <ClCompile Include="PageCachePerTextureData.cpp" />
     <ClCompile Include="VirtualFeedbackSubPass.cpp" />
     <ClCompile Include="PageCache.cpp" />
     <ClCompile Include="PageDeleter.cpp" />

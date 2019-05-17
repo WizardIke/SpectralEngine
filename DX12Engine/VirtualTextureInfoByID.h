@@ -7,8 +7,11 @@ class VirtualTextureInfoByID
 {
 	union Element
 	{
-		std::aligned_storage_t<sizeof(VirtualTextureInfo), alignof(VirtualTextureInfo)> data;
+		VirtualTextureInfo data;
 		Element* next;
+
+		Element() {}
+		~Element() {}
 	};
 	Element mData[255]; //index 255 is reserved for invalid texture ids
 	Element* freeList;
@@ -53,11 +56,11 @@ public:
 
 	VirtualTextureInfo& operator[](size_t index)
 	{
-		return reinterpret_cast<VirtualTextureInfo&>(mData[index].data);
+		return mData[index].data;
 	}
 
 	const VirtualTextureInfo& operator[](size_t index) const
 	{
-		return reinterpret_cast<const VirtualTextureInfo&>(mData[index].data);
+		return mData[index].data;
 	}
 };

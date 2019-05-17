@@ -3,7 +3,11 @@
 #undef min
 #undef max
 #include "HashSet.h"
+#include "GpuHeapLocation.h"
 #include "PageAllocationInfo.h"
+#include "VirtualTextureInfo.h"
+#include "VirtualTextureInfoByID.h"
+#include "PageCachePerTextureData.h"
 #include "Range.h"
 #include <cassert>
 #undef min
@@ -12,78 +16,124 @@ class PageDeleter;
 
 class PageCache
 {
-	struct Node
-	{
-		PageAllocationInfo data;
-		Node* next, *previous;
-
-		Node() = default;
-		Node(Node&& other) noexcept;
-		void operator=(Node&& other) noexcept;
-	};
-
-	struct Hash : std::hash<uint64_t>
-	{
-		std::size_t operator()(const Node& node) const
-		{
-			return (*(std::hash<uint64_t>*)(this))(node.data.textureLocation.value);
-		}
-
-		std::size_t operator()(TextureLocation location) const
-		{
-			return (*(std::hash<uint64_t>*)(this))(location.value);
-		}
-	};
-
-	struct KeyEqual
-	{
-		bool operator()(const Node& node, TextureLocation location1) const
-		{
-			return node.data.textureLocation.value == location1.value;
-		}
-
-		bool operator()(const Node& node1, const Node& node2) const
-		{
-			return node1.data.textureLocation.value == node2.data.textureLocation.value;
-		}
-	};
-
+	using Node = PageCachePerTextureData::Node;
 	Node mFront;
 	Node mBack;
-	HashSet<Node, Hash, KeyEqual> pageLookUp;// this could be an std::unordered_map but the textureLocation would have to by duplicated in key and value; or getPage would have to return a pair
+	std::size_t mSize = 0u;
 	std::size_t maxPages = 0u;
 
 	void moveNodeToFront(Node* node);
 	static const PageAllocationInfo& getDataFromNode(const Node& node) { return node.data; }
+
+	class IteratorBase
+	{
+		friend class PageCache;
+	private:
+		Node*    current;
+		IteratorBase(Node* start) :
+			current(start)
+		{}
+	public:
+		using iterator_category = std::bidirectional_iterator_tag;
+		using value_type = PageAllocationInfo;
+		using difference_type = std::ptrdiff_t;
+		using pointer = value_type*;
+		using reference = value_type&;
+
+		IteratorBase& operator++() 
+		{ 
+			current = current->next;
+			return *this; 
+		}
+		IteratorBase& operator--() 
+		{ 
+			current = current->previous; 
+			return *this; 
+		}
+		IteratorBase operator++(int)
+		{ 
+			IteratorBase r(*this);
+			++(*this); return r; 
+		}
+		IteratorBase operator--(int) 
+		{ 
+			IteratorBase r(*this);
+			--(*this); return r; 
+		}
+
+		bool operator==(IteratorBase const& rhs) const
+		{
+			return current == rhs.current; 
+		}
+		bool operator!=(IteratorBase const& rhs) const
+		{
+			return current != rhs.current; 
+		}
+	};
+
+	class ConstIterator : public IteratorBase
+	{
+		friend class PageCache;
+		ConstIterator(Node* st) : IteratorBase(st) {}
+	public:
+		const value_type& operator*() const
+		{ 
+			return current->data;
+		}
+	};
+
+	class Iterator : public IteratorBase
+	{
+		friend class PageCache;
+		Iterator(Node* st) : IteratorBase(st) {}
+	public:
+		Iterator(const ConstIterator& constIterator) : IteratorBase(constIterator.current) {}
+
+		value_type& operator*()
+		{
+			return current->data;
+		}
+	};
 public:
+	using iterator = Iterator;
+	using const_iterator = ConstIterator;
+
 	PageCache();
 	/* gets a page and marks it as the most recently used */
-	PageAllocationInfo* getPage(const TextureLocation& location);
+	PageAllocationInfo* getPage(PageResourceLocation location, VirtualTextureInfo& textureInfo);
 	std::size_t capacity() const { return maxPages; }
-	std::size_t size() const { return pageLookUp.size(); }
-	void increaseSize(std::size_t newMaxPages);
+	std::size_t size() const { return mSize; }
+	void increaseCapacity(std::size_t newMaxPages);
 
 	/*
-	* adds pages removing the least recently used pages in the cache to make room.
-	* adding pages to a cache with zero max size is undefined behavior.
+	* adds a page removing the least recently used page in the cache to make room.
+	* adding a page to a cache with zero max size is undefined behavior.
 	*/
-	void addPages(const PageAllocationInfo* pageInfos, std::size_t pageCount, PageDeleter& pageDeleter);
+	void addPage(PageAllocationInfo pageInfo, VirtualTextureInfo& textureInfo, VirtualTextureInfoByID& texturesById, PageDeleter& pageDeleter);
 
-	void addPage(const PageAllocationInfo& pageInfo, PageDeleter& pageDeleter);
+	void addNonAllocatedPage(PageResourceLocation location, VirtualTextureInfo& textureInfo, VirtualTextureInfoByID& texturesById, PageDeleter& pageDeleter);
 
-	void addNonAllocatedPage(const TextureLocation& location, PageDeleter& pageDeleter);
+	/*
+	* Checks if the page is in the cache but doesn't mark it as most recently used.
+	*/
+	bool containsDoNotMarkAsRecentlyUsed(PageResourceLocation location, VirtualTextureInfo& textureInfo);
 
-	bool contains(TextureLocation location);
-	void setPageAsAllocated(TextureLocation location, HeapLocation newHeapLocation);
+	bool contains(PageResourceLocation location, VirtualTextureInfo& textureInfo);
 
-	void decreaseSize(std::size_t newMaxPages, PageDeleter& pageDeleter);
+	void setPageAsAllocated(PageResourceLocation location, VirtualTextureInfo& textureInfo, GpuHeapLocation newHeapLocation);
 
-	//should try linked list iterator
-	auto pages() const -> decltype(std::declval<Range<decltype(this->pageLookUp.begin()), decltype(this->pageLookUp.end())>>().map<const PageAllocationInfo&, &getDataFromNode>())
+	void decreaseCapacity(std::size_t newMaxPages, VirtualTextureInfoByID& texturesById, PageDeleter& pageDeleter);
+
+	Range<const_iterator, const_iterator> pages() const
 	{
-		return range(pageLookUp).map<const PageAllocationInfo&, &getDataFromNode>();
+		return range(const_iterator(mFront.next), const_iterator(const_cast<Node*>(&mBack)));
 	}
 
-	/* Removes a page without freeing heap space */
-	void removePage(const TextureLocation& location, PageDeleter& pageDeleter);
+	Range<iterator, iterator> pages()
+	{
+		return range(iterator(mFront.next), iterator(&mBack));
+	}
+
+	/* Removes a page without freeing ID3D12Heap space */
+	void removePage(PageResourceLocation location, VirtualTextureInfo& textureInfo, VirtualTextureInfoByID& texturesById, PageDeleter& pageDeleter);
 };
