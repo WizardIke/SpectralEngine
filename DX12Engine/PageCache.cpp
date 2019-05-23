@@ -47,15 +47,16 @@ void PageCache::addPage(PageAllocationInfo pageInfo, VirtualTextureInfo& texture
 		Node* backPrev = mBack.previous;
 		mBack.previous = backPrev->previous;
 		mBack.previous->next = &mBack;
+		VirtualTextureInfo& pageToRemoveTextureInfo = texturesById[backPrev->data.textureLocation.textureId];
 		if (backPrev->data.heapLocation.heapOffsetInPages == std::numeric_limits<unsigned int>::max())
 		{
+			++pageToRemoveTextureInfo.pageCacheData.numberOfUnneededLoadingPages;
 			pageDeleter.deletePage(backPrev->data.textureLocation, texturesById);
 		}
 		else
 		{
 			pageDeleter.deletePage(backPrev->data, texturesById);
 		}
-		VirtualTextureInfo& pageToRemoveTextureInfo = texturesById[backPrev->data.textureLocation.textureId];
 		pageToRemoveTextureInfo.pageCacheData.pageLookUp.erase(backPrev->data.textureLocation);
 	}
 	else
@@ -90,15 +91,16 @@ void PageCache::decreaseCapacity(std::size_t newMaxPages, VirtualTextureInfoByID
 			Node* backPrev = mBack.previous;
 			mBack.previous = backPrev->previous;
 			mBack.previous->next = &mBack;
+			VirtualTextureInfo& pageToRemoveTextureInfo = texturesById[backPrev->data.textureLocation.textureId];
 			if(backPrev->data.heapLocation.heapOffsetInPages == std::numeric_limits<unsigned int>::max())
 			{
+				++pageToRemoveTextureInfo.pageCacheData.numberOfUnneededLoadingPages;
 				pageDeleter.deletePage(backPrev->data.textureLocation, texturesById);
 			}
 			else
 			{
 				pageDeleter.deletePage(backPrev->data, texturesById);
 			}
-			VirtualTextureInfo& pageToRemoveTextureInfo = texturesById[backPrev->data.textureLocation.textureId];
 			pageToRemoveTextureInfo.pageCacheData.pageLookUp.erase(backPrev->data.textureLocation);
 		}
 	}
@@ -134,4 +136,10 @@ bool PageCache::contains(PageResourceLocation location, VirtualTextureInfo& text
 void PageCache::setPageAsAllocated(PageResourceLocation location, VirtualTextureInfo& textureInfo, GpuHeapLocation newHeapLocation)
 {
 	textureInfo.pageCacheData.pageLookUp.find(location)->data.heapLocation = newHeapLocation;
+}
+
+void PageCache::removePage(Node* page)
+{
+	page->previous->next = page->next;
+	page->next->previous = page->previous;
 }

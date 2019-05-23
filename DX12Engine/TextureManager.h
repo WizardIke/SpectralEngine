@@ -55,6 +55,8 @@ public:
 			this->filename = filename;
 		}
 	};
+
+	using UnloadRequest = Message;
 private:
 	struct Texture
 	{
@@ -185,7 +187,7 @@ private:
 	}
 
 	/*the texture must no longer be in use, including by the GPU*/
-	void unloadTexture(const wchar_t* filename, GraphicsEngine& graphicsEngine);
+	void unloadTexture(UnloadRequest& unloadRequest, GraphicsEngine& graphicsEngine, void* tr, void* gr);
 
 	template<class ThreadResources, class GlobalResources>
 	void addMessage(Message* request, ThreadResources& threadResources, GlobalResources&)
@@ -213,7 +215,7 @@ private:
 				temp = temp->next; //Allow reuse of next
 				if(message.textureAction == Action::unload)
 				{
-					unloadTexture(message.filename, globalResources.graphicsEngine);
+					unloadTexture(static_cast<UnloadRequest&>(message), globalResources.graphicsEngine, &threadResources, &globalResources);
 				}
 				else if(message.textureAction == Action::load)
 				{
@@ -238,7 +240,7 @@ public:
 	}
 
 	template<class ThreadResources, class GlobalResources>
-	void unload(Message* request, ThreadResources& threadResources, GlobalResources& globalResources)
+	void unload(UnloadRequest* request, ThreadResources& threadResources, GlobalResources& globalResources)
 	{
 		request->textureAction = Action::unload;
 		addMessage(request, threadResources, globalResources);

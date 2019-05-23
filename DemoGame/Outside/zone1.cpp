@@ -700,6 +700,8 @@ namespace
 					MeshNames::water,
 					MeshNames::cube,
 					MeshNames::square,
+					MeshNames::aabb,
+					MeshNames::squareWithPos,
 				}, threadResources, globalResources);
 
 			perObjectConstantBuffers->Unmap(0u, nullptr);
@@ -805,15 +807,15 @@ namespace
 			auto& textureManager = globalResources.textureManager;
 			auto& meshManager = globalResources.meshManager;
 
-			auto unloadTexture = new TextureManager::Message(TextureNames::marble01, [](AsynchronousFileManager::ReadRequest& request, void*, void*)
+			auto unloadTexture = new TextureManager::UnloadRequest(TextureNames::marble01, [](AsynchronousFileManager::ReadRequest& request, void*, void*)
 			{
-				delete static_cast<TextureManager::Message*>(&request);
+				delete static_cast<TextureManager::UnloadRequest*>(&request);
 			});
 			textureManager.unload(unloadTexture, threadResources, globalResources);
 
-			auto unloadMesh = new MeshManager::Message(MeshNames::bath, [](AsynchronousFileManager::ReadRequest& request, void*, void*)
+			auto unloadMesh = new MeshManager::UnloadRequest(MeshNames::bath, [](AsynchronousFileManager::ReadRequest& request, void*, void*)
 			{
-				delete static_cast<MeshManager::Message*>(&request);
+				delete static_cast<MeshManager::UnloadRequest*>(&request);
 			});
 			meshManager.unload(unloadMesh, threadResources, globalResources);
 

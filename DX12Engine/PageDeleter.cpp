@@ -2,7 +2,7 @@
 #include "PageAllocator.h"
 #include <algorithm> //std::sort
 
-void PageDeleter::finishNoCheck(const VirtualTextureInfoByID& texturesByID)
+void PageDeleter::finishNoCheck(VirtualTextureInfoByID& texturesByID)
 {
 	//group pages from the same resource together. 
 	std::sort(deletedPages, deletedPages + deletedPageCount, [](PageResourceLocation first, PageResourceLocation second)
@@ -24,14 +24,14 @@ void PageDeleter::finishNoCheck(const VirtualTextureInfoByID& texturesByID)
 		auto textureId = deletedPages[i].textureId;
 		if (lastTextureId != textureId)
 		{
-			const VirtualTextureInfo& textureInfo = texturesByID[textureId];
+			VirtualTextureInfo& textureInfo = texturesByID[textureId];
 			commandQueue->UpdateTileMappings(textureInfo.resource, (UINT)(i - lastIndex), resourceTileCoords + lastIndex, nullptr, nullptr, 1u, &rangeFlags, nullptr,
 				nullptr, D3D12_TILE_MAPPING_FLAG_NONE);
 			lastIndex = i;
 			lastTextureId = textureId;
 		}
 	}
-	const VirtualTextureInfo& textureInfo = texturesByID[lastTextureId];
+	VirtualTextureInfo& textureInfo = texturesByID[lastTextureId];
 	commandQueue->UpdateTileMappings(textureInfo.resource, (UINT)(deletedPageCount - lastIndex), resourceTileCoords + lastIndex, nullptr, nullptr, 1u, &rangeFlags, nullptr,
 		nullptr, D3D12_TILE_MAPPING_FLAG_NONE);
 
@@ -42,13 +42,13 @@ PageDeleter::PageDeleter(PageAllocator& pageAllocator1, ID3D12CommandQueue* comm
 	pageAllocator(pageAllocator1),
 	commandQueue(commandQueue1) {}
 
-void PageDeleter::deletePage(PageAllocationInfo allocationInfo, const VirtualTextureInfoByID& texturesByID)
+void PageDeleter::deletePage(PageAllocationInfo allocationInfo, VirtualTextureInfoByID& texturesByID)
 {
 	pageAllocator.removePage(allocationInfo.heapLocation);
 	deletePage(allocationInfo.textureLocation, texturesByID);
 }
 
-void PageDeleter::deletePage(PageResourceLocation textureLocation, const VirtualTextureInfoByID& texturesByID)
+void PageDeleter::deletePage(PageResourceLocation textureLocation, VirtualTextureInfoByID& texturesByID)
 {
 	deletedPages[deletedPageCount] = textureLocation;
 	++deletedPageCount;

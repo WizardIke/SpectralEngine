@@ -12,14 +12,14 @@ class PageDeleter
 	size_t deletedPageCount = 0u;
 	ID3D12CommandQueue* commandQueue;
 
-	void finishNoCheck(const VirtualTextureInfoByID& texturesByID);
+	void finishNoCheck(VirtualTextureInfoByID& texturesByID);
 public:
 	PageDeleter(PageAllocator& pageAllocator, ID3D12CommandQueue* commandQueue);
-	void deletePage(PageAllocationInfo allocationInfo, const VirtualTextureInfoByID& texturesByID);
+	void deletePage(PageAllocationInfo allocationInfo, VirtualTextureInfoByID& texturesByID);
 	/* Delete page from resource without freeing heap space */
-	void deletePage(PageResourceLocation textureLocation, const VirtualTextureInfoByID& texturesByID);
+	void deletePage(PageResourceLocation textureLocation, VirtualTextureInfoByID& texturesByID);
 
-	void finish(const VirtualTextureInfoByID& texturesByID)
+	void finish(VirtualTextureInfoByID& texturesByID)
 	{
 		if (deletedPageCount != 0u)
 		{

@@ -1,5 +1,4 @@
 #pragma once
-#include <type_traits>
 #include "VirtualTextureInfo.h"
 #include <cassert>
 
@@ -7,7 +6,7 @@ class VirtualTextureInfoByID
 {
 	union Element
 	{
-		VirtualTextureInfo data;
+		VirtualTextureInfo* data;
 		Element* next;
 
 		Element() {}
@@ -40,10 +39,11 @@ public:
 #endif
 	}
 
-	unsigned int allocate()
+	unsigned int allocate(VirtualTextureInfo& info)
 	{
 		Element* element = freeList;
 		freeList = freeList->next;
+		element->data = &info;
 		return (unsigned int)(element - mData);
 	}
 
@@ -54,13 +54,13 @@ public:
 		freeList = &mData[index];
 	}
 
-	VirtualTextureInfo& operator[](size_t index)
+	VirtualTextureInfo& operator[](unsigned int index)
 	{
-		return mData[index].data;
+		return *mData[index].data;
 	}
 
-	const VirtualTextureInfo& operator[](size_t index) const
+	const VirtualTextureInfo& operator[](unsigned int index) const
 	{
-		return mData[index].data;
+		return *mData[index].data;
 	}
 };

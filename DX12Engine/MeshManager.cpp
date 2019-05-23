@@ -85,14 +85,17 @@ void MeshManager::createMeshResources(ID3D12Resource*& vertices, ID3D12Resource*
 #endif // ndebug
 }
 
-void MeshManager::unloadMesh(const wchar_t * const filename)
+void MeshManager::unloadMesh(UnloadRequest& unloadRequest, void* tr, void* gr)
 {
-	auto& meshInfo = meshInfos[filename];
+	auto meshPtr = meshInfos.find(unloadRequest.filename);
+	auto& meshInfo = meshPtr->second;
 	--meshInfo.numUsers;
 	if(meshInfo.numUsers == 0u)
 	{
-		meshInfos.erase(filename);
+		meshInfos.erase(meshPtr);
 	}
+
+	unloadRequest.deleteReadRequest(unloadRequest, tr, gr);
 }
 
 static void createIndices(uint32_t* indexUploadBuffer, ID3D12Resource* indices, ID3D12Resource* uploadResource,

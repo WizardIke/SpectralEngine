@@ -7,9 +7,9 @@
 TextureManager::TextureManager() {}
 TextureManager::~TextureManager() {}
 
-void TextureManager::unloadTexture(const wchar_t* filename, GraphicsEngine& graphicsEngine)
+void TextureManager::unloadTexture(UnloadRequest& unloadRequest, GraphicsEngine& graphicsEngine, void* tr, void* gr)
 {
-	auto texurePtr = textures.find(filename);
+	auto texurePtr = textures.find(unloadRequest.filename);
 	auto& texture = texurePtr->second;
 	texture.numUsers -= 1u;
 	if(texture.numUsers == 0u)
@@ -17,6 +17,7 @@ void TextureManager::unloadTexture(const wchar_t* filename, GraphicsEngine& grap
 		graphicsEngine.descriptorAllocator.deallocate(texture.descriptorIndex);
 		textures.erase(texurePtr);
 	}
+	unloadRequest.deleteReadRequest(unloadRequest, tr, gr);
 }
 
 ID3D12Resource* TextureManager::createTexture(const TextureStreamingRequest& uploadRequest, GraphicsEngine& graphicsEngine, unsigned int& discriptorIndex, const wchar_t* filename)

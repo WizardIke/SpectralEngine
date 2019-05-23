@@ -88,14 +88,13 @@ namespace Cave
 				resources->caveModelPart1.setDiffuseTexture(texture.descriptorIndex, cpuStartAddress, gpuStartAddress);
 
 				//stone4FeedbackBufferPs = create virtual feedback materialPS
-				auto& textureInfo = globalResources.virtualTextureManager.texturesByID[texture.textureID];
 				auto stone4FeedbackBufferPsCpu = reinterpret_cast<VtFeedbackMaterialPS*>(cpuStartAddress + (resources->stone4FeedbackBufferPs - gpuStartAddress));
 				stone4FeedbackBufferPsCpu->virtualTextureID1 = (float)(texture.textureID << 8u);
 				stone4FeedbackBufferPsCpu->virtualTextureID2And3 = (float)0xffff;
-				stone4FeedbackBufferPsCpu->textureHeightInPages = (float)textureInfo.heightInPages;
-				stone4FeedbackBufferPsCpu->textureWidthInPages = (float)textureInfo.widthInPages;
-				stone4FeedbackBufferPsCpu->usefulTextureHeight = (float)(textureInfo.height);
-				stone4FeedbackBufferPsCpu->usefulTextureWidth = (float)(textureInfo.width);
+				stone4FeedbackBufferPsCpu->textureHeightInPages = (float)texture.heightInPages;
+				stone4FeedbackBufferPsCpu->textureWidthInPages = (float)texture.widthInPages;
+				stone4FeedbackBufferPsCpu->usefulTextureHeight = (float)(texture.height);
+				stone4FeedbackBufferPsCpu->usefulTextureWidth = (float)(texture.width);
 
 				delete static_cast<VirtualTextureRequest*>(&request);
 				componentUploaded(&zone, threadResources, globalResources);
@@ -180,9 +179,9 @@ namespace Cave
 			auto& meshManager = globalResources.meshManager;
 			auto& virtualTextureManager = globalResources.virtualTextureManager;
 
-			auto unloadTexture = new VirtualTextureManager::Message(TextureNames::stone04, [](AsynchronousFileManager::ReadRequest& request, void*, void*)
+			auto unloadTexture = new VirtualTextureManager::UnloadRequest(TextureNames::stone04, [](AsynchronousFileManager::ReadRequest& request, void*, void*)
 			{
-				delete static_cast<VirtualTextureManager::Message*>(&request);
+				delete static_cast<VirtualTextureManager::UnloadRequest*>(&request);
 			});
 			virtualTextureManager.unload(unloadTexture, threadResources, globalResources);
 

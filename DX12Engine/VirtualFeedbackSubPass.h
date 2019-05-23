@@ -32,16 +32,14 @@ class VirtualFeedbackSubPass : public RenderSubPass<VirtualPageCamera, D3D12_RES
 		ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
 		threadResources.taskShedular.pushBackgroundTask({requester, [](void* requester, ThreadResources& threadResources, GlobalResources& globalResources)
 		{
-			VirtualTextureManager& virtualTextureManager = globalResources.virtualTextureManager;
 			VirtualFeedbackSubPass& analyser = *static_cast<VirtualFeedbackSubPass*>(requester);
-			PageProvider& pageProvider = virtualTextureManager.pageProvider;
-			VirtualTextureInfoByID& texturesByID = virtualTextureManager.texturesByID;
+			PageProvider& pageProvider = globalResources.virtualTextureManager.pageProvider;
 
 			const unsigned long totalSize = analyser.textureWidth * analyser.textureHeight * 8u;
 			void* feadBackBuffer = analyser.mapReadbackTexture(totalSize);
-			pageProvider.gatherPageRequests(feadBackBuffer, totalSize, texturesByID);
+			pageProvider.gatherPageRequests(feadBackBuffer, totalSize);
 			analyser.unmapReadbackTexture();
-			pageProvider.processPageRequests(texturesByID, threadResources, globalResources, analyser.mipBias, analyser.desiredMipBias);
+			pageProvider.processPageRequests(threadResources, globalResources, analyser.mipBias, analyser.desiredMipBias);
 		}});
 	}
 

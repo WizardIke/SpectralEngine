@@ -29,17 +29,19 @@ PageProvider::PageProvider() : freePageLoadRequestsCount{maxPagesLoading}
 	freePageLoadRequests = nullptr;
 	for (auto& request : pageLoadRequests)
 	{
-		request.nextPageLoadRequest = freePageLoadRequests;
+		request.pageProvider = this;
+		static_cast<LinkedTask&>(request).next = static_cast<LinkedTask*>(freePageLoadRequests);
 		freePageLoadRequests = &request;
 	}
 }
 
 //textures must be tiled
-void PageProvider::addPageLoadRequestHelper(PageLoadRequest& streamingRequest, VirtualTextureManager& virtualTextureManager,
+void PageProvider::addPageLoadRequestHelper(PageLoadRequest& streamingRequest,
 	void(*streamResource)(StreamingManager::StreamingRequest* request, void* threadResources, void* globalResources),
 	void(*resourceUploaded)(StreamingManager::StreamingRequest* request, void* threadResources, void* globalResources))
 {
-	VirtualTextureInfo& resourceInfo = virtualTextureManager.texturesByID[streamingRequest.allocationInfo.textureLocation.textureId];
+	VirtualTextureInfoByID& texturesByID = streamingRequest.pageProvider->texturesByID;
+	VirtualTextureInfo& resourceInfo = texturesByID[streamingRequest.allocationInfo.textureLocation.textureId];
 	streamingRequest.filename = resourceInfo.filename;
 	unsigned int mipLevel = streamingRequest.allocationInfo.textureLocation.mipLevel;
 	auto width = resourceInfo.width;
@@ -267,15 +269,15 @@ void PageProvider::checkCacheForPages(decltype(uniqueRequests)& pageRequests, Vi
 	}
 }
 
-void PageProvider::addNewPagesToResources(GraphicsEngine& graphicsEngine, VirtualTextureInfoByID& texturesByID,
-	ID3D12GraphicsCommandList* commandList, void(*uploadComplete)(PrimaryTaskFromOtherThreadQueue::Task& task, void* gr, void* tr))
+void PageProvider::addNewPagesToResources(GraphicsEngine& graphicsEngine,
+	ID3D12GraphicsCommandList* commandList, void(*uploadComplete)(LinkedTask& task, void* gr, void* tr), void* tr, void* gr)
 {
 	ID3D12CommandQueue* commandQueue = graphicsEngine.directCommandQueue;
 	ID3D12Device* graphicsDevice = graphicsEngine.graphicsDevice;
 	PageAllocator& allocator = pageAllocator;
 	PageCache& cache = pageCache;
 
-	PageLoadRequest* halfFinishedPageRequests = halfFinishedPageLoadRequests.exchange(nullptr, std::memory_order_acquire);
+	PageLoadRequest* halfFinishedPageRequests = static_cast<PageLoadRequest*>(static_cast<LinkedTask*>(halfFinishedPageLoadRequests.popAll()));
 
 	if(halfFinishedPageRequests == nullptr) return;
 
@@ -285,12 +287,23 @@ void PageProvider::addNewPagesToResources(GraphicsEngine& graphicsEngine, Virtua
 	do
 	{
 		auto textureLocation = halfFinishedPageRequests->allocationInfo.textureLocation;
-		if(cache.containsDoNotMarkAsRecentlyUsed(halfFinishedPageRequests->allocationInfo.textureLocation, texturesByID[textureLocation.textureId]))
+		VirtualTextureInfo& textureInfo = texturesByID[textureLocation.textureId];
+		if(cache.containsDoNotMarkAsRecentlyUsed(halfFinishedPageRequests->allocationInfo.textureLocation, textureInfo))
 		{
 			newPages[newPageCount] = halfFinishedPageRequests;
 			++newPageCount;
 		}
-		halfFinishedPageRequests = halfFinishedPageRequests->nextPageLoadRequest;
+		else
+		{
+			--textureInfo.pageCacheData.numberOfUnneededLoadingPages;
+			if (textureInfo.pageCacheData.numberOfUnneededLoadingPages == 0u && textureInfo.unloadRequest != nullptr)
+			{
+				assert(textureInfo.textureID != 255);
+				texturesByID.deallocate(textureInfo.textureID);
+				textureInfo.unloadRequest->callback(*textureInfo.unloadRequest, tr, gr);
+			}
+		}
+		halfFinishedPageRequests = static_cast<PageLoadRequest*>(static_cast<LinkedTask*>(static_cast<LinkedTask*>(halfFinishedPageRequests)->next));
 	} while(halfFinishedPageRequests != nullptr);
 
 	if(newPageCount == 0u) return;
@@ -354,26 +367,14 @@ void PageProvider::shrinkNumberOfLoadRequestsIfNeeded(std::size_t numTexturePage
 	}
 }
 
-void PageProvider::collectReturnedPageLoadRequests()
+void PageProvider::processMessages(void* tr, void* gr)
 {
-	auto oldReturnedPageLoadRequests = returnedPageLoadRequests.exchange(nullptr, std::memory_order_acquire);
-	if(oldReturnedPageLoadRequests != nullptr)
+	SinglyLinked* messages = messageQueue.popAll();
+	while (messages != nullptr)
 	{
-		auto oldFreePageLoadRequests = freePageLoadRequests;
-		freePageLoadRequests = oldReturnedPageLoadRequests;
-		while(true)
-		{
-			++freePageLoadRequestsCount;
-			if(oldReturnedPageLoadRequests->nextPageLoadRequest == nullptr)
-			{
-				break;
-			}
-			else
-			{
-				oldReturnedPageLoadRequests = oldReturnedPageLoadRequests->nextPageLoadRequest;
-			}
-		}
-		oldReturnedPageLoadRequests->nextPageLoadRequest = oldFreePageLoadRequests;
+		LinkedTask& message = *static_cast<LinkedTask*>(messages);
+		messages = messages->next;
+		message.execute(message, tr, gr);
 	}
 }
 
@@ -394,11 +395,11 @@ static inline void requestMipLevels(const unsigned int lowestPinnedMip, unsigned
 	}
 }
 
-void PageProvider::gatherPageRequests(void* feadBackBuffer, unsigned long sizeInBytes, VirtualTextureInfoByID& texturesByID)
+void PageProvider::gatherPageRequests(void* feadBackBuffer, unsigned long sizeInBytes)
 {
 	auto& requests = this->uniqueRequests;
 	uint64_t* current = static_cast<uint64_t*>(feadBackBuffer);
-	const uint64_t* feadBackBufferEnd = current + (sizeInBytes / sizeof(sizeInBytes));
+	const uint64_t* feadBackBufferEnd = current + (sizeInBytes / sizeof(uint64_t));
 	for(; current != feadBackBufferEnd; ++current)
 	{
 		const uint64_t value = *current;// pages are stored as textureId2, textureId3, textureId1, miplevel, y, x
@@ -427,24 +428,23 @@ void PageProvider::gatherPageRequests(void* feadBackBuffer, unsigned long sizeIn
 	}
 }
 
-void PageProvider::processPageRequestsHelper(IDXGIAdapter3* adapter, VirtualTextureInfoByID& texturesByID, float& mipBias, float desiredMipBias, PageDeleter& pageDeleter)
+void PageProvider::processPageRequestsHelper(IDXGIAdapter3* adapter, float& mipBias, float desiredMipBias, PageDeleter& pageDeleter, void* tr, void* gr)
 {
+	processMessages(tr, gr);
 	//Work out memory budget, grow or shrink cache as required and change mip bias as required
 	long long memoryBedgetInPages = calculateMemoryBudgetInPages(adapter);
 	while(recalculateCacheSize(mipBias, desiredMipBias, memoryBedgetInPages, uniqueRequests.size(), texturesByID, pageDeleter))
 	{
-		increaseMipBias(uniqueRequests, texturesByID);
+		increaseMipBias(uniqueRequests);
 	}
 
 	//work out which pages are in the cache and which pages need loading
 	checkCacheForPages(uniqueRequests, texturesByID, pageCache, posableLoadRequests);
 	uniqueRequests.clear();
-
-	collectReturnedPageLoadRequests();
 	shrinkNumberOfLoadRequestsIfNeeded(std::min(freePageLoadRequestsCount, pageCache.capacity() - pageCache.size()));
 }
 
-void PageProvider::increaseMipBias(decltype(uniqueRequests)& pageRequests, VirtualTextureInfoByID& texturesByID)
+void PageProvider::increaseMipBias(decltype(uniqueRequests)& pageRequests)
 {
 	for(auto& pageRequest : pageRequests)
 	{
@@ -459,4 +459,123 @@ void PageProvider::increaseMipBias(decltype(uniqueRequests)& pageRequests, Virtu
 		pageRequests[pageRequest.first].count += pageRequest.second;
 	}
 	posableLoadRequests.clear();
+}
+
+void PageProvider::deleteTextureHelper(UnloadRequest& unloadRequest, void* tr, void* gr)
+{
+	VirtualTextureInfo& textureInfo = *unloadRequest.textureInfo;
+	std::size_t numberOfNewUnneededLoadingPages = 0u;
+	textureInfo.pageCacheData.pageLookUp.consume([&pageCache = pageCache, &pageAllocator = pageAllocator, &numberOfNewUnneededLoadingPages](auto&& page)
+	{
+		pageCache.removePage(&page);
+		if (page.data.heapLocation.heapOffsetInPages == std::numeric_limits<unsigned int>::max())
+		{
+			++numberOfNewUnneededLoadingPages;
+		}
+		else
+		{
+			pageAllocator.removePage(page.data.heapLocation);
+		}
+	});
+	pageAllocator.removePinnedPages(textureInfo.pinnedHeapLocations.get(), textureInfo.pinnedPageCount);
+	textureInfo.pageCacheData.numberOfUnneededLoadingPages += numberOfNewUnneededLoadingPages;
+	if (textureInfo.pageCacheData.numberOfUnneededLoadingPages == 0u)
+	{
+		assert(textureInfo.textureID != 255);
+		texturesByID.deallocate(textureInfo.textureID);
+		unloadRequest.callback(unloadRequest, tr, gr);
+	}
+	else
+	{
+		textureInfo.unloadRequest = &unloadRequest;
+	}
+}
+
+void PageProvider::allocateTexturePinnedHelper(AllocateTextureRequest& allocateRequest, void* tr, void* gr)
+{
+	VirtualTextureInfo& textureInfo = *allocateRequest.textureInfo;
+	ID3D12CommandQueue& commandQueue = *allocateRequest.commandQueue;
+	ID3D12Device& graphicsDevice = *allocateRequest.graphicsDevice;
+
+	D3D12_TILED_RESOURCE_COORDINATE resourceTileCoords[64];
+	constexpr size_t resourceTileCoordsMax = sizeof(resourceTileCoords) / sizeof(resourceTileCoords[0u]);
+	unsigned int resourceTileCoordsIndex = 0u;
+
+	auto widthInPages = textureInfo.widthInPages >> textureInfo.lowestPinnedMip;
+	if (widthInPages == 0u) widthInPages = 1u;
+	auto heightInPages = textureInfo.heightInPages >> textureInfo.lowestPinnedMip;
+	if (heightInPages == 0u) heightInPages = 1u;
+	textureInfo.pinnedHeapLocations.reset(new GpuHeapLocation[textureInfo.pinnedPageCount]);
+	GpuHeapLocation* pinnedHeapLocations = textureInfo.pinnedHeapLocations.get();
+	for (auto y = 0u; y != heightInPages; ++y)
+	{
+		for (auto x = 0u; x != widthInPages; ++x)
+		{
+			if (resourceTileCoordsIndex == resourceTileCoordsMax)
+			{
+				pageAllocator.addPinnedPages(resourceTileCoords, resourceTileCoordsMax, textureInfo.resource, pinnedHeapLocations, &commandQueue, &graphicsDevice);
+				resourceTileCoordsIndex = 0u;
+				pinnedHeapLocations += resourceTileCoordsMax;
+			}
+			resourceTileCoords[resourceTileCoordsIndex].X = x;
+			resourceTileCoords[resourceTileCoordsIndex].Y = y;
+			resourceTileCoords[resourceTileCoordsIndex].Z = 0u;
+			resourceTileCoords[resourceTileCoordsIndex].Subresource = textureInfo.lowestPinnedMip;
+			++resourceTileCoordsIndex;
+		}
+	}
+	pageAllocator.addPinnedPages(resourceTileCoords, resourceTileCoordsIndex, textureInfo.resource, pinnedHeapLocations, &commandQueue, &graphicsDevice);
+
+	unsigned int textureID = texturesByID.allocate(textureInfo);
+	textureInfo.textureID = textureID;
+
+	allocateRequest.callback(allocateRequest, tr, gr);
+}
+
+void PageProvider::allocateTexturePackedHelper(AllocateTextureRequest& allocateRequest, void* tr, void* gr)
+{
+	VirtualTextureInfo& textureInfo = *allocateRequest.textureInfo;
+	ID3D12CommandQueue& commandQueue = *allocateRequest.commandQueue;
+	ID3D12Device& graphicsDevice = *allocateRequest.graphicsDevice;
+
+	textureInfo.pinnedHeapLocations.reset(new GpuHeapLocation[textureInfo.pinnedPageCount]);
+	pageAllocator.addPinnedPages(textureInfo.resource, textureInfo.pinnedHeapLocations.get(), textureInfo.lowestPinnedMip, textureInfo.pinnedPageCount, &commandQueue, &graphicsDevice);
+
+	unsigned int textureID = texturesByID.allocate(textureInfo);
+	textureInfo.textureID = textureID;
+
+	allocateRequest.callback(allocateRequest, tr, gr);
+}
+
+void PageProvider::deleteTexture(UnloadRequest& unloadRequest)
+{
+	unloadRequest.pageProvider = this;
+	unloadRequest.execute = [](LinkedTask& task, void* tr, void* gr)
+	{
+		UnloadRequest& unloadRequest = static_cast<UnloadRequest&>(task);
+		unloadRequest.pageProvider->deleteTextureHelper(unloadRequest, tr, gr);
+	};
+	messageQueue.push(&unloadRequest);
+}
+
+void PageProvider::allocateTexturePinned(AllocateTextureRequest& allocateRequest)
+{
+	allocateRequest.pageProvider = this;
+	allocateRequest.execute = [](LinkedTask& task, void* tr, void* gr)
+	{
+		AllocateTextureRequest& allocateRequest = static_cast<AllocateTextureRequest&>(task);
+		allocateRequest.pageProvider->allocateTexturePinnedHelper(allocateRequest, tr, gr);
+	};
+	messageQueue.push(&allocateRequest);
+}
+
+void PageProvider::allocateTexturePacked(AllocateTextureRequest& allocateRequest)
+{
+	allocateRequest.pageProvider = this;
+	allocateRequest.execute = [](LinkedTask& task, void* tr, void* gr)
+	{
+		AllocateTextureRequest& allocateRequest = static_cast<AllocateTextureRequest&>(task);
+		allocateRequest.pageProvider->allocateTexturePackedHelper(allocateRequest, tr, gr);
+	};
+	messageQueue.push(&allocateRequest);
 }

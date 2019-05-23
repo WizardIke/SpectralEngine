@@ -4,7 +4,7 @@
 #include "GpuHeapLocation.h"
 #include "PageAllocationInfo.h"
 #include "Range.h"
-#include <atomic>
+#include "UnorderedMultiProducerSingleConsumerQueue.h"
 #include "ResizingArray.h"
 #include <d3d12.h>
 #include "D3D12Resource.h"
@@ -13,11 +13,12 @@
 #include "frameBufferCount.h"
 #include "AsynchronousFileManager.h"
 #include "StreamingManager.h"
+#include "LinkedTask.h"
 #include "PrimaryTaskFromOtherThreadQueue.h"
+#include "VirtualTextureInfoByID.h"
 class VirtualTextureManager;
 struct IDXGIAdapter3;
 class VirtualFeedbackSubPass;
-class VirtualTextureInfoByID;
 #undef min
 #undef max
 
@@ -28,14 +29,14 @@ class PageProvider : private PrimaryTaskFromOtherThreadQueue::Task
 	constexpr static double memoryFullLowerBound = 0.95;
 	constexpr static std::size_t maxPagesLoading = 32u;
 
-	class PageLoadRequest : public StreamingManager::StreamingRequest, public AsynchronousFileManager::ReadRequest, public PrimaryTaskFromOtherThreadQueue::Task
+	class PageLoadRequest : public StreamingManager::StreamingRequest, public AsynchronousFileManager::ReadRequest, public LinkedTask
 	{
 	public:
 		unsigned long pageWidthInBytes;
 		unsigned long widthInBytes;
 		unsigned long heightInTexels;
 		PageAllocationInfo allocationInfo;
-		PageLoadRequest* nextPageLoadRequest;
+		PageProvider* pageProvider;
 	};
 
 	class HeapLocationsIterator
@@ -55,19 +56,41 @@ class PageProvider : private PrimaryTaskFromOtherThreadQueue::Task
 		unsigned long long count = 0u;
 	};
 public:
-	PageAllocator pageAllocator;
+	using UnloadRequest = VirtualTextureInfo::UnloadRequest;
+
+	class AllocateTextureRequest : private LinkedTask
+	{
+		friend class PageProvider;
+		PageProvider* pageProvider;
+	public:
+		VirtualTextureInfo* textureInfo;
+		ID3D12CommandQueue* commandQueue;
+		ID3D12Device* graphicsDevice;
+		void(*callback)(AllocateTextureRequest& unloadRequest, void* tr, void* gr);
+
+		AllocateTextureRequest() {}
+		AllocateTextureRequest(VirtualTextureInfo& textureInfo1, ID3D12CommandQueue& commandQueue1, ID3D12Device& graphicsDevice1,
+			void(&callback1)(AllocateTextureRequest& unloadRequest, void* tr, void* gr)) :
+			textureInfo(&textureInfo1),
+			commandQueue(&commandQueue1),
+			graphicsDevice(&graphicsDevice1),
+			callback(callback1)
+		{}
+	};
 private:
 	PageCache pageCache;
+	PageAllocator pageAllocator;
+	VirtualTextureInfoByID texturesByID;
 	std::unordered_map<PageResourceLocation, PageRequestData, PageResourceLocation::Hash> uniqueRequests;
 	ResizingArray<std::pair<PageResourceLocation, unsigned long long>> posableLoadRequests;
 	PageLoadRequest pageLoadRequests[maxPagesLoading];
 	std::size_t freePageLoadRequestsCount;
 	PageLoadRequest* freePageLoadRequests;
-	std::atomic<PageLoadRequest*> halfFinishedPageLoadRequests; //page is in cpu memory waiting to be copied to gpu memory
-	std::atomic<PageLoadRequest*> returnedPageLoadRequests;
+	UnorderedMultiProducerSingleConsumerQueue messageQueue;
+	UnorderedMultiProducerSingleConsumerQueue halfFinishedPageLoadRequests; //page is in cpu memory waiting to be copied to gpu memory
 
 	static void copyPageToUploadBuffer(StreamingManager::StreamingRequest* useSubresourceRequest, const unsigned char* data);
-	static void addPageLoadRequestHelper(PageLoadRequest& pageRequest, VirtualTextureManager& virtualTextureManager, 
+	static void addPageLoadRequestHelper(PageLoadRequest& pageRequest,
 		void(*useSubresource)(StreamingManager::StreamingRequest* request, void* threadResources, void* globalResources),
 		void(*resourceUploaded)(StreamingManager::StreamingRequest* request, void* threadResources, void* globalResources));
 
@@ -77,8 +100,7 @@ private:
 		threadResources.taskShedular.pushBackgroundTask({ &pageRequest, [](void* requester, ThreadResources& threadResources, GlobalResources& sharedResources)
 		{
 			PageLoadRequest& pageRequest = *static_cast<PageLoadRequest*>(requester);
-			VirtualTextureManager& virtualTextureManager = sharedResources.virtualTextureManager;
-			addPageLoadRequestHelper(pageRequest, virtualTextureManager, [](StreamingManager::StreamingRequest* request, void* tr, void* gr)
+			addPageLoadRequestHelper(pageRequest, [](StreamingManager::StreamingRequest* request, void* tr, void* gr)
 			{
 				PageLoadRequest& uploadRequest = *static_cast<PageLoadRequest*>(request);
 				ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
@@ -98,8 +120,7 @@ private:
 						GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
 						PageProvider& pageProvider = globalResources.virtualTextureManager.pageProvider;
 
-						request.nextPageLoadRequest = pageProvider.halfFinishedPageLoadRequests.load(std::memory_order_relaxed);
-						while (!pageProvider.halfFinishedPageLoadRequests.compare_exchange_weak(request.nextPageLoadRequest, &request, std::memory_order_release, std::memory_order_relaxed)) {}
+						pageProvider.halfFinishedPageLoadRequests.push(&static_cast<LinkedTask&>(request));
 					};
 					asynchronousFileManager.discard(&request, threadResources, globalResources);
 				};
@@ -110,8 +131,15 @@ private:
 				GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
 				PageProvider& pageProvider = globalResources.virtualTextureManager.pageProvider;
 
-				request.nextPageLoadRequest = pageProvider.returnedPageLoadRequests.load(std::memory_order_relaxed);
-				while (!pageProvider.returnedPageLoadRequests.compare_exchange_weak(request.nextPageLoadRequest, &request, std::memory_order_release, std::memory_order_relaxed)) {}
+				request.execute = [](LinkedTask& task, void*, void*)
+				{
+					PageLoadRequest& pageRequest = static_cast<PageLoadRequest&>(task);
+					PageProvider& pageProvider = *pageRequest.pageProvider;
+					++pageProvider.freePageLoadRequestsCount;
+					static_cast<LinkedTask&>(pageRequest).next = static_cast<LinkedTask*>(pageProvider.freePageLoadRequests);
+					pageProvider.freePageLoadRequests = &pageRequest;
+				};
+				pageProvider.messageQueue.push(static_cast<LinkedTask*>(&request));
 			});
 			StreamingManager& streamingManager = sharedResources.streamingManager;
 			streamingManager.addUploadRequest(&pageRequest, threadResources, sharedResources);
@@ -126,7 +154,7 @@ private:
 			for(const auto& requestInfo : posableLoadRequests)
 			{
 				PageLoadRequest& pageRequest = *freePageLoadRequests;
-				freePageLoadRequests = freePageLoadRequests->nextPageLoadRequest;
+				freePageLoadRequests = static_cast<PageLoadRequest*>(static_cast<LinkedTask*>(static_cast<LinkedTask*>(freePageLoadRequests)->next));
 				pageRequest.allocationInfo.textureLocation = requestInfo.first;
 				addPageLoadRequest(pageRequest, threadResources, globalResources);
 				VirtualTextureInfo& textureInfo = textureInfoById[requestInfo.first.textureId];
@@ -137,8 +165,8 @@ private:
 		}
 	}
 
-	void addNewPagesToResources(GraphicsEngine& graphicsEngine, VirtualTextureInfoByID& texturesByID,
-		ID3D12GraphicsCommandList* commandList, void(*uploadComplete)(PrimaryTaskFromOtherThreadQueue::Task& task, void* gr, void* tr));
+	void addNewPagesToResources(GraphicsEngine& graphicsEngine,
+		ID3D12GraphicsCommandList* commandList, void(*uploadComplete)(LinkedTask& task, void* gr, void* tr), void* tr, void* gr);
 
 	static void addPageDataToResource(VirtualTextureInfo& textureInfo, D3D12_TILED_RESOURCE_COORDINATE* newPageCoordinates, PageLoadRequest** pageLoadRequests, std::size_t pageCount,
 		D3D12_TILE_REGION_SIZE& tileSize, PageCache& pageCache, ID3D12GraphicsCommandList* commandList, GraphicsEngine& graphicsEngine,
@@ -149,23 +177,26 @@ private:
 	static void checkCacheForPages(decltype(uniqueRequests)& pageRequests, VirtualTextureInfoByID& texturesByID, PageCache& pageCache,
 		ResizingArray<std::pair<PageResourceLocation, unsigned long long>>& posableLoadRequests);
 	void shrinkNumberOfLoadRequestsIfNeeded(std::size_t numTexturePagesThatCanBeRequested);
-	void collectReturnedPageLoadRequests();
+	void processMessages(void* tr, void* gr);
 	bool recalculateCacheSize(float& mipBias, float desiredMipBias, long long maxPages, std::size_t totalPagesNeeded, VirtualTextureInfoByID& texturesById, PageDeleter& pageDeleter);
 	long long calculateMemoryBudgetInPages(IDXGIAdapter3* adapter);
-	void processPageRequestsHelper(IDXGIAdapter3* adapter, VirtualTextureInfoByID& texturesByID, float& mipBias, float desiredMipBias, PageDeleter& pageDeleter);
-	void increaseMipBias(decltype(uniqueRequests)& pageRequests, VirtualTextureInfoByID& texturesByID);
+	void processPageRequestsHelper(IDXGIAdapter3* adapter, float& mipBias, float desiredMipBias, PageDeleter& pageDeleter, void* tr, void* gr);
+	void increaseMipBias(decltype(uniqueRequests)& pageRequests);
+
+	void deleteTextureHelper(UnloadRequest& unloadRequest, void* tr, void* gr);
+	void allocateTexturePinnedHelper(AllocateTextureRequest& allocateRequest, void* tr, void* gr);
+	void allocateTexturePackedHelper(AllocateTextureRequest& allocateRequest, void* tr, void* gr);
 public:
 	PageProvider();
 
-	void gatherPageRequests(void* feadBackBuffer, unsigned long sizeInBytes, VirtualTextureInfoByID& texturesByID);
+	void gatherPageRequests(void* feadBackBuffer, unsigned long sizeInBytes);
 
 	template<class ThreadResources, class GlobalResources>
-	void processPageRequests(VirtualTextureInfoByID& texturesByID,
-		ThreadResources& executor, GlobalResources& globalResources, float& mipBias, float desiredMipBias)
+	void processPageRequests(ThreadResources& threadResources, GlobalResources& globalResources, float& mipBias, float desiredMipBias)
 	{
 		PageDeleter pageDeleter(pageAllocator, globalResources.graphicsEngine.directCommandQueue);
-		processPageRequestsHelper(globalResources.graphicsEngine.adapter, texturesByID, mipBias, desiredMipBias, pageDeleter);
-		startLoadingRequiredPages(executor, globalResources, texturesByID, pageDeleter);
+		processPageRequestsHelper(globalResources.graphicsEngine.adapter, mipBias, desiredMipBias, pageDeleter, &threadResources, &globalResources);
+		startLoadingRequiredPages(threadResources, globalResources, texturesByID, pageDeleter);
 		pageDeleter.finish(texturesByID);
 
 		execute = [](PrimaryTaskFromOtherThreadQueue::Task& task, void* tr, void* gr)
@@ -181,17 +212,21 @@ public:
 			threadResources.taskShedular.pushPrimaryTask(1u, {&pageProvider, [](void* requester, ThreadResources& threadResources, GlobalResources& globalResources)
 			{
 				PageProvider& pageProvider = *static_cast<PageProvider*>(requester);
-				pageProvider.addNewPagesToResources(globalResources.graphicsEngine, globalResources.virtualTextureManager.texturesByID,
-					threadResources.renderPass.virtualTextureFeedbackSubPass().firstCommandList(), [](PrimaryTaskFromOtherThreadQueue::Task& task, void* tr, void* gr)
+				pageProvider.addNewPagesToResources(globalResources.graphicsEngine,
+					threadResources.renderPass.virtualTextureFeedbackSubPass().firstCommandList(), [](LinkedTask& task, void* tr, void* gr)
 				{
 					PageLoadRequest& request = static_cast<PageLoadRequest&>(task);
 					ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
 					GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
 					StreamingManager& streamingManager = globalResources.streamingManager;
 					streamingManager.uploadFinished(&request, threadResources, globalResources);
-				});
+				}, &threadResources, &globalResources);
 			}});
 		};
 		globalResources.taskShedular.pushPrimaryTaskFromOtherThread(0u, *this);
 	}
+
+	void deleteTexture(UnloadRequest& unloadRequest);
+	void allocateTexturePinned(AllocateTextureRequest& allocateRequest);
+	void allocateTexturePacked(AllocateTextureRequest& allocateRequest);
 };

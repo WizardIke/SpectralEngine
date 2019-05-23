@@ -51,6 +51,8 @@ public:
 			this->filename = filename;
 		}
 	};
+
+	using UnloadRequest = Message;
 private:
 	class MeshHeader
 	{
@@ -293,7 +295,7 @@ private:
 		request->nextMeshRequest = nullptr;
 	}
 
-	void unloadMesh(const wchar_t* const filename);
+	void unloadMesh(UnloadRequest& unloadRequest, void* tr, void* gr);
 
 	template<class ThreadResources, class GlobalResources>
 	void run(ThreadResources& threadResources, GlobalResources& globalResources)
@@ -307,7 +309,7 @@ private:
 				temp = temp->next; //Allow reuse of next
 				if(message.meshAction == Action::unload)
 				{
-					unloadMesh(message.filename);
+					unloadMesh(static_cast<UnloadRequest&>(message), &threadResources, &globalResources);
 				}
 				else if(message.meshAction == Action::load)
 				{

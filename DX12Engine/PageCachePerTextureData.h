@@ -40,6 +40,6 @@ private:
 		}
 	};
 public:
-	//TODO: Need to tell the hashSet that the hash of a key is unique
 	HashSet<Node, Hash, KeyEqual> pageLookUp; //this could be an std::unordered_map but the textureLocation would have to be duplicated in key and value.
+	std::size_t numberOfUnneededLoadingPages = 0u;
 };

@@ -92,14 +92,13 @@ class TestZoneFunctions
 				resources->highResPlaneModel.setDiffuseTexture(texture.descriptorIndex, cpuStartAddress, gpuStartAddress);
 
 				//stone4FeedbackBufferPs = create virtual feedback materialPS
-				auto& textureInfo = globalResources.virtualTextureManager.texturesByID[texture.textureID];
 				auto stone4FeedbackBufferPsCpu = reinterpret_cast<VtFeedbackMaterialPS*>(cpuStartAddress + (resources->stone4FeedbackBufferPs - gpuStartAddress));
 				stone4FeedbackBufferPsCpu->virtualTextureID1 = (float)(texture.textureID << 8u);
 				stone4FeedbackBufferPsCpu->virtualTextureID2And3 = (float)0xffff;
-				stone4FeedbackBufferPsCpu->textureHeightInPages = (float)textureInfo.heightInPages;
-				stone4FeedbackBufferPsCpu->textureWidthInPages = (float)textureInfo.widthInPages;
-				stone4FeedbackBufferPsCpu->usefulTextureHeight = (float)(textureInfo.height);
-				stone4FeedbackBufferPsCpu->usefulTextureWidth = (float)(textureInfo.width);
+				stone4FeedbackBufferPsCpu->textureHeightInPages = (float)texture.heightInPages;
+				stone4FeedbackBufferPsCpu->textureWidthInPages = (float)texture.widthInPages;
+				stone4FeedbackBufferPsCpu->usefulTextureHeight = (float)(texture.height);
+				stone4FeedbackBufferPsCpu->usefulTextureWidth = (float)(texture.width);
 
 				delete static_cast<VirtualTextureRequest*>(&request);
 				componentUploaded(&zone, threadResources, globalResources);
@@ -194,15 +193,15 @@ class TestZoneFunctions
 			MeshManager& meshManager = globalResources.meshManager;
 			VirtualTextureManager& virtualTextureManager = globalResources.virtualTextureManager;
 
-			auto unloadTexture = new VirtualTextureManager::Message(TextureNames::stone04, [](AsynchronousFileManager::ReadRequest& request, void*, void*)
+			auto unloadTexture = new VirtualTextureManager::UnloadRequest(TextureNames::stone04, [](AsynchronousFileManager::ReadRequest& request, void*, void*)
 			{
-				delete static_cast<VirtualTextureManager::Message*>(&request);
+				delete static_cast<VirtualTextureManager::UnloadRequest*>(&request);
 			});
 			virtualTextureManager.unload(unloadTexture, threadResources, globalResources);
 
-			auto unloadMesh = new MeshManager::Message(MeshNames::HighResMesh1, [](AsynchronousFileManager::ReadRequest& request, void*, void*)
+			auto unloadMesh = new MeshManager::UnloadRequest(MeshNames::HighResMesh1, [](AsynchronousFileManager::ReadRequest& request, void*, void*)
 			{
-				delete static_cast<MeshManager::Message*>(&request);
+				delete static_cast<MeshManager::UnloadRequest*>(&request);
 			});
 			meshManager.unload(unloadMesh, threadResources, globalResources);
 		}

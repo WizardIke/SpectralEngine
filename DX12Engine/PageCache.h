@@ -136,4 +136,7 @@ public:
 
 	/* Removes a page without freeing ID3D12Heap space */
 	void removePage(PageResourceLocation location, VirtualTextureInfo& textureInfo, VirtualTextureInfoByID& texturesById, PageDeleter& pageDeleter);
+
+	/* Removes a page from the cache without deleting it */
+	void removePage(Node* page);
 };

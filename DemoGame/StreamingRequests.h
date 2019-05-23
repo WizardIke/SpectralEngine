@@ -285,13 +285,13 @@ template<std::size_t numberOfComponents>
 class TextureUnloader
 {
 private:
-	class Request : public TextureManager::Message
+	class Request : public TextureManager::UnloadRequest
 	{
 	public:
 		TextureUnloader* unloader;
 
 		Request(const wchar_t* filename, void(*deleteRequest)(AsynchronousFileManager::ReadRequest& request, void* tr, void* gr), TextureUnloader* unloader) :
-			TextureManager::Message(filename, deleteRequest), unloader(unloader) {}
+			TextureManager::UnloadRequest(filename, deleteRequest), unloader(unloader) {}
 	};
 
 	union
@@ -336,13 +336,13 @@ template<std::size_t numberOfComponents>
 class MeshUnloader
 {
 private:
-	class Request : public MeshManager::Message
+	class Request : public MeshManager::UnloadRequest
 	{
 	public:
 		MeshUnloader* unloader;
 
 		Request(const wchar_t* filename, void(*deleteRequest)(AsynchronousFileManager::ReadRequest& request, void* tr, void* gr), MeshUnloader* unloader) :
-			MeshManager::Message(filename, deleteRequest), unloader(unloader) {}
+			MeshManager::UnloadRequest(filename, deleteRequest), unloader(unloader) {}
 	};
 
 	union
