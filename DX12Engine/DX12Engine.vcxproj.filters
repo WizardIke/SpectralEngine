@@ -46,12 +46,6 @@
     <Filter Include="StreamingManager">
       <UniqueIdentifier>{f7afdca9-ea2e-4355-bc7b-66c095dcd45d}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Text Engine">
-      <UniqueIdentifier>{6702ec9e-05d4-40ef-85a6-85de628ee38f}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Text Engine\BaseSentence">
-      <UniqueIdentifier>{3c8e1518-3306-4072-b0be-3cbde7bdf7c9}</UniqueIdentifier>
-    </Filter>
     <Filter Include="TextureManager">
       <UniqueIdentifier>{81af3b79-70f7-440f-bf4e-fe3925d94c48}</UniqueIdentifier>
     </Filter>
@@ -85,14 +79,20 @@
     <Filter Include="File">
       <UniqueIdentifier>{16679715-85ea-4032-b0fd-76176515a8e4}</UniqueIdentifier>
     </Filter>
-    <Filter Include="StreamingAreas">
-      <UniqueIdentifier>{cdc32a79-0455-474c-a322-7c9d8ddf38e2}</UniqueIdentifier>
-    </Filter>
     <Filter Include="HashSets">
       <UniqueIdentifier>{b6b8e4e6-ce22-468d-954e-846b18be89b9}</UniqueIdentifier>
     </Filter>
     <Filter Include="GraphicsEngine">
       <UniqueIdentifier>{d02ae592-3868-41a5-9496-362b2a37f08e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="WorldStreaming">
+      <UniqueIdentifier>{cdc32a79-0455-474c-a322-7c9d8ddf38e2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="TextRendering">
+      <UniqueIdentifier>{6702ec9e-05d4-40ef-85a6-85de628ee38f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="TextRendering\BaseSentence">
+      <UniqueIdentifier>{3c8e1518-3306-4072-b0be-3cbde7bdf7c9}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -190,10 +190,10 @@
       <Filter>D3D12</Filter>
     </ClInclude>
     <ClInclude Include="Font.h">
-      <Filter>Text Engine</Filter>
+      <Filter>TextRendering</Filter>
     </ClInclude>
     <ClInclude Include="FontChar.h">
-      <Filter>Text Engine</Filter>
+      <Filter>TextRendering</Filter>
     </ClInclude>
     <ClInclude Include="Frustum.h">
       <Filter>Frustum</Filter>
@@ -223,7 +223,7 @@
       <Filter>D3D12</Filter>
     </ClInclude>
     <ClInclude Include="BaseSentence.h">
-      <Filter>Text Engine\BaseSentence</Filter>
+      <Filter>TextRendering\BaseSentence</Filter>
     </ClInclude>
     <ClInclude Include="Timer.h">
       <Filter>Timer</Filter>
@@ -377,21 +377,21 @@
     </ClInclude>
     <ClInclude Include="RunnableIOCompletionQueue.h" />
     <ClInclude Include="World.h">
-      <Filter>StreamingAreas</Filter>
+      <Filter>WorldStreaming</Filter>
     </ClInclude>
     <ClInclude Include="Zone.h">
-      <Filter>StreamingAreas</Filter>
+      <Filter>WorldStreaming</Filter>
     </ClInclude>
     <ClInclude Include="Vector3.h">
       <Filter>Math</Filter>
     </ClInclude>
     <ClInclude Include="WorldManager.h">
-      <Filter>StreamingAreas</Filter>
+      <Filter>WorldStreaming</Filter>
     </ClInclude>
     <ClInclude Include="Portal.h" />
     <ClInclude Include="PriorityQueue.h" />
     <ClInclude Include="WorldManagerStopRequest.h">
-      <Filter>StreamingAreas</Filter>
+      <Filter>WorldStreaming</Filter>
     </ClInclude>
     <ClInclude Include="RenderPassMessage.h">
       <Filter>RenderPass</Filter>
@@ -435,7 +435,7 @@
       <Filter>Window</Filter>
     </ClCompile>
     <ClCompile Include="Font.cpp">
-      <Filter>Text Engine</Filter>
+      <Filter>TextRendering</Filter>
     </ClCompile>
     <ClCompile Include="Frustum.cpp">
       <Filter>Frustum</Filter>
@@ -450,7 +450,7 @@
       <Filter>Math\Quaternion</Filter>
     </ClCompile>
     <ClCompile Include="BaseSentence.cpp">
-      <Filter>Text Engine\BaseSentence</Filter>
+      <Filter>TextRendering\BaseSentence</Filter>
     </ClCompile>
     <ClCompile Include="Timer.cpp">
       <Filter>Timer</Filter>
