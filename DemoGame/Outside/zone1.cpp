@@ -19,6 +19,8 @@
 #include <ReflectionCamera.h>
 #include <Range.h>
 #include "../StreamingRequests.h"
+#include <new>
+#include <atomic>
 
 #include <Light.h>
 #include <PointLight.h>
@@ -398,7 +400,7 @@ namespace
 		static void create(void* context, ThreadResources& threadResources, GlobalResources& globalResources)
 		{
 			Zone<ThreadResources, GlobalResources>& zone = *static_cast<Zone<ThreadResources, GlobalResources>*>(context);
-			zone.newData = malloc(sizeof(HDResources));
+			zone.newData = operator new(sizeof(HDResources));
 			new(zone.newData) HDResources(threadResources, globalResources, zone);
 			componentUploaded(zone, threadResources, globalResources);
 		}
@@ -665,17 +667,64 @@ namespace
 			}
 		}
 
-		void destruct(ThreadResources& threadResources, GlobalResources& globalResources)
+		class HdUnloader : private TextureUnloader<numTextures>, private MeshUnloader<numMeshes>
+		{
+			static constexpr unsigned int numberOfComponentsToUnload = 2u;
+			std::atomic<unsigned int> numberOfComponentsUnloaded = 0u;
+			Zone<ThreadResources, GlobalResources>& zone;
+
+			void componentUnloaded(void* tr, void* gr)
+			{
+				if (numberOfComponentsUnloaded.fetch_add(1u, std::memory_order_acq_rel) == (numberOfComponentsToUnload - 1u))
+				{
+					auto& threadResources = *static_cast<ThreadResources*>(tr);
+					auto& globalResources = *static_cast<GlobalResources*>(gr);
+					auto& zoneRef = zone;
+					delete this;
+					auto resource = static_cast<HDResources*>(zoneRef.oldData);
+					zoneRef.finishedDeletingOldState(threadResources, globalResources);
+					resource->~HDResources();
+					operator delete(resource);
+				}
+			}
+
+			HdUnloader(Zone<ThreadResources, GlobalResources>& zone1) :
+				TextureUnloader<numTextures>([](TextureUnloader<numTextures>& unloader, void* tr, void* gr)
+					{
+						static_cast<HdUnloader&>(unloader).componentUnloaded(tr, gr);
+					}),
+				MeshUnloader<numMeshes>([](MeshUnloader<numMeshes>& unloader, void* tr, void* gr)
+					{
+						static_cast<HdUnloader&>(unloader).componentUnloaded(tr, gr);
+					}),
+						zone(zone1)
+					{}
+		public:
+			static HdUnloader* create(Zone<ThreadResources, GlobalResources>& zone1)
+			{
+				return new HdUnloader(zone1);
+			}
+
+			void unloadTextures(const wchar_t* const(&filenames)[numTextures], ThreadResources& threadResources, GlobalResources& globalResources)
+			{
+				static_cast<TextureUnloader<numTextures>&>(*this).unload(filenames, threadResources, globalResources);
+			}
+
+			void unloadMeshes(const wchar_t* const(&filenames)[numMeshes], ThreadResources& threadResources, GlobalResources& globalResources)
+			{
+				static_cast<MeshUnloader<numMeshes>&>(*this).unload(filenames, threadResources, globalResources);
+			}
+		};
+
+		void destruct(Zone<ThreadResources, GlobalResources>& zone, ThreadResources& threadResources, GlobalResources& globalResources)
 		{
 			auto& graphicsEngine = globalResources.graphicsEngine;
 			
 			graphicsEngine.descriptorAllocator.deallocate(reflectionCameraBackBuffer);
+			perObjectConstantBuffers->Unmap(0u, nullptr);
 
-			auto textureUnloader = new TextureUnloader<numTextures>([](TextureUnloader<numTextures>& unloader)
-			{
-				delete &unloader;
-			});
-			textureUnloader->unload(
+			auto hdUnloader = HdUnloader::create(zone);
+			hdUnloader->unloadTextures(
 				{
 					TextureNames::ground01,
 					TextureNames::wall01,
@@ -688,11 +737,7 @@ namespace
 					TextureNames::firealpha01,
 				}, threadResources, globalResources);
 
-			auto meshUnloader = new MeshUnloader<numMeshes>([](MeshUnloader<numMeshes>& unloader)
-			{
-				delete &unloader;
-			});
-			meshUnloader->unload(
+			hdUnloader->unloadMeshes(
 				{
 					MeshNames::bath,
 					MeshNames::plane1,
@@ -703,8 +748,6 @@ namespace
 					MeshNames::aabb,
 					MeshNames::squareWithPos,
 				}, threadResources, globalResources);
-
-			perObjectConstantBuffers->Unmap(0u, nullptr);
 		}
 	};
 
@@ -802,24 +845,60 @@ namespace
 			PerObjectConstantBuffersGpuAddress += pointLightConstantBufferAlignedSize;
 		}
 
-		void destruct(ThreadResources& threadResources, GlobalResources& globalResources)
+		class MdUnloader : private TextureManager::UnloadRequest, private MeshManager::UnloadRequest
 		{
+			static constexpr unsigned int numberOfComponentsToUnload = 2u;
+			std::atomic<unsigned int> numberOfComponentsUnloaded = 0u;
+			Zone<ThreadResources, GlobalResources>& zone;
+
+			void componentUnloaded(void* tr, void* gr)
+			{
+				if (numberOfComponentsUnloaded.fetch_add(1u, std::memory_order_acq_rel) == (numberOfComponentsToUnload - 1u))
+				{
+					auto& threadResources = *static_cast<ThreadResources*>(tr);
+					auto& globalResources = *static_cast<GlobalResources*>(gr);
+					auto& zoneRef = zone;
+					delete this;
+					auto resource = static_cast<MDResources*>(zoneRef.oldData);
+					zoneRef.finishedDeletingOldState(threadResources, globalResources);
+					resource->~MDResources();
+					operator delete(resource);
+				}
+			}
+
+			MdUnloader(Zone<ThreadResources, GlobalResources>& zone1) :
+				TextureManager::UnloadRequest(TextureNames::marble01, [](AsynchronousFileManager::ReadRequest& unloader, void* tr, void* gr)
+					{
+						static_cast<MdUnloader&>(static_cast<TextureManager::UnloadRequest&>(unloader)).componentUnloaded(tr, gr);
+					}),
+				MeshManager::UnloadRequest(MeshNames::bath, [](AsynchronousFileManager::ReadRequest& unloader, void* tr, void* gr)
+					{
+						static_cast<MdUnloader&>(static_cast<MeshManager::UnloadRequest&>(unloader)).componentUnloaded(tr, gr);
+					}),
+						zone(zone1)
+					{}
+		public:
+			static MdUnloader* create(Zone<ThreadResources, GlobalResources>& zone1)
+			{
+				return new MdUnloader(zone1);
+			}
+
+			void unload(TextureManager& textureManager, MeshManager& meshManager, ThreadResources& threadResources, GlobalResources& globalResources)
+			{
+				textureManager.unload(this, threadResources, globalResources);
+				meshManager.unload(this, threadResources, globalResources);
+			}
+		};
+
+		void destruct(Zone<ThreadResources, GlobalResources>& zone, ThreadResources& threadResources, GlobalResources& globalResources)
+		{
+			perObjectConstantBuffers->Unmap(0u, nullptr);
+
 			auto& textureManager = globalResources.textureManager;
 			auto& meshManager = globalResources.meshManager;
 
-			auto unloadTexture = new TextureManager::UnloadRequest(TextureNames::marble01, [](AsynchronousFileManager::ReadRequest& request, void*, void*)
-			{
-				delete static_cast<TextureManager::UnloadRequest*>(&request);
-			});
-			textureManager.unload(unloadTexture, threadResources, globalResources);
-
-			auto unloadMesh = new MeshManager::UnloadRequest(MeshNames::bath, [](AsynchronousFileManager::ReadRequest& request, void*, void*)
-			{
-				delete static_cast<MeshManager::UnloadRequest*>(&request);
-			});
-			meshManager.unload(unloadMesh, threadResources, globalResources);
-
-			perObjectConstantBuffers->Unmap(0u, nullptr);
+			auto mdUnloader = MdUnloader::create(zone);
+			mdUnloader->unload(textureManager, meshManager, threadResources, globalResources);
 		}
 
 		~MDResources() {}
@@ -856,7 +935,7 @@ namespace
 		static void create(void* context, ThreadResources& threadResources, GlobalResources& globalResources)
 		{
 			Zone<ThreadResources, GlobalResources>& zone = *static_cast<Zone<ThreadResources, GlobalResources>*>(context);
-			zone.newData = malloc(sizeof(MDResources));
+			zone.newData = operator new(sizeof(MDResources));
 			new(zone.newData) MDResources(threadResources, globalResources, zone);
 			callback(zone, threadResources, globalResources);
 		}
@@ -942,10 +1021,7 @@ namespace
 							{
 								Zone<ThreadResources, GlobalResources>& zone = *static_cast<Zone<ThreadResources, GlobalResources>*>(context);
 								auto resource = static_cast<HDResources*>(zone.oldData);
-								resource->destruct(threadResources, globalResources);
-								resource->~HDResources();
-								free(resource);
-								zone.finishedDeletingOldState(threadResources, globalResources);
+								resource->destruct(zone, threadResources, globalResources);
 							} });
 						});
 					} });
@@ -963,10 +1039,7 @@ namespace
 					{
 						auto& zone = *static_cast<Zone<ThreadResources, GlobalResources>*>(context);
 						auto resource = static_cast<MDResources*>(zone.oldData);
-						resource->destruct(threadResources, globalResources);
-						resource->~MDResources();
-						free(resource);
-						zone.finishedDeletingOldState(threadResources, globalResources);
+						resource->destruct(zone, threadResources, globalResources);
 					} });
 				});
 				break;

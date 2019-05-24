@@ -298,20 +298,20 @@ private:
 	{
 		Array<Request, numberOfComponents> requestUnloaders;
 	};
-	void(*deleteRequest)(TextureUnloader& unloader);
+	void(*deleteRequest)(TextureUnloader& unloader, void* tr, void* gr);
 	std::atomic<unsigned int> numberOfComponentsReadyToDelete = 0u;
 
-	static void freeComponent(AsynchronousFileManager::ReadRequest& request, void*, void*)
+	static void freeComponent(AsynchronousFileManager::ReadRequest& request, void* tr, void* gr)
 	{
 		auto unloader = static_cast<Request&>(request).unloader;
-		if(unloader->numberOfComponentsReadyToDelete.fetch_add(1u, std::memory_order::memory_order_acq_rel) == (numberOfComponents - 1u))
+		if(unloader->numberOfComponentsReadyToDelete.fetch_add(1u, std::memory_order_acq_rel) == (numberOfComponents - 1u))
 		{
 			unloader->requestUnloaders.~Array();
-			unloader->deleteRequest(*unloader);
+			unloader->deleteRequest(*unloader, tr, gr);
 		}
 	}
 public:
-	TextureUnloader(void(*deleteRequest)(TextureUnloader& unloader)) : deleteRequest(deleteRequest) {}
+	TextureUnloader(void(*deleteRequest)(TextureUnloader& unloader, void* tr, void* gr)) : deleteRequest(deleteRequest) {}
 	~TextureUnloader() {}
 
 	void unload(const wchar_t* const(&filenames)[numberOfComponents], ThreadResources& threadResources, GlobalResources& globalResources)
@@ -349,20 +349,20 @@ private:
 	{
 		Array<Request, numberOfComponents> requestUnloaders;
 	};
-	void(*deleteRequest)(MeshUnloader& unloader);
+	void(*deleteRequest)(MeshUnloader& unloader, void* tr, void* gr);
 	std::atomic<unsigned int> numberOfComponentsReadyToDelete = 0u;
 
-	static void freeComponent(AsynchronousFileManager::ReadRequest& request, void*, void*)
+	static void freeComponent(AsynchronousFileManager::ReadRequest& request, void* tr, void* gr)
 	{
 		auto unloader = static_cast<Request&>(request).unloader;
 		if(unloader->numberOfComponentsReadyToDelete.fetch_add(1u, std::memory_order::memory_order_acq_rel) == (numberOfComponents - 1u))
 		{
 			unloader->requestUnloaders.~Array();
-			unloader->deleteRequest(*unloader);
+			unloader->deleteRequest(*unloader, tr, gr);
 		}
 	}
 public:
-	MeshUnloader(void(*deleteRequest)(MeshUnloader& unloader)) : deleteRequest(deleteRequest) {}
+	MeshUnloader(void(*deleteRequest)(MeshUnloader& unloader, void* tr, void* gr)) : deleteRequest(deleteRequest) {}
 	~MeshUnloader() {}
 
 	void unload(const wchar_t* const(&filenames)[numberOfComponents], ThreadResources& threadResources, GlobalResources& globalResources)
