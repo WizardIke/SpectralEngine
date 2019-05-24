@@ -174,22 +174,58 @@ namespace Cave
 			componentUploaded(&zone, threadResources, globalResources);
 		}
 
-		void destruct(ThreadResources& threadResources, GlobalResources& globalResources)
+		class HdUnloader : private VirtualTextureManager::UnloadRequest, private MeshManager::UnloadRequest
+		{
+			static constexpr unsigned int numberOfComponentsToUnload = 2u;
+			std::atomic<unsigned int> numberOfComponentsUnloaded = 0u;
+			Zone<ThreadResources, GlobalResources>& zone;
+
+			void componentUnloaded(void* tr, void* gr)
+			{
+				if (numberOfComponentsUnloaded.fetch_add(1u, std::memory_order_acq_rel) == (numberOfComponentsToUnload - 1u))
+				{
+					auto& threadResources = *static_cast<ThreadResources*>(tr);
+					auto& globalResources = *static_cast<GlobalResources*>(gr);
+					auto& zoneRef = zone;
+					delete this;
+					auto resource = static_cast<HDResources*>(zoneRef.oldData);
+					zoneRef.finishedDeletingOldState(threadResources, globalResources);
+					resource->~HDResources();
+					operator delete(resource);
+				}
+			}
+
+			HdUnloader(Zone<ThreadResources, GlobalResources>& zone1) :
+				VirtualTextureManager::UnloadRequest(TextureNames::stone04, [](AsynchronousFileManager::ReadRequest& unloader, void* tr, void* gr)
+					{
+						static_cast<HdUnloader&>(static_cast<VirtualTextureManager::UnloadRequest&>(unloader)).componentUnloaded(tr, gr);
+					}),
+				MeshManager::UnloadRequest(MeshNames::squareWithNormals, [](AsynchronousFileManager::ReadRequest& unloader, void* tr, void* gr)
+					{
+						static_cast<HdUnloader&>(static_cast<MeshManager::UnloadRequest&>(unloader)).componentUnloaded(tr, gr);
+					}),
+						zone(zone1)
+					{}
+		public:
+			static HdUnloader* create(Zone<ThreadResources, GlobalResources>& zone1)
+			{
+				return new HdUnloader(zone1);
+			}
+
+			void unload(VirtualTextureManager& textureManager, MeshManager& meshManager, ThreadResources& threadResources, GlobalResources& globalResources)
+			{
+				textureManager.unload(this, threadResources, globalResources);
+				meshManager.unload(this, threadResources, globalResources);
+			}
+		};
+
+		static void destruct(Zone<ThreadResources, GlobalResources>& zone, ThreadResources& threadResources, GlobalResources& globalResources)
 		{
 			auto& meshManager = globalResources.meshManager;
 			auto& virtualTextureManager = globalResources.virtualTextureManager;
 
-			auto unloadTexture = new VirtualTextureManager::UnloadRequest(TextureNames::stone04, [](AsynchronousFileManager::ReadRequest& request, void*, void*)
-			{
-				delete static_cast<VirtualTextureManager::UnloadRequest*>(&request);
-			});
-			virtualTextureManager.unload(unloadTexture, threadResources, globalResources);
-
-			auto unloadMesh = new MeshManager::Message(MeshNames::squareWithNormals, [](AsynchronousFileManager::ReadRequest& request, void*, void*)
-			{
-				delete static_cast<MeshManager::Message*>(&request);
-			});
-			meshManager.unload(unloadMesh, threadResources, globalResources);
+			auto unloader = HdUnloader::create(zone);
+			unloader->unload(virtualTextureManager, meshManager, threadResources, globalResources);
 		}
 	};
 
@@ -246,11 +282,7 @@ namespace Cave
 					threadResources.taskShedular.pushBackgroundTask({ &zone, [](void* context, ThreadResources& threadResources, GlobalResources& globalResources)
 					{
 						auto& zone = *static_cast<Zone<ThreadResources, GlobalResources>*>(context);
-						auto resource = static_cast<HDResources*>(zone.oldData);
-						resource->destruct(threadResources, globalResources);
-						resource->~HDResources();
-						free(resource);
-						zone.finishedDeletingOldState(threadResources, globalResources);
+						HDResources::destruct(zone, threadResources, globalResources);
 					} });
 				});
 				break;
