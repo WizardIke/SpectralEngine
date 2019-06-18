@@ -3,7 +3,7 @@
 #include <cstdint>
 #include "File.h"
 #include "IOCompletionQueue.h"
-#include "ActorQueue.h"
+#include "SinglyLinked.h"
 
 class AsynchronousFileManager
 {
@@ -31,16 +31,11 @@ private:
 		}
 	};
 public:
-	enum class Action : short
-	{
-		allocate,
-		deallocate,
-	};
 
 	class ReadRequest : public OVERLAPPED, public SinglyLinked, public ResourceId
 	{
 	public:
-		Action action;
+		AsynchronousFileManager* asynchronousFileManager;
 		//location to read
 		File file;
 		//location to put the result
@@ -48,12 +43,12 @@ public:
 		//amount read
 		std::size_t accumulatedSize;
 		//what to do with the result
-		void(*fileLoadedCallback)(ReadRequest& request, void* executor, void* sharedResources, const unsigned char* data);
+		void(*fileLoadedCallback)(ReadRequest& request, AsynchronousFileManager& asynchronousFileManager, void* executor, void* sharedResources, const unsigned char* data);
 		void(*deleteReadRequest)(ReadRequest& request, void* tr, void* gr);
 
 		ReadRequest() {}
 		ReadRequest(const wchar_t* filename, File file, std::size_t start, std::size_t end,
-			void(*fileLoadedCallback)(ReadRequest& request, void* executor, void* sharedResources, const unsigned char* data),
+			void(*fileLoadedCallback)(ReadRequest& request, AsynchronousFileManager& asynchronousFileManager, void* executor, void* sharedResources, const unsigned char* data),
 			void(*deleteRequest)(ReadRequest& request, void* executor, void* sharedResources)) :
 			file(file),
 			fileLoadedCallback(fileLoadedCallback),
@@ -73,71 +68,23 @@ private:
 	};
 
 	std::unordered_map<ResourceId, FileData, Hasher> files;
+	IOCompletionQueue& ioCompletionQueue;
 	std::size_t pageSize;
-	ActorQueue messageQueue;
 
-	static bool processIOCompletionHelper(AsynchronousFileManager& fileManager, void* executor, void* sharedResources, DWORD numberOfBytes, LPOVERLAPPED overlapped);
-	void run(void* executor, void* sharedResources);
-	bool readFile(ReadRequest& request, void* tr, void* gr);
-	void discard(ReadRequest& resource, void* tr, void* gr);
+	static bool processIOCompletion(void* tr, void* gr, DWORD numberOfBytes, LPOVERLAPPED overlapped);
+	static bool readFileHelper(void* tr, void* gr, DWORD, LPOVERLAPPED overlapped);
+	static bool discardHelper(void* tr, void* gr, DWORD, LPOVERLAPPED overlapped);
 public:
-	AsynchronousFileManager();
+	AsynchronousFileManager(IOCompletionQueue& ioCompletionQueue);
 	~AsynchronousFileManager();
 
-	template<class GlobalResources>
-	static bool processIOCompletion(void* executor, void* sharedResources, DWORD numberOfBytes, LPOVERLAPPED overlapped)
-	{
-		GlobalResources& globalResources = *static_cast<GlobalResources*>(sharedResources);
-		return processIOCompletionHelper(globalResources.asynchronousFileManager, executor, sharedResources, numberOfBytes, overlapped);
-	}
-
-	template<class GlobalResources>
-	File openFileForReading(IOCompletionQueue& ioCompletionQueue, const wchar_t* name)
+	File openFileForReading(const wchar_t* name)
 	{
 		File file(name, File::accessRight::genericRead, File::shareMode::readMode, File::creationMode::openExisting, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED | FILE_FLAG_NO_BUFFERING);
-		ioCompletionQueue.associateFile(file.native_handle(), (ULONG_PTR)(void*)(processIOCompletion<GlobalResources>));
+		ioCompletionQueue.associateFile(file.native_handle(), (ULONG_PTR)(processIOCompletion));
 		return file;
 	}
 
-	template<class ThreadResources, class GlobalResources>
-	void readFile(ReadRequest* request, ThreadResources&, GlobalResources& globalResources)
-	{
-		request->action = Action::allocate;
-		bool needsStarting = messageQueue.push(request);
-		if(needsStarting)
-		{
-			IOCompletionPacket task;
-			task.numberOfBytesTransfered = 0u;
-			task.overlapped = reinterpret_cast<LPOVERLAPPED>(this);
-			task.completionKey = reinterpret_cast<ULONG_PTR>(static_cast<bool(*)(void* executor, void* sharedResources, DWORD numberOfBytes, LPOVERLAPPED overlapped)>(
-				[](void* tr, void* gr, DWORD, LPOVERLAPPED overlapped)
-			{
-				auto& afm = *reinterpret_cast<AsynchronousFileManager*>(overlapped);
-				afm.run(tr, gr);
-				return true;
-			}));
-			globalResources.ioCompletionQueue.push(task);
-		}
-	}
-
-	template<class ThreadResources, class GlobalResources>
-	void discard(ReadRequest* request, ThreadResources&, GlobalResources& globalResources)
-	{
-		request->action = Action::deallocate;
-		bool needsStarting = messageQueue.push(request);
-		if(needsStarting)
-		{
-			IOCompletionPacket task;
-			task.numberOfBytesTransfered = 0u;
-			task.overlapped = reinterpret_cast<LPOVERLAPPED>(this);
-			task.completionKey = reinterpret_cast<ULONG_PTR>(static_cast<bool(*)(void* executor, void* sharedResources, DWORD numberOfBytes, LPOVERLAPPED overlapped)>(
-				[](void* tr, void* gr, DWORD, LPOVERLAPPED overlapped)
-			{
-				auto& afm = *reinterpret_cast<AsynchronousFileManager*>(overlapped);
-				afm.run(tr, gr);
-				return true;
-			}));
-			globalResources.ioCompletionQueue.push(task);
-		}
-	}
+	void readFile(ReadRequest& request);
+	void discard(ReadRequest& request);
 };

@@ -1,7 +1,8 @@
 #include "AsynchronousFileManager.h"
 #include <Windows.h>
 
-AsynchronousFileManager::AsynchronousFileManager()
+AsynchronousFileManager::AsynchronousFileManager(IOCompletionQueue& ioCompletionQueue1) :
+	ioCompletionQueue(ioCompletionQueue1)
 {
 	SYSTEM_INFO systemInfo;
 	GetSystemInfo(&systemInfo);
@@ -10,11 +11,15 @@ AsynchronousFileManager::AsynchronousFileManager()
 
 AsynchronousFileManager::~AsynchronousFileManager() {}
 
-bool AsynchronousFileManager::readFile(ReadRequest& request, void* tr, void* gr)
+bool AsynchronousFileManager::readFileHelper(void* tr, void* gr, DWORD, LPOVERLAPPED overlapped)
 {
-	size_t memoryStart = request.start & ~(pageSize - 1u);
-	size_t memoryEnd = (request.end + pageSize - 1u) & ~(pageSize - 1u);
-	size_t memoryNeeded = memoryEnd - memoryStart;
+	auto& request = *static_cast<ReadRequest*>(overlapped);
+	const auto pageSize = request.asynchronousFileManager->pageSize;
+	auto& files = request.asynchronousFileManager->files;
+
+	std::size_t memoryStart = request.start & ~(pageSize - 1u);
+	std::size_t memoryEnd = (request.end + pageSize - 1u) & ~(pageSize - 1u);
+	std::size_t memoryNeeded = memoryEnd - memoryStart;
 
 	unsigned char* allocation;
 	auto dataPtr = files.find(request);
@@ -31,7 +36,7 @@ bool AsynchronousFileManager::readFile(ReadRequest& request, void* tr, void* gr)
 			{
 				//We successfully reclaimed the data, so we can complete the request to load it.
 				auto data = allocation + request.start - memoryStart;
-				request.fileLoadedCallback(request, tr, gr, data);
+				request.fileLoadedCallback(request, *request.asynchronousFileManager, tr, gr, data);
 				return true;
 			}
 			else
@@ -48,7 +53,7 @@ bool AsynchronousFileManager::readFile(ReadRequest& request, void* tr, void* gr)
 		{
 			//The resource is already loaded.
 			auto data = allocation + request.start - memoryStart;
-			request.fileLoadedCallback(request, tr, gr, data);
+			request.fileLoadedCallback(request, *request.asynchronousFileManager, tr, gr, data);
 			return true;
 		}
 		else
@@ -70,7 +75,7 @@ bool AsynchronousFileManager::readFile(ReadRequest& request, void* tr, void* gr)
 	request.accumulatedSize = 0u;
 	request.hEvent = nullptr;
 	request.Offset = memoryStart & (std::numeric_limits<DWORD>::max() - 1u);
-	request.OffsetHigh = (DWORD)((memoryStart & ~(size_t)(std::numeric_limits<DWORD>::max() - 1u)) >> 32u);
+	request.OffsetHigh = (DWORD)((memoryStart & ~(std::size_t)(std::numeric_limits<DWORD>::max() - 1u)) >> 32u);
 
 	DWORD bytesRead = 0u;
 	BOOL finished = ReadFile(request.file.native_handle(), request.buffer, (DWORD)memoryNeeded, &bytesRead, &request);
@@ -81,74 +86,81 @@ bool AsynchronousFileManager::readFile(ReadRequest& request, void* tr, void* gr)
 	return true;
 }
 
-void AsynchronousFileManager::discard(ReadRequest& resource, void* tr, void* gr)
+bool AsynchronousFileManager::discardHelper(void* tr, void* gr, DWORD, LPOVERLAPPED overlapped)
 {
-	size_t memoryStart = resource.start & ~(pageSize - 1u);
-	size_t memoryEnd = (resource.end + pageSize - 1u) & ~(pageSize - 1u);
-	size_t memoryNeeded = memoryEnd - memoryStart;
-	FileData& dataDescriptor = files.find(resource)->second;
-	resource.deleteReadRequest(resource, tr, gr);
+	auto& request = *static_cast<ReadRequest*>(overlapped);
+	const auto pageSize = request.asynchronousFileManager->pageSize;
+	auto& files = request.asynchronousFileManager->files;
+
+	std::size_t memoryStart = request.start & ~(pageSize - 1u);
+	std::size_t memoryEnd = (request.end + pageSize - 1u) & ~(pageSize - 1u);
+	std::size_t memoryNeeded = memoryEnd - memoryStart;
+	FileData& dataDescriptor = files.find(request)->second;
 	--dataDescriptor.userCount;
-	if(dataDescriptor.userCount == 0u)
+	if (dataDescriptor.userCount == 0u)
 	{
 		//The resource is no longer needed in memory.
 		OfferVirtualMemory(dataDescriptor.allocation, memoryNeeded, OFFER_PRIORITY::VmOfferPriorityLow);
 	}
-}
 
- bool AsynchronousFileManager::processIOCompletionHelper(AsynchronousFileManager& fileManager, void* executor, void* sharedResources, DWORD numberOfBytes, LPOVERLAPPED overlapped)
-{
-	ReadRequest* request = static_cast<ReadRequest*>(overlapped);
-	request->accumulatedSize += numberOfBytes;
-	const std::size_t sectorSize = fileManager.pageSize;
-	const std::size_t memoryStart = request->start & ~(sectorSize - 1u);
-	const std::size_t memoryEnd = (request->end + sectorSize - 1u) & ~(sectorSize - 1u);
-	const std::size_t sizeToRead = memoryEnd - memoryStart;
-	if ((request->accumulatedSize < (request->end - memoryStart)) && request->accumulatedSize != sizeToRead)
-	{
-		request->accumulatedSize = request->accumulatedSize & ~(sectorSize - 1u);
-		const std::size_t currentPosition = memoryStart + request->accumulatedSize;
-		request->Offset = currentPosition & (std::numeric_limits<DWORD>::max() - 1u);
-		request->OffsetHigh = (DWORD)((currentPosition & ~(size_t)(std::numeric_limits<DWORD>::max() - 1u)) >> 32u);
-		DWORD bytesRead = 0u;
-		BOOL finished = ReadFile(request->file.native_handle(), request->buffer + request->accumulatedSize, (DWORD)(sizeToRead - request->accumulatedSize), &bytesRead, request);
-		if (finished == FALSE && GetLastError() != ERROR_IO_PENDING)
-		{
-			return false;
-		}
-		return true;
-	}
-	auto data = request->buffer + (request->start & (fileManager.pageSize - 1u));
-
-	FileData& dataDescriptor = fileManager.files.find(*request)->second;
-	ReadRequest* requests = dataDescriptor.requests;
-	dataDescriptor.requests = nullptr;
-	do
-	{
-		ReadRequest& temp = *requests;
-		requests = static_cast<ReadRequest*>(requests->next); //Allow reuse of next
-		temp.fileLoadedCallback(temp, executor, sharedResources, data);
-	} while(requests != nullptr);
+	request.deleteReadRequest(request, tr, gr);
 	return true;
 }
 
- void AsynchronousFileManager::run(void* tr, void* gr)
- {
+ bool AsynchronousFileManager::processIOCompletion(void* tr, void* gr, DWORD numberOfBytes, LPOVERLAPPED overlapped)
+{
+	 ReadRequest* request = static_cast<ReadRequest*>(overlapped);
+	 AsynchronousFileManager& fileManager = *request->asynchronousFileManager;
+
+	 request->accumulatedSize += numberOfBytes;
+	 const std::size_t sectorSize = fileManager.pageSize;
+	 const std::size_t memoryStart = request->start & ~(sectorSize - 1u);
+	 const std::size_t memoryEnd = (request->end + sectorSize - 1u) & ~(sectorSize - 1u);
+	 const std::size_t sizeToRead = memoryEnd - memoryStart;
+	 if ((request->accumulatedSize < (request->end - memoryStart)) && request->accumulatedSize != sizeToRead)
+	 {
+		 request->accumulatedSize = request->accumulatedSize & ~(sectorSize - 1u);
+		 const std::size_t currentPosition = memoryStart + request->accumulatedSize;
+		 request->Offset = currentPosition & (std::numeric_limits<DWORD>::max() - 1u);
+		 request->OffsetHigh = (DWORD)((currentPosition & ~(std::size_t)(std::numeric_limits<DWORD>::max() - 1u)) >> 32u);
+		 DWORD bytesRead = 0u;
+		 BOOL finished = ReadFile(request->file.native_handle(), request->buffer + request->accumulatedSize, (DWORD)(sizeToRead - request->accumulatedSize), &bytesRead, request);
+		 if (finished == FALSE && GetLastError() != ERROR_IO_PENDING)
+		 {
+			 return false;
+		 }
+		 return true;
+	 }
+	 auto data = request->buffer + (request->start & (fileManager.pageSize - 1u));
+
+	 FileData& dataDescriptor = fileManager.files.find(*request)->second;
+	 ReadRequest* requests = dataDescriptor.requests;
+	 dataDescriptor.requests = nullptr;
 	 do
 	 {
-		 SinglyLinked* temp = messageQueue.popAll();
-		 for(; temp != nullptr;)
-		 {
-			 auto& message = *static_cast<ReadRequest*>(temp);
-			 temp = temp->next; //Allow reuse of next
-			 if(message.action == Action::deallocate)
-			 {
-				 discard(message, tr, gr);
-			 }
-			 else
-			 {
-				 readFile(static_cast<ReadRequest&>(message), tr, gr);
-			 }
-		 }
-	 } while(!messageQueue.stop());
+		 ReadRequest& temp = *requests;
+		 requests = static_cast<ReadRequest*>(requests->next); //Allow reuse of next
+		 temp.fileLoadedCallback(temp, fileManager, tr, gr, data);
+	 } while (requests != nullptr);
+	 return true;
+}
+
+ void AsynchronousFileManager::readFile(ReadRequest& request)
+ {
+	 request.asynchronousFileManager = this;
+	 IOCompletionPacket task;
+	 task.numberOfBytesTransfered = 0u;
+	 task.overlapped = &request;
+	 task.completionKey = reinterpret_cast<ULONG_PTR>(readFileHelper);
+	 ioCompletionQueue.push(task);
+ }
+
+ void AsynchronousFileManager::discard(ReadRequest& request)
+ {
+	 request.asynchronousFileManager = this;
+	 IOCompletionPacket task;
+	 task.numberOfBytesTransfered = 0u;
+	 task.overlapped = &request;
+	 task.completionKey = reinterpret_cast<ULONG_PTR>(discardHelper);
+	 ioCompletionQueue.push(task);
  }
