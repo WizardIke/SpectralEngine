@@ -14,6 +14,9 @@
 #undef max
 #include <atomic>
 
+/*
+ * Textures must be power of 2 size.
+ */
 class VirtualTextureManager
 {
 	enum class Action : short
