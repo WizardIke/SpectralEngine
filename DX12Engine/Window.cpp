@@ -109,7 +109,7 @@ void Window::createSwapChain(GraphicsEngine& graphicsEngine, IDXGIFactory5* dxgi
 		HRESULT hr = swapChain->GetBuffer(i, IID_PPV_ARGS(&buffers[i].set()));
 		assert(hr == S_OK);
 
-#ifndef ndebug
+#ifndef NDEBUG
 		std::wstring name = L"backbuffer render target ";
 		name += std::to_wstring(i);
 		buffers[i]->SetName(name.c_str());

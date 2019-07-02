@@ -18,7 +18,7 @@ void MeshManager::fillUploadRequestHelper(MeshStreamingRequest& uploadRequest, u
 }
 
 void MeshManager::createMeshResources(ID3D12Resource*& vertices, ID3D12Resource*& indices, ID3D12Heap*& meshBuffer, ID3D12Device* graphicsDevice, uint32_t vertexSizeBytes, uint32_t indexSizeBytes
-#ifndef ndebug
+#ifndef NDEBUG
 	, const wchar_t* filename
 #endif
 )
@@ -75,14 +75,14 @@ void MeshManager::createMeshResources(ID3D12Resource*& vertices, ID3D12Resource*
 	}(), D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_COMMON).steal();
 
 
-#ifndef ndebug
+#ifndef NDEBUG
 	std::wstring name = L"vertex buffer: ";
 	name += filename;
 	vertices->SetName(name.c_str());
 	name = L"index buffer: ";
 	name += filename;
 	indices->SetName(name.c_str());
-#endif // ndebug
+#endif // NDEBUG
 }
 
 void MeshManager::unloadMesh(UnloadRequest& unloadRequest, void* tr, void* gr)
@@ -118,7 +118,7 @@ void MeshManager::meshWithPositionTextureNormalTangentBitangentUseResourceHelper
 	auto indexSizeBytes = uploadRequest.indicesSize;
 
 	createMeshResources(uploadRequest.vertices, uploadRequest.indices, uploadRequest.meshBuffer, graphicsDevice, vertexSizeBytes, indexSizeBytes
-#ifndef ndebug
+#ifndef NDEBUG
 		, uploadRequest.filename
 #endif
 	);
@@ -145,7 +145,7 @@ void MeshManager::meshWithPositionTextureNormalUseResourceHelper(MeshStreamingRe
 	constexpr auto vertexStrideInBytes = sizeof(MeshWithPositionTextureNormal);
 
 	createMeshResources(uploadRequest.vertices, uploadRequest.indices, uploadRequest.meshBuffer, graphicsDevice, vertexSizeBytes, indexSizeBytes
-#ifndef ndebug
+#ifndef NDEBUG
 		, uploadRequest.filename
 #endif
 	);
@@ -196,7 +196,7 @@ void MeshManager::meshWithPositionTextureUseResourceHelper(MeshStreamingRequest&
 	constexpr auto vertexStrideInBytes = sizeof(MeshWithPositionTexture);
 
 	createMeshResources(uploadRequest.vertices, uploadRequest.indices, uploadRequest.meshBuffer, graphicsDevice, vertexSizeBytes, indexSizeBytes
-#ifndef ndebug
+#ifndef NDEBUG
 		, uploadRequest.filename
 #endif
 	);
@@ -241,7 +241,7 @@ void MeshManager::meshWithPositionUseResourceHelper(MeshStreamingRequest& upload
 	constexpr auto vertexStrideInBytes = sizeof(MeshWithPosition);
 
 	createMeshResources(uploadRequest.vertices, uploadRequest.indices, uploadRequest.meshBuffer, graphicsDevice, vertexSizeBytes, indexSizeBytes
-#ifndef ndebug
+#ifndef NDEBUG
 		, uploadRequest.filename
 #endif
 	);

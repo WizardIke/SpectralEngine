@@ -239,7 +239,7 @@ public:
 					new(commandList) D3D12GraphicsCommandList(graphicsEngine.graphicsDevice, 0u, D3D12_COMMAND_LIST_TYPE_DIRECT, allocator, nullptr);
 					(*commandList)->Close();
 
-#ifndef ndebug
+#ifndef NDEBUG
 					std::wstring name = L"Direct command allocator ";
 					name += std::to_wstring(i);
 					allocator->SetName(name.c_str());
@@ -247,7 +247,7 @@ public:
 					name = L"Direct command list ";
 					name += std::to_wstring(i);
 					(*commandList)->SetName(name.c_str());
-#endif // ndebug
+#endif // NDEBUG
 					++commandList;
 				}
 				++i;
@@ -361,7 +361,7 @@ public:
 		ThreadLocal(GraphicsEngine& graphicsEngine) : RenderSubPass<Camera_t, state1, Dependencies_t, DependencyStates_t, commandListsPerFrame1, stateAfter1, true, 1u>::ThreadLocal(graphicsEngine) {}
 
 		template<class ThreadResources, class GlobalResources>
-		void update2LastThread(ID3D12CommandList**& commandLists, unsigned int numThreads, RenderMainSubPass<Camera_t, state1, Dependencies_t, DependencyStates_t, commandListsPerFrame, stateAfter1>& renderSubPass,
+		void update2LastThread(ID3D12CommandList**& commandLists, unsigned int numThreads, RenderMainSubPass<Camera_t, state1, Dependencies_t, DependencyStates_t, commandListsPerFrame1, stateAfter1>& renderSubPass,
 			ThreadResources&, GlobalResources&)
 		{
 			auto cameras = renderSubPass.cameras();

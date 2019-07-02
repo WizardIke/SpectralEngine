@@ -39,45 +39,48 @@ private:
 	class ValueAllocatorWrapper : private std::allocator_traits<Allocator>::template rebind_alloc<T>
 	{
 		using Base1 = typename std::allocator_traits<Allocator>::template rebind_alloc<T>;
+		using Traits = typename std::allocator_traits<Base1>;
 	public:
-		typename Base1::value_type* allocateValue(typename Base1::size_type n)
+		typename Traits::value_type* allocateValue(typename Traits::size_type n)
 		{
-			return Base1::allocate(n);
+			return Traits::allocate(static_cast<Base1&>(*this), n);
 		}
 
-		void deallocateValue(typename Base1::value_type* p, typename Base1::size_type n)
+		void deallocateValue(typename Traits::value_type* p, typename Traits::size_type n)
 		{
-			return Base1::deallocate(p, n);
+			return Traits::deallocate(static_cast<Base1&>(*this), p, n);
 		}
 	};
 
 	class KeyAllocatorWrapper : private std::allocator_traits<Allocator>::template rebind_alloc<Key>
 	{
 		using Base1 = typename std::allocator_traits<Allocator>::template rebind_alloc<Key>;
+		using Traits = typename std::allocator_traits<Base1>;
 	public:
-		typename Base1::value_type* allocateKey(typename Base1::size_type n)
+		typename Traits::value_type* allocateKey(typename Traits::size_type n)
 		{
-			return Base1::allocate(n);
+			return Traits::allocate(static_cast<Base1&>(*this), n);
 		}
 
-		void deallocateKey(typename Base1::value_type* p, typename Base1::size_type n)
+		void deallocateKey(typename Traits::value_type* p, typename Traits::size_type n)
 		{
-			return Base1::deallocate(p, n);
+			return Traits::deallocate(static_cast<Base1&>(*this), p, n);
 		}
 	};
 
 	class lookUpAllocatorWrapper : private std::allocator_traits<Allocator>::template rebind_alloc<Node>
 	{
 		using Base = typename std::allocator_traits<Allocator>::template rebind_alloc<Node>;
+		using Traits = typename std::allocator_traits<Base>;
 	public:
-		typename Base::value_type* allocateLookUp(typename Base::size_type n)
+		typename Traits::value_type* allocateLookUp(typename Traits::size_type n)
 		{
-			return Base::allocate(n);
+			return Traits::allocate(static_cast<Base&>(*this), n);
 		}
 
-		void deallocateLookUp(typename Base::value_type* p, typename Base::size_type n)
+		void deallocateLookUp(typename Traits::value_type* p, typename Traits::size_type n)
 		{
-			return Base::deallocate(p, n);
+			return Traits::deallocate(static_cast<Base&>(*this), p, n);
 		}
 	};
 

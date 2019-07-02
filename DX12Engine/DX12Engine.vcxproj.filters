@@ -423,6 +423,8 @@
     <ClInclude Include="PageResourceLocation.h">
       <Filter>VirtualTexturing</Filter>
     </ClInclude>
+    <ClInclude Include="PsoLoader.h" />
+    <ClInclude Include="GraphicsPipelineStateDesc.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DDSFileLoader.cpp">

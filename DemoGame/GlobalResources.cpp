@@ -43,7 +43,7 @@ class GlobalResources::Unloader : private PrimaryTaskFromOtherThreadQueue::Task
 	public:
 		Unloader* unloader;
 
-		AmbientMusicStopRequests(Unloader* unloader, void(*callback)(ReadRequest& request, void* tr, void* gr)) :
+		AmbientMusicStopRequests(Unloader* unloader, void(*callback)(AmbientMusic::StopRequest& request, void* tr, void* gr)) :
 			unloader(unloader), AmbientMusic::StopRequest(callback) {}
 	};
 
@@ -129,7 +129,7 @@ class GlobalResources::Unloader : private PrimaryTaskFromOtherThreadQueue::Task
 	}
 public:
 	Unloader() :
-		ambientMusicStopRequests(this, [](AsynchronousFileManager::ReadRequest& stopRequest, void* tr, void* gr)
+		ambientMusicStopRequests(this, [](AmbientMusic::StopRequest& stopRequest, void* tr, void* gr)
 		{
 			static_cast<AmbientMusicStopRequests&>(stopRequest).unloader->componentUnloaded1(tr, gr);
 		}),
@@ -224,11 +224,12 @@ class GlobalResources::InitialResourceLoader : public TextureManager::TextureStr
 
 		InitialResourceLoader& request1 = static_cast<InitialResourceLoader&>(request);
 		request1.componentLoaded(threadResources, globalResources);
-		freeRequestMemory(request1);
 	}
 
-	static void pipelineStateObjectsLoadedCallback(PipelineStateObjects::PipelineLoader& pipelineLoader, ThreadResources& threadResources, GlobalResources& globalResources)
+	static void pipelineStateObjectsLoadedCallback(PipelineStateObjects::PipelineLoader& pipelineLoader, void* tr, void* gr)
 	{
+		ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
+		GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
 		InitialResourceLoader& request1 = static_cast<InitialResourceLoader&>(pipelineLoader);
 		request1.componentLoaded(threadResources, globalResources);
 	}
@@ -247,30 +248,18 @@ class GlobalResources::InitialResourceLoader : public TextureManager::TextureStr
 				globalResources.userInterface.start(threadResources, globalResources);
 				globalResources.areas.start(threadResources, globalResources);
 
-				freeRequestMemory(static_cast<InitialResourceLoader&>(task));
+				delete static_cast<InitialResourceLoader*>(&task);
 			};
 			globalResources.taskShedular.pushPrimaryTaskFromOtherThread(0u, *this);
 		}
 	}
 
-	static void freeRequestMemory(InitialResourceLoader& request)
-	{
-		if(request.numberOfComponentsReadyToDelete.fetch_add(1u, std::memory_order_acq_rel) == (numberOfComponentsToLoad))
-		{
-			delete &request;
-		}
-	}
-
 	static constexpr unsigned int numberOfComponentsToLoad = 2u;
 	std::atomic<unsigned int> numberOfComponentsLoaded = 0u;
-	std::atomic<unsigned int> numberOfComponentsReadyToDelete = 0u;
 public:
 	InitialResourceLoader(const wchar_t* fontFilename) :
 		TextureManager::TextureStreamingRequest(fontsLoadedCallback, fontFilename),
-		PipelineStateObjects::PipelineLoader(pipelineStateObjectsLoadedCallback, [](PipelineStateObjects::PipelineLoader& pipelineLoader)
-	{
-		freeRequestMemory(static_cast<InitialResourceLoader&>(pipelineLoader));
-	}) {}
+		PipelineStateObjects::PipelineLoader(pipelineStateObjectsLoadedCallback) {}
 };
 
 static const wchar_t* const musicFiles[] = 
@@ -291,7 +280,8 @@ GlobalResources::GlobalResources(const unsigned int numberOfThreads, bool fullSc
 	streamingManager(*graphicsEngine.graphicsDevice, 32u * 1024u * 1024u),
 	taskShedular(numberOfThreads > 2u ? numberOfThreads : 2u, ThreadResources::endUpdate1),
 	mainThreadResources(0u, *this, ThreadResources::mainEndUpdate2),
-	asynchronousFileManager(),
+	ioCompletionQueue(),
+	asynchronousFileManager(ioCompletionQueue),
 	textureManager(),
 	meshManager(),
 	soundEngine(),
@@ -299,7 +289,7 @@ GlobalResources::GlobalResources(const unsigned int numberOfThreads, bool fullSc
 	inputManager(),
 	inputHandler(window, { PlayerPosition::mouseMoved, &playerPosition }),
 	rootSignatures(graphicsEngine.graphicsDevice),
-	pipelineStateObjects(mainThreadResources, *this, *static_cast<InitialResourceLoader*>(initialResourceLoader)),
+	pipelineStateObjects(asynchronousFileManager, *graphicsEngine.graphicsDevice, rootSignatures, *static_cast<InitialResourceLoader*>(initialResourceLoader)),
 	virtualTextureManager(),
 	sharedConstantBuffer(graphicsEngine.graphicsDevice, []()
 	{
@@ -353,7 +343,7 @@ GlobalResources::GlobalResources(const unsigned int numberOfThreads, bool fullSc
 	areas.setPosition(playerPosition.location.position, 0u);
 	taskShedular.start(mainThreadResources, *this);
 	ioCompletionQueue.start(mainThreadResources, *this);
-	ambientMusic.start(mainThreadResources, *this);
+	ambientMusic.start(mainThreadResources, asynchronousFileManager);
 
 	D3D12_RANGE readRange{ 0u, 0u };
 	HRESULT hr = sharedConstantBuffer->Map(0u, &readRange, reinterpret_cast<void**>(&constantBuffersCpuAddress));

@@ -11,21 +11,34 @@ class GlobalResources;
 class AmbientMusic : private IXAudio2VoiceCallback
 {
 	constexpr static std::size_t numberOfBuffers = 3u;
-public:
-	class StopRequest : public AsynchronousFileManager::ReadRequest
+
+	enum class Action
 	{
-	public:
+		load,
+		unload
+	};
+
+	class Message : public SinglyLinked
+	{
+		friend class AmbientMusic;
+		Action action;
+	};
+public:
+	class StopRequest : public Message
+	{
+		friend class AmbientMusic;
 		constexpr static unsigned int numberOfComponentsToUnload = numberOfBuffers;
 		unsigned int numberOfComponentsUnloaded = 0u;
-
-		StopRequest(void(*callback)(ReadRequest& request, void* tr, void* gr))
-		{
-			deleteReadRequest = callback;
-		}
+		void(*callback)(StopRequest& request, void* tr, void* gr);
+	public:
+		StopRequest(void(*callback1)(StopRequest& request, void* tr, void* gr)) : callback(callback1)
+		{}
 	};
 private:
-	struct Buffer : public AsynchronousFileManager::ReadRequest
+	
+	struct Buffer : public AsynchronousFileManager::ReadRequest, public Message
 	{
+		using Message::action;
 		const unsigned char* data;
 		AmbientMusic* music;
 	};
@@ -60,15 +73,15 @@ private:
 	virtual void STDMETHODCALLTYPE OnVoiceProcessingPassStart(UINT32 BytesRequired) override;
 
 	void run(ThreadResources& threadResources, GlobalResources& globalResources);
-	void findNextMusic(ThreadResources& threadResources, GlobalResources& globalResources, void(*callback)(AmbientMusic& music, ThreadResources& threadResources, GlobalResources& globalResources));
-	void fillAndSubmitBuffer(Buffer& buffer, ThreadResources& threadResources, GlobalResources& globalResources);
+	void findNextMusic(ThreadResources& threadResources, AsynchronousFileManager& asynchronousFileManager, void(*callback)(AmbientMusic& music, ThreadResources& threadResources, GlobalResources& globalResources));
+	void fillAndSubmitBuffer(Buffer& buffer, AsynchronousFileManager& asynchronousFileManager);
 	static void submitBuffer(IXAudio2SourceVoice* musicPlayer, void* context, const unsigned char* data, std::size_t length);
-	void addMessage(AsynchronousFileManager::ReadRequest& request, ThreadResources& threadResources, GlobalResources&);
+	void addMessage(Message& request, ThreadResources& threadResources, GlobalResources&);
 	bool processMessage(SinglyLinked*& temp, ThreadResources& threadResources, GlobalResources& globalResources);
 	void continueRunning(ThreadResources& threadResources, GlobalResources& globalResources);
 public:
 	AmbientMusic(GlobalResources& sharedResources, const wchar_t* const * files, std::size_t fileCount);
 	~AmbientMusic();
-	void start(ThreadResources& executor, GlobalResources& sharedResources);
+	void start(ThreadResources& executor, AsynchronousFileManager& asynchronousFileManager);
 	void stop(StopRequest& stopRequest, ThreadResources& threadResources, GlobalResources& globalResources);
 };

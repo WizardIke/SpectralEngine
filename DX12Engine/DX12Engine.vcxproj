@@ -109,6 +109,7 @@
       <DisableSpecificWarnings>4571;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <SupportJustMyCode>false</SupportJustMyCode>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -144,6 +145,7 @@
       <DisableSpecificWarnings>4571;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <SupportJustMyCode>false</SupportJustMyCode>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -177,6 +179,7 @@
       <OmitFramePointers>true</OmitFramePointers>
       <SDLCheck>false</SDLCheck>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -208,6 +211,7 @@
       <OmitFramePointers>true</OmitFramePointers>
       <SDLCheck>false</SDLCheck>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -233,6 +237,7 @@
     <ClInclude Include="EntityGenerator.h" />
     <ClInclude Include="FastIterationHashSet.h" />
     <ClInclude Include="GpuHeapLocation.h" />
+    <ClInclude Include="GraphicsPipelineStateDesc.h" />
     <ClInclude Include="HashSet.h" />
     <ClInclude Include="LinkedTask.h" />
     <ClInclude Include="PageAllocationInfo.h" />
@@ -241,6 +246,7 @@
     <ClInclude Include="Portal.h" />
     <ClInclude Include="PrimaryTaskFromOtherThreadQueue.h" />
     <ClInclude Include="PriorityQueue.h" />
+    <ClInclude Include="PsoLoader.h" />
     <ClInclude Include="RenderPassMessage.h" />
     <ClInclude Include="SinglyLinked.h" />
     <ClInclude Include="RunnableIOCompletionQueue.h" />

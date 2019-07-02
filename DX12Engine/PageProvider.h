@@ -100,18 +100,14 @@ private:
 		threadResources.taskShedular.pushBackgroundTask({ &pageRequest, [](void* requester, ThreadResources& threadResources, GlobalResources& sharedResources)
 		{
 			PageLoadRequest& pageRequest = *static_cast<PageLoadRequest*>(requester);
-			addPageLoadRequestHelper(pageRequest, [](StreamingManager::StreamingRequest* request, void* tr, void* gr)
+			addPageLoadRequestHelper(pageRequest, [](StreamingManager::StreamingRequest* request, void*, void* gr)
 			{
 				PageLoadRequest& uploadRequest = *static_cast<PageLoadRequest*>(request);
-				ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
 				GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
 
-				uploadRequest.fileLoadedCallback = [](AsynchronousFileManager::ReadRequest& req, void* tr, void* gr, const unsigned char* buffer)
+				uploadRequest.fileLoadedCallback = [](AsynchronousFileManager::ReadRequest& req, AsynchronousFileManager& asynchronousFileManager, void*, void*, const unsigned char* buffer)
 				{
 					PageLoadRequest& request = static_cast<PageLoadRequest&>(req);
-					ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
-					GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
-					AsynchronousFileManager& asynchronousFileManager = globalResources.asynchronousFileManager;
 
 					copyPageToUploadBuffer(&request, buffer);
 					request.deleteReadRequest = [](AsynchronousFileManager::ReadRequest& req, void*, void* gr)
@@ -122,9 +118,9 @@ private:
 
 						pageProvider.halfFinishedPageLoadRequests.push(&static_cast<LinkedTask&>(request));
 					};
-					asynchronousFileManager.discard(&request, threadResources, globalResources);
+					asynchronousFileManager.discard(request);
 				};
-				globalResources.asynchronousFileManager.readFile(&uploadRequest, threadResources, globalResources);
+				globalResources.asynchronousFileManager.readFile(uploadRequest);
 			}, [](StreamingManager::StreamingRequest* requester, void*, void* gr)
 			{
 				PageLoadRequest& request = static_cast<PageLoadRequest&>(*requester);

@@ -171,7 +171,7 @@ public:
 					if(zone.nextState == zone.highestSupportedState)
 					{
 						zone.currentState = zone.highestSupportedState;
-#ifndef ndebug
+#ifndef NDEBUG
 						zone.currentData = nullptr;
 #endif
 						zone.oldState = currentState;

@@ -28,7 +28,7 @@ AmbientMusic::AmbientMusic(GlobalResources& sharedResources, const wchar_t* cons
 	{
 		bufferDescriptors[i].music = this;
 
-		bufferDescriptors[i].fileLoadedCallback = [](AsynchronousFileManager::ReadRequest& request, void* tr, void* gr, const unsigned char* data)
+		bufferDescriptors[i].fileLoadedCallback = [](AsynchronousFileManager::ReadRequest& request, AsynchronousFileManager& asynchronousFileManager, void* tr, void* gr, const unsigned char* data)
 		{
 			auto& threadResources = *static_cast<ThreadResources*>(tr);
 			auto& globalResources = *static_cast<GlobalResources*>(gr);
@@ -49,7 +49,7 @@ AmbientMusic::AmbientMusic(GlobalResources& sharedResources, const wchar_t* cons
 			{
 				music.currentBuffer = &buffer;
 				music.file.close();
-				music.findNextMusic(threadResources, globalResources, [](AmbientMusic& music, ThreadResources& threadResources, GlobalResources& globalResources)
+				music.findNextMusic(threadResources, asynchronousFileManager, [](AmbientMusic& music, ThreadResources& threadResources, GlobalResources& globalResources)
 				{
 					auto& buffer = *music.currentBuffer;
 					submitBuffer(music.musicPlayer, &buffer, buffer.data, buffer.end - buffer.start);
@@ -65,20 +65,18 @@ AmbientMusic::AmbientMusic(GlobalResources& sharedResources, const wchar_t* cons
 			auto& buffer = static_cast<Buffer&>(request);
 			auto& music = *buffer.music;
 
-			buffer.action = AsynchronousFileManager::Action::allocate;
+			buffer.action = Action::load;
 			music.addMessage(buffer, threadResources, globalResources);
 		};
 	}
 
 	infoRequest.music = this;
-	infoRequest.fileLoadedCallback = [](AsynchronousFileManager::ReadRequest& request, void* tr, void* gr, const unsigned char* data)
+	infoRequest.fileLoadedCallback = [](AsynchronousFileManager::ReadRequest& request, AsynchronousFileManager& asynchronousFileManager, void*, void*, const unsigned char* data)
 	{
 		const SoundDecoder::UncompressedFileInfo& headerInfo = *reinterpret_cast<const SoundDecoder::UncompressedFileInfo*>(data);
 		auto& music = *static_cast<InfoRequest&>(request).music;
-		auto& threadResources = *static_cast<ThreadResources*>(tr);
-		auto& globalResources = *static_cast<GlobalResources*>(gr);
 		music.bytesRemaining = headerInfo.dataSize;
-		globalResources.asynchronousFileManager.discard(&request, threadResources, globalResources);
+		asynchronousFileManager.discard(request);
 	};
 	infoRequest.deleteReadRequest = [](AsynchronousFileManager::ReadRequest& request, void* tr, void* gr)
 	{
@@ -100,11 +98,10 @@ void AmbientMusic::OnBufferEnd(void* pBufferContext)
 	updateTask.numberOfBytesTransfered = 0u;
 	updateTask.overlapped = static_cast<LPOVERLAPPED>(&buffer);
 	updateTask.completionKey = reinterpret_cast<ULONG_PTR>(static_cast<bool(*)(void* executor, void* sharedResources, DWORD numberOfBytes, LPOVERLAPPED overlapped)>(
-		[](void* tr, void* sharedResources, DWORD, LPOVERLAPPED overlapped)
+		[](void*, void* gr, DWORD, LPOVERLAPPED overlapped)
 	{
-		auto& threadResources = *static_cast<ThreadResources*>(tr);
-		auto& globalResources = *static_cast<GlobalResources*>(sharedResources);
-		globalResources.asynchronousFileManager.discard(static_cast<Buffer*>(overlapped), threadResources, globalResources);
+		auto& globalResources = *static_cast<GlobalResources*>(gr);
+		globalResources.asynchronousFileManager.discard(*static_cast<Buffer*>(overlapped));
 		return true;
 	}));
 	ioCompletionQueue.push(updateTask);
@@ -134,22 +131,22 @@ void AmbientMusic::OnVoiceProcessingPassStart(UINT32)
 {
 }
 
-void AmbientMusic::start(ThreadResources& threadResources, GlobalResources& globalResources)
+void AmbientMusic::start(ThreadResources& threadResources, AsynchronousFileManager& asynchronousFileManager)
 {
 	for(std::size_t i = 0u; i != numberOfBuffers; ++i)
 	{
-		bufferDescriptors[i].action = AsynchronousFileManager::Action::allocate;
-		freeBufferDescriptors.push(&bufferDescriptors[i]);
+		bufferDescriptors[i].action = Action::load;
+		freeBufferDescriptors.push(static_cast<Message*>(&bufferDescriptors[i]));
 	}
 
-	findNextMusic(threadResources, globalResources, [](AmbientMusic& music, ThreadResources& threadResources, GlobalResources& globalResources)
+	findNextMusic(threadResources, asynchronousFileManager, [](AmbientMusic& music, ThreadResources& threadResources, GlobalResources& globalResources)
 	{
 		music.run(threadResources, globalResources);
 		music.musicPlayer->Start(0u, 0u);
 	});
 }
 
-void AmbientMusic::addMessage(AsynchronousFileManager::ReadRequest& request, ThreadResources& threadResources, GlobalResources&)
+void AmbientMusic::addMessage(Message& request, ThreadResources& threadResources, GlobalResources&)
 {
 	bool needsStarting = freeBufferDescriptors.push(&request);
 	if(needsStarting)
@@ -164,7 +161,7 @@ void AmbientMusic::addMessage(AsynchronousFileManager::ReadRequest& request, Thr
 
 void AmbientMusic::stop(StopRequest& stopRequest1, ThreadResources& threadResources, GlobalResources& globalResources)
 {
-	stopRequest1.action = AsynchronousFileManager::Action::deallocate;
+	stopRequest1.action = Action::unload;
 	addMessage(stopRequest1, threadResources, globalResources);
 }
 
@@ -203,9 +200,9 @@ void AmbientMusic::continueRunning(ThreadResources& threadResources, GlobalResou
 
 bool AmbientMusic::processMessage(SinglyLinked*& temp, ThreadResources& threadResources, GlobalResources& globalResources)
 {
-	auto& message = *static_cast<AsynchronousFileManager::ReadRequest*>(temp);
+	auto& message = *static_cast<Message*>(temp);
 	temp = temp->next; //Allow reuse of next
-	if(message.action == AsynchronousFileManager::Action::allocate)
+	if(message.action == Action::load)
 	{
 		if(stopRequest != nullptr)
 		{
@@ -213,7 +210,7 @@ bool AmbientMusic::processMessage(SinglyLinked*& temp, ThreadResources& threadRe
 			if(stopRequest->numberOfComponentsUnloaded == StopRequest::numberOfComponentsToUnload)
 			{
 				file.close();
-				stopRequest->deleteReadRequest(*stopRequest, &threadResources, &globalResources);
+				stopRequest->callback(*stopRequest, &threadResources, &globalResources);
 				freeBufferDescriptors.stop();
 				return true;
 			}
@@ -221,7 +218,7 @@ bool AmbientMusic::processMessage(SinglyLinked*& temp, ThreadResources& threadRe
 		else
 		{
 			pendingMessages = temp;
-			fillAndSubmitBuffer(static_cast<Buffer&>(message), threadResources, globalResources);
+			fillAndSubmitBuffer(static_cast<Buffer&>(message), globalResources.asynchronousFileManager);
 			return true;
 		}
 	}
@@ -233,7 +230,7 @@ bool AmbientMusic::processMessage(SinglyLinked*& temp, ThreadResources& threadRe
 	return false;
 }
 
-void AmbientMusic::findNextMusic(ThreadResources& threadResources, GlobalResources& globalResources, void(*callbackFunc)(AmbientMusic& music, ThreadResources& threadResources, GlobalResources& globalResources))
+void AmbientMusic::findNextMusic(ThreadResources& threadResources, AsynchronousFileManager& asynchronousFileManager, void(*callbackFunc)(AmbientMusic& music, ThreadResources& threadResources, GlobalResources& globalResources))
 {
 	callback = callbackFunc;
 
@@ -253,12 +250,12 @@ void AmbientMusic::findNextMusic(ThreadResources& threadResources, GlobalResourc
 
 	auto& request = infoRequest;
 	request.filename = files[track];
-	request.file = globalResources.asynchronousFileManager.openFileForReading<GlobalResources>(globalResources.ioCompletionQueue, request.filename);
+	request.file = asynchronousFileManager.openFileForReading(request.filename);
 	file = request.file;
-	globalResources.asynchronousFileManager.readFile(&request, threadResources, globalResources);
+	asynchronousFileManager.readFile(request);
 }
 
-void AmbientMusic::fillAndSubmitBuffer(Buffer& buffer, ThreadResources& threadResources, GlobalResources& globalResources)
+void AmbientMusic::fillAndSubmitBuffer(Buffer& buffer, AsynchronousFileManager& asynchronousFileManager)
 {
 	std::size_t bytesToCopy = std::min(rawSoundDataBufferSize, bytesRemaining);
 	assert(bytesToCopy != 0u);
@@ -266,7 +263,7 @@ void AmbientMusic::fillAndSubmitBuffer(Buffer& buffer, ThreadResources& threadRe
 	buffer.file = file;
 	buffer.start = filePosition;
 	buffer.end = filePosition + bytesToCopy;
-	globalResources.asynchronousFileManager.readFile(&buffer, threadResources, globalResources);
+	asynchronousFileManager.readFile(buffer);
 }
 
 void AmbientMusic::submitBuffer(IXAudio2SourceVoice* musicPlayer, void* context, const unsigned char* data, std::size_t length)

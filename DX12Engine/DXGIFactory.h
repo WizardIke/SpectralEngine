@@ -9,7 +9,7 @@ class DXGIFactory
 public:
 	DXGIFactory(bool enableGpuDebugging) : data(nullptr)
 	{
-#ifndef ndebug
+#ifndef NDEBUG
 		D3D12Debug debugController;
 		debugController->EnableDebugLayer();
 		if (enableGpuDebugging)
@@ -31,7 +31,7 @@ public:
 		}
 #endif
 		HRESULT hr;
-#ifndef ndebug
+#ifndef NDEBUG
 		hr = CreateDXGIFactory2(DXGI_CREATE_FACTORY_DEBUG, IID_PPV_ARGS(&data));
 #else
 		if (enableGpuDebugging)

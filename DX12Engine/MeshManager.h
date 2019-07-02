@@ -127,10 +127,9 @@ private:
 	void notifyMeshReady(MeshStreamingRequest* request, void* executor, void* sharedResources);
 
 	template<class ThreadResources, class GlobalResources>
-	static void copyFinished(void* requester, void* tr, void* gr)
+	static void copyFinished(void* requester, void*, void* gr)
 	{
 		MeshStreamingRequest* request = static_cast<MeshStreamingRequest*>(requester);
-		ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
 		GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
 
 		request->deleteReadRequest = [](AsynchronousFileManager::ReadRequest& request1, void* tr, void* gr)
@@ -151,7 +150,7 @@ private:
 			StreamingManager& streamingManager = globalResources.streamingManager;
 			streamingManager.uploadFinished(request, threadResources, globalResources);
 		};
-		globalResources.asynchronousFileManager.discard(request, threadResources, globalResources);
+		globalResources.asynchronousFileManager.discard(*request);
 	}
 
 	template<class ThreadResources, class GlobalResources, void(*useResourceHelper)(MeshStreamingRequest&, const unsigned char*, ID3D12Device*,
@@ -159,21 +158,21 @@ private:
 	static void useResource(StreamingManager::StreamingRequest* useSubresourceRequest, void* tr, void*)
 	{
 		ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
-		threadResources.taskShedular.pushBackgroundTask({useSubresourceRequest, [](void* requester, ThreadResources& threadResources, GlobalResources& globalResources)
+		threadResources.taskShedular.pushBackgroundTask({useSubresourceRequest, [](void* requester, ThreadResources&, GlobalResources& globalResources)
 		{
 			auto& uploadRequest = *static_cast<MeshStreamingRequest*>(static_cast<StreamingManager::StreamingRequest*>(requester));
 			const auto sizeOnFile = uploadRequest.sizeOnFile;
 
 			uploadRequest.start = sizeof(MeshHeader);
 			uploadRequest.end = sizeof(MeshHeader) + sizeOnFile;
-			uploadRequest.fileLoadedCallback = [](AsynchronousFileManager::ReadRequest& request, void* tr, void* gr, const unsigned char* buffer)
+			uploadRequest.fileLoadedCallback = [](AsynchronousFileManager::ReadRequest& request, AsynchronousFileManager&, void* tr, void* gr, const unsigned char* buffer)
 			{
 				ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
 				GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
 				useResourceHelper(static_cast<MeshStreamingRequest&>(request), buffer, globalResources.graphicsEngine.graphicsDevice,
 					threadResources.streamingManager, copyFinished<ThreadResources, GlobalResources>);
 			};
-			globalResources.asynchronousFileManager.readFile(&uploadRequest, threadResources, globalResources);
+			globalResources.asynchronousFileManager.readFile(uploadRequest);
 		}});
 	}
 
@@ -237,20 +236,17 @@ private:
 	}
 
 	template<class ThreadResources, class GlobalResources>
-	void loadMeshUncached(ThreadResources& threadResources, GlobalResources& globalResources, MeshStreamingRequest& request)
+	void loadMeshUncached(GlobalResources& globalResources, MeshStreamingRequest& request)
 	{
-		request.file = globalResources.asynchronousFileManager.openFileForReading<GlobalResources>(globalResources.ioCompletionQueue, request.filename);
+		request.file = globalResources.asynchronousFileManager.openFileForReading(request.filename);
 		request.start = 0u;
 		request.end = sizeof(MeshHeader);
-		request.fileLoadedCallback = [](AsynchronousFileManager::ReadRequest& request, void* tr, void* gr, const unsigned char* buffer)
+		request.fileLoadedCallback = [](AsynchronousFileManager::ReadRequest& request, AsynchronousFileManager& asynchronousFileManager, void*, void*, const unsigned char* buffer)
 		{
 			MeshStreamingRequest& uploadRequest = static_cast<MeshStreamingRequest&>(request);
 			const MeshHeader* header = reinterpret_cast<const MeshHeader*>(buffer);
 			fillUploadRequest<ThreadResources, GlobalResources>(uploadRequest, header->vertexCount, header->indexCount, header->compressedVertexType, header->unpackedVertexType);
-
-			ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
-			GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
-			globalResources.asynchronousFileManager.discard(&request, threadResources, globalResources);
+			asynchronousFileManager.discard(request);
 		};
 		request.deleteReadRequest = [](AsynchronousFileManager::ReadRequest& request, void* tr, void* gr)
 		{
@@ -259,11 +255,11 @@ private:
 			StreamingManager& streamingManager = globalResources.streamingManager;
 			streamingManager.addUploadRequest(static_cast<MeshStreamingRequest*>(&request), threadResources, globalResources);
 		};
-		globalResources.asynchronousFileManager.readFile(&request, threadResources, globalResources);
+		globalResources.asynchronousFileManager.readFile(request);
 	}
 
 	static void createMeshResources(ID3D12Resource*& vertices, ID3D12Resource*& indices, ID3D12Heap*& meshBuffer, ID3D12Device* graphicsDevice, uint32_t vertexSizeBytes, uint32_t indexSizeBytes
-#ifndef ndebug
+#ifndef NDEBUG
 		, const wchar_t* filename
 #endif
 	);
@@ -280,7 +276,7 @@ private:
 			meshInfo.lastRequest = request;
 			request->nextMeshRequest = nullptr;
 
-			loadMeshUncached(executor, sharedResources, *request);
+			loadMeshUncached<ThreadResources, GlobalResources>(sharedResources, *request);
 			return;
 		}
 		//the resource is loaded or loading

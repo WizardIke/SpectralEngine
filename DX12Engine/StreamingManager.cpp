@@ -36,11 +36,8 @@ StreamingManager::StreamingManager(ID3D12Device& graphicsDevice, unsigned long u
 	uploadResouceDesc.SampleDesc.Count = 1u;
 	uploadResouceDesc.SampleDesc.Quality = 0u;
 	uploadResouceDesc.Layout = D3D12_TEXTURE_LAYOUT::D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-#ifndef NDEBUG
-	uploadResouceDesc.Flags = D3D12_RESOURCE_FLAGS::D3D12_RESOURCE_FLAG_NONE; //graphics debugger can't handle D3D12_RESOURCE_FLAGS::D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE
-#else
 	uploadResouceDesc.Flags = D3D12_RESOURCE_FLAGS::D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE;
-#endif
+
 	return uploadResouceDesc;
 }(), D3D12_RESOURCE_STATE_GENERIC_READ)
 {

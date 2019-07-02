@@ -170,15 +170,16 @@ private:
 	class AllocatorWrapper : private std::allocator_traits<Allocator>::template rebind_alloc<Node>
 	{
 		using Base = typename std::allocator_traits<Allocator>::template rebind_alloc<Node>;
+		using Traits = std::allocator_traits<typename Base>;
 	public:
-		typename Base::value_type* allocate(typename Base::size_type n)
+		typename Traits::value_type* allocate(typename Traits::size_type n)
 		{
-			return Base::allocate(n);
+			return Traits::allocate(*static_cast<Base*>(this), n);
 		}
 
-		void deallocate(typename Base::value_type* p, typename Base::size_type n)
+		void deallocate(typename Traits::value_type* p, typename Traits::size_type n)
 		{
-			return Base::deallocate(p, n);
+			return Traits::deallocate(*static_cast<Base*>(this), p, n);
 		}
 	};
 	

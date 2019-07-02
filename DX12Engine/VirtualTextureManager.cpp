@@ -180,7 +180,8 @@ void VirtualTextureManager::notifyTextureReady(TextureStreamingRequest* request,
 	} while(request != nullptr);
 }
 
-void VirtualTextureManager::textureUseResourceHelper(TextureStreamingRequest& uploadRequest, void(*fileLoadedCallback)(AsynchronousFileManager::ReadRequest& request, void* tr, void*, const unsigned char* buffer))
+void VirtualTextureManager::textureUseResourceHelper(TextureStreamingRequest& uploadRequest,
+	void(*fileLoadedCallback)(AsynchronousFileManager::ReadRequest& request, AsynchronousFileManager& asynchronousFileManager, void* tr, void*, const unsigned char* buffer))
 {
 	Texture& texture = *uploadRequest.texture;
 	std::size_t subresouceWidth = texture.width;

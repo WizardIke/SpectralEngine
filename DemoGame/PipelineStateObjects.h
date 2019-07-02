@@ -3,82 +3,40 @@
 #include <atomic>
 #include <AsynchronousFileManager.h>
 #include <Array.h>
-class ThreadResources;
-class GlobalResources;
+#include <PsoLoader.h>
+#include "RootSignatures.h"
 
 class PipelineStateObjects
 {
 public:
-	class ShaderRequestVP
-	{
-		constexpr static unsigned int numberOfComponents = 2u;
-
-		class RequestHelper : public AsynchronousFileManager::ReadRequest
-		{
-		public:
-			ShaderRequestVP* request;
-		};
-
-		ID3D12RootSignature* rootSignature;
-
-		RequestHelper vertexHelper;
-		const unsigned char* vertexShaderData;
-
-		RequestHelper pixelHelper;
-		const unsigned char* pixelShaderData;
-
-		std::atomic<unsigned int> numberOfComponentsLoaded = 0u;
-		std::atomic<unsigned int> numberOfComponentsReadyToDelete = 0u;
-		void(*loadDescription)(const unsigned char* vertexShaderData, std::size_t vertexShaderDataLength, const unsigned char* pixelShaderData, std::size_t pixelShaderDataLength,
-			PipelineStateObjects& pipelineStateObjects, ID3D12RootSignature* rootSignature, ID3D12Device* device);
-		void(*deleteRequest)(ShaderRequestVP& request);
-		void(*loadingFinished)(ShaderRequestVP& request, ThreadResources& threadResources, GlobalResources& globalResources);
-
-		static void freeRequestMemory(AsynchronousFileManager::ReadRequest& request1, void*, void*);
-		void shaderFileLoaded(ThreadResources& threadResources, GlobalResources& globalResources);
-	public:
-		ShaderRequestVP(ThreadResources& threadResources, GlobalResources& globalResources, const wchar_t* vertexFile, const wchar_t* pixelFile, ID3D12RootSignature* rootSignature1,
-			void(*loadingFinished1)(ShaderRequestVP& request, ThreadResources& threadResources, GlobalResources& globalResources),
-			void(*loadDescription1)(const unsigned char* vertexShaderData, std::size_t vertexShaderDataLength, const unsigned char* pixelShaderData, std::size_t pixelShaderDataLength,
-				PipelineStateObjects& pipelineStateObjects, ID3D12RootSignature* rootSignature, ID3D12Device* device),
-			void(*deleteRequest1)(ShaderRequestVP& request));
-	};
-
 	class PipelineLoader;
 	class PipelineLoaderImpl
 	{
 	public:
-		class ShaderLoader : public ShaderRequestVP
+		class ShaderLoader : public PsoLoader::PsoWithVertexAndPixelShaderRequest
 		{
 		public:
 			PipelineLoader* pipelineLoader;
+			D3D12PipelineState& piplineStateObject;
 
-			ShaderLoader(ThreadResources& threadResources, GlobalResources& globalResources, const wchar_t* vertexFile, const wchar_t* pixelFile, ID3D12RootSignature* rootSignature1,
-				void(*loadingFinished1)(ShaderRequestVP& request, ThreadResources& threadResources, GlobalResources& globalResources),
-				void(*loadDescription1)(const unsigned char* vertexShaderData, std::size_t vertexShaderDataLength, const unsigned char* pixelShaderData, std::size_t pixelShaderDataLength,
-					PipelineStateObjects& pipelineStateObjects, ID3D12RootSignature* rootSignature, ID3D12Device* device),
-				void(*deleteRequest1)(ShaderRequestVP& request), PipelineLoader* pipelineLoader);
+			ShaderLoader(GraphicsPipelineStateDesc& graphicsPipelineStateDesc, AsynchronousFileManager& asynchronousFileManager, ID3D12Device& grphicsDevice,
+				void(*psoLoadedCallback1)(PsoLoader::PsoWithVertexAndPixelShaderRequest& request, D3D12PipelineState pso, void* tr, void* gr),
+				PipelineLoader* pipelineLoader1, D3D12PipelineState& piplineStateObject1) :
+				PsoLoader::PsoWithVertexAndPixelShaderRequest(graphicsPipelineStateDesc, asynchronousFileManager, grphicsDevice, psoLoadedCallback1),
+				pipelineLoader(pipelineLoader1),
+				piplineStateObject(piplineStateObject1)
+				{}
 		};
 	
-		struct ShaderInfo
-		{
-			const wchar_t* vertexShader;
-			const wchar_t* pixelShader;
-			ID3D12RootSignature* rootSignature;
-			void(*loadDescription)(const unsigned char* vertexShaderData, std::size_t vertexShaderDataLength, const unsigned char* pixelShaderData, std::size_t pixelShaderDataLength,
-				PipelineStateObjects& pipelineStateObjects, ID3D12RootSignature* rootSignature, ID3D12Device* device);
-		};
-
 		constexpr static unsigned int numberOfComponents = 15u;
 		std::atomic<unsigned int> numberOfcomponentsLoaded = 0u;
-		std::atomic<unsigned int> numberOfComponentsReadyToDelete = 0u;
 
 		Array<ShaderLoader, numberOfComponents> shaderLoaders;
 
-		static void componentLoaded(ShaderRequestVP& request1, ThreadResources& threadResources, GlobalResources& globalResources);
-		static void freeComponent(ShaderRequestVP& request1);
+		static void componentLoaded(PsoLoader::PsoWithVertexAndPixelShaderRequest& request, D3D12PipelineState pso, void* tr, void* gr);
 
-		PipelineLoaderImpl(const ShaderInfo(&shadowInfos)[numberOfComponents], ThreadResources& threadResources, GlobalResources& globalResources, PipelineLoader& pipelineLoader);
+		PipelineLoaderImpl(GraphicsPipelineStateDesc* const(&graphicsPipelineStateDescs)[numberOfComponents], D3D12PipelineState* const(&output)[numberOfComponents],
+			AsynchronousFileManager& asynchronousFileManager, ID3D12Device& grphicsDevice, PipelineLoader& pipelineLoader, ID3D12RootSignature& rootSignature);
 	};
 
 	class PipelineLoader
@@ -89,17 +47,16 @@ public:
 		{
 			PipelineLoaderImpl impl;
 		};
-		void(*loadingFinished)(PipelineLoader& pipelineLoader, ThreadResources& threadResources, GlobalResources& globalResources);
-		void(*deleteRequest)(PipelineLoader& pipelineLoader);
+		void(*loadingFinished)(PipelineLoader& pipelineLoader, void* tr, void* gr);
 
 	public:
-		PipelineLoader(void(*loadingFinished)(PipelineLoader& pipelineLoader, ThreadResources& threadResources, GlobalResources& globalResources), void(*deleteRequest)(PipelineLoader& pipelineLoader)) :
-			loadingFinished(loadingFinished), deleteRequest(deleteRequest) {}
+		PipelineLoader(void(*loadingFinished)(PipelineLoader& pipelineLoader, void* tr, void* gr)) :
+			loadingFinished(loadingFinished) {}
 
 		~PipelineLoader() {}
 	};
 
-	PipelineStateObjects(ThreadResources& threadResources, GlobalResources& globalResources, PipelineLoader& pipelineLoader);
+	PipelineStateObjects(AsynchronousFileManager& asynchronousFileManager, ID3D12Device& graphicsDevice, RootSignatures& rootSignatures, PipelineLoader& pipelineLoader);
 	~PipelineStateObjects() {}
 
 	D3D12PipelineState text;
