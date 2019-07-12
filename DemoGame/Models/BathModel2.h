@@ -32,25 +32,27 @@ public:
 	Mesh* mesh;
 
 	BathModel2() {}
-	BathModel2(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, unsigned char*& constantBufferCpuAddress)
+
+	void setConstantBuffers(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, unsigned char*& constantBufferCpuAddress)
 	{
 		gpuBuffer = constantBufferGpuAddress;
 		constantBufferGpuAddress += psBufferSize + vsBufferSize;
-	
+
 		VSPerObjectConstantBuffer* vsPerObjectCBVCpuAddress = reinterpret_cast<VSPerObjectConstantBuffer*>(constantBufferCpuAddress);
 		constantBufferCpuAddress += vsBufferSize;
 		DirectionalLightMaterialPS* psPerObjectCBVCpuAddress = reinterpret_cast<DirectionalLightMaterialPS*>(constantBufferCpuAddress);
 		constantBufferCpuAddress += psBufferSize;
 
-		vsPerObjectCBVCpuAddress->worldMatrix = {	1.f, 0.f, 0.f, 0.f,
+		vsPerObjectCBVCpuAddress->worldMatrix = { 1.f, 0.f, 0.f, 0.f,
 													0.f, 1.f, 0.f, 0.f,
 													0.f, 0.f, 1.f, 0.f,
 													positionX, positionY, positionZ, 1.f };
 
-		psPerObjectCBVCpuAddress->specularColor = DirectX::XMFLOAT3{ 0.1f, 0.1f, 0.1f};
+		psPerObjectCBVCpuAddress->specularColor = DirectX::XMFLOAT3{ 0.1f, 0.1f, 0.1f };
 		psPerObjectCBVCpuAddress->specularPower = 4.0f;
 	}
-	~BathModel2() {}
+
+	~BathModel2() = default;
 
 	bool isInView(const Frustum& Frustum)
 	{

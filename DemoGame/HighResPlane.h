@@ -32,7 +32,8 @@ public:
 	Mesh* mesh;
 
 	HighResPlane() {}
-	HighResPlane(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, unsigned char*& constantBufferCpuAddress)
+
+	void setConstantBuffers(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, unsigned char*& constantBufferCpuAddress)
 	{
 		gpuBuffer = constantBufferGpuAddress;
 		constantBufferGpuAddress += vsBufferSize + psBufferSize;
@@ -47,6 +48,7 @@ public:
 		psPerObjectCBVCpuAddress->specularColor = { 0.01f, 0.01f, 0.01f };
 		psPerObjectCBVCpuAddress->specularPower = 16.0f;
 	}
+
 	~HighResPlane() {}
 
 	bool isInView(const Frustum& frustum)

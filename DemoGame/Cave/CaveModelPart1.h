@@ -36,8 +36,9 @@ public:
 
 	CaveModelPart1() {}
 
-	CaveModelPart1(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, unsigned char*& constantBufferCpuAddress);
-	~CaveModelPart1() {}
+	void setConstantBuffers(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, unsigned char*& constantBufferCpuAddress);
+
+	~CaveModelPart1() = default;
 
 	bool CaveModelPart1::isInView(const Frustum& Frustum);
 

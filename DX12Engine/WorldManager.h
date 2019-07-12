@@ -74,8 +74,20 @@ private:
 
 		void operator=(SearchNode&& other) noexcept
 		{
-			this->~SearchNode();
-			new(this) SearchNode(std::move(other));
+			totalDistance = other.totalDistance;
+			zoneX = other.zoneX;
+			zoneY = other.zoneY;
+			zoneZ = other.zoneZ;
+			zoneIndex = other.zoneIndex;
+			worldIndex = other.worldIndex;
+			anchor = other.anchor;
+			distanceFromStartToAnchor = other.distanceFromStartToAnchor;
+			queueLocation = other.queueLocation;
+
+			if (queueLocation != nullptr)
+			{
+				queueLocation->node = this;
+			}
 		}
 
 		float totalDistance;

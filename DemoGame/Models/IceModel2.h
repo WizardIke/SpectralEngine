@@ -31,7 +31,7 @@ public:
 
 	IceModel2() {}
 
-	IceModel2(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, unsigned char*& constantBufferCpuAddress, unsigned int refractionTextureIndex)
+	void setConstantBuffers(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, unsigned char*& constantBufferCpuAddress, unsigned int refractionTextureIndex)
 	{
 		constantBufferGpu = constantBufferGpuAddress;
 		constantBufferGpuAddress += vsConstantBufferSize + vsConstantBufferSize + psConstantBufferSize;
@@ -47,7 +47,8 @@ public:
 		aabbBuffer->worldMatrix = DirectX::XMMatrixScaling(5.2f, 5.2f, 5.2f) * DirectX::XMMatrixTranslation(positionX, positionY, positionZ);
 		constantBufferCpuAddress += vsConstantBufferSize;
 	}
-	~IceModel2() {}
+
+	~IceModel2() = default;
 
 	bool IceModel2::isInView(const Frustum& Frustum)
 	{

@@ -1,7 +1,6 @@
 #pragma once
 #include "D3D12Resource.h"
 #include "D3D12DescriptorHeap.h"
-#include <new>
 #include "RenderSubPass.h"
 #include "VirtualPageCamera.h"
 #include "DDsFileLoader.h"

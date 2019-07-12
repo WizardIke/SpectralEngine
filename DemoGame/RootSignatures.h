@@ -6,7 +6,7 @@ class RootSignatures
 {
 public:
 	RootSignatures(ID3D12Device* const Device);
-	~RootSignatures();
+	~RootSignatures() = default;
 
 
 	D3D12RootSignature rootSignature;

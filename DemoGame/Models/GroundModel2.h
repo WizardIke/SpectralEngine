@@ -37,7 +37,8 @@ public:
 	Mesh* mesh;
 
 	GroundModel2() {}
-	GroundModel2(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, unsigned char*& constantBufferCpuAddress)
+
+	void setConstantBuffers(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, unsigned char*& constantBufferCpuAddress)
 	{
 		gpuBuffer = constantBufferGpuAddress;
 		constantBufferGpuAddress += vsBufferSize + psBufferSize;
@@ -47,7 +48,8 @@ public:
 
 		vsPerObjectCBVCpuAddress->worldMatrix = DirectX::XMMATRIX{ 4.f, 0.f, 0.f, 0.f,  0.f, 4.f, 0.f, 0.f,  0.f, 0.f, 4.f, 0.f,  positionX, positionY, positionZ, 1.f };
 	}
-	~GroundModel2() {}
+
+	~GroundModel2() = default;
 
 	bool GroundModel2::isInView(const Frustum& Frustum)
 	{

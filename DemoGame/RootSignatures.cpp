@@ -100,7 +100,5 @@ RootSignatures::RootSignatures(ID3D12Device* const device)
 	HRESULT hr = D3D12SerializeRootSignature(&rootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1, &signature.get(), &errorBuff.get());
 	if (FAILED(hr)) throw false;
 
-	new(&rootSignature) D3D12RootSignature(device, 0u, signature->GetBufferPointer(), signature->GetBufferSize());
+	rootSignature = D3D12RootSignature(device, 0u, signature->GetBufferPointer(), signature->GetBufferSize());
 }
-
-RootSignatures::~RootSignatures() {}

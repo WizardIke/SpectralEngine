@@ -137,7 +137,16 @@ depthStencilHeap(graphicsDevice, []()
 	depthOptimizedClearValue.DepthStencil.Depth = 1.0f;
 	depthOptimizedClearValue.DepthStencil.Stencil = 0;
 	return depthOptimizedClearValue;
-}())
+}()),
+	mainDescriptorHeap(graphicsDevice, [resourceBindingTier = adapterAndDeviceAndResourceBindingTier.resourceBindingTier]()
+	{
+		D3D12_DESCRIPTOR_HEAP_DESC heapDesc;
+		heapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+		heapDesc.NumDescriptors = resourceBindingTier == D3D12_RESOURCE_BINDING_TIER_1 ? 128u : DescriptorAllocator::maxDescriptors;
+		heapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+		heapDesc.NodeMask = 0u;
+		return heapDesc;
+	}())
 {
 	D3D12_DEPTH_STENCIL_VIEW_DESC depthStencilDesc;
 	depthStencilDesc.Format = DXGI_FORMAT_D32_FLOAT;
@@ -147,13 +156,6 @@ depthStencilHeap(graphicsDevice, []()
 
 	graphicsDevice->CreateDepthStencilView(depthStencilHeap, &depthStencilDesc, depthStencilDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
 
-	D3D12_DESCRIPTOR_HEAP_DESC heapDesc;
-	heapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-	heapDesc.NumDescriptors = adapterAndDeviceAndResourceBindingTier.resourceBindingTier == D3D12_RESOURCE_BINDING_TIER_1 ? 128u : DescriptorAllocator::maxDescriptors;
-	heapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-	heapDesc.NodeMask = 0u;
-
-	new(&mainDescriptorHeap) D3D12DescriptorHeap(graphicsDevice, heapDesc);
 
 #ifndef NDEBUG
 	depthStencilDescriptorHeap->SetName(L"Depth/Stencil Descriptor Heap");

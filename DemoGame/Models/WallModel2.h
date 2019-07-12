@@ -33,7 +33,8 @@ public:
 	Mesh* mesh;
 	
 	WallModel2() {}
-	WallModel2(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, unsigned char*& constantBufferCpuAddress)
+
+	void setConstantBuffers(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, unsigned char*& constantBufferCpuAddress)
 	{
 		gpuBuffer = constantBufferGpuAddress;
 		constantBufferGpuAddress += vsBufferSize + psBufferSize;
@@ -43,15 +44,16 @@ public:
 		auto psPerObjectCBVCpuAddress = reinterpret_cast<DirectionalLightMaterialPS*>(constantBufferCpuAddress);
 		constantBufferCpuAddress += psBufferSize;
 
-		vsPerObjectCBVCpuAddress->worldMatrix = {	1.f, 0.f, 0.f, 0.f,
+		vsPerObjectCBVCpuAddress->worldMatrix = { 1.f, 0.f, 0.f, 0.f,
 													0.f, 1.f, 0.f, 0.f,
 													0.f, 0.f, 1.f, 0.f,
 													positionX, positionY, positionZ, 1.f };
 
-		psPerObjectCBVCpuAddress->specularColor = DirectX::XMFLOAT3{ 0.5f, 0.5f, 0.5f};
+		psPerObjectCBVCpuAddress->specularColor = DirectX::XMFLOAT3{ 0.5f, 0.5f, 0.5f };
 		psPerObjectCBVCpuAddress->specularPower = 4.0f;
 	}
-	~WallModel2() {}
+
+	~WallModel2() = default;
 
 	bool WallModel2::isInView(const Frustum& Frustum)
 	{

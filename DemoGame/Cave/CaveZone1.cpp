@@ -75,7 +75,7 @@ namespace Cave
 			PerObjectConstantBuffersGpuAddress += vtFeedbackMaterialPsSize;
 			cpuConstantBuffer += vtFeedbackMaterialPsSize;
 
-			new(&caveModelPart1) CaveModelPart1(PerObjectConstantBuffersGpuAddress, cpuConstantBuffer);
+			caveModelPart1.setConstantBuffers(PerObjectConstantBuffersGpuAddress, cpuConstantBuffer);
 
 			VirtualTextureManager& virtualTextureManager = globalResources.virtualTextureManager;
 			VirtualTextureRequest* stone04Request = new VirtualTextureRequest([](VirtualTextureManager::TextureStreamingRequest& request, void*, const VirtualTextureManager::Texture& texture)

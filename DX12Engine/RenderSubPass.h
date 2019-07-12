@@ -276,12 +276,6 @@ public:
 			currentData = &perFrameDatas[frameIndex];
 		}
 
-		void operator=(ThreadLocal&& other) noexcept
-		{
-			this->~ThreadLocal();
-			new(this) ThreadLocal(std::move(other));
-		}
-
 		void update1After(GraphicsEngine& graphicsEngine, RenderSubPass<Camera, state1, Dependencies_t, DependencyStates_t, commandListsPerFrame, stateAfter1, isStaticNumberOfCameras, initialSize>& renderSubPass,
 			ID3D12RootSignature* rootSignature)
 		{

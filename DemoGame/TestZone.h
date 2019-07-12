@@ -74,7 +74,7 @@ class TestZoneFunctions
 			auto PerObjectConstantBuffersGpuAddress = perObjectConstantBuffers->GetGPUVirtualAddress();
 			auto cpuConstantBuffer = perObjectConstantBuffersCpuAddress;
 
-			new(&highResPlaneModel) HighResPlane<x, z>(PerObjectConstantBuffersGpuAddress, cpuConstantBuffer);
+			highResPlaneModel.setConstantBuffers(PerObjectConstantBuffersGpuAddress, cpuConstantBuffer);
 
 			stone4FeedbackBufferPs = PerObjectConstantBuffersGpuAddress;
 			PerObjectConstantBuffersGpuAddress += vtFeedbackMaterialPsSize;

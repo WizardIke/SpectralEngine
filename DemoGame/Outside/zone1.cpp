@@ -208,22 +208,20 @@ namespace
 				globalResources.renderPass.renderToTextureSubPass().addCameraFromBackground(*addCameraRequest, globalResources.renderPass, globalResources.taskShedular);
 			}
 
-			new(&bathModel1) BathModel2(PerObjectConstantBuffersGpuAddress, cpuConstantBuffer);
+			bathModel1.setConstantBuffers(PerObjectConstantBuffersGpuAddress, cpuConstantBuffer);
 
-			new(&groundModel) GroundModel2(PerObjectConstantBuffersGpuAddress, cpuConstantBuffer);
+			groundModel.setConstantBuffers(PerObjectConstantBuffersGpuAddress, cpuConstantBuffer);
 
-			new(&wallModel) WallModel2(PerObjectConstantBuffersGpuAddress, cpuConstantBuffer);
+			wallModel.setConstantBuffers(PerObjectConstantBuffersGpuAddress, cpuConstantBuffer);
 
-			new(&waterModel) WaterModel2(PerObjectConstantBuffersGpuAddress, cpuConstantBuffer, reflectionCameraBackBuffer,
+			waterModel.setConstantBuffers(PerObjectConstantBuffersGpuAddress, cpuConstantBuffer, reflectionCameraBackBuffer,
 				globalResources.warpTextureDescriptorIndex);
 
-			new(&iceModel) IceModel2(PerObjectConstantBuffersGpuAddress, cpuConstantBuffer, globalResources.warpTextureDescriptorIndex);
+			iceModel.setConstantBuffers(PerObjectConstantBuffersGpuAddress, cpuConstantBuffer, globalResources.warpTextureDescriptorIndex);
 
-			new(&fireModel1) FireModel<templateFloat(55.0f), templateFloat(2.0f), templateFloat(64.0f)>(PerObjectConstantBuffersGpuAddress,
-				cpuConstantBuffer);
+			fireModel1.setConstantBuffers(PerObjectConstantBuffersGpuAddress, cpuConstantBuffer);
 
-			new(&fireModel2) FireModel<templateFloat(53.0f), templateFloat(2.0f), templateFloat(64.0f)>(PerObjectConstantBuffersGpuAddress,
-				cpuConstantBuffer);
+			fireModel2.setConstantBuffers(PerObjectConstantBuffersGpuAddress, cpuConstantBuffer);
 
 			auto textureRequests = new TextureRequests<numTextures>([](TextureRequests<numTextures>& request, ThreadResources&)
 			{
@@ -808,7 +806,7 @@ namespace
 			auto PerObjectConstantBuffersGpuAddress = perObjectConstantBuffers->GetGPUVirtualAddress();
 			auto cpuConstantBuffer = perObjectConstantBuffersCpuAddress;
 
-			new(&bathModel) BathModel2(PerObjectConstantBuffersGpuAddress, cpuConstantBuffer);
+			bathModel.setConstantBuffers(PerObjectConstantBuffersGpuAddress, cpuConstantBuffer);
 
 			TextureManager& textureManager = globalResources.textureManager;
 			TextureRequest* marble01Request = new TextureRequest([](TextureManager::TextureStreamingRequest& request, void*, unsigned int textureDescriptor)

@@ -5,17 +5,19 @@
 #include <Shaders/WaterMaterialVS.h>
 #include <GraphicsEngine.h>
 
-struct AABBMaterial
+namespace
 {
-	DirectX::XMMATRIX worldMatrix;
-};
+	struct AABBMaterial
+	{
+		DirectX::XMMATRIX worldMatrix;
+	};
 
-constexpr static size_t vertexConstantBufferSize = (sizeof(WaterMaterialVS) + D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull) & ~(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull);
-constexpr static size_t pixelConstantBufferSize = (sizeof(WaterMaterialPS) + D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull) & ~(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull);
-constexpr static size_t aabbConstantBufferSize = (sizeof(AABBMaterial) + D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull) & ~(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull);
+	constexpr static size_t vertexConstantBufferSize = (sizeof(WaterMaterialVS) + D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull) & ~(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull);
+	constexpr static size_t pixelConstantBufferSize = (sizeof(WaterMaterialPS) + D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull) & ~(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull);
+	constexpr static size_t aabbConstantBufferSize = (sizeof(AABBMaterial) + D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull) & ~(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull);
+}
 
-WaterModel2::WaterModel2(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, unsigned char*& constantBufferCpuAddress, unsigned int reflectionTextureIndex, unsigned int refractionTextureIndex) :
-	waterTranslation(0.0f)
+void WaterModel2::setConstantBuffers(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, unsigned char*& constantBufferCpuAddress, unsigned int reflectionTextureIndex, unsigned int refractionTextureIndex)
 {
 	vertexConstantBufferCpu = constantBufferCpuAddress;
 	constantBufferGpu = constantBufferGpuAddress;

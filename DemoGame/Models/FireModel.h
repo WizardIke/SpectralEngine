@@ -33,7 +33,7 @@ public:
 
 	FireModel() {}
 
-	FireModel(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, unsigned char*& constantBufferCpuAddress)
+	void setConstantBuffers(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, unsigned char*& constantBufferCpuAddress)
 	{
 		constantBufferCpu = constantBufferCpuAddress;
 		constantBufferGpu = constantBufferGpuAddress;
@@ -54,7 +54,8 @@ public:
 		psPerObjectCBVCpuAddress->distortionScale = 0.8f;
 		psPerObjectCBVCpuAddress->distortionBias = 0.4f;
 	}
-	~FireModel() {}
+
+	~FireModel() = default;
 
 	bool isInView(const Frustum& Frustum)
 	{

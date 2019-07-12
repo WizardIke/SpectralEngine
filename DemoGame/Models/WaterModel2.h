@@ -13,7 +13,7 @@ class WaterModel2
 {
 	unsigned char* vertexConstantBufferCpu;
 	D3D12_GPU_VIRTUAL_ADDRESS constantBufferGpu;
-	float waterTranslation;
+	float waterTranslation = 0.0f;
 	constexpr static float positionX = 64.0f, positionY = 2.75f, positionZ = 64.0f;
 public:
 	D3D12_GPU_VIRTUAL_ADDRESS vsConstantBufferGPU(uint32_t frameIndex);
@@ -23,8 +23,10 @@ public:
 	Mesh* mesh;
 
 	WaterModel2() {}
-	WaterModel2(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, unsigned char*& constantBufferCpuAddress, unsigned int reflectionTextureIndex, unsigned int refractionTextureIndex);
-	~WaterModel2() {}
+
+	void setConstantBuffers(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, unsigned char*& constantBufferCpuAddress, unsigned int reflectionTextureIndex, unsigned int refractionTextureIndex);
+
+	~WaterModel2() = default;
 
 	bool WaterModel2::isInView(const Frustum& Frustum);
 	void update(float frameTime);

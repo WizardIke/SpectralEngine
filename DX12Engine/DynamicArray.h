@@ -20,8 +20,6 @@ public:
 	using const_pointer = const value_type*;
 	using const_reference = const value_type&;
 
-	class DoNotInitialize {};
-
 	struct Size
 	{
 		std::size_t size;
@@ -36,12 +34,6 @@ public:
 		buffer = other.buffer;
 		mEnd = other.mEnd;
 		other.mEnd = buffer;
-	}
-
-	DynamicArray(const Size size, DoNotInitialize)
-	{
-		buffer = this->allocate(size.size);
-		mEnd = buffer + size.size;
 	}
 
 	DynamicArray(const Size size)

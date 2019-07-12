@@ -217,9 +217,9 @@ StreamingManager::ThreadLocal::ThreadLocal(ID3D12Device& graphicsDevice) :
 	fenceValue{ 0u },
 	copyFence(&graphicsDevice, 0u, D3D12_FENCE_FLAG_NONE)
 {
-	new(&commandLists[1u]) D3D12GraphicsCommandList(&graphicsDevice, 0u, D3D12_COMMAND_LIST_TYPE::D3D12_COMMAND_LIST_TYPE_COPY, commandAllocators[0u], nullptr);
+	commandLists[1u] = D3D12GraphicsCommandList(&graphicsDevice, 0u, D3D12_COMMAND_LIST_TYPE::D3D12_COMMAND_LIST_TYPE_COPY, commandAllocators[0u], nullptr);
 	commandLists[1u]->Close();
-	new(&commandLists[0u]) D3D12GraphicsCommandList(&graphicsDevice, 0u, D3D12_COMMAND_LIST_TYPE::D3D12_COMMAND_LIST_TYPE_COPY, commandAllocators[0u], nullptr);
+	commandLists[0u] = D3D12GraphicsCommandList(&graphicsDevice, 0u, D3D12_COMMAND_LIST_TYPE::D3D12_COMMAND_LIST_TYPE_COPY, commandAllocators[0u], nullptr);
 	currentCommandList = commandLists[0u];
 
 #ifndef NDEBUG
