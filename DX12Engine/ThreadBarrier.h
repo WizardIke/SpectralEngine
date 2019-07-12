@@ -192,13 +192,13 @@ public:
 	}
 
 	template<class F>
-	void stop(unsigned int threadCount, F&& f, void* context)
+	void stop(unsigned int threadCount, F&& f)
 	{
 		std::unique_lock<std::mutex> lock(mutex);
 		++waitingCount;
 		if (waitingCount == threadCount)
 		{
-			f(context);
+			f();
 			++generation;
 			lock.unlock();
 			conditionVariable.notify_all();

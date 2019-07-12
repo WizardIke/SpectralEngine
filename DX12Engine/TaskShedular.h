@@ -179,15 +179,10 @@ public:
 			}
 		}
 
-		void start(TaskShedular& taskShedular)
-		{
-			taskShedular.barrier.start(barrier);
-		}
-
 		template<class F>
 		void stop(TaskShedular& taskShedular, F&& f)
 		{
-			taskShedular.barrier.stop(taskShedular.mThreadCount, std::forward<F>(f), this);
+			taskShedular.barrier.stop(taskShedular.mThreadCount, std::forward<F>(f));
 		}
 
 		/*
@@ -233,13 +228,16 @@ public:
 			mCurrentQueue = primaryQueues[1].currentQueue;
 		}
 
-		void endUpdate2Primary(TaskShedular& taskShedular, NextPhaseTask nextPhaseTask)
+		void endUpdate2Main(TaskShedular& taskShedular, NextPhaseTask nextPhaseTask)
 		{
-			taskShedular.barrier.sync([&taskShedular, nextPhaseTask]()
-				{
-					taskShedular.mNextPhaseTask = nextPhaseTask;
-					taskShedular.endUpdate<1>();
-				});
+			taskShedular.mNextPhaseTask = nextPhaseTask;
+			taskShedular.endUpdate<1>();
+			endUpdate2Primary(taskShedular);
+		}
+
+		void endUpdate2Primary(TaskShedular& taskShedular)
+		{
+			taskShedular.barrier.sync([](){});
 
 			primaryQueues[1].currentQueue->reset();
 			swap(primaryQueues[0].currentQueue, primaryQueues[0].nextQueue);
@@ -247,7 +245,7 @@ public:
 		}
 
 		template<void(*prepairForUpdate2)(ThreadResources& threadResources, void* context)>
-		void endUpdate2Background(TaskShedular& taskShedular, NextPhaseTask nextPhaseTask, ThreadResources& threadResources, void* context)
+		void endUpdate2Background(TaskShedular& taskShedular, ThreadResources& threadResources, void* context)
 		{
 			unsigned int currentQueueIndex = lockAndGetNextBackgroundQueue(mCurrentBackgroundQueueIndex, taskShedular.mThreadCount, taskShedular.mBackgroundQueues.get());
 			mCurrentBackgroundQueueIndex = currentQueueIndex;
@@ -255,11 +253,7 @@ public:
 			Task task;
 			if (taskShedular.mBackgroundQueues[currentQueueIndex]->pop(task))
 			{
-				taskShedular.barrier.syncAndRemoveThread(barrier, [&taskShedular, nextPhaseTask]()
-					{
-						taskShedular.mNextPhaseTask = nextPhaseTask;
-						taskShedular.endUpdate<1>();
-					});
+				taskShedular.barrier.syncAndRemoveThread(barrier, [](){});
 
 				primaryQueues[1].currentQueue->reset();
 
@@ -271,7 +265,7 @@ public:
 			else
 			{
 				taskShedular.mBackgroundQueues[currentQueueIndex]->unlock();
-				endUpdate2Primary(taskShedular, nextPhaseTask);
+				endUpdate2Primary(taskShedular);
 			}
 		}
 		

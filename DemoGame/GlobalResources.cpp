@@ -397,16 +397,18 @@ GlobalResources::~GlobalResources()
 	arial.destruct(mainThreadResources, textureManager, TextureNames::Arial);
 }
 
-void GlobalResources::update()
+bool GlobalResources::update()
 {
 	bool shouldQuit = Window::processMessagesForAllWindowsCreatedOnCurrentThread();
 	if (shouldQuit)
 	{
-		taskShedular.setNextPhaseTask(quit);
+		return true;
 	}
 	timer.update();
 	playerPosition.update(timer.frameTime(), inputHandler.aDown, inputHandler.dDown, inputHandler.wDown, inputHandler.sDown, inputHandler.spaceDown);
 	mainCamera().update(playerPosition.location);
+
+	return false;
 }
 
 void GlobalResources::beforeRender()
@@ -472,10 +474,9 @@ void GlobalResources::stop()
 bool GlobalResources::quit(ThreadResources& threadResources, void* context)
 {
 	auto& globalResources = *static_cast<GlobalResources*>(context);
-	threadResources.taskShedular.stop(globalResources.taskShedular, [&globalResources](void* tr)
+	threadResources.taskShedular.stop(globalResources.taskShedular, [&globalResources, &threadResources]()
 		{
 			//flush the command queues so command allocators and other gpu resources can be freed.
-			auto& threadResources = *static_cast<ThreadResources*>(tr);
 			globalResources.graphicsEngine.stop();
 			globalResources.streamingManager.stop(threadResources.streamingManager, globalResources.graphicsEngine.getFrameEvent());
 		});

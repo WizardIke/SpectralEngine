@@ -40,7 +40,7 @@ class GlobalResources
 	/*
 	Can only be called on main thread
 	*/
-	void update();
+	bool update();
 
 	void beforeRender();
 

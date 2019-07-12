@@ -52,9 +52,9 @@ void ThreadResources::mainEndUpdate2(ThreadResources& threadResources, void* con
 	if(primaryThreadCount != 1u) globalResources.readyToPresentEvent.wait();
 	
 	threadResources.renderPass.present(primaryThreadCount, globalResources.graphicsEngine, globalResources.window, globalResources.renderPass);
-	globalResources.update();
+	bool shouldQuit = globalResources.update();
 
-	threadResources.taskShedular.endUpdate2Primary(globalResources.taskShedular, endUpdate1);
+	threadResources.taskShedular.endUpdate2Main(globalResources.taskShedular, shouldQuit ? GlobalResources::quit : endUpdate1);
 	threadResources.streamingManager.update(globalResources.streamingManager, &threadResources);
 }
 
@@ -71,7 +71,7 @@ void ThreadResources::primaryEndUpdate2(ThreadResources& threadResources, void* 
 		globalResources.readyToPresentCount.store(0u, std::memory_order_relaxed);
 	}
 
-	threadResources.taskShedular.endUpdate2Primary(globalResources.taskShedular, endUpdate1);
+	threadResources.taskShedular.endUpdate2Primary(globalResources.taskShedular);
 	threadResources.streamingManager.update(globalResources.streamingManager, &threadResources);
 }
 
@@ -93,6 +93,6 @@ void ThreadResources::backgroundEndUpdate2(ThreadResources& threadResources, voi
 		globalResources.readyToPresentEvent.notify();
 		globalResources.readyToPresentCount.store(0u, std::memory_order_relaxed);
 	}
-	threadResources.taskShedular.endUpdate2Background<backgroundPrepairForUpdate2>(globalResources.taskShedular, endUpdate1, threadResources, context);
+	threadResources.taskShedular.endUpdate2Background<backgroundPrepairForUpdate2>(globalResources.taskShedular, threadResources, context);
 	threadResources.streamingManager.update(globalResources.streamingManager, &threadResources);
 }
