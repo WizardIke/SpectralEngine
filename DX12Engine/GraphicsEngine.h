@@ -57,14 +57,14 @@ class GraphicsEngine
 		/*
 		Must be called from startFrame
 		*/
-		void update(unsigned long frameIndex, void* tr, void* gr)
+		void update(unsigned long frameIndex, void* tr)
 		{
 			SinglyLinked* tasks = queues[frameIndex].popAll();
 			while(tasks != nullptr)
 			{
 				Task& task = *static_cast<Task*>(tasks);
 				tasks = tasks->next;
-				task.execute(task, tr, gr);
+				task.execute(task, tr);
 			}
 		}
 
@@ -136,7 +136,7 @@ public:
 	~GraphicsEngine();
 
 	void endFrame(Window& window, ID3D12CommandList** ppCommandLists, unsigned int numLists);
-	void startFrame(void* tr, void* gr);
+	void startFrame(void* tr);
 	void waitForPreviousFrame(ID3D12CommandQueue& commandQueue);
 
 	using Task = GpuFrameCompletionQueue::Task;

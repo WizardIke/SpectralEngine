@@ -52,13 +52,13 @@ class GlobalResources
 	/*
 	Causes the program to stop running.
 	*/
-	static bool quit(ThreadResources& threadResources, GlobalResources& globalResources);
+	static bool quit(ThreadResources& threadResources, void* context);
 	bool isRunning;
 public:
 	Window window; //must only be used on main thread
 	GraphicsEngine graphicsEngine;
 	StreamingManager streamingManager; //thread safe
-	TaskShedular<ThreadResources, GlobalResources> taskShedular;
+	TaskShedular<ThreadResources> taskShedular;
 	ThreadResources mainThreadResources;
 	RunnableIOCompletionQueue ioCompletionQueue;
 	AsynchronousFileManager asynchronousFileManager; //thread safe
@@ -70,10 +70,10 @@ public:
 	InputHandler inputHandler;
 	RootSignatures rootSignatures;
 	PipelineStateObjects pipelineStateObjects; //Immutable
-	VirtualTextureManager virtualTextureManager; //thread safe
 	D3D12Resource sharedConstantBuffer;
 	unsigned char* constantBuffersCpuAddress;
 	RenderPass1 renderPass;
+	VirtualTextureManager virtualTextureManager; //thread safe
 	Font arial; //Immutable
 	UserInterface userInterface;
 	Areas areas;

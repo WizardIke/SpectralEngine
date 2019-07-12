@@ -2,23 +2,23 @@
 #include "WorkStealingQueue.h"
 #include "BackgroundQueue.h"
 #include "PrimaryTaskFromOtherThreadQueue.h"
-#include "Delegate.h"
 #include "ThreadBarrier.h"
-#include "Array.h"
+#include "Delegate.h"
+#include <array>
+#include "makeArray.h"
 #include <cstddef>
 #include <cassert>
 #include <atomic>
 #include <memory>
 
-template<class ThreadResources, class GlobalResources>
+template<class ThreadResources>
 class TaskShedular
 {
 private:
 	constexpr static std::size_t numberOfPrimaryQueues = 2u; //can't change this yet as we still have update1 and update2
 public:
-	using Task = Delegate<void(ThreadResources& threadResources,
-		GlobalResources& globalResoureces)>;
-	using NextPhaseTask = bool(*)(ThreadResources& threadResources, GlobalResources& globalResoureces);
+	using Task = Delegate<void(ThreadResources& threadResources)>;
+	using NextPhaseTask = bool(*)(ThreadResources& threadResources, void* context);
 
 	class ThreadLocal
 	{
@@ -33,6 +33,8 @@ public:
 		PrimaryQueue primaryQueues[numberOfPrimaryQueues];
 		WorkStealingQueue<Task>* mCurrentQueue;
 		BackgroundQueue<Task> mBackgroundQueue;
+
+		ThreadBarrier::ThreadLocal barrier;
 	
 		unsigned int mIndex;
 		unsigned int mCurrentBackgroundQueueIndex;
@@ -54,34 +56,21 @@ public:
 			}
 		}
 
-		void runBackgroundTasks(TaskShedular& taskShedular, ThreadResources& threadResources, GlobalResources& globalResoureces, unsigned int currentBackgroundQueueIndex)
+		void runBackgroundTasks(TaskShedular& taskShedular, ThreadResources& threadResources, unsigned int currentBackgroundQueueIndex)
 		{
 			Task task;
 			auto& queue = *taskShedular.mBackgroundQueues[currentBackgroundQueueIndex];
 			while (queue.pop(task))
 			{
-				task(threadResources, globalResoureces);
+				task(threadResources);
 			}
 			queue.unlock();
 		}
 
-		template<void(*prepairForUpdate2)(ThreadResources& threadResources, GlobalResources& globalResoureces)>
-		void getIntoCorrectStateAfterDoingBackgroundTasks(TaskShedular& taskShedular, ThreadResources& threadResources, GlobalResources& globalResoureces)
+		template<void(*prepairForUpdate2)(ThreadResources& threadResources, void* context)>
+		void getIntoCorrectStateAfterDoingBackgroundTasks(TaskShedular& taskShedular, ThreadResources& threadResources, void* context)
 		{
-			bool succeeded = taskShedular.mIncrementPrimaryThreadCountIfUpdateIndexIsZero();
-			if (!succeeded)
-			{
-				for (unsigned int spin = 0u; spin != 1000u; ++spin)
-				{
-					succeeded = taskShedular.mIncrementPrimaryThreadCountIfUpdateIndexIsZero();
-					if (succeeded) break;
-				}
-				while (!succeeded)
-				{
-					std::this_thread::yield();
-					succeeded = taskShedular.mIncrementPrimaryThreadCountIfUpdateIndexIsZero();
-				}
-			}
+			taskShedular.barrier.addThread(barrier);
 
 			if (taskShedular.mCurrentWorkStealingQueues[mIndex] == primaryQueues[0].currentQueue)
 			{
@@ -99,7 +88,7 @@ public:
 				primaryQueues[0].currentQueue->resetIfInvalid();
 				primaryQueues[0].nextQueue->resetIfInvalid();
 
-				prepairForUpdate2(threadResources, globalResoureces);
+				prepairForUpdate2(threadResources, context);
 			}
 			else if (taskShedular.mCurrentWorkStealingQueues[mIndex] == primaryQueues[0].nextQueue)
 			{
@@ -122,20 +111,45 @@ public:
 
 				mCurrentQueue = primaryQueues[1].currentQueue;
 
-				prepairForUpdate2(threadResources, globalResoureces);
+				prepairForUpdate2(threadResources, context);
 			}
 		}
 
-		void endUpdate2Sync(TaskShedular& taskShedular, const unsigned int primaryThreadCount)
+		void start(TaskShedular& taskShedular, ThreadResources& threadResources, void* context)
 		{
-			taskShedular.mBarrier.sync(primaryThreadCount, [&mUpdateIndexAndPrimaryThreadCount = taskShedular.mUpdateIndexAndPrimaryThreadCount,
-				&primaryThreadCountDefferedDecrease = taskShedular.mPrimaryThreadCountDefferedDecrease]()
+			auto currentWorkStealingQueues = taskShedular.mCurrentWorkStealingQueues;
+			auto currentQueue = mCurrentQueue;
+			while (true)
 			{
-				unsigned int amount = primaryThreadCountDefferedDecrease.load(std::memory_order_relaxed);
-				unsigned long oldUpdateIndexAndPrimaryThreadCount = mUpdateIndexAndPrimaryThreadCount.load(std::memory_order_relaxed);
-				mUpdateIndexAndPrimaryThreadCount.store((oldUpdateIndexAndPrimaryThreadCount - amount) & 0xffff, std::memory_order_release);
-				primaryThreadCountDefferedDecrease.store(0u, std::memory_order_relaxed);
-			});
+				Task task;
+				bool found = currentQueue->pop(task);
+				if (found)
+				{
+					task(threadResources);
+				}
+				else
+				{
+					for (auto i = mIndex + 1u;; ++i)
+					{
+						if (i == taskShedular.mThreadCount) i = 0u;
+						if (i == mIndex)
+						{
+							const auto nextPhaseTask = taskShedular.mNextPhaseTask;
+							bool shouldQuit = nextPhaseTask(threadResources, context);
+							if (shouldQuit) return;
+							currentWorkStealingQueues = taskShedular.mCurrentWorkStealingQueues;
+							currentQueue = mCurrentQueue;
+							break;
+						}
+						found = currentWorkStealingQueues[i]->pop(task);
+						if (found)
+						{
+							task(threadResources);
+							break;
+						}
+					}
+				}
+			}
 		}
 	public:
 		ThreadLocal(unsigned int index, TaskShedular& taskShedular)
@@ -165,9 +179,15 @@ public:
 			}
 		}
 
-		void sync(TaskShedular& taskShedular)
+		void start(TaskShedular& taskShedular)
 		{
-			taskShedular.mBarrier.sync(taskShedular.threadCount());
+			taskShedular.barrier.start(barrier);
+		}
+
+		template<class F>
+		void stop(TaskShedular& taskShedular, F&& f)
+		{
+			taskShedular.barrier.stop(taskShedular.mThreadCount, std::forward<F>(f), this);
 		}
 
 		/*
@@ -184,187 +204,142 @@ public:
 			mBackgroundQueue.push(std::move(item));
 		}
 
+		/*
+		An index in the range [0, threadCount)
+		*/
 		unsigned int index() const noexcept
 		{
 			return mIndex;
 		}
-		
-		void endUpdate1(TaskShedular& taskShedular, NextPhaseTask nextPhaseTask, const unsigned int updateIndex, const unsigned int primaryThreadCount) noexcept
-		{
-			if (updateIndex == primaryThreadCount - 1u)
-			{
-				taskShedular.mNextPhaseTask = nextPhaseTask;
-				taskShedular.endUpdate1();
-			}
 
-			taskShedular.mBarrier.sync(primaryThreadCount, [&taskShedular]()
-			{
-				taskShedular.mResetUpdateIndex();
-			});
+		/*
+		An index in the range [0, primaryThreadCount)
+		*/
+		unsigned int primaryIndex() const noexcept
+		{
+			return barrier.index;
+		}
+		
+		void endUpdate1(TaskShedular& taskShedular, NextPhaseTask nextPhaseTask) noexcept
+		{
+			taskShedular.barrier.sync([&taskShedular, nextPhaseTask]()
+				{
+					taskShedular.mNextPhaseTask = nextPhaseTask;
+					taskShedular.endUpdate<0>();
+				});
 
 			primaryQueues[0].currentQueue->reset();
 			swap(primaryQueues[1].currentQueue, primaryQueues[1].nextQueue);
 			mCurrentQueue = primaryQueues[1].currentQueue;
 		}
 
-		void beforeEndUpdate2(TaskShedular& taskShedular, NextPhaseTask nextPhaseTask, const unsigned int primaryThreadCount, const unsigned int updateIndex)
+		void endUpdate2Primary(TaskShedular& taskShedular, NextPhaseTask nextPhaseTask)
 		{
-			if (updateIndex == primaryThreadCount - 1u)
-			{
-				taskShedular.mNextPhaseTask = nextPhaseTask;
-				taskShedular.endUpdate2();
-			}
-		}
-
-		void endUpdate2Primary(TaskShedular& taskShedular, const unsigned int primaryThreadCount)
-		{
-			endUpdate2Sync(taskShedular, primaryThreadCount);
+			taskShedular.barrier.sync([&taskShedular, nextPhaseTask]()
+				{
+					taskShedular.mNextPhaseTask = nextPhaseTask;
+					taskShedular.endUpdate<1>();
+				});
 
 			primaryQueues[1].currentQueue->reset();
 			swap(primaryQueues[0].currentQueue, primaryQueues[0].nextQueue);
 			mCurrentQueue = primaryQueues[0].currentQueue;
 		}
 
-		template<void(*prepairForUpdate2)(ThreadResources& threadResources, GlobalResources& globalResoureces)>
-		void endUpdate2Background(TaskShedular& taskShedular, ThreadResources& threadResources, GlobalResources& globalResoureces, const unsigned int primaryThreadCount)
+		template<void(*prepairForUpdate2)(ThreadResources& threadResources, void* context)>
+		void endUpdate2Background(TaskShedular& taskShedular, NextPhaseTask nextPhaseTask, ThreadResources& threadResources, void* context)
 		{
-			unsigned int currentQueueIndex = lockAndGetNextBackgroundQueue(mCurrentBackgroundQueueIndex, taskShedular.mThreadCount, taskShedular.mBackgroundQueues);
+			unsigned int currentQueueIndex = lockAndGetNextBackgroundQueue(mCurrentBackgroundQueueIndex, taskShedular.mThreadCount, taskShedular.mBackgroundQueues.get());
 			mCurrentBackgroundQueueIndex = currentQueueIndex;
 			
 			Task task;
 			if (taskShedular.mBackgroundQueues[currentQueueIndex]->pop(task))
 			{
-				taskShedular.mPrimaryThreadCountDefferedDecrease.fetch_add(1u, std::memory_order_relaxed);
-				endUpdate2Sync(taskShedular, primaryThreadCount);
+				taskShedular.barrier.syncAndRemoveThread(barrier, [&taskShedular, nextPhaseTask]()
+					{
+						taskShedular.mNextPhaseTask = nextPhaseTask;
+						taskShedular.endUpdate<1>();
+					});
 
 				primaryQueues[1].currentQueue->reset();
 
-				task(threadResources, globalResoureces);
+				task(threadResources);
 
-				runBackgroundTasks(taskShedular, threadResources, globalResoureces, currentQueueIndex);
-				getIntoCorrectStateAfterDoingBackgroundTasks<prepairForUpdate2>(taskShedular, threadResources, globalResoureces);
+				runBackgroundTasks(taskShedular, threadResources, currentQueueIndex);
+				getIntoCorrectStateAfterDoingBackgroundTasks<prepairForUpdate2>(taskShedular, threadResources, context);
 			}
 			else
 			{
 				taskShedular.mBackgroundQueues[currentQueueIndex]->unlock();
-				endUpdate2Primary(taskShedular, primaryThreadCount);
+				endUpdate2Primary(taskShedular, nextPhaseTask);
 			}
 		}
 		
-		void start(TaskShedular& taskShedular, ThreadResources& threadResources,
-			GlobalResources& globalResoureces)
+		/*
+		Should be called by a thread that can only do primary tasks.
+		*/
+		void startPrimary(TaskShedular& taskShedular, ThreadResources& threadResources, void* context)
 		{
-			auto currentWorkStealingQueues = taskShedular.mCurrentWorkStealingQueues;
-			auto currentQueue = mCurrentQueue;
-			while(true)
-			{
-				Task task;
-				bool found = currentQueue->pop(task);
-				if (found)
-				{
-					task(threadResources, globalResoureces);
-				}
-				else
-				{
-					for (auto i = mIndex + 1u;; ++i)
-					{
-						if(i == taskShedular.mThreadCount) i = 0u;
-						found = currentWorkStealingQueues[i]->pop(task);
-						if (found)
-						{
-							task(threadResources, globalResoureces);
-							break;
-						}
-						else if (i == mIndex)
-						{
-							const auto nextPhaseTask = taskShedular.mNextPhaseTask;
-							bool shouldQuit = nextPhaseTask(threadResources, globalResoureces);
-							if(shouldQuit) return;
-							currentWorkStealingQueues = taskShedular.mCurrentWorkStealingQueues;
-							currentQueue = mCurrentQueue;
-							break;
-						}
-					}
-				}
-			}
+			taskShedular.barrier.startCannotLeave(barrier);
+			start(taskShedular, threadResources, context);
 		}
 
-		void runBackgroundTasks(TaskShedular& taskShedular, ThreadResources& threadResources, GlobalResources& globalResoureces)
+		/*
+		Should be called by a thread that can do primary and background tasks.
+		*/
+		void startBackground(TaskShedular& taskShedular, ThreadResources& threadResources, void* context)
 		{
-			unsigned int currentQueueIndex = lockAndGetNextBackgroundQueue(mCurrentBackgroundQueueIndex, taskShedular.mThreadCount, taskShedular.mBackgroundQueues);
-			mCurrentBackgroundQueueIndex = currentQueueIndex;
-			runBackgroundTasks(taskShedular, threadResources, globalResoureces, currentQueueIndex);
+			taskShedular.barrier.startCanLeave(barrier);
+			start(taskShedular, threadResources, context);
 		}
 	};
 private:
-	WorkStealingQueue<Task>** mWorkStealingQueuesArray;
+	std::unique_ptr<WorkStealingQueue<Task>*[]> mWorkStealingQueuesArray;
 	WorkStealingQueue<Task>** mCurrentWorkStealingQueues;
-	BackgroundQueue<Task>** mBackgroundQueues;
+	std::unique_ptr<BackgroundQueue<Task>*[]> mBackgroundQueues;
 	unsigned int mThreadCount;
-	std::atomic<unsigned long> mUpdateIndexAndPrimaryThreadCount;
-	std::atomic<unsigned int> mPrimaryThreadCountDefferedDecrease = 0u;
 	NextPhaseTask mNextPhaseTask;
-	ThreadBarrier mBarrier;
-	Array<PrimaryTaskFromOtherThreadQueue, numberOfPrimaryQueues> primaryFromOtherThreadQueues;
+	ThreadBarrier barrier;
+	std::array<PrimaryTaskFromOtherThreadQueue, numberOfPrimaryQueues> primaryFromOtherThreadQueues;
 
-	bool mIncrementPrimaryThreadCountIfUpdateIndexIsZero() noexcept
+	template<unsigned int phaseIndex>
+	void endUpdate() noexcept
 	{
-		unsigned long oldUpdateIndexAndPrimaryThreadCount = mUpdateIndexAndPrimaryThreadCount.load(std::memory_order_relaxed);
-		while ((oldUpdateIndexAndPrimaryThreadCount & ~(unsigned long)0xffff) == 0u)
-		{
-			bool succeeded = mUpdateIndexAndPrimaryThreadCount.compare_exchange_weak(oldUpdateIndexAndPrimaryThreadCount, oldUpdateIndexAndPrimaryThreadCount + 1u,
-				std::memory_order_acquire, std::memory_order_relaxed);
-			if (succeeded) return true;
-		}
-		return false;
-	}
-
-	void mResetUpdateIndex() noexcept
-	{
-		unsigned long oldUpdateIndexAndPrimaryThreadCount = mUpdateIndexAndPrimaryThreadCount.load(std::memory_order_relaxed);
-		mUpdateIndexAndPrimaryThreadCount.store(oldUpdateIndexAndPrimaryThreadCount & 0xffff, std::memory_order_release);
-	}
-
-	void endUpdate1() noexcept
-	{
+		static_assert(phaseIndex < numberOfPrimaryQueues);
 		mCurrentWorkStealingQueues += mThreadCount;
-	}
-	
-	void endUpdate2() noexcept
-	{
-		mCurrentWorkStealingQueues += mThreadCount;
-		if(mCurrentWorkStealingQueues == (mWorkStealingQueuesArray + mThreadCount * 4u))
+		if constexpr (phaseIndex == (numberOfPrimaryQueues - 1u))
 		{
-			mCurrentWorkStealingQueues = mWorkStealingQueuesArray;
+			if (mCurrentWorkStealingQueues == (mWorkStealingQueuesArray.get() + mThreadCount * 4u))
+			{
+				mCurrentWorkStealingQueues = mWorkStealingQueuesArray.get();
+			}
 		}
 	}
 public:
-	TaskShedular(unsigned int numberOfThreads, NextPhaseTask nextPhaseTask) : primaryFromOtherThreadQueues{[](std::size_t i, PrimaryTaskFromOtherThreadQueue& element)
-	{
-		new(&element) PrimaryTaskFromOtherThreadQueue(i);
-	}},
-		mNextPhaseTask(nextPhaseTask)
-	{
-		mWorkStealingQueuesArray = new WorkStealingQueue<Task>*[numberOfThreads * 2u * numberOfPrimaryQueues];
-		mBackgroundQueues = new BackgroundQueue<Task>*[numberOfThreads];
-		mCurrentWorkStealingQueues = mWorkStealingQueuesArray;
-		mThreadCount = numberOfThreads;
-		mUpdateIndexAndPrimaryThreadCount.store(numberOfThreads, std::memory_order_relaxed);
-	}
+	TaskShedular(unsigned int numberOfThreads, NextPhaseTask nextPhaseTask) :
+		primaryFromOtherThreadQueues{ makeArray<numberOfPrimaryQueues>([](std::size_t i)
+			{
+				return PrimaryTaskFromOtherThreadQueue(i);
+			}) },
+		mNextPhaseTask(nextPhaseTask),
+		barrier(numberOfThreads),
+		mWorkStealingQueuesArray(new WorkStealingQueue<Task>*[numberOfThreads * 2u * numberOfPrimaryQueues]),
+		mBackgroundQueues(new BackgroundQueue<Task>*[numberOfThreads]),
+		mCurrentWorkStealingQueues(mWorkStealingQueuesArray.get()),
+		mThreadCount(numberOfThreads)
+{}
 
-	unsigned int threadCount() noexcept
+	unsigned int threadCount() const noexcept
 	{
 		return mThreadCount;
 	}
 
-	unsigned int incrementUpdateIndex(unsigned int& primaryThreadCount) noexcept
+	unsigned int lockAndGetPrimaryThreadCount() noexcept
 	{
-		unsigned long newUpdateIndexAndPrimaryThreadCount = mUpdateIndexAndPrimaryThreadCount.fetch_add(1ul << 16ul, std::memory_order_acq_rel);
-		primaryThreadCount = (unsigned int)(newUpdateIndexAndPrimaryThreadCount & 0xfffful);
-		return (unsigned int)(newUpdateIndexAndPrimaryThreadCount >> 16ul);
+		return barrier.lockAndGetThreadCount();
 	}
 
-	NextPhaseTask getNextPhaseTask() noexcept
+	NextPhaseTask getNextPhaseTask() const noexcept
 	{
 		return mNextPhaseTask;
 	}
@@ -377,12 +352,6 @@ public:
 		mNextPhaseTask = nextPhaseTask;
 	}
 
-	template<class OnLastThread>
-	void sync(OnLastThread&& onLastThread)
-	{
-		mBarrier.sync(mThreadCount, std::forward<OnLastThread>(onLastThread));
-	}
-
 	/*
 		Can be called from any thread
 	*/
@@ -392,17 +361,17 @@ public:
 		primaryFromOtherThreadQueues[index].push(task);
 	}
 
-	void start(ThreadResources& threadResources, GlobalResources& globalResources)
+	void start(ThreadResources& threadResources)
 	{
 		for(std::size_t i = 0u; i != numberOfPrimaryQueues; ++i)
 		{
-			primaryFromOtherThreadQueues[i].start(threadResources, globalResources);
+			primaryFromOtherThreadQueues[i].start(threadResources);
 		}
 	}
 
 	class StopRequest
 	{
-		friend class TaskShedular<ThreadResources, GlobalResources>;
+		friend class TaskShedular<ThreadResources>;
 		using Self = StopRequest;
 
 		class PrimaryFromOtherStopRequest : public PrimaryTaskFromOtherThreadQueue::StopRequest
@@ -411,37 +380,38 @@ public:
 		public:
 			Self* stopRequest;
 
-			PrimaryFromOtherStopRequest(void(*callback1)(Base& stopRequest, void* tr, void* gr), Self* stopRequest1) :
+			PrimaryFromOtherStopRequest(void(*callback1)(Base& stopRequest, void* tr), Self* stopRequest1) :
 				Base(callback1),
 				stopRequest(stopRequest1) {}
 		};
 
 		constexpr static std::size_t numberOfComponents = numberOfPrimaryQueues;
 		std::atomic<std::size_t> numberOfComponentsStopped = 0u;
-		Array<PrimaryFromOtherStopRequest, numberOfPrimaryQueues> primaryFromOtherStopRequests;
-		void(*callback)(StopRequest& stopRequest, void* tr, void* gr);
+		std::array<PrimaryFromOtherStopRequest, numberOfPrimaryQueues> primaryFromOtherStopRequests;
+		void(*callback)(StopRequest& stopRequest, void* tr);
 
-		static void componentStopped(PrimaryTaskFromOtherThreadQueue::StopRequest& request, void* tr, void* gr)
+		static void componentStopped(PrimaryTaskFromOtherThreadQueue::StopRequest& request, void* tr)
 		{
 			auto& stopRequest = *static_cast<PrimaryFromOtherStopRequest&>(request).stopRequest;
 			if(stopRequest.numberOfComponentsStopped.fetch_add(1u, std::memory_order_acq_rel) == (numberOfComponents - 1u))
 			{
-				stopRequest.callback(stopRequest, tr, gr);
+				stopRequest.callback(stopRequest, tr);
 			}
 		}
 	public:
-		StopRequest(void(*callback1)(StopRequest& stopRequest, void* tr, void* gr)) : callback(callback1),
-			primaryFromOtherStopRequests{[this](std::size_t, PrimaryFromOtherStopRequest& element)
-		{
-			new(&element) PrimaryFromOtherStopRequest(componentStopped, this);
-		}} {}
+		StopRequest(void(*callback1)(StopRequest& stopRequest, void* tr)) : callback(callback1),
+			primaryFromOtherStopRequests{makeArray<numberOfPrimaryQueues>([this]()
+				{
+					return PrimaryFromOtherStopRequest(componentStopped, this);
+				}) }
+		{}
 	};
 
-	void stop(StopRequest& stopRequest, ThreadResources& threadResources, GlobalResources& globalResources)
+	void stop(StopRequest& stopRequest, ThreadResources& threadResources)
 	{
 		for(std::size_t i = 0u; i != numberOfPrimaryQueues; ++i)
 		{
-			primaryFromOtherThreadQueues[i].stop(stopRequest.primaryFromOtherStopRequests[i], threadResources, globalResources);
+			primaryFromOtherThreadQueues[i].stop(stopRequest.primaryFromOtherStopRequests[i], threadResources);
 		}
 	}
 };

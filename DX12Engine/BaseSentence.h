@@ -4,12 +4,12 @@
 #include <d3d12.h>
 #include <DirectXMath.h>
 #include "Font.h"
-#include "Array.h"
+#include <array>
 #include "D3D12Resource.h"
 
 class BaseSentence
 {
-	Array<D3D12Resource, frameBufferCount> textVertexBuffer;
+	std::array<D3D12Resource, frameBufferCount> textVertexBuffer;
 	unsigned int maxLength;
 	DirectX::XMFLOAT2 position;
 

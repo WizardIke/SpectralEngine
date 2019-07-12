@@ -8,15 +8,15 @@ public:
 	unsigned long numberOfComponentsToUnload;
 
 	WorldManagerStopRequest** stopRequest;
-	void(*callback)(WorldManagerStopRequest& stopRequest, void* tr, void* gr);
+	void(*callback)(WorldManagerStopRequest& stopRequest, void* tr);
 
-	void onZoneStopped(void* tr, void* gr)
+	void onZoneStopped(void* tr)
 	{
 		if(numberOfComponentsUnloaded.fetch_add(1u, std::memory_order_acq_rel) == (numberOfComponentsToUnload - 1u))
 		{
-			callback(*this, tr, gr);
+			callback(*this, tr);
 		}
 	}
 
-	WorldManagerStopRequest(void(*callback1)(WorldManagerStopRequest& stopRequest, void* tr, void* gr)) : callback(callback1) {}
+	WorldManagerStopRequest(void(*callback1)(WorldManagerStopRequest& stopRequest, void* tr)) : callback(callback1) {}
 };

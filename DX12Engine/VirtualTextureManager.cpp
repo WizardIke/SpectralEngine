@@ -1,10 +1,15 @@
 #include "VirtualTextureManager.h"
 
-VirtualTextureManager::VirtualTextureManager() {}
+VirtualTextureManager::VirtualTextureManager(PageProvider& pageProvider1, StreamingManager& streamingManager1, GraphicsEngine& graphicsEngine1, AsynchronousFileManager& asynchronousFileManager1) :
+	pageProvider(pageProvider1),
+	streamingManager(streamingManager1),
+	graphicsEngine(graphicsEngine1),
+	asynchronousFileManager(asynchronousFileManager1)
+{}
 
-void VirtualTextureManager::loadTextureUncachedHelper(TextureStreamingRequest& uploadRequest, StreamingManager& streamingManager, GraphicsEngine& graphicsEngine,
-	void(*useSubresource)(StreamingManager::StreamingRequest* request, void* threadResources, void* globalResources),
-	void callback(PageProvider::AllocateTextureRequest& request, void* tr, void* gr),
+void VirtualTextureManager::loadTextureUncachedHelper(TextureStreamingRequest& uploadRequest,
+	void(*useSubresource)(StreamingManager::StreamingRequest* request, void* tr),
+	void callback(PageProvider::AllocateTextureRequest& request, void* tr),
 	const DDSFileLoader::DdsHeaderDx12& header)
 {
 	bool valid = DDSFileLoader::validateDdsHeader(header);
@@ -22,10 +27,10 @@ void VirtualTextureManager::loadTextureUncachedHelper(TextureStreamingRequest& u
 	assert(header.depth == 1u);
 	assert(header.arraySize == 1u);
 	assert(header.dimension != D3D12_RESOURCE_DIMENSION_TEXTURE3D);
-	createVirtualTexture(graphicsEngine, streamingManager.commandQueue(), callback, uploadRequest);
+	createVirtualTexture(streamingManager.commandQueue(), callback, uploadRequest);
 }
 
-D3D12Resource VirtualTextureManager::createResource(ID3D12Device* graphicsDevice, const TextureStreamingRequest& request)
+D3D12Resource VirtualTextureManager::createResource(ID3D12Device& graphicsDevice, const TextureStreamingRequest& request)
 {
 	D3D12_RESOURCE_DESC textureDesc;
 	textureDesc.Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
@@ -41,7 +46,7 @@ D3D12Resource VirtualTextureManager::createResource(ID3D12Device* graphicsDevice
 	textureDesc.SampleDesc.Quality = 0u;
 	textureDesc.Width = request.texture->width;
 
-	return D3D12Resource(graphicsDevice, textureDesc, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_COMMON);
+	return D3D12Resource(&graphicsDevice, textureDesc, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_COMMON);
 }
 
 unsigned int VirtualTextureManager::createTextureDescriptor(GraphicsEngine& graphicsEngine, ID3D12Resource* texture, const TextureStreamingRequest& request)
@@ -80,7 +85,7 @@ unsigned int VirtualTextureManager::createTextureDescriptor(GraphicsEngine& grap
 	return discriptorIndex;
 }
 
-void VirtualTextureManager::unloadTexture(UnloadRequest& unloadRequest, GraphicsEngine& graphicsEngine, void* tr, void* gr)
+void VirtualTextureManager::unloadTexture(UnloadRequest& unloadRequest, void* tr)
 {
 	auto& texture = textures[unloadRequest.filename];
 	--texture.numUsers;
@@ -90,26 +95,26 @@ void VirtualTextureManager::unloadTexture(UnloadRequest& unloadRequest, Graphics
 		graphicsEngine.descriptorAllocator.deallocate(descriptorIndex);
 
 		unloadRequest.textureInfo = &texture;
-		unloadRequest.callback = [](PageProvider::UnloadRequest& request, void* tr, void* gr)
+		unloadRequest.callback = [](PageProvider::UnloadRequest& request, void* tr)
 		{
 			auto& unloadRequest = static_cast<UnloadRequest&>(request);
 			unloadRequest.textures->erase(unloadRequest.filename);
 
-			static_cast<Message&>(unloadRequest).deleteReadRequest(unloadRequest, tr, gr);
+			static_cast<Message&>(unloadRequest).deleteReadRequest(unloadRequest, tr);
 		};
 		pageProvider.deleteTexture(unloadRequest);
 	}
 	else
 	{
-		static_cast<Message&>(unloadRequest).deleteReadRequest(unloadRequest, tr, gr);
+		static_cast<Message&>(unloadRequest).deleteReadRequest(unloadRequest, tr);
 	}
 }
 
-void VirtualTextureManager::createVirtualTexture(GraphicsEngine& graphicsEngine, ID3D12CommandQueue& commandQueue,
-	void callback(PageProvider::AllocateTextureRequest& request, void* tr, void* gr), TextureStreamingRequest& vramRequest)
+void VirtualTextureManager::createVirtualTexture(ID3D12CommandQueue& commandQueue,
+	void callback(PageProvider::AllocateTextureRequest& request, void* tr), TextureStreamingRequest& vramRequest)
 {
 	Texture& texture = *vramRequest.texture;
-	texture.resource = createResource(graphicsEngine.graphicsDevice, vramRequest);
+	texture.resource = createResource(*graphicsEngine.graphicsDevice, vramRequest);
 #ifndef NDEBUG
 	std::wstring name = L"virtual texture ";
 	name += vramRequest.filename;
@@ -168,7 +173,7 @@ void VirtualTextureManager::createVirtualTexture(GraphicsEngine& graphicsEngine,
 	}
 }
 
-void VirtualTextureManager::notifyTextureReady(TextureStreamingRequest* request, void* tr, void* gr)
+void VirtualTextureManager::notifyTextureReady(TextureStreamingRequest* request, void* tr)
 {
 	auto& texture = textures[request->filename];
 	texture.lastRequest = nullptr;
@@ -176,12 +181,12 @@ void VirtualTextureManager::notifyTextureReady(TextureStreamingRequest* request,
 	{
 		auto old = request;
 		request = request->nextTextureRequest; //Need to do this now as old could be deleted by the next line
-		old->textureLoaded(*old, tr, gr, texture);
+		old->textureLoaded(*old, tr, texture);
 	} while(request != nullptr);
 }
 
 void VirtualTextureManager::textureUseResourceHelper(TextureStreamingRequest& uploadRequest,
-	void(*fileLoadedCallback)(AsynchronousFileManager::ReadRequest& request, AsynchronousFileManager& asynchronousFileManager, void* tr, void*, const unsigned char* buffer))
+	void(*fileLoadedCallback)(AsynchronousFileManager::ReadRequest& request, AsynchronousFileManager& asynchronousFileManager, void* tr, const unsigned char* buffer))
 {
 	Texture& texture = *uploadRequest.texture;
 	std::size_t subresouceWidth = texture.width;
@@ -219,7 +224,7 @@ void VirtualTextureManager::textureUseResourceHelper(TextureStreamingRequest& up
 }
 
 void VirtualTextureManager::fileLoadedCallbackHelper(TextureStreamingRequest& uploadRequest, const unsigned char* buffer, StreamingManager::ThreadLocal& streamingManager,
-	void(*copyFinished)(void* requester, void* tr, void* gr))
+	void(*copyFinished)(void* requester, void* tr))
 {
 	Texture& texture = *uploadRequest.texture;
 	ID3D12Resource* destResource = texture.resource;

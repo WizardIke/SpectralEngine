@@ -5,6 +5,7 @@
 #include <memory>
 #include <d3d12.h>
 #include "TextureManager.h"
+#include "Window.h"
 class GraphicsEngine;
 
 struct Font
@@ -47,25 +48,24 @@ struct Font
 
 	Font() {}
 
-	template<class ThreadResources, class GlobalResources>
-	Font(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, unsigned char*& constantBufferCpuAddress, const wchar_t* const filename, ThreadResources& executor, GlobalResources& sharedResources,
-		TextureManager::TextureStreamingRequest* textureRequest)
+	template<class ThreadResources>
+	Font(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, unsigned char*& constantBufferCpuAddress, const wchar_t* const filename, ThreadResources& threadResources, TextureManager& textureManager,
+		Window& window, TextureManager::TextureStreamingRequest& textureRequest)
 	{
-		TextureManager& textureManager = sharedResources.textureManager;
-		textureManager.load(textureRequest, executor, sharedResources);
-		auto windowWidth = sharedResources.window.width();
-		auto windowHeight = sharedResources.window.height();
+		textureManager.load(textureRequest, threadResources);
+		auto windowWidth = window.width();
+		auto windowHeight = window.height();
 		create(constantBufferGpuAddress, constantBufferCpuAddress, filename, windowWidth, windowHeight);
 	}
 
-	template<class ThreadResources, class GlobalResources>
-	void destruct(ThreadResources& threadResources, GlobalResources& globalResources, const wchar_t* const textureFile)
+	template<class ThreadResources>
+	void destruct(ThreadResources& threadResources, TextureManager& textureManager, const wchar_t* const textureFile)
 	{
-		auto textureUnloader = new TextureManager::Message(textureFile, [](AsynchronousFileManager::ReadRequest& request, void*, void*)
+		auto textureUnloader = new TextureManager::Message(textureFile, [](AsynchronousFileManager::ReadRequest& request, void*)
 		{
 			delete static_cast<TextureManager::Message*>(&request);
 		});
-		globalResources.textureManager.unload(textureUnloader, threadResources, globalResources);
+		textureManager.unload(*textureUnloader, threadResources);
 	}
 
 	~Font() {}

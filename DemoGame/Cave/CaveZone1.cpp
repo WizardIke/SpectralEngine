@@ -21,9 +21,10 @@ namespace Cave
 		constexpr static unsigned int numTextures = 1u;
 		constexpr static unsigned int numComponents = 3u;
 
-		static void componentUploaded(Zone<ThreadResources, GlobalResources>* zone, ThreadResources& executor, GlobalResources& globalResources)
+		static void componentUploaded(Zone<ThreadResources>& zone)
 		{
-			zone->componentUploaded(executor, globalResources, numComponents);
+			auto& globalResources = *static_cast<GlobalResources*>(zone.context);
+			zone.componentUploaded(globalResources.taskShedular, numComponents);
 		}
 
 		D3D12Resource perObjectConstantBuffers;
@@ -37,7 +38,7 @@ namespace Cave
 		CaveModelPart1 caveModelPart1;
 
 
-		HDResources(ThreadResources& threadResources, GlobalResources& globalResources, Zone<ThreadResources, GlobalResources>& zone) :
+		HDResources(ThreadResources& threadResources, GlobalResources& globalResources, Zone<ThreadResources>& zone) :
 			light(DirectX::XMFLOAT4(0.1f, 0.1f, 0.1f, 1.0f), DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f), DirectX::XMFLOAT3(0.0f, -0.894427191f, 0.447213595f)),
 			perObjectConstantBuffers(globalResources.graphicsEngine.graphicsDevice, []()
 		{
@@ -77,10 +78,8 @@ namespace Cave
 			new(&caveModelPart1) CaveModelPart1(PerObjectConstantBuffersGpuAddress, cpuConstantBuffer);
 
 			VirtualTextureManager& virtualTextureManager = globalResources.virtualTextureManager;
-			VirtualTextureRequest* stone04Request = new VirtualTextureRequest([](VirtualTextureManager::TextureStreamingRequest& request, void* tr, void* gr, const VirtualTextureManager::Texture& texture)
+			VirtualTextureRequest* stone04Request = new VirtualTextureRequest([](VirtualTextureManager::TextureStreamingRequest& request, void*, const VirtualTextureManager::Texture& texture)
 			{
-				ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
-				GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
 				auto& zone = static_cast<VirtualTextureRequest&>(request).zone;
 				auto resources = ((HDResources*)zone.newData);
 				const auto cpuStartAddress = resources->perObjectConstantBuffersCpuAddress;
@@ -97,23 +96,21 @@ namespace Cave
 				stone4FeedbackBufferPsCpu->usefulTextureWidth = (float)(texture.width);
 
 				delete static_cast<VirtualTextureRequest*>(&request);
-				componentUploaded(&zone, threadResources, globalResources);
+				componentUploaded(zone);
 			}, TextureNames::stone04, zone);
-			virtualTextureManager.load(stone04Request, threadResources, globalResources);
+			virtualTextureManager.load(stone04Request, threadResources);
 
 			MeshManager& meshManager = globalResources.meshManager;
-			MeshRequest* squareWithNormalsRequest = new MeshRequest([](MeshManager::MeshStreamingRequest& request, void* tr, void* gr, Mesh& mesh)
+			MeshRequest* squareWithNormalsRequest = new MeshRequest([](MeshManager::MeshStreamingRequest& request, void*, Mesh& mesh)
 			{
-				ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
-				GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
 				auto& zone = static_cast<MeshRequest&>(request).zone;
 				const auto resources = ((HDResources*)zone.newData);
 				resources->caveModelPart1.mesh = &mesh;
 
 				delete static_cast<MeshRequest*>(&request);
-				componentUploaded(&zone, threadResources, globalResources);
+				componentUploaded(zone);
 			}, MeshNames::squareWithNormals, zone);
-			meshManager.load(squareWithNormalsRequest, threadResources, globalResources);
+			meshManager.load(squareWithNormalsRequest, threadResources);
 
 			constexpr uint64_t pointLightConstantBufferAlignedSize = (sizeof(LightConstantBuffer) + (uint64_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (uint64_t)1u) &
 				~((uint64_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (uint64_t)1u);
@@ -166,73 +163,76 @@ namespace Cave
 
 		void update1(ThreadResources&, GlobalResources&) {}
 
-		static void create(void* zone1, ThreadResources& threadResources, GlobalResources& globalResources)
+		static void create(void* zone1, ThreadResources& threadResources)
 		{
-			auto& zone = *static_cast<Zone<ThreadResources, GlobalResources>*>(zone1);
-			zone.newData = malloc(sizeof(HDResources));
+			auto& zone = *static_cast<Zone<ThreadResources>*>(zone1);
+			auto& globalResources = *static_cast<GlobalResources*>(zone.context);
+			zone.newData = operator new(sizeof(HDResources));
 			new(zone.newData) HDResources(threadResources, globalResources, zone);
-			componentUploaded(&zone, threadResources, globalResources);
+			componentUploaded(zone);
 		}
 
 		class HdUnloader : private VirtualTextureManager::UnloadRequest, private MeshManager::UnloadRequest
 		{
 			static constexpr unsigned int numberOfComponentsToUnload = 2u;
 			std::atomic<unsigned int> numberOfComponentsUnloaded = 0u;
-			Zone<ThreadResources, GlobalResources>& zone;
+			Zone<ThreadResources>& zone;
 
-			void componentUnloaded(void* tr, void* gr)
+			void componentUnloaded(void*)
 			{
 				if (numberOfComponentsUnloaded.fetch_add(1u, std::memory_order_acq_rel) == (numberOfComponentsToUnload - 1u))
 				{
-					auto& threadResources = *static_cast<ThreadResources*>(tr);
-					auto& globalResources = *static_cast<GlobalResources*>(gr);
 					auto& zoneRef = zone;
 					delete this;
 					auto resource = static_cast<HDResources*>(zoneRef.oldData);
-					zoneRef.finishedDeletingOldState(threadResources, globalResources);
 					resource->~HDResources();
 					operator delete(resource);
+					auto& globalResources = *static_cast<GlobalResources*>(zoneRef.context);
+					zoneRef.finishedDeletingOldState(globalResources.taskShedular);
 				}
 			}
 
-			HdUnloader(Zone<ThreadResources, GlobalResources>& zone1) :
-				VirtualTextureManager::UnloadRequest(TextureNames::stone04, [](AsynchronousFileManager::ReadRequest& unloader, void* tr, void* gr)
+			HdUnloader(Zone<ThreadResources>& zone1) :
+				VirtualTextureManager::UnloadRequest(TextureNames::stone04, [](AsynchronousFileManager::ReadRequest& unloader, void* tr)
 					{
-						static_cast<HdUnloader&>(static_cast<VirtualTextureManager::UnloadRequest&>(unloader)).componentUnloaded(tr, gr);
+						static_cast<HdUnloader&>(static_cast<VirtualTextureManager::UnloadRequest&>(unloader)).componentUnloaded(tr);
 					}),
-				MeshManager::UnloadRequest(MeshNames::squareWithNormals, [](AsynchronousFileManager::ReadRequest& unloader, void* tr, void* gr)
+				MeshManager::UnloadRequest(MeshNames::squareWithNormals, [](AsynchronousFileManager::ReadRequest& unloader, void* tr)
 					{
-						static_cast<HdUnloader&>(static_cast<MeshManager::UnloadRequest&>(unloader)).componentUnloaded(tr, gr);
+						static_cast<HdUnloader&>(static_cast<MeshManager::UnloadRequest&>(unloader)).componentUnloaded(tr);
 					}),
 						zone(zone1)
 					{}
 		public:
-			static HdUnloader* create(Zone<ThreadResources, GlobalResources>& zone1)
+			static HdUnloader* create(Zone<ThreadResources>& zone1)
 			{
 				return new HdUnloader(zone1);
 			}
 
-			void unload(VirtualTextureManager& textureManager, MeshManager& meshManager, ThreadResources& threadResources, GlobalResources& globalResources)
+			void unload(VirtualTextureManager& textureManager, MeshManager& meshManager, ThreadResources& threadResources)
 			{
-				textureManager.unload(this, threadResources, globalResources);
-				meshManager.unload(this, threadResources, globalResources);
+				textureManager.unload(this, threadResources);
+				meshManager.unload(this, threadResources);
 			}
 		};
 
-		static void destruct(Zone<ThreadResources, GlobalResources>& zone, ThreadResources& threadResources, GlobalResources& globalResources)
+		static void destruct(Zone<ThreadResources>& zone, ThreadResources& threadResources)
 		{
+			auto& globalResources = *static_cast<GlobalResources*>(zone.context);
 			auto& meshManager = globalResources.meshManager;
 			auto& virtualTextureManager = globalResources.virtualTextureManager;
 
 			auto unloader = HdUnloader::create(zone);
-			unloader->unload(virtualTextureManager, meshManager, threadResources, globalResources);
+			unloader->unload(virtualTextureManager, meshManager, threadResources);
 		}
 	};
 
-	static void update2(void* requester, ThreadResources& threadResources, GlobalResources& globalResources);
-	static void update1(void* requester, ThreadResources& threadResources, GlobalResources& globalResources)
+	static void update2(void* requester, ThreadResources& threadResources);
+	static void update1(void* requester, ThreadResources& threadResources)
 	{
-		auto& zone = *static_cast<Zone<ThreadResources, GlobalResources>*>(requester);
+		auto& zone = *static_cast<Zone<ThreadResources>*>(requester);
+		auto& globalResources = *static_cast<GlobalResources*>(zone.context);
+
 		zone.lastUsedData = zone.currentData;
 		zone.lastUsedState = zone.currentState;
 
@@ -245,9 +245,10 @@ namespace Cave
 		}
 	}
 
-	static void update2(void* requester, ThreadResources& threadResources, GlobalResources& globalResources)
+	static void update2(void* requester, ThreadResources& threadResources)
 	{
-		auto& zone = *static_cast<Zone<ThreadResources, GlobalResources>*>(requester);
+		auto& zone = *static_cast<Zone<ThreadResources>*>(requester);
+		auto& globalResources = *static_cast<GlobalResources*>(zone.context);
 
 		switch (zone.lastUsedState)
 		{
@@ -260,7 +261,7 @@ namespace Cave
 
 	struct Zone1Functions
 	{
-		static void createNewStateData(Zone<ThreadResources, GlobalResources>& zone, ThreadResources& threadResources, GlobalResources&)
+		static void createNewStateData(Zone<ThreadResources>& zone, ThreadResources& threadResources)
 		{
 			switch (zone.newState)
 			{
@@ -270,39 +271,40 @@ namespace Cave
 			}
 		}
 
-		static void deleteOldStateData(Zone<ThreadResources, GlobalResources>& zone, ThreadResources&, GlobalResources& globalResources)
+		static void deleteOldStateData(Zone<ThreadResources>& zone, ThreadResources&)
 		{
 			switch (zone.oldState)
 			{
 			case 0u:
-				zone.executeWhenGpuFinishesCurrentFrame(globalResources, [](LinkedTask& task, void* tr, void*)
+				GraphicsEngine& graphicsEngine = static_cast<GlobalResources*>(zone.context)->graphicsEngine;
+				zone.executeWhenGpuFinishesCurrentFrame(graphicsEngine, [](LinkedTask& task, void* tr)
 				{
-					auto& zone = Zone<ThreadResources, GlobalResources>::from(task);
+					auto& zone = Zone<ThreadResources>::from(task);
 					ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
-					threadResources.taskShedular.pushBackgroundTask({ &zone, [](void* context, ThreadResources& threadResources, GlobalResources& globalResources)
+					threadResources.taskShedular.pushBackgroundTask({ &zone, [](void* context, ThreadResources& threadResources)
 					{
-						auto& zone = *static_cast<Zone<ThreadResources, GlobalResources>*>(context);
-						HDResources::destruct(zone, threadResources, globalResources);
+						auto& zone = *static_cast<Zone<ThreadResources>*>(context);
+						HDResources::destruct(zone, threadResources);
 					} });
 				});
 				break;
 			}
 		}
 
-		static Range<Portal*> getPortals(Zone<ThreadResources, GlobalResources>&)
+		static Range<Portal*> getPortals(Zone<ThreadResources>&)
 		{
 			static Portal portals[1] = {Portal{Vector3(64.0f, 6.0f, 84.0f), Vector3(64.0f, 6.0f, 84.0f), 0u}};
 			return range(portals, portals + 1u);
 		}
 
-		static void start(Zone<ThreadResources, GlobalResources>& zone, ThreadResources& threadResources, GlobalResources&)
+		static void start(Zone<ThreadResources>& zone, ThreadResources& threadResources)
 		{
 			threadResources.taskShedular.pushPrimaryTask(0u, { &zone, update1 });
 		}
 	};
 
-	Zone<ThreadResources, GlobalResources> Zone1()
+	Zone<ThreadResources> Zone1(void* context)
 	{
-		return Zone<ThreadResources, GlobalResources>::create<Zone1Functions>(1u);
+		return Zone<ThreadResources>::create<Zone1Functions>(1u, context);
 	}
 }

@@ -11,7 +11,7 @@ AsynchronousFileManager::AsynchronousFileManager(IOCompletionQueue& ioCompletion
 
 AsynchronousFileManager::~AsynchronousFileManager() {}
 
-bool AsynchronousFileManager::readFileHelper(void* tr, void* gr, DWORD, LPOVERLAPPED overlapped)
+bool AsynchronousFileManager::readFileHelper(void* tr, DWORD, LPOVERLAPPED overlapped)
 {
 	auto& request = *static_cast<ReadRequest*>(overlapped);
 	const auto pageSize = request.asynchronousFileManager->pageSize;
@@ -36,7 +36,7 @@ bool AsynchronousFileManager::readFileHelper(void* tr, void* gr, DWORD, LPOVERLA
 			{
 				//We successfully reclaimed the data, so we can complete the request to load it.
 				auto data = allocation + request.start - memoryStart;
-				request.fileLoadedCallback(request, *request.asynchronousFileManager, tr, gr, data);
+				request.fileLoadedCallback(request, *request.asynchronousFileManager, tr, data);
 				return true;
 			}
 			else
@@ -53,7 +53,7 @@ bool AsynchronousFileManager::readFileHelper(void* tr, void* gr, DWORD, LPOVERLA
 		{
 			//The resource is already loaded.
 			auto data = allocation + request.start - memoryStart;
-			request.fileLoadedCallback(request, *request.asynchronousFileManager, tr, gr, data);
+			request.fileLoadedCallback(request, *request.asynchronousFileManager, tr, data);
 			return true;
 		}
 		else
@@ -86,7 +86,7 @@ bool AsynchronousFileManager::readFileHelper(void* tr, void* gr, DWORD, LPOVERLA
 	return true;
 }
 
-bool AsynchronousFileManager::discardHelper(void* tr, void* gr, DWORD, LPOVERLAPPED overlapped)
+bool AsynchronousFileManager::discardHelper(void* tr, DWORD, LPOVERLAPPED overlapped)
 {
 	auto& request = *static_cast<ReadRequest*>(overlapped);
 	const auto pageSize = request.asynchronousFileManager->pageSize;
@@ -103,11 +103,11 @@ bool AsynchronousFileManager::discardHelper(void* tr, void* gr, DWORD, LPOVERLAP
 		OfferVirtualMemory(dataDescriptor.allocation, memoryNeeded, OFFER_PRIORITY::VmOfferPriorityLow);
 	}
 
-	request.deleteReadRequest(request, tr, gr);
+	request.deleteReadRequest(request, tr);
 	return true;
 }
 
- bool AsynchronousFileManager::processIOCompletion(void* tr, void* gr, DWORD numberOfBytes, LPOVERLAPPED overlapped)
+ bool AsynchronousFileManager::processIOCompletion(void* tr, DWORD numberOfBytes, LPOVERLAPPED overlapped)
 {
 	 ReadRequest* request = static_cast<ReadRequest*>(overlapped);
 	 AsynchronousFileManager& fileManager = *request->asynchronousFileManager;
@@ -140,7 +140,7 @@ bool AsynchronousFileManager::discardHelper(void* tr, void* gr, DWORD, LPOVERLAP
 	 {
 		 ReadRequest& temp = *requests;
 		 requests = static_cast<ReadRequest*>(requests->next); //Allow reuse of next
-		 temp.fileLoadedCallback(temp, fileManager, tr, gr, data);
+		 temp.fileLoadedCallback(temp, fileManager, tr, data);
 	 } while (requests != nullptr);
 	 return true;
 }

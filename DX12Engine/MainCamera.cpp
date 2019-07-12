@@ -95,12 +95,12 @@ void MainCamera::update(const Transform& target)
 	mLocation.rotation = target.rotation;
 }
 
-void MainCamera::render(Window& window, GraphicsEngine& graphicsEngine)
+void MainCamera::beforeRender(Window& window, GraphicsEngine& graphicsEngine)
 {
 	DirectX::XMMATRIX mViewMatrix = mLocation.toMatrix();
 	mImage = window.getBuffer(graphicsEngine.frameIndex);
 	const auto constantBuffer = reinterpret_cast<CameraConstantBuffer*>(reinterpret_cast<unsigned char*>(constantBufferCpuAddress) + graphicsEngine.frameIndex * bufferSizePS);
-	constantBuffer->viewProjectionMatrix = mViewMatrix * mProjectionMatrix;;
+	constantBuffer->viewProjectionMatrix = mViewMatrix * mProjectionMatrix;
 	constantBuffer->cameraPosition.x = mLocation.position.x();
 	constantBuffer->cameraPosition.y = mLocation.position.y();
 	constantBuffer->cameraPosition.z = mLocation.position.z();

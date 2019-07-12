@@ -6,30 +6,38 @@
 #include "Portal.h"
 #include "WorldManagerStopRequest.h"
 #include "LinkedTask.h"
+#include "TaskShedular.h"
+#include "GraphicsEngine.h"
 #undef min
 #undef max
 
-template<class ThreadResources, class GlobalResources>
+template<class ThreadResources>
 class Zone : private LinkedTask
 {
 	struct VTable
 	{
-		void(*start)(Zone& zone, ThreadResources& threadResources, GlobalResources& globalResources);
-		void (*createNewStateData)(Zone& zone, ThreadResources& threadResources, GlobalResources& globalResources);
-		void(*deleteOldStateData)(Zone& zone, ThreadResources& threadResources, GlobalResources& globalResources);
+		void(*start)(Zone& zone, ThreadResources& threadResources);
+		void (*createNewStateData)(Zone& zone, ThreadResources& threadResources);
+		void(*deleteOldStateData)(Zone& zone, ThreadResources& threadResources);
 		Range<Portal*>(*getPortals)(Zone& zone);
 	};
 	const VTable* const vTable;
 
 	constexpr static unsigned int undefinedState = std::numeric_limits<unsigned int>::max();
 	
-	Zone(const VTable* const vTable, unsigned int highestSupportedState) : vTable(vTable), highestSupportedState(highestSupportedState), currentState(highestSupportedState), nextState(undefinedState) {}
+	Zone(const VTable* const vTable, unsigned int highestSupportedState, void* context) : vTable(vTable), highestSupportedState(highestSupportedState), currentState(highestSupportedState), nextState(undefinedState), context(context) {}
 public:
 	Zone(std::nullptr_t) : vTable(nullptr) {}
-	Zone(Zone&& other) : vTable(other.vTable), highestSupportedState(other.highestSupportedState), currentState(other.currentState), nextState(other.nextState) {} // should be deleted when c++17 becomes common. Only used for return from factory methods
+
+#if defined(_MSC_VER)
+	/*
+	Initialization of array members doesn't seam to have copy elision in some cases when it should in c++17.
+	*/
+	Zone(Zone<ThreadResources>&& other);
+#endif
 
 	template<class ZoneFunctions>
-	static Zone create(unsigned int numberOfStates)
+	static Zone create(unsigned int numberOfStates, void* context)
 	{
 		static const VTable table
 		{
@@ -38,7 +46,7 @@ public:
 			ZoneFunctions::deleteOldStateData,
 			ZoneFunctions::getPortals
 		};
-		return Zone(&table, numberOfStates);
+		return Zone(&table, numberOfStates, context);
 	}
 
 	~Zone() {}
@@ -66,21 +74,22 @@ private:
 	std::atomic<unsigned int> numComponentsLoaded = 0;
 	WorldManagerStopRequest* stopRequest = nullptr;
 public:
+	void* context;
 
-	void componentUploaded(ThreadResources& threadResources, GlobalResources& globalResources, unsigned int numComponents)
+	void componentUploaded(TaskShedular<ThreadResources>& taskShedular, unsigned int numComponents)
 	{
 		//uses memory_order_acq_rel because it needs to see all loaded parts if it's the last load job and release it's load job otherwise
-		auto oldNumComponentsLoaded = this->numComponentsLoaded.fetch_add(1u, std::memory_order::memory_order_acq_rel);
+		auto oldNumComponentsLoaded = this->numComponentsLoaded.fetch_add(1u, std::memory_order_acq_rel);
 		if (oldNumComponentsLoaded == numComponents - 1u)
 		{
-			this->numComponentsLoaded.store(0u, std::memory_order::memory_order_relaxed);
-			finishedCreatingNewState(threadResources, globalResources);
+			this->numComponentsLoaded.store(0u, std::memory_order_relaxed);
+			finishedCreatingNewState(taskShedular);
 		}
 	}
 private:
 	void moveToUnloadedState(ThreadResources& threadResources)
 	{
-		threadResources.taskShedular.pushPrimaryTask(1u, { this, [](void* context, ThreadResources& threadResources, GlobalResources& globalResources)
+		threadResources.taskShedular.pushPrimaryTask(1u, { this, [](void* context, ThreadResources& threadResources)
 		{
 			Zone& zone = *(Zone*)(context);
 			unsigned int oldState = zone.currentState;
@@ -89,12 +98,12 @@ private:
 			zone.oldData = oldData;
 			zone.oldState = oldState;
 
-			zone.vTable->deleteOldStateData(zone, threadResources, globalResources);
+			zone.vTable->deleteOldStateData(zone, threadResources);
 		} });
 	}
 public:
 	//Must be called dueing update1
-	void setState(unsigned int newState1, ThreadResources& threadResources, GlobalResources& globalResources)
+	void setState(unsigned int newState1, ThreadResources& threadResources)
 	{
 		const unsigned int highestSupported = this->highestSupportedState;
 		unsigned int actualNewState = newState1 > highestSupported ? highestSupported : newState1;
@@ -111,7 +120,7 @@ public:
 				}
 				else
 				{
-					this->vTable->createNewStateData(*this, threadResources, globalResources);
+					this->vTable->createNewStateData(*this, threadResources);
 				}
 			}
 		}
@@ -122,7 +131,7 @@ public:
 	}
 
 	//Must be called dueing update1
-	void stop(WorldManagerStopRequest* stopRequest1, ThreadResources& threadResources, GlobalResources& globalResources)
+	void stop(WorldManagerStopRequest* stopRequest1, ThreadResources& threadResources)
 	{
 		unsigned int actualNewState = highestSupportedState;
 		stopRequest = stopRequest1;
@@ -137,7 +146,7 @@ public:
 			}
 			else
 			{
-				stopRequest1->onZoneStopped(&threadResources, &globalResources);
+				stopRequest1->onZoneStopped(&threadResources);
 			}
 		}
 		else
@@ -146,13 +155,12 @@ public:
 		}
 	}
 
-	void finishedCreatingNewState(ThreadResources&, GlobalResources& globalResources)
+	void finishedCreatingNewState(TaskShedular<ThreadResources>& taskShedular)
 	{
-		execute = [](LinkedTask& task, void* tr, void* gr)
+		execute = [](LinkedTask& task, void* tr)
 		{
 			Zone& zone = static_cast<Zone&>(task);
 			ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
-			GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
 			unsigned int oldState = zone.currentState;
 			void* oldData = zone.currentData;
 			zone.currentState = zone.newState;
@@ -176,37 +184,36 @@ public:
 #endif
 						zone.oldState = currentState;
 						zone.oldData = currentData;
-						zone.vTable->deleteOldStateData(zone, threadResources, globalResources);
+						zone.vTable->deleteOldStateData(zone, threadResources);
 					}
 					else
 					{
-						zone.start(threadResources, globalResources);
-						zone.vTable->createNewStateData(zone, threadResources, globalResources);
+						zone.start(threadResources);
+						zone.vTable->createNewStateData(zone, threadResources);
 					}
 				}
 				else
 				{
-					zone.start(threadResources, globalResources);
+					zone.start(threadResources);
 					zone.nextState = undefinedState;
 				}
 			}
 			else
 			{
-				zone.vTable->deleteOldStateData(zone, threadResources, globalResources);
+				zone.vTable->deleteOldStateData(zone, threadResources);
 			}
 		};
-		globalResources.taskShedular.pushPrimaryTaskFromOtherThread(1u, *this);
+		taskShedular.pushPrimaryTaskFromOtherThread(1u, *this);
 	}
 
-	void finishedDeletingOldState(ThreadResources&, GlobalResources& globalResources)
+	void finishedDeletingOldState(TaskShedular<ThreadResources>& taskShedular)
 	{
 		//Not garantied to be next queue. Could be current queue.
 		//wait for zone to start using new state
-		execute = [](LinkedTask& task, void* tr, void* gr)
+		execute = [](LinkedTask& task, void* tr)
 		{
 			Zone& zone = static_cast<Zone&>(task);
 			ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
-			GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
 			unsigned int currentState = zone.currentState;
 			if(zone.nextState != currentState)
 			{
@@ -217,7 +224,7 @@ public:
 				}
 				else
 				{
-					zone.vTable->createNewStateData(zone, threadResources, globalResources);
+					zone.vTable->createNewStateData(zone, threadResources);
 				}
 			}
 			else
@@ -226,16 +233,16 @@ public:
 				auto stopRequest1 = zone.stopRequest;
 				if(stopRequest1 != nullptr)
 				{
-					stopRequest1->onZoneStopped(&threadResources, &globalResources);
+					stopRequest1->onZoneStopped(&threadResources);
 				}
 			}
 		};
-		globalResources.taskShedular.pushPrimaryTaskFromOtherThread(1u, *this);
+		taskShedular.pushPrimaryTaskFromOtherThread(1u, *this);
 	}
 
-	void start(ThreadResources& threadResources, GlobalResources& globalResources)
+	void start(ThreadResources& threadResources)
 	{
-		vTable->start(*this, threadResources, globalResources);
+		vTable->start(*this, threadResources);
 	}
 
 	Range<Portal*> getPortals()
@@ -243,10 +250,10 @@ public:
 		return vTable->getPortals(*this);
 	}
 
-	void executeWhenGpuFinishesCurrentFrame(GlobalResources& globalResources, void(*task)(LinkedTask& task, void* tr, void* gr))
+	void executeWhenGpuFinishesCurrentFrame(GraphicsEngine& graphicsEngine, void(*task)(LinkedTask& task, void* tr))
 	{
 		execute = task;
-		globalResources.graphicsEngine.executeWhenGpuFinishesCurrentFrame(*this); //wait for cpu and gpu to stop using old state
+		graphicsEngine.executeWhenGpuFinishesCurrentFrame(*this); //wait for cpu and gpu to stop using old state
 	}
 
 	static Zone& from(LinkedTask& task)

@@ -2,7 +2,7 @@
 #include <D3D12PipelineState.h>
 #include <atomic>
 #include <AsynchronousFileManager.h>
-#include <Array.h>
+#include <array>
 #include <PsoLoader.h>
 #include "RootSignatures.h"
 
@@ -20,20 +20,27 @@ public:
 			D3D12PipelineState& piplineStateObject;
 
 			ShaderLoader(GraphicsPipelineStateDesc& graphicsPipelineStateDesc, AsynchronousFileManager& asynchronousFileManager, ID3D12Device& grphicsDevice,
-				void(*psoLoadedCallback1)(PsoLoader::PsoWithVertexAndPixelShaderRequest& request, D3D12PipelineState pso, void* tr, void* gr),
+				void(*psoLoadedCallback1)(PsoLoader::PsoWithVertexAndPixelShaderRequest& request, D3D12PipelineState pso, void* tr),
 				PipelineLoader* pipelineLoader1, D3D12PipelineState& piplineStateObject1) :
 				PsoLoader::PsoWithVertexAndPixelShaderRequest(graphicsPipelineStateDesc, asynchronousFileManager, grphicsDevice, psoLoadedCallback1),
 				pipelineLoader(pipelineLoader1),
 				piplineStateObject(piplineStateObject1)
 				{}
+
+#if defined(_MSC_VER)
+			/*
+			Initialization of array members doesn't seam to have copy elision in some cases when it should in c++17.
+			*/
+			ShaderLoader(ShaderLoader&&);
+#endif
 		};
 	
 		constexpr static unsigned int numberOfComponents = 15u;
 		std::atomic<unsigned int> numberOfcomponentsLoaded = 0u;
 
-		Array<ShaderLoader, numberOfComponents> shaderLoaders;
+		std::array<ShaderLoader, numberOfComponents> psoLoaders;
 
-		static void componentLoaded(PsoLoader::PsoWithVertexAndPixelShaderRequest& request, D3D12PipelineState pso, void* tr, void* gr);
+		static void componentLoaded(PsoLoader::PsoWithVertexAndPixelShaderRequest& request, D3D12PipelineState pso, void* tr);
 
 		PipelineLoaderImpl(GraphicsPipelineStateDesc* const(&graphicsPipelineStateDescs)[numberOfComponents], D3D12PipelineState* const(&output)[numberOfComponents],
 			AsynchronousFileManager& asynchronousFileManager, ID3D12Device& grphicsDevice, PipelineLoader& pipelineLoader, ID3D12RootSignature& rootSignature);
@@ -47,10 +54,10 @@ public:
 		{
 			PipelineLoaderImpl impl;
 		};
-		void(*loadingFinished)(PipelineLoader& pipelineLoader, void* tr, void* gr);
+		void(*loadingFinished)(PipelineLoader& pipelineLoader, void* tr);
 
 	public:
-		PipelineLoader(void(*loadingFinished)(PipelineLoader& pipelineLoader, void* tr, void* gr)) :
+		PipelineLoader(void(*loadingFinished)(PipelineLoader& pipelineLoader, void* tr)) :
 			loadingFinished(loadingFinished) {}
 
 		~PipelineLoader() {}

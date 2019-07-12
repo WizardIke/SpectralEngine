@@ -4,10 +4,13 @@
 #include <d3d12.h>
 #include "GraphicsEngine.h"
 
-TextureManager::TextureManager() {}
-TextureManager::~TextureManager() {}
+TextureManager::TextureManager(AsynchronousFileManager& asynchronousFileManager1, StreamingManager& streamingManager1, GraphicsEngine& graphicsEngine1) :
+	asynchronousFileManager(asynchronousFileManager1),
+	streamingManager(streamingManager1),
+	graphicsEngine(graphicsEngine1)
+{}
 
-void TextureManager::unloadTexture(UnloadRequest& unloadRequest, GraphicsEngine& graphicsEngine, void* tr, void* gr)
+void TextureManager::unloadTexture(UnloadRequest& unloadRequest, void* tr)
 {
 	auto texurePtr = textures.find(unloadRequest.filename);
 	auto& texture = texurePtr->second;
@@ -17,7 +20,7 @@ void TextureManager::unloadTexture(UnloadRequest& unloadRequest, GraphicsEngine&
 		graphicsEngine.descriptorAllocator.deallocate(texture.descriptorIndex);
 		textures.erase(texurePtr);
 	}
-	unloadRequest.deleteReadRequest(unloadRequest, tr, gr);
+	unloadRequest.deleteReadRequest(unloadRequest, tr);
 }
 
 ID3D12Resource* TextureManager::createTexture(const TextureStreamingRequest& uploadRequest, GraphicsEngine& graphicsEngine, unsigned int& discriptorIndex, const wchar_t* filename)
@@ -110,7 +113,7 @@ ID3D12Resource* TextureManager::createTexture(const TextureStreamingRequest& upl
 }
 
 void TextureManager::loadTextureFromMemory(const unsigned char* buffer, TextureStreamingRequest& uploadRequest,
-	void(*streamResource)(StreamingManager::StreamingRequest* request, void* threadResources, void* globalResources))
+	void(*streamResource)(StreamingManager::StreamingRequest* request, void* tr))
 {
 	const DDSFileLoader::DdsHeaderDx12& header = *reinterpret_cast<const DDSFileLoader::DdsHeaderDx12*>(buffer);
 	bool valid = DDSFileLoader::validateDdsHeader(header);
@@ -134,7 +137,7 @@ void TextureManager::loadTextureFromMemory(const unsigned char* buffer, TextureS
 		uploadRequest.mipLevels, uploadRequest.arraySize, uploadRequest.format);
 }
 
-void TextureManager::notifyTextureReady(TextureStreamingRequest* request, void* tr, void* gr)
+void TextureManager::notifyTextureReady(TextureStreamingRequest* request, void* tr)
 {
 	auto& texture = textures[request->filename];
 	texture.lastRequest = nullptr;
@@ -145,6 +148,6 @@ void TextureManager::notifyTextureReady(TextureStreamingRequest* request, void* 
 	{
 		auto old = request;
 		request = request->nextTextureRequest; //Need to do this now as old could be deleted by the next line
-		old->textureLoaded(*old, tr, gr, discriptorIndex);
+		old->textureLoaded(*old, tr, discriptorIndex);
 	} while(request != nullptr);
 }

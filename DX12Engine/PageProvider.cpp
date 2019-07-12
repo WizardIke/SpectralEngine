@@ -4,7 +4,12 @@
 #include "File.h"
 #include "VirtualFeedbackSubPass.h"
 
-PageProvider::PageProvider() : freePageLoadRequestsCount{maxPagesLoading}
+PageProvider::PageProvider(VirtualFeedbackSubPass& feedbackAnalizerSubPass1, StreamingManager& streamingManager, GraphicsEngine& graphicsEngine, AsynchronousFileManager& asynchronousFileManager) :
+	freePageLoadRequestsCount{maxPagesLoading},
+	feedbackAnalizerSubPass(feedbackAnalizerSubPass1),
+	streamingManager(streamingManager),
+	graphicsEngine(graphicsEngine),
+	asynchronousFileManager(asynchronousFileManager)
 {
 	D3D12_HEAP_PROPERTIES uploadHeapProperties;
 	uploadHeapProperties.Type = D3D12_HEAP_TYPE::D3D12_HEAP_TYPE_UPLOAD;
@@ -37,8 +42,8 @@ PageProvider::PageProvider() : freePageLoadRequestsCount{maxPagesLoading}
 
 //textures must be tiled
 void PageProvider::addPageLoadRequestHelper(PageLoadRequest& streamingRequest,
-	void(*streamResource)(StreamingManager::StreamingRequest* request, void* threadResources, void* globalResources),
-	void(*resourceUploaded)(StreamingManager::StreamingRequest* request, void* threadResources, void* globalResources))
+	void(*streamResource)(StreamingManager::StreamingRequest* request, void* tr),
+	void(*resourceUploaded)(StreamingManager::StreamingRequest* request, void* tr))
 {
 	VirtualTextureInfoByID& texturesByID = streamingRequest.pageProvider->texturesByID;
 	VirtualTextureInfo& resourceInfo = texturesByID[streamingRequest.allocationInfo.textureLocation.textureId];
@@ -115,7 +120,7 @@ void PageProvider::addPageLoadRequestHelper(PageLoadRequest& streamingRequest,
 
 void PageProvider::addPageDataToResource(VirtualTextureInfo& textureInfo, D3D12_TILED_RESOURCE_COORDINATE* newPageCoordinates, PageLoadRequest** pageLoadRequests, std::size_t pageCount,
 	D3D12_TILE_REGION_SIZE& tileSize, PageCache& pageCache, ID3D12GraphicsCommandList* commandList, GraphicsEngine& graphicsEngine,
-	void(*uploadComplete)(PrimaryTaskFromOtherThreadQueue::Task& task, void* gr, void* tr))
+	void(*uploadComplete)(PrimaryTaskFromOtherThreadQueue::Task& task, void* tr))
 {
 	ID3D12Resource* const resource = textureInfo.resource;
 
@@ -269,8 +274,7 @@ void PageProvider::checkCacheForPages(decltype(uniqueRequests)& pageRequests, Vi
 	}
 }
 
-void PageProvider::addNewPagesToResources(GraphicsEngine& graphicsEngine,
-	ID3D12GraphicsCommandList* commandList, void(*uploadComplete)(LinkedTask& task, void* gr, void* tr), void* tr, void* gr)
+void PageProvider::addNewPagesToResources(ID3D12GraphicsCommandList* commandList, void(*uploadComplete)(LinkedTask& task, void* tr), void* tr)
 {
 	ID3D12CommandQueue* commandQueue = graphicsEngine.directCommandQueue;
 	ID3D12Device* graphicsDevice = graphicsEngine.graphicsDevice;
@@ -300,7 +304,7 @@ void PageProvider::addNewPagesToResources(GraphicsEngine& graphicsEngine,
 			{
 				assert(textureInfo.textureID != 255);
 				texturesByID.deallocate(textureInfo.textureID);
-				textureInfo.unloadRequest->callback(*textureInfo.unloadRequest, tr, gr);
+				textureInfo.unloadRequest->callback(*textureInfo.unloadRequest, tr);
 			}
 		}
 		halfFinishedPageRequests = static_cast<PageLoadRequest*>(static_cast<LinkedTask*>(static_cast<LinkedTask*>(halfFinishedPageRequests)->next));
@@ -367,14 +371,14 @@ void PageProvider::shrinkNumberOfLoadRequestsIfNeeded(std::size_t numTexturePage
 	}
 }
 
-void PageProvider::processMessages(void* tr, void* gr)
+void PageProvider::processMessages(void* tr)
 {
 	SinglyLinked* messages = messageQueue.popAll();
 	while (messages != nullptr)
 	{
 		LinkedTask& message = *static_cast<LinkedTask*>(messages);
 		messages = messages->next;
-		message.execute(message, tr, gr);
+		message.execute(message, tr);
 	}
 }
 
@@ -428,9 +432,9 @@ void PageProvider::gatherPageRequests(void* feadBackBuffer, unsigned long sizeIn
 	}
 }
 
-void PageProvider::processPageRequestsHelper(IDXGIAdapter3* adapter, float& mipBias, float desiredMipBias, PageDeleter& pageDeleter, void* tr, void* gr)
+void PageProvider::processPageRequestsHelper(IDXGIAdapter3* adapter, float& mipBias, float desiredMipBias, PageDeleter& pageDeleter, void* tr)
 {
-	processMessages(tr, gr);
+	processMessages(tr);
 	//Work out memory budget, grow or shrink cache as required and change mip bias as required
 	long long memoryBedgetInPages = calculateMemoryBudgetInPages(adapter);
 	while(recalculateCacheSize(mipBias, desiredMipBias, memoryBedgetInPages, uniqueRequests.size(), texturesByID, pageDeleter))
@@ -461,7 +465,7 @@ void PageProvider::increaseMipBias(decltype(uniqueRequests)& pageRequests)
 	posableLoadRequests.clear();
 }
 
-void PageProvider::deleteTextureHelper(UnloadRequest& unloadRequest, void* tr, void* gr)
+void PageProvider::deleteTextureHelper(UnloadRequest& unloadRequest, void* tr)
 {
 	VirtualTextureInfo& textureInfo = *unloadRequest.textureInfo;
 	std::size_t numberOfNewUnneededLoadingPages = 0u;
@@ -483,7 +487,7 @@ void PageProvider::deleteTextureHelper(UnloadRequest& unloadRequest, void* tr, v
 	{
 		assert(textureInfo.textureID != 255);
 		texturesByID.deallocate(textureInfo.textureID);
-		unloadRequest.callback(unloadRequest, tr, gr);
+		unloadRequest.callback(unloadRequest, tr);
 	}
 	else
 	{
@@ -491,7 +495,7 @@ void PageProvider::deleteTextureHelper(UnloadRequest& unloadRequest, void* tr, v
 	}
 }
 
-void PageProvider::allocateTexturePinnedHelper(AllocateTextureRequest& allocateRequest, void* tr, void* gr)
+void PageProvider::allocateTexturePinnedHelper(AllocateTextureRequest& allocateRequest, void* tr)
 {
 	VirtualTextureInfo& textureInfo = *allocateRequest.textureInfo;
 	ID3D12CommandQueue& commandQueue = *allocateRequest.commandQueue;
@@ -529,10 +533,10 @@ void PageProvider::allocateTexturePinnedHelper(AllocateTextureRequest& allocateR
 	unsigned int textureID = texturesByID.allocate(textureInfo);
 	textureInfo.textureID = textureID;
 
-	allocateRequest.callback(allocateRequest, tr, gr);
+	allocateRequest.callback(allocateRequest, tr);
 }
 
-void PageProvider::allocateTexturePackedHelper(AllocateTextureRequest& allocateRequest, void* tr, void* gr)
+void PageProvider::allocateTexturePackedHelper(AllocateTextureRequest& allocateRequest, void* tr)
 {
 	VirtualTextureInfo& textureInfo = *allocateRequest.textureInfo;
 	ID3D12CommandQueue& commandQueue = *allocateRequest.commandQueue;
@@ -544,16 +548,16 @@ void PageProvider::allocateTexturePackedHelper(AllocateTextureRequest& allocateR
 	unsigned int textureID = texturesByID.allocate(textureInfo);
 	textureInfo.textureID = textureID;
 
-	allocateRequest.callback(allocateRequest, tr, gr);
+	allocateRequest.callback(allocateRequest, tr);
 }
 
 void PageProvider::deleteTexture(UnloadRequest& unloadRequest)
 {
 	unloadRequest.pageProvider = this;
-	unloadRequest.execute = [](LinkedTask& task, void* tr, void* gr)
+	unloadRequest.execute = [](LinkedTask& task, void* tr)
 	{
 		UnloadRequest& unloadRequest = static_cast<UnloadRequest&>(task);
-		unloadRequest.pageProvider->deleteTextureHelper(unloadRequest, tr, gr);
+		unloadRequest.pageProvider->deleteTextureHelper(unloadRequest, tr);
 	};
 	messageQueue.push(&unloadRequest);
 }
@@ -561,10 +565,10 @@ void PageProvider::deleteTexture(UnloadRequest& unloadRequest)
 void PageProvider::allocateTexturePinned(AllocateTextureRequest& allocateRequest)
 {
 	allocateRequest.pageProvider = this;
-	allocateRequest.execute = [](LinkedTask& task, void* tr, void* gr)
+	allocateRequest.execute = [](LinkedTask& task, void* tr)
 	{
 		AllocateTextureRequest& allocateRequest = static_cast<AllocateTextureRequest&>(task);
-		allocateRequest.pageProvider->allocateTexturePinnedHelper(allocateRequest, tr, gr);
+		allocateRequest.pageProvider->allocateTexturePinnedHelper(allocateRequest, tr);
 	};
 	messageQueue.push(&allocateRequest);
 }
@@ -572,10 +576,10 @@ void PageProvider::allocateTexturePinned(AllocateTextureRequest& allocateRequest
 void PageProvider::allocateTexturePacked(AllocateTextureRequest& allocateRequest)
 {
 	allocateRequest.pageProvider = this;
-	allocateRequest.execute = [](LinkedTask& task, void* tr, void* gr)
+	allocateRequest.execute = [](LinkedTask& task, void* tr)
 	{
 		AllocateTextureRequest& allocateRequest = static_cast<AllocateTextureRequest&>(task);
-		allocateRequest.pageProvider->allocateTexturePackedHelper(allocateRequest, tr, gr);
+		allocateRequest.pageProvider->allocateTexturePackedHelper(allocateRequest, tr);
 	};
 	messageQueue.push(&allocateRequest);
 }

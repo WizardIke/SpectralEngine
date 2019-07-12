@@ -46,7 +46,7 @@ public:
 	~MainCamera();
 
 	void update(const Transform& target);
-	void render(Window& window, GraphicsEngine& graphicsEngine);
+	void beforeRender(Window& window, GraphicsEngine& graphicsEngine);
 	bool isInView() const { return true; }
 	void bind(uint32_t frameIndex, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end);
 	void bindFirstThread(uint32_t frameIndex, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end);

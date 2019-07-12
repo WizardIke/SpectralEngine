@@ -3,28 +3,13 @@
 #include "../ThreadResources.h"
 #include "../GlobalResources.h"
 
-UserInterface::UserInterface(GlobalResources& sharedResources, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, unsigned char*& constantBufferCpuAddress) :
-	CPUUsageSentence(sharedResources.graphicsEngine.graphicsDevice, &sharedResources.arial, DirectX::XMFLOAT2(0.01f, 0.01f), DirectX::XMFLOAT2(1.0f, 1.0f),
+UserInterface::UserInterface(GlobalResources& globalResources) :
+	CPUUsageSentence(globalResources.graphicsEngine.graphicsDevice, &globalResources.arial, DirectX::XMFLOAT2(0.01f, 0.01f), DirectX::XMFLOAT2(1.0f, 1.0f),
 		DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f)),
-	FPSSentence(sharedResources.graphicsEngine.graphicsDevice, &sharedResources.arial, DirectX::XMFLOAT2(0.01f, 0.07f), DirectX::XMFLOAT2(1.0f, 1.0f)) 
+	FPSSentence(globalResources.graphicsEngine.graphicsDevice, &globalResources.arial, DirectX::XMFLOAT2(0.01f, 0.07f), DirectX::XMFLOAT2(1.0f, 1.0f)),
+	globalResources(globalResources)
 {
-	bufferGpu = constantBufferGpuAddress;
-	constantBufferGpuAddress += BasicMaterialPsSize + TexturedQuadMaterialVsSize;
-	auto BufferVsCpu = reinterpret_cast<TexturedQuadMaterialVS*>(constantBufferCpuAddress);
-	constantBufferCpuAddress += TexturedQuadMaterialVsSize;
-	auto bufferPSCpu = reinterpret_cast<BasicMaterialPS*>(constantBufferCpuAddress);
-	constantBufferCpuAddress += BasicMaterialPsSize;
-
-	BufferVsCpu->pos[0] = -1.0f;
-	BufferVsCpu->pos[1] = 0.0f;
-	BufferVsCpu->pos[2] = 1.0f;
-	BufferVsCpu->pos[3] = 1.0f;
-	BufferVsCpu->texCoords[0] = 0.0f;
-	BufferVsCpu->texCoords[1] = 0.0f;
-	BufferVsCpu->texCoords[2] = 1.0f;
-	BufferVsCpu->texCoords[3] = 1.0f;
-
-	auto& camera = (*sharedResources.renderPass.virtualTextureFeedbackSubPass().cameras().begin());
+	const VirtualPageCamera& camera = (*globalResources.renderPass.virtualTextureFeedbackSubPass().cameras().begin());
 	D3D12_RESOURCE_DESC resourceDesc;
 	resourceDesc.Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
 	resourceDesc.DepthOrArraySize = 1u;
@@ -44,15 +29,15 @@ UserInterface::UserInterface(GlobalResources& sharedResources, D3D12_GPU_VIRTUAL
 	heapProperties.CreationNodeMask = 0u;
 	heapProperties.MemoryPoolPreference = D3D12_MEMORY_POOL::D3D12_MEMORY_POOL_UNKNOWN;
 	heapProperties.VisibleNodeMask = 0u;
-	virtualFeedbackTextureCopy = D3D12Resource(sharedResources.graphicsEngine.graphicsDevice, heapProperties, D3D12_HEAP_FLAGS::D3D12_HEAP_FLAG_NONE, resourceDesc, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+	virtualFeedbackTextureCopy = D3D12Resource(globalResources.graphicsEngine.graphicsDevice, heapProperties, D3D12_HEAP_FLAGS::D3D12_HEAP_FLAG_NONE, resourceDesc, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 
 #ifndef NDEBUG
 	virtualFeedbackTextureCopy->SetName(L"User interface copy of virtual feedback texture");
 #endif
 
-	auto descriptorIndex = sharedResources.graphicsEngine.descriptorAllocator.allocate();
-	D3D12_CPU_DESCRIPTOR_HANDLE descritporHandle = sharedResources.graphicsEngine.mainDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
-	descritporHandle.ptr += sharedResources.graphicsEngine.cbvAndSrvAndUavDescriptorSize * descriptorIndex;
+	descriptorIndex = globalResources.graphicsEngine.descriptorAllocator.allocate();
+	D3D12_CPU_DESCRIPTOR_HANDLE descritporHandle = globalResources.graphicsEngine.mainDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
+	descritporHandle.ptr += globalResources.graphicsEngine.cbvAndSrvAndUavDescriptorSize * descriptorIndex;
 	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc;
 	srvDesc.Format = DXGI_FORMAT::DXGI_FORMAT_R16G16B16A16_UNORM;
 	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
@@ -61,29 +46,32 @@ UserInterface::UserInterface(GlobalResources& sharedResources, D3D12_GPU_VIRTUAL
 	srvDesc.Texture2D.MostDetailedMip = 0u;
 	srvDesc.Texture2D.PlaneSlice = 0u;
 	srvDesc.Texture2D.ResourceMinLODClamp = 0u;
-	sharedResources.graphicsEngine.graphicsDevice->CreateShaderResourceView(virtualFeedbackTextureCopy, &srvDesc, descritporHandle);
-
-	bufferPSCpu->baseColorTexture = descriptorIndex;
+	globalResources.graphicsEngine.graphicsDevice->CreateShaderResourceView(virtualFeedbackTextureCopy, &srvDesc, descritporHandle);
 }
 
-void UserInterface::update1(GlobalResources& sharedResources)
+UserInterface::~UserInterface()
 {
-	float frameTime = sharedResources.timer.frameTime();
+	globalResources.graphicsEngine.descriptorAllocator.deallocate(descriptorIndex);
+}
+
+void UserInterface::update1()
+{
+	float frameTime = globalResources.timer.frameTime();
 	CPUUsageSentence.update(frameTime);
 	FPSSentence.update(frameTime);
 }
 
-void UserInterface::update2(ThreadResources& executor, GlobalResources& sharedResources)
+void UserInterface::update2(ThreadResources& threadResources)
 {
-	auto frameIndex = sharedResources.graphicsEngine.frameIndex;
+	auto frameIndex = globalResources.graphicsEngine.frameIndex;
 	CPUUsageSentence.beforeRender(frameIndex);
 	FPSSentence.beforeRender(frameIndex);
 
-	const auto opaqueDirectCommandList = executor.renderPass.colorSubPass().opaqueCommandList();
+	const auto opaqueDirectCommandList = threadResources.renderPass.colorSubPass().opaqueCommandList();
 	
-	opaqueDirectCommandList->SetPipelineState(sharedResources.pipelineStateObjects.text);
+	opaqueDirectCommandList->SetPipelineState(globalResources.pipelineStateObjects.text);
 	opaqueDirectCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
-	opaqueDirectCommandList->SetGraphicsRootConstantBufferView(3u, sharedResources.arial.psPerObjectCBVGpuAddress);
+	opaqueDirectCommandList->SetGraphicsRootConstantBufferView(3u, globalResources.arial.psPerObjectCBVGpuAddress);
 
 	opaqueDirectCommandList->IASetVertexBuffers(0u, 1u, &CPUUsageSentence.textVertexBufferView[frameIndex]);
 	opaqueDirectCommandList->DrawInstanced(4u, static_cast<UINT>(CPUUsageSentence.text.length()), 0u, 0u);
@@ -93,10 +81,10 @@ void UserInterface::update2(ThreadResources& executor, GlobalResources& sharedRe
 
 	if (displayVirtualFeedbackTexture)
 	{
-		auto& subPass = sharedResources.renderPass.virtualTextureFeedbackSubPass();
+		auto& subPass = globalResources.renderPass.virtualTextureFeedbackSubPass();
 		if (subPass.isInView())
 		{
-			auto image = (*sharedResources.renderPass.virtualTextureFeedbackSubPass().cameras().begin()).getImage();
+			auto image = (*globalResources.renderPass.virtualTextureFeedbackSubPass().cameras().begin()).getImage();
 
 			D3D12_RESOURCE_BARRIER barrier[2];
 			barrier[0].Type = D3D12_RESOURCE_BARRIER_TYPE::D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
@@ -123,38 +111,60 @@ void UserInterface::update2(ThreadResources& executor, GlobalResources& sharedRe
 			opaqueDirectCommandList->ResourceBarrier(2u, barrier);
 		}
 		
-		opaqueDirectCommandList->SetPipelineState(sharedResources.pipelineStateObjects.vtDebugDraw);
+		opaqueDirectCommandList->SetPipelineState(globalResources.pipelineStateObjects.vtDebugDraw);
 		opaqueDirectCommandList->SetGraphicsRootConstantBufferView(2u, bufferGpu);
 		opaqueDirectCommandList->SetGraphicsRootConstantBufferView(3u, bufferGpu + TexturedQuadMaterialVsSize);
 		opaqueDirectCommandList->DrawInstanced(4u, 1u, 0u, 0u);
 	}
 }
 
-void UserInterface::start(ThreadResources& threadResources, GlobalResources&)
+void UserInterface::setConstantBuffers(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, unsigned char*& constantBufferCpuAddress)
 {
-	threadResources.taskShedular.pushPrimaryTask(0u, {this, [](void* requester, ThreadResources& threadResources, GlobalResources& globalResources)
+	bufferGpu = constantBufferGpuAddress;
+	constantBufferGpuAddress += BasicMaterialPsSize + TexturedQuadMaterialVsSize;
+	auto BufferVsCpu = reinterpret_cast<TexturedQuadMaterialVS*>(constantBufferCpuAddress);
+	constantBufferCpuAddress += TexturedQuadMaterialVsSize;
+	auto bufferPSCpu = reinterpret_cast<BasicMaterialPS*>(constantBufferCpuAddress);
+	constantBufferCpuAddress += BasicMaterialPsSize;
+
+	BufferVsCpu->pos[0] = -1.0f;
+	BufferVsCpu->pos[1] = 0.0f;
+	BufferVsCpu->pos[2] = 1.0f;
+	BufferVsCpu->pos[3] = 1.0f;
+	BufferVsCpu->texCoords[0] = 0.0f;
+	BufferVsCpu->texCoords[1] = 0.0f;
+	BufferVsCpu->texCoords[2] = 1.0f;
+	BufferVsCpu->texCoords[3] = 1.0f;
+
+
+	bufferPSCpu->baseColorTexture = descriptorIndex;
+}
+
+void UserInterface::start(ThreadResources& threadResources)
+{
+	threadResources.taskShedular.pushPrimaryTask(0u, {this, [](void* requester, ThreadResources& threadResources)
 	{
 		UserInterface* const ui = static_cast<UserInterface*>(requester);
 		auto stopRequest = ui->mStopRequest;
 		if(stopRequest != nullptr)
 		{
-			stopRequest->callback(*stopRequest, &threadResources, &globalResources);
+			stopRequest->callback(*stopRequest, &threadResources);
 			return;
 		}
-		ui->update1(globalResources);
-		threadResources.taskShedular.pushPrimaryTask(1u, { requester, [](void*const requester, ThreadResources& threadResources, GlobalResources& globalResources)
+		ui->update1();
+		threadResources.taskShedular.pushPrimaryTask(1u, { requester, [](void*const requester, ThreadResources& threadResources)
 		{
 			UserInterface* const ui = static_cast<UserInterface*>(requester);
-			ui->update2(threadResources, globalResources);
-			ui->start(threadResources, globalResources);
+			ui->update2(threadResources);
+			ui->start(threadResources);
 		} });
 	}});
 }
 
-void UserInterface::stop(StopRequest& stopRequest, ThreadResources& threadResources, GlobalResources&)
+void UserInterface::stop(StopRequest& stopRequest, ThreadResources& threadResources)
 {
 	stopRequest.stopRequest = &mStopRequest;
-	threadResources.taskShedular.pushPrimaryTask(1u, {&stopRequest, [](void* requester, ThreadResources&, GlobalResources&)
+	threadResources.taskShedular.pushPrimaryTask(1u, {&stopRequest, [](void* requester, ThreadResources&)
 	{
 		StopRequest& stopRequest = *static_cast<StopRequest*>(requester);
 		*stopRequest.stopRequest = &stopRequest;

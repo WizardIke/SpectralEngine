@@ -17,10 +17,10 @@ private:
 		PageProvider* pageProvider;
 	public:
 		VirtualTextureInfo* textureInfo;
-		void(*callback)(UnloadRequest& unloadRequest, void* tr, void* gr);
+		void(*callback)(UnloadRequest& unloadRequest, void* tr);
 
 		UnloadRequest() {}
-		UnloadRequest(VirtualTextureInfo& textureInfo1, void(&callback1)(UnloadRequest& unloadRequest, void* tr, void* gr)) :
+		UnloadRequest(VirtualTextureInfo& textureInfo1, void(&callback1)(UnloadRequest& unloadRequest, void* tr)) :
 			textureInfo(&textureInfo1),
 			callback(callback1) {}
 	};

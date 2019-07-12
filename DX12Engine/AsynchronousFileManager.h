@@ -43,13 +43,13 @@ public:
 		//amount read
 		std::size_t accumulatedSize;
 		//what to do with the result
-		void(*fileLoadedCallback)(ReadRequest& request, AsynchronousFileManager& asynchronousFileManager, void* executor, void* sharedResources, const unsigned char* data);
-		void(*deleteReadRequest)(ReadRequest& request, void* tr, void* gr);
+		void(*fileLoadedCallback)(ReadRequest& request, AsynchronousFileManager& asynchronousFileManager, void* tr, const unsigned char* data);
+		void(*deleteReadRequest)(ReadRequest& request, void* tr);
 
 		ReadRequest() {}
 		ReadRequest(const wchar_t* filename, File file, std::size_t start, std::size_t end,
-			void(*fileLoadedCallback)(ReadRequest& request, AsynchronousFileManager& asynchronousFileManager, void* executor, void* sharedResources, const unsigned char* data),
-			void(*deleteRequest)(ReadRequest& request, void* executor, void* sharedResources)) :
+			void(*fileLoadedCallback)(ReadRequest& request, AsynchronousFileManager& asynchronousFileManager, void* tr, const unsigned char* data),
+			void(*deleteRequest)(ReadRequest& request, void* tr)) :
 			file(file),
 			fileLoadedCallback(fileLoadedCallback),
 			deleteReadRequest(deleteRequest)
@@ -71,9 +71,9 @@ private:
 	IOCompletionQueue& ioCompletionQueue;
 	std::size_t pageSize;
 
-	static bool processIOCompletion(void* tr, void* gr, DWORD numberOfBytes, LPOVERLAPPED overlapped);
-	static bool readFileHelper(void* tr, void* gr, DWORD, LPOVERLAPPED overlapped);
-	static bool discardHelper(void* tr, void* gr, DWORD, LPOVERLAPPED overlapped);
+	static bool processIOCompletion(void* tr, DWORD numberOfBytes, LPOVERLAPPED overlapped);
+	static bool readFileHelper(void* tr, DWORD, LPOVERLAPPED overlapped);
+	static bool discardHelper(void* tr, DWORD, LPOVERLAPPED overlapped);
 public:
 	AsynchronousFileManager(IOCompletionQueue& ioCompletionQueue);
 	~AsynchronousFileManager();
@@ -83,6 +83,11 @@ public:
 		File file(name, File::accessRight::genericRead, File::shareMode::readMode, File::creationMode::openExisting, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED | FILE_FLAG_NO_BUFFERING);
 		ioCompletionQueue.associateFile(file.native_handle(), (ULONG_PTR)(processIOCompletion));
 		return file;
+	}
+
+	IOCompletionQueue& getIoCompletionQueue()
+	{
+		return ioCompletionQueue;
 	}
 
 	void readFile(ReadRequest& request);

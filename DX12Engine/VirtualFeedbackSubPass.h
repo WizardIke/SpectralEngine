@@ -9,55 +9,77 @@
 #include "VirtualTextureManager.h"
 #include "PageProvider.h"
 #include "PageAllocationInfo.h"
+#include "TaskShedular.h"
+#include "Tuple.h"
 #undef min
 #undef max
 
-class VirtualFeedbackSubPass : public RenderSubPass<VirtualPageCamera, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET, std::tuple<>, std::tuple<>, 1u,
+class VirtualFeedbackSubPass : public RenderSubPass<VirtualPageCamera, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET, Tuple<>, Tuple<>, 1u,
 	D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET, true, 1u>
 {
 	//friend class ThreadLocal;
-	using Base = RenderSubPass<VirtualPageCamera, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET, std::tuple<>, std::tuple<>, 1u,
+	using Base = RenderSubPass<VirtualPageCamera, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET, Tuple<>, Tuple<>, 1u,
 		D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET, true, 1u>;
+
 	D3D12Resource feadbackTextureGpu;
 	D3D12Resource depthBuffer;
 	D3D12DescriptorHeap depthStencilDescriptorHeap;
 	D3D12DescriptorHeap rtvDescriptorHeap;
 	D3D12Resource readbackTexture;
-	unsigned long textureWidth, textureHeight;
+	unsigned int textureWidth, textureHeight;
 	bool inView = true;
 
-	template<class ThreadResources, class GlobalResources>
-	static void readbackTextureReady(void* requester, void* tr, void*)
+	StreamingManager& streamingManager;
+	GraphicsEngine& graphicsEngine;
+	void* taskShedular;
+
+	template<class ThreadResources>
+	static void readbackTextureReady(void* requester, void* tr)
 	{
 		ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
-		threadResources.taskShedular.pushBackgroundTask({requester, [](void* requester, ThreadResources& threadResources, GlobalResources& globalResources)
+		threadResources.taskShedular.pushBackgroundTask({requester, [](void* requester, ThreadResources& threadResources)
 		{
 			VirtualFeedbackSubPass& analyser = *static_cast<VirtualFeedbackSubPass*>(requester);
-			PageProvider& pageProvider = globalResources.virtualTextureManager.pageProvider;
+			PageProvider& pageProvider = analyser.pageProvider;
 
 			const unsigned long totalSize = analyser.textureWidth * analyser.textureHeight * 8u;
 			void* feadBackBuffer = analyser.mapReadbackTexture(totalSize);
 			pageProvider.gatherPageRequests(feadBackBuffer, totalSize);
 			analyser.unmapReadbackTexture();
-			pageProvider.processPageRequests(threadResources, globalResources, analyser.mipBias, analyser.desiredMipBias);
+			pageProvider.processPageRequests(threadResources, *static_cast<TaskShedular<ThreadResources>*>(analyser.taskShedular), analyser.mipBias, analyser.desiredMipBias);
 		}});
 	}
 
 	void* mapReadbackTexture(unsigned long totalSize);
 	void unmapReadbackTexture();
-	void createResources(GraphicsEngine& graphicsEngine, Transform& mainCameraTransform, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1, unsigned char*& constantBufferCpuAddress1, uint32_t width, uint32_t height, float fieldOfView);
+
+	struct Paremeters
+	{
+		D3D12Resource feadbackTextureGpu;
+		D3D12DescriptorHeap rtvDescriptorHeap;
+		D3D12Resource depthBuffer;
+		D3D12DescriptorHeap depthStencilDescriptorHeap;
+		uint32_t width;
+		uint32_t height;
+		float desiredMipBias;
+	};
+
+	VirtualFeedbackSubPass(void* taskShedular, StreamingManager& streamingManager, GraphicsEngine& graphicsEngine, AsynchronousFileManager& asynchronousFileManager, Transform& mainCameraTransform, float fieldOfView, Paremeters paremeters);
 public:
+	PageProvider pageProvider;
 	float mipBias;
 	float desiredMipBias;
 
-	VirtualFeedbackSubPass() {}
-	VirtualFeedbackSubPass(GraphicsEngine& graphicsEngine, Transform& mainCameraTransform, uint32_t width, uint32_t height, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1,
-		unsigned char*& constantBufferCpuAddress1, float fieldOfView)
-	{
-		createResources(graphicsEngine, mainCameraTransform, constantBufferGpuAddress1, constantBufferCpuAddress1, width, height, fieldOfView);
-	}
+	VirtualFeedbackSubPass(void* taskShedular, StreamingManager& streamingManager, GraphicsEngine& graphicsEngine, AsynchronousFileManager& asynchronousFileManager, uint32_t screenWidth, uint32_t screenHeight,
+		Transform& mainCameraTransform, float fieldOfView);
+#if defined(_MSC_VER)
+	/*
+	Initialization of array members doesn't seam to have copy elision in some cases when it should in c++17.
+	*/
+	VirtualFeedbackSubPass(VirtualFeedbackSubPass&&);
+#endif
 
-	void destruct();
+	void setConstantBuffers(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1, unsigned char*& constantBufferCpuAddress1);
 
 	bool isInView()
 	{
@@ -78,18 +100,18 @@ public:
 		void update1AfterFirstThread(GraphicsEngine& graphicsEngine, VirtualFeedbackSubPass& renderSubPass,
 			ID3D12RootSignature* rootSignature, uint32_t barrierCount, D3D12_RESOURCE_BARRIER* barriers);
 
-		template<class ThreadResources, class GlobalResources>
-		void update2LastThread(ID3D12CommandList**& commandLists, unsigned int numThreads, VirtualFeedbackSubPass& renderSubPass, ThreadResources& executor, GlobalResources&)
+		template<class ThreadResources>
+		void update2LastThread(ID3D12CommandList**& commandLists, unsigned int numThreads, VirtualFeedbackSubPass& renderSubPass, ThreadResources& threadResources)
 		{
 			addBarrier<state, D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_COMMON>(renderSubPass, lastCommandList());
 			update2(commandLists, numThreads);
 
-			executor.taskShedular.pushPrimaryTask(0u, { &renderSubPass, [](void* context, ThreadResources& executor, GlobalResources& sharedResources)
+			threadResources.taskShedular.pushPrimaryTask(0u, { &renderSubPass, [](void* context, ThreadResources& executor)
 			{
 				VirtualFeedbackSubPass& renderSubPass = *static_cast<VirtualFeedbackSubPass*>(context);
 				renderSubPass.inView = false;
-				StreamingManager& streamingManager = sharedResources.streamingManager;
-				GraphicsEngine& graphicsEngine = sharedResources.graphicsEngine;
+				StreamingManager& streamingManager = renderSubPass.streamingManager;
+				GraphicsEngine& graphicsEngine = renderSubPass.graphicsEngine;
 				StreamingManager::ThreadLocal& streamingManagerLocal = executor.streamingManager;
 
 				graphicsEngine.waitForPreviousFrame(streamingManager.commandQueue()); //Should be delayed after update2 so the command lists have been executed.
@@ -110,10 +132,10 @@ public:
 				destination.PlacedFootprint.Footprint.RowPitch = static_cast<uint32_t>(renderSubPass.textureWidth * 8u);
 
 				streamingManagerLocal.copyCommandList().CopyTextureRegion(&destination, 0u, 0u, 0u, &UploadBufferLocation, nullptr);
-				streamingManagerLocal.addCopyCompletionEvent(context, readbackTextureReady<ThreadResources, GlobalResources>);
+				streamingManagerLocal.addCopyCompletionEvent(context, readbackTextureReady<ThreadResources>);
 			} });
 		}
-
+	private:
 		template<D3D12_RESOURCE_STATES stateBefore, D3D12_RESOURCE_STATES stateAfter>
 		static void addBarrier(VirtualFeedbackSubPass& renderSubPass, ID3D12GraphicsCommandList* lastCommandList)
 		{

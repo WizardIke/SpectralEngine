@@ -14,24 +14,24 @@ public:
 	{
 		friend class PrimaryTaskFromOtherThreadQueue;
 		StopRequest** stopRequest;
-		void(*callback)(StopRequest& stopRequest, void* tr, void* gr);
+		void(*callback)(StopRequest& stopRequest, void* tr);
 	public:
-		StopRequest(void(*callback1)(StopRequest& stopRequest, void* tr, void* gr)) : callback(callback1) {}
+		StopRequest(void(*callback1)(StopRequest& stopRequest, void* tr)) : callback(callback1) {}
 	};
 private:
 	UnorderedMultiProducerSingleConsumerQueue taskQueue;
 	StopRequest* mStopRequest;
 	const std::size_t queueIndex;
 
-	template<class ThreadResources, class GlobalResources>
-	void run(ThreadResources& threadResources, GlobalResources&)
+	template<class ThreadResources>
+	void run(ThreadResources& threadResources)
 	{
-		threadResources.taskShedular.pushPrimaryTask(queueIndex, {this, [](void* requester, ThreadResources& threadResources, GlobalResources& globalResources)
+		threadResources.taskShedular.pushPrimaryTask(queueIndex, {this, [](void* requester, ThreadResources& threadResources)
 		{
 			PrimaryTaskFromOtherThreadQueue& queue = *static_cast<PrimaryTaskFromOtherThreadQueue*>(requester);
 			if(queue.mStopRequest != nullptr)
 			{
-				queue.mStopRequest->callback(*queue.mStopRequest, &threadResources, &globalResources);
+				queue.mStopRequest->callback(*queue.mStopRequest, &threadResources);
 				queue.mStopRequest = nullptr;
 				return;
 			}
@@ -40,13 +40,20 @@ private:
 			{
 				Task& task = *static_cast<Task*>(tasks);
 				tasks = tasks->next;
-				task.execute(task, &threadResources, &globalResources);
+				task.execute(task, &threadResources);
 			}
-			queue.run(threadResources, globalResources);
+			queue.run(threadResources);
 		}});
 	}
 public:
 	constexpr PrimaryTaskFromOtherThreadQueue(std::size_t queueIndex1) noexcept : queueIndex(queueIndex1), mStopRequest(nullptr) {}
+
+#if defined(_MSC_VER)
+	/*
+	Initialization of array members doesn't seam to have copy elision in some cases when it should in c++17.
+	*/
+	PrimaryTaskFromOtherThreadQueue(PrimaryTaskFromOtherThreadQueue&&);
+#endif
 
 	/*
 	Can be called from any thread
@@ -59,21 +66,21 @@ public:
 	/*
 	Must be called from primary thread
 	*/
-	template<class ThreadResources, class GlobalResources>
-	void start(ThreadResources& threadResources, GlobalResources& globalResources)
+	template<class ThreadResources>
+	void start(ThreadResources& threadResources)
 	{
 		assert(mStopRequest == nullptr && "Cannot start while not stopped");
-		run(threadResources, globalResources);
+		run(threadResources);
 	}
 
 	/*
 	Must be called from primary thread
 	*/
-	template<class ThreadResources, class GlobalResources>
-	void stop(StopRequest& stopRequest, ThreadResources& threadResources, GlobalResources&)
+	template<class ThreadResources>
+	void stop(StopRequest& stopRequest, ThreadResources& threadResources)
 	{
 		stopRequest.stopRequest = &mStopRequest;
-		threadResources.taskShedular.pushPrimaryTask(queueIndex == 0u ? 1u : 0u, {&stopRequest, [](void* requester, ThreadResources&, GlobalResources&)
+		threadResources.taskShedular.pushPrimaryTask(queueIndex == 0u ? 1u : 0u, {&stopRequest, [](void* requester, ThreadResources&)
 		{
 			StopRequest& stopRequest = *static_cast<StopRequest*>(requester);
 			*stopRequest.stopRequest = &stopRequest;

@@ -25,7 +25,7 @@ public:
 		Action textureAction;
 
 		Message() {}
-		Message(const wchar_t* filename, void(*deleteRequest)(ReadRequest& request, void* tr, void* gr))
+		Message(const wchar_t* filename, void(*deleteRequest)(ReadRequest& request, void* tr))
 		{
 			this->filename = filename;
 			this->deleteReadRequest = deleteRequest;
@@ -44,11 +44,13 @@ public:
 		uint16_t arraySize;
 		unsigned int discriptorIndex;
 		ID3D12Resource* resource;
+		TextureManager* textureManager;
+
 		TextureStreamingRequest* nextTextureRequest;
 
-		void(*textureLoaded)(TextureStreamingRequest& request, void* tr, void* gr, unsigned int textureDescriptor);
+		void(*textureLoaded)(TextureStreamingRequest& request, void* tr, unsigned int textureDescriptor);
 
-		TextureStreamingRequest(void(*textureLoaded)(TextureStreamingRequest& request, void* tr, void* gr, unsigned int textureDescriptor),
+		TextureStreamingRequest(void(*textureLoaded)(TextureStreamingRequest& request, void* tr, unsigned int textureDescriptor),
 			const wchar_t * filename) :
 			textureLoaded(textureLoaded)
 		{
@@ -69,37 +71,38 @@ private:
 
 	ActorQueue messageQueue;
 	std::unordered_map<const wchar_t* const, Texture, std::hash<const wchar_t *>> textures;
+	AsynchronousFileManager& asynchronousFileManager;
+	StreamingManager& streamingManager;
+	GraphicsEngine& graphicsEngine;
 
 	static ID3D12Resource* createTexture(const TextureStreamingRequest& useSubresourceRequest, GraphicsEngine& graphicsEngine, unsigned int& discriptorIndex, const wchar_t* filename);
 
-	void notifyTextureReady(TextureStreamingRequest* request, void* tr, void* gr);
+	void notifyTextureReady(TextureStreamingRequest* request, void* tr);
 
-	template<class ThreadResources, class GlobalResources>
-	static void copyFinished(void* requester, void* tr, void* gr)
+	template<class ThreadResources>
+	static void copyFinished(void* requester, void* tr)
 	{
-		TextureStreamingRequest* request = static_cast<TextureStreamingRequest*>(requester);
+		TextureStreamingRequest& request = *static_cast<TextureStreamingRequest*>(requester);
 		ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
-		GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
 
-		request->deleteStreamingRequest = [](StreamingManager::StreamingRequest* request1, void* tr, void* gr)
+		request.deleteStreamingRequest = [](StreamingManager::StreamingRequest* request1, void* tr)
 		{
 			auto& threadResources = *static_cast<ThreadResources*>(tr);
-			auto& globalResources = *static_cast<GlobalResources*>(gr);
-			TextureManager& textureManager = globalResources.textureManager;
-			TextureStreamingRequest* request = static_cast<TextureStreamingRequest*>(request1);
-
-			request->textureAction = Action::notifyReady;
-			textureManager.addMessage(request, threadResources, globalResources);
+			TextureStreamingRequest& request = *static_cast<TextureStreamingRequest*>(request1);
+			TextureManager& textureManager = *request.textureManager;
+			
+			request.textureAction = Action::notifyReady;
+			textureManager.addMessage(request, threadResources);
 		};
-		StreamingManager& streamingManager = globalResources.streamingManager;
-		streamingManager.uploadFinished(request, threadResources, globalResources);
+		StreamingManager& streamingManager = request.textureManager->streamingManager;
+		streamingManager.uploadFinished(&request, threadResources);
 	}
 	
-	template<class ThreadResources, class GlobalResources>
-	static void textureStreamResource(StreamingManager::StreamingRequest* request, void* tr, void*)
+	template<class ThreadResources>
+	static void textureStreamResource(StreamingManager::StreamingRequest* request, void* tr)
 	{
 		ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
-		threadResources.taskShedular.pushBackgroundTask({request, [](void* requester, ThreadResources&, GlobalResources& globalResources)
+		threadResources.taskShedular.pushBackgroundTask({request, [](void* requester, ThreadResources&)
 		{
 			TextureStreamingRequest& uploadRequest = *static_cast<TextureStreamingRequest*>(requester);
 			std::size_t resourceSize = DDSFileLoader::resourceSize(uploadRequest.width, uploadRequest.height, uploadRequest.depth, uploadRequest.mipLevels, uploadRequest.arraySize, uploadRequest.format);
@@ -107,59 +110,58 @@ private:
 
 			uploadRequest.start = fileOffset;
 			uploadRequest.end = fileOffset + resourceSize;
-			uploadRequest.fileLoadedCallback = [](AsynchronousFileManager::ReadRequest& request, AsynchronousFileManager& asynchronousFileManager, void* tr, void* gr, const unsigned char* buffer)
+			uploadRequest.fileLoadedCallback = [](AsynchronousFileManager::ReadRequest& request, AsynchronousFileManager& asynchronousFileManager, void* tr, const unsigned char* buffer)
 			{
 				TextureStreamingRequest& uploadRequest = static_cast<TextureStreamingRequest&>(request);
 				ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
-				GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
 				StreamingManager::ThreadLocal& streamingManager = threadResources.streamingManager;
-				uploadRequest.resource = createTexture(uploadRequest, globalResources.graphicsEngine, uploadRequest.discriptorIndex, uploadRequest.filename);
+				uploadRequest.resource = createTexture(uploadRequest, uploadRequest.textureManager->graphicsEngine, uploadRequest.discriptorIndex, uploadRequest.filename);
 
 				DDSFileLoader::copyResourceToGpu(uploadRequest.resource, uploadRequest.uploadResource, uploadRequest.uploadResourceOffset, uploadRequest.width, uploadRequest.height,
 					uploadRequest.depth, uploadRequest.mipLevels, uploadRequest.arraySize, uploadRequest.format, uploadRequest.uploadBufferCurrentCpuAddress, buffer, &streamingManager.copyCommandList());
 
-				uploadRequest.deleteReadRequest = [](AsynchronousFileManager::ReadRequest& request1, void* tr, void*)
+				uploadRequest.deleteReadRequest = [](AsynchronousFileManager::ReadRequest& request1, void* tr)
 				{
 					TextureStreamingRequest& uploadRequest = static_cast<TextureStreamingRequest&>(request1);
 					ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
 					StreamingManager::ThreadLocal& streamingManager = threadResources.streamingManager;
 
-					streamingManager.addCopyCompletionEvent(&uploadRequest, copyFinished<ThreadResources, GlobalResources>);
+					streamingManager.addCopyCompletionEvent(&uploadRequest, copyFinished<ThreadResources>);
 				};
 				asynchronousFileManager.discard(uploadRequest);
 			};
-			globalResources.asynchronousFileManager.readFile(uploadRequest);
+			uploadRequest.textureManager->asynchronousFileManager.readFile(uploadRequest);
 		} });
 	}
 
 	static void loadTextureFromMemory(const unsigned char* buffer, TextureStreamingRequest& uploadRequest,
-		void(*streamResource)(StreamingManager::StreamingRequest* request, void* threadResources, void* globalResources));
+		void(*streamResource)(StreamingManager::StreamingRequest* request, void* tr));
 
-	template<class ThreadResources, class GlobalResources>
-	void loadTextureUncached(AsynchronousFileManager& asynchronousFileManager, TextureStreamingRequest* request)
+	template<class ThreadResources>
+	void loadTextureUncached(TextureStreamingRequest* request)
 	{
+		request->textureManager = this;
 		request->file = asynchronousFileManager.openFileForReading(request->filename);
 		request->start = 0u;
 		request->end = sizeof(DDSFileLoader::DdsHeaderDx12);
-		request->fileLoadedCallback = [](AsynchronousFileManager::ReadRequest& request, AsynchronousFileManager& asynchronousFileManager, void*, void*, const unsigned char* buffer)
+		request->fileLoadedCallback = [](AsynchronousFileManager::ReadRequest& request, AsynchronousFileManager& asynchronousFileManager, void*, const unsigned char* buffer)
 		{
 			TextureStreamingRequest& uploadRequest = static_cast<TextureStreamingRequest&>(request);
-			loadTextureFromMemory(buffer, uploadRequest, textureStreamResource<ThreadResources, GlobalResources>);
+			loadTextureFromMemory(buffer, uploadRequest, textureStreamResource<ThreadResources>);
 			asynchronousFileManager.discard(request);
-			
 		};
-		request->deleteReadRequest = [](AsynchronousFileManager::ReadRequest& request, void* tr, void* gr)
+		request->deleteReadRequest = [](AsynchronousFileManager::ReadRequest& request1, void* tr)
 		{
 			ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
-			GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
-			StreamingManager& streamingManager = globalResources.streamingManager;
-			streamingManager.addUploadRequest(static_cast<TextureStreamingRequest*>(&request), threadResources, globalResources);
+			auto& request = static_cast<TextureStreamingRequest&>(request1);
+			StreamingManager& streamingManager = request.textureManager->streamingManager;
+			streamingManager.addUploadRequest(&request, threadResources);
 		};
 		asynchronousFileManager.readFile(*request);
 	}
 
-	template<class ThreadResources, class GlobalResources>
-	void loadTexture(ThreadResources& executor, GlobalResources& sharedResources, TextureStreamingRequest* request)
+	template<class ThreadResources>
+	void loadTexture(ThreadResources& threadResources, TextureStreamingRequest* request)
 	{
 		Texture& texture = textures[request->filename];
 		texture.numUsers += 1u;
@@ -168,14 +170,14 @@ private:
 			texture.lastRequest = request;
 			request->nextTextureRequest = nullptr;
 
-			loadTextureUncached<ThreadResources, GlobalResources>(sharedResources.asynchronousFileManager, request);
+			loadTextureUncached<ThreadResources>(request);
 			return;
 		}
 		//the resource is loaded or loading
 		if(texture.lastRequest == nullptr)
 		{
 			//The resource is loaded
-			request->textureLoaded(*request, &executor, &sharedResources, texture.descriptorIndex);
+			request->textureLoaded(*request, &threadResources, texture.descriptorIndex);
 			return;
 		}
 		//the resourse is loading
@@ -185,24 +187,24 @@ private:
 	}
 
 	/*the texture must no longer be in use, including by the GPU*/
-	void unloadTexture(UnloadRequest& unloadRequest, GraphicsEngine& graphicsEngine, void* tr, void* gr);
+	void unloadTexture(UnloadRequest& unloadRequest, void* tr);
 
-	template<class ThreadResources, class GlobalResources>
-	void addMessage(Message* request, ThreadResources& threadResources, GlobalResources&)
+	template<class ThreadResources>
+	void addMessage(Message& request, ThreadResources& threadResources)
 	{
-		bool needsStarting = messageQueue.push(request);
+		bool needsStarting = messageQueue.push(&request);
 		if(needsStarting)
 		{
-			threadResources.taskShedular.pushBackgroundTask({this, [](void* requester, ThreadResources& threadResources, GlobalResources& globalResources)
+			threadResources.taskShedular.pushBackgroundTask({this, [](void* requester, ThreadResources& threadResources)
 			{
 				auto& manager = *static_cast<TextureManager*>(requester);
-				manager.run(threadResources, globalResources);
+				manager.run(threadResources);
 			}});
 		}
 	}
 
-	template<class ThreadResources, class GlobalResources>
-	void run(ThreadResources& threadResources, GlobalResources& globalResources)
+	template<class ThreadResources>
+	void run(ThreadResources& threadResources)
 	{
 		do
 		{
@@ -213,34 +215,34 @@ private:
 				temp = temp->next; //Allow reuse of next
 				if(message.textureAction == Action::unload)
 				{
-					unloadTexture(static_cast<UnloadRequest&>(message), globalResources.graphicsEngine, &threadResources, &globalResources);
+					unloadTexture(static_cast<UnloadRequest&>(message), &threadResources);
 				}
 				else if(message.textureAction == Action::load)
 				{
-					loadTexture(threadResources, globalResources, static_cast<TextureStreamingRequest*>(&message));
+					loadTexture(threadResources, static_cast<TextureStreamingRequest*>(&message));
 				}
 				else
 				{
-					notifyTextureReady(static_cast<TextureStreamingRequest*>(&message), &threadResources, &globalResources);
+					notifyTextureReady(static_cast<TextureStreamingRequest*>(&message), &threadResources);
 				}
 			}
 		} while(!messageQueue.stop());
 	}
 public:
-	TextureManager();
-	~TextureManager();
+	TextureManager(AsynchronousFileManager& asynchronousFileManager, StreamingManager& streamingManager, GraphicsEngine& graphicsEngine);
+	~TextureManager() = default;
 
-	template<class ThreadResources, class GlobalResources>
-	void load(TextureStreamingRequest* request, ThreadResources& threadResources, GlobalResources& globalResources)
+	template<class ThreadResources>
+	void load(TextureStreamingRequest& request, ThreadResources& threadResources)
 	{
-		request->textureAction = Action::load;
-		addMessage(request, threadResources, globalResources);
+		request.textureAction = Action::load;
+		addMessage(request, threadResources);
 	}
 
-	template<class ThreadResources, class GlobalResources>
-	void unload(UnloadRequest* request, ThreadResources& threadResources, GlobalResources& globalResources)
+	template<class ThreadResources>
+	void unload(UnloadRequest& request, ThreadResources& threadResources)
 	{
-		request->textureAction = Action::unload;
-		addMessage(request, threadResources, globalResources);
+		request.textureAction = Action::unload;
+		addMessage(request, threadResources);
 	}
 };

@@ -10,7 +10,7 @@
 #include "ResizingArray.h"
 #include "WorldManagerStopRequest.h"
 
-template<class ThreadResources, class GlobalResources>
+template<class ThreadResources>
 class WorldManager
 {
 public:
@@ -54,7 +54,7 @@ private:
 	class SearchNode
 	{
 	public:
-		constexpr SearchNode() noexcept {}
+		SearchNode() noexcept {}
 
 		constexpr SearchNode(float totalDistance1, unsigned long zoneX1, unsigned long zoneY1, unsigned long zoneZ1, unsigned long zoneIndex1,
 			unsigned long worldIndex1, Vector3 anchor1, float distanceFromStartToAnchor1, SearchNodeTracker* queueLocation1) noexcept :
@@ -131,7 +131,7 @@ private:
 
 	Vector3 loadedPosition; //Center of the area that was last loaded
 	const Vector3* position; //The position to load around 
-	Zone<ThreadResources, GlobalResources>* const zones;
+	Zone<ThreadResources>* const zones;
 	const World* worlds;
 	unsigned long currentWorldIndex;
 	const float* const levelOfDetailMaxDistances;
@@ -142,7 +142,7 @@ private:
 	PriorityQueue<SearchNodeTracker, ResizingArray<SearchNodeTracker>, SearchNodePriority> frontierNodes;
 	StopRequest* mStopRequest = nullptr;
 
-	void load(ThreadResources& threadResources, GlobalResources& globalResources)
+	void load(ThreadResources& threadResources)
 	{
 		unsigned int levelOfDetail = 0u;
 		const float maxTotalDistance = levelOfDetailMaxDistances[levelOfDetailMaxDistancesCount - 1u];
@@ -177,7 +177,7 @@ private:
 				{
 					loadedZones[currentLoadedZonesIndex].insert(currentNode->zoneIndex);
 					loadedZones[currentLoadedZonesIndex ^ 1u].erase(currentNode->zoneIndex);
-					zone.setState(levelOfDetail, threadResources, globalResources);
+					zone.setState(levelOfDetail, threadResources);
 				}
 			}
 
@@ -258,7 +258,7 @@ private:
 	}
 
 	static void visitPortals(SearchNode* currentNode,
-		Zone<ThreadResources, GlobalResources>* zones,
+		Zone<ThreadResources>* zones,
 		const World* worlds1,
 		HashSet<SearchNode, SearchNodeHasher, SearchNodeEqual>& visitedNodes,
 		PriorityQueue<SearchNodeTracker, ResizingArray<SearchNodeTracker>, SearchNodePriority>& frontierNodes,
@@ -307,17 +307,17 @@ private:
 		}
 	}
 
-	void unloadNoLongerNeededZones(ThreadResources& threadResources, GlobalResources& globalResources, unsigned long lastLoadedZonesSize)
+	void unloadNoLongerNeededZones(ThreadResources& threadResources, unsigned long lastLoadedZonesSize)
 	{
 		auto& zonesToUnload = loadedZones[currentLoadedZonesIndex];
-		zonesToUnload.consume([&threadResources, &globalResources, zones = this->zones, levelOfDetailMaxDistancesCount = this->levelOfDetailMaxDistancesCount](unsigned long zoneIndex)
+		zonesToUnload.consume([&threadResources, zones = this->zones, levelOfDetailMaxDistancesCount = this->levelOfDetailMaxDistancesCount](unsigned long zoneIndex)
 		{
-			zones[zoneIndex].setState(levelOfDetailMaxDistancesCount, threadResources, globalResources);
+			zones[zoneIndex].setState(levelOfDetailMaxDistancesCount, threadResources);
 		});
 		zonesToUnload.shrink_to_size(lastLoadedZonesSize * 2u);
 	}
 
-	void update(ThreadResources& threadResources, GlobalResources& globalResources)
+	void update(ThreadResources& threadResources)
 	{
 		bool shouldLoad = false;
 		if(position->x() > loadedPosition.x() + zoneRadius)
@@ -353,74 +353,74 @@ private:
 		if(shouldLoad)
 		{
 			unsigned long lastLoadedZonesSize = loadedZones[currentLoadedZonesIndex ^ 1u].size();
-			load(threadResources, globalResources);
+			load(threadResources);
 			currentLoadedZonesIndex ^= 1u;
-			unloadNoLongerNeededZones(threadResources, globalResources, lastLoadedZonesSize);
+			unloadNoLongerNeededZones(threadResources, lastLoadedZonesSize);
 		}
 	}
 
-	void stopZones(StopRequest* stopRequest, ThreadResources& threadResources, GlobalResources& globalResources)
+	void stopZones(StopRequest* stopRequest, ThreadResources& threadResources)
 	{
 		auto zonesTemp = zones;
 		stopRequest->numberOfComponentsToUnload = loadedZones[currentLoadedZonesIndex ^ 1u].size();
 		if (stopRequest->numberOfComponentsToUnload == 0u)
 		{
-			stopRequest->callback(*stopRequest, &threadResources, &globalResources);
+			stopRequest->callback(*stopRequest, &threadResources);
 			return;
 		}
 		unsigned long i = 0u;
 		for(unsigned long zoneIndex : loadedZones[currentLoadedZonesIndex ^ 1u])
 		{
-			zonesTemp[zoneIndex].stop(stopRequest, threadResources, globalResources);
+			zonesTemp[zoneIndex].stop(stopRequest, threadResources);
 			++i;
 		}
 	}
 
-	void run(ThreadResources& threadResources, GlobalResources&)
+	void run(ThreadResources& threadResources)
 	{
-		threadResources.taskShedular.pushPrimaryTask(0u, {this, [](void*const requester, ThreadResources& threadResources, GlobalResources& globalResources)
+		threadResources.taskShedular.pushPrimaryTask(0u, {this, [](void*const requester, ThreadResources& threadResources)
 		{
 			const auto manager = static_cast<WorldManager*>(requester);
 
 			StopRequest* stopRequest = manager->mStopRequest;
 			if(stopRequest != nullptr)
 			{
-				manager->stopZones(stopRequest, threadResources, globalResources);
+				manager->stopZones(stopRequest, threadResources);
 				return;
 			}
 			
-			manager->update(threadResources, globalResources);
-			manager->run(threadResources, globalResources);
+			manager->update(threadResources);
+			manager->run(threadResources);
 		}});
 	}
 public:
-	WorldManager(Zone<ThreadResources, GlobalResources>* zones, const World* worlds1, const float* levelOfDetailMaxDistances,
+	WorldManager(Zone<ThreadResources>* zones, const World* worlds1, const float* levelOfDetailMaxDistances,
 	unsigned int levelOfDetailMaxDistancesCount) : zones(zones), worlds(worlds1), levelOfDetailMaxDistances(levelOfDetailMaxDistances), levelOfDetailMaxDistancesCount(levelOfDetailMaxDistancesCount) {}
 
 	/*
 	must be called from primary thread
 	*/
-	void start(ThreadResources& threadResources, GlobalResources&)
+	void start(ThreadResources& threadResources)
 	{
-		threadResources.taskShedular.pushPrimaryTask(0u, {this, [](void*const requester, ThreadResources& threadResources, GlobalResources& globalResources)
+		threadResources.taskShedular.pushPrimaryTask(0u, {this, [](void*const requester, ThreadResources& threadResources)
 		{
 			auto& manager = *static_cast<WorldManager*>(requester);
 
 			manager.loadedPosition = (*manager.position / zoneRadius + 0.5f).floor() * zoneRadius;
 
-			manager.load(threadResources, globalResources);
+			manager.load(threadResources);
 			manager.currentLoadedZonesIndex ^= 1u;
-			manager.run(threadResources, globalResources);
+			manager.run(threadResources);
 		}});
 	}
 
 	/*
 	Must be called from primary thread
 	*/
-	void stop(StopRequest& stopRequest, ThreadResources& threadResources, GlobalResources&)
+	void stop(StopRequest& stopRequest, ThreadResources& threadResources)
 	{
 		stopRequest.stopRequest = &mStopRequest;
-		threadResources.taskShedular.pushPrimaryTask(1u, {&stopRequest, [](void* requester, ThreadResources&, GlobalResources&)
+		threadResources.taskShedular.pushPrimaryTask(1u, {&stopRequest, [](void* requester, ThreadResources&)
 		{
 			StopRequest& stopRequest = *static_cast<StopRequest*>(requester);
 			*stopRequest.stopRequest = &stopRequest;

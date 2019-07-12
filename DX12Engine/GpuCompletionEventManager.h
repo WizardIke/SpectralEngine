@@ -2,23 +2,23 @@
 #include <cstddef>
 #include "ResizingArray.h"
 #include "Delegate.h"
-#include "Array.h"
+#include <array>
 
 template<std::size_t bufferCount>
 class GpuCompletionEventManager
 {
-	Array<ResizingArray<Delegate<void(void* executor, void* sharedResources)>>, bufferCount> requests;
+	std::array<ResizingArray<Delegate<void(void* tr)>>, bufferCount> requests;
 public:
-	void update(std::size_t bufferIndex, void* executor, void* sharedResources)
+	void update(std::size_t bufferIndex, void* tr)
 	{
 		for (auto& request : requests[bufferIndex])
 		{
-			request(executor, sharedResources);
+			request(tr);
 		}
 		requests[bufferIndex].clear();
 	}
 	
-	void addRequest(void* requester, void(*unloadCallback)(void* const requester, void* executor, void* sharedResources), std::size_t bufferIndex)
+	void addRequest(void* requester, void(*unloadCallback)(void* const requester, void* tr), std::size_t bufferIndex)
 	{
 		requests[bufferIndex].emplace_back(requester, unloadCallback);
 	}

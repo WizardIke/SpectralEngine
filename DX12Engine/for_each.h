@@ -1,16 +1,18 @@
 #pragma once
-#include <tuple>
-#include <utility>
+#include <cstddef> //std::size_t
+#include <utility> //std::make_index_sequence, std::index_sequence
 
-template<class F, class...Ts, std::size_t...Is>
-void for_each(std::tuple<Ts...> & tuple, F func, std::index_sequence<Is...>) {
+template<class F, class Tuple, std::size_t... indices>
+void for_each(Tuple& tuple, F&& func, std::index_sequence<indices...>) {
+	using std::get;
 	using expander = int[];
 	(void)expander {
-		0, ((void)func(std::get<Is>(tuple)), 0)...
+		0, ((void)func(get<indices>(tuple)), 0)...
 	};
 }
 
-template<class F, class...Ts>
-void for_each(std::tuple<Ts...> & tuple, F func) {
-	for_each(tuple, func, std::make_index_sequence<sizeof...(Ts)>());
+template<class F, class Tuple>
+void for_each(Tuple& tuple, F&& func)
+{
+	for_each(tuple, std::forward<F>(func), std::make_index_sequence<tuple_size<Tuple>::value>());
 }

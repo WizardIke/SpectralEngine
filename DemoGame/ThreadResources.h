@@ -14,18 +14,19 @@ class ThreadResources
 {
 	friend class GlobalResources;
 
-	void (*mEndUpdate2)(ThreadResources& threadResources, GlobalResources& globalResources);
+	void (*mEndUpdate2)(ThreadResources& threadResources, void* context);
 
-	static bool endUpdate1(ThreadResources& threadResources, GlobalResources& globalResources);
-	static bool endUpdate2(ThreadResources& threadResources, GlobalResources& globalResources);
-	static void mainEndUpdate2(ThreadResources& threadResources, GlobalResources& globalResources);
-	static void primaryEndUpdate2(ThreadResources& threadResources, GlobalResources& globalResources);
-	static void backgroundEndUpdate2(ThreadResources& threadResources, GlobalResources& globalResources);
+	static bool endUpdate1(ThreadResources& threadResources, void* context);
+	static bool endUpdate2(ThreadResources& threadResources, void* context);
+	static void mainEndUpdate2(ThreadResources& threadResources, void* context);
+	static void primaryEndUpdate2(ThreadResources& threadResources, void* context);
+	static void backgroundEndUpdate2(ThreadResources& threadResources, void* context);
 
-	void start(GlobalResources& globalResources);
-	ThreadResources(unsigned int index, GlobalResources& globalResources, void(*endUpdate2)(ThreadResources& threadResources, GlobalResources& globalResources));
+	void startPrimary(GlobalResources& globalResources);
+	void startBackground(GlobalResources& globalResources);
+	ThreadResources(unsigned int index, GlobalResources& globalResources, void(*endUpdate2)(ThreadResources& threadResources, void* context));
 public:
-	TaskShedular<ThreadResources, GlobalResources>::ThreadLocal taskShedular;
+	TaskShedular<ThreadResources>::ThreadLocal taskShedular;
 	pcg32 randomNumberGenerator;
 	StreamingManager::ThreadLocal streamingManager;
 	RenderPass1::Local renderPass;

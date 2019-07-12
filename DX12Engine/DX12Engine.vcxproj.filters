@@ -330,7 +330,6 @@
     <ClInclude Include="Shaders\VtFeedbackMaterialPS.h">
       <Filter>Shaders\Pixel</Filter>
     </ClInclude>
-    <ClInclude Include="ThreadBarrier.h" />
     <ClInclude Include="IOCompletionQueue.h" />
     <ClInclude Include="StableQueue.h" />
     <ClInclude Include="AsynchronousFileManager.h">
@@ -338,7 +337,6 @@
     </ClInclude>
     <ClInclude Include="ResizingArray.h" />
     <ClInclude Include="DynamicArray.h" />
-    <ClInclude Include="Array.h" />
     <ClInclude Include="File.h">
       <Filter>File</Filter>
     </ClInclude>
@@ -425,6 +423,9 @@
     </ClInclude>
     <ClInclude Include="PsoLoader.h" />
     <ClInclude Include="GraphicsPipelineStateDesc.h" />
+    <ClInclude Include="ThreadBarrier.h" />
+    <ClInclude Include="makeArray.h" />
+    <ClInclude Include="Tuple.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DDSFileLoader.cpp">
@@ -497,7 +498,6 @@
     <ClCompile Include="File.cpp">
       <Filter>File</Filter>
     </ClCompile>
-    <ClCompile Include="ThreadBarrier.cpp" />
     <ClCompile Include="PageDeleter.cpp">
       <Filter>VirtualTexturing</Filter>
     </ClCompile>

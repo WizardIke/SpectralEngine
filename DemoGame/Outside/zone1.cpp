@@ -14,7 +14,6 @@
 #include "../MeshNames.h"
 #include <TemplateFloat.h>
 #include <D3D12DescriptorHeap.h>
-#include "Array.h"
 #include <Vector4.h>
 #include <ReflectionCamera.h>
 #include <Range.h>
@@ -42,9 +41,10 @@ namespace
 		constexpr static unsigned char numComponents = 4u; //loading camera, setting constant buffers, loading textures, loading meshes
 
 
-		static void componentUploaded(Zone<ThreadResources, GlobalResources>& zone, ThreadResources& executor, GlobalResources& globalResources)
+		static void componentUploaded(Zone<ThreadResources>& zone)
 		{
-			zone.componentUploaded(executor, globalResources, numComponents);
+			auto& globalResource = *static_cast<GlobalResources*>(zone.context);
+			zone.componentUploaded(globalResource.taskShedular, numComponents);
 		}
 	public:
 		Mesh* squareWithPos;
@@ -70,7 +70,7 @@ namespace
 		FireModel<templateFloat(55.0f), templateFloat(2.0f), templateFloat(64.0f)> fireModel1;
 		FireModel<templateFloat(53.0f), templateFloat(2.0f), templateFloat(64.0f)> fireModel2;
 
-		HDResources(ThreadResources& threadResources, GlobalResources& globalResources, Zone<ThreadResources, GlobalResources>& zone) :
+		HDResources(ThreadResources& threadResources, GlobalResources& globalResources, Zone<ThreadResources>& zone) :
 			light({ 0.1f, 0.1f, 0.1f, 1.0f }, { 1.0f, 1.0f, 1.0f, 1.0f }, { 0.0f, -0.894427191f, 0.447213595f }),
 
 			perObjectConstantBuffers(globalResources.graphicsEngine.graphicsDevice, []()
@@ -198,14 +198,14 @@ namespace
 				}
 				AddReflectionCamera* addCameraRequest = new AddReflectionCamera(zoneEntity, ReflectionCamera(
 					renderTargetTexture, tempRenderTargetTexturesCpuDescriptorHandle, depthStencilHandle, globalResources.window.width(), globalResources.window.height(), PerObjectConstantBuffersGpuAddress,
-					cpuConstantBuffer, 0.25f * 3.141f, transform, backBuffers), [](auto& request, void* tr, void* gr)
+					cpuConstantBuffer, 0.25f * 3.141f, transform, backBuffers), [](auto& request, void*)
 					{
 						AddReflectionCamera& addRequest = static_cast<AddReflectionCamera&>(request);
 						auto& zone = addRequest.zone;
 						delete &addRequest;
-						componentUploaded(zone, *static_cast<ThreadResources*>(tr), *static_cast<GlobalResources*>(gr));
+						componentUploaded(zone);
 					}, zone);
-				globalResources.renderPass.renderToTextureSubPass().addCameraFromBackground(*addCameraRequest, globalResources.renderPass, threadResources, globalResources);
+				globalResources.renderPass.renderToTextureSubPass().addCameraFromBackground(*addCameraRequest, globalResources.renderPass, globalResources.taskShedular);
 			}
 
 			new(&bathModel1) BathModel2(PerObjectConstantBuffersGpuAddress, cpuConstantBuffer);
@@ -225,17 +225,17 @@ namespace
 			new(&fireModel2) FireModel<templateFloat(53.0f), templateFloat(2.0f), templateFloat(64.0f)>(PerObjectConstantBuffersGpuAddress,
 				cpuConstantBuffer);
 
-			auto textureRequests = new TextureRequests<numTextures>([](TextureRequests<numTextures>& request, ThreadResources& threadResources, GlobalResources& globalResources)
+			auto textureRequests = new TextureRequests<numTextures>([](TextureRequests<numTextures>& request, ThreadResources&)
 			{
 				auto& zone = request.zone();
 				delete &request;
-				componentUploaded(zone, threadResources, globalResources);
+				componentUploaded(zone);
 			});
 			textureRequests->load(
 				{
 					{
 						TextureNames::ground01,
-						[](TextureManager::TextureStreamingRequest& request, void*, void*, unsigned int textureDescriptor)
+						[](TextureManager::TextureStreamingRequest& request, void*, unsigned int textureDescriptor)
 						{
 							auto resources = static_cast<HDResources*>(static_cast<TextureRequest&>(request).zone.newData);
 							resources->groundModel.setDiffuseTexture(textureDescriptor, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
@@ -243,7 +243,7 @@ namespace
 					},
 					{
 						TextureNames::wall01,
-						[](TextureManager::TextureStreamingRequest& request, void*, void*, unsigned int textureDescriptor)
+						[](TextureManager::TextureStreamingRequest& request, void*, unsigned int textureDescriptor)
 						{
 							auto resources = static_cast<HDResources*>(static_cast<TextureRequest&>(request).zone.newData);
 							resources->wallModel.setDiffuseTexture(textureDescriptor, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
@@ -251,7 +251,7 @@ namespace
 					},
 					{
 						TextureNames::marble01,
-						[](TextureManager::TextureStreamingRequest& request, void*, void*, unsigned int textureDescriptor)
+						[](TextureManager::TextureStreamingRequest& request, void*, unsigned int textureDescriptor)
 						{
 							auto resources = static_cast<HDResources*>(static_cast<TextureRequest&>(request).zone.newData);
 							resources->bathModel1.setDiffuseTexture(textureDescriptor, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
@@ -259,7 +259,7 @@ namespace
 					},
 					{
 						TextureNames::water01,
-						[](TextureManager::TextureStreamingRequest& request, void*, void*, unsigned int textureDescriptor)
+						[](TextureManager::TextureStreamingRequest& request, void*, unsigned int textureDescriptor)
 						{
 							auto resources = static_cast<HDResources*>(static_cast<TextureRequest&>(request).zone.newData);
 							resources->waterModel.setNormalTexture(textureDescriptor, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
@@ -267,7 +267,7 @@ namespace
 					},
 					{
 						TextureNames::ice01,
-						[](TextureManager::TextureStreamingRequest& request, void*, void*, unsigned int textureDescriptor)
+						[](TextureManager::TextureStreamingRequest& request, void*, unsigned int textureDescriptor)
 						{
 							auto resources = static_cast<HDResources*>(static_cast<TextureRequest&>(request).zone.newData);
 							resources->iceModel.setDiffuseTexture(textureDescriptor, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
@@ -275,7 +275,7 @@ namespace
 					},
 					{
 						TextureNames::icebump01,
-						[](TextureManager::TextureStreamingRequest& request, void*, void*, unsigned int textureDescriptor)
+						[](TextureManager::TextureStreamingRequest& request, void*, unsigned int textureDescriptor)
 						{
 							auto resources = static_cast<HDResources*>(static_cast<TextureRequest&>(request).zone.newData);
 							resources->iceModel.setNormalTexture(textureDescriptor, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
@@ -283,7 +283,7 @@ namespace
 					},
 					{
 						TextureNames::firenoise01,
-						[](TextureManager::TextureStreamingRequest& request, void*, void*, unsigned int textureDescriptor)
+						[](TextureManager::TextureStreamingRequest& request, void*, unsigned int textureDescriptor)
 						{
 							auto resources = static_cast<HDResources*>(static_cast<TextureRequest&>(request).zone.newData);
 							resources->fireModel1.setNormalTexture(textureDescriptor, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
@@ -292,7 +292,7 @@ namespace
 					},
 					{
 						TextureNames::fire01,
-						[](TextureManager::TextureStreamingRequest& request, void*, void*, unsigned int textureDescriptor)
+						[](TextureManager::TextureStreamingRequest& request, void*, unsigned int textureDescriptor)
 						{
 							auto resources = static_cast<HDResources*>(static_cast<TextureRequest&>(request).zone.newData);
 							resources->fireModel1.setDiffuseTexture(textureDescriptor, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
@@ -301,26 +301,26 @@ namespace
 					},
 					{
 						TextureNames::firealpha01,
-						[](TextureManager::TextureStreamingRequest& request, void*, void*, unsigned int textureDescriptor)
+						[](TextureManager::TextureStreamingRequest& request, void*, unsigned int textureDescriptor)
 						{
 							auto resources = static_cast<HDResources*>(static_cast<TextureRequest&>(request).zone.newData);
 							resources->fireModel1.setAlphaTexture(textureDescriptor, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
 							resources->fireModel2.setAlphaTexture(textureDescriptor, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
 						}
 					},
-				}, zone, threadResources, globalResources);
+				}, zone, threadResources, globalResources.textureManager);
 
-			auto meshRequests = new MeshRequests<numMeshes>([](MeshRequests<numMeshes>& request, ThreadResources& threadResources, GlobalResources& globalResources)
+			auto meshRequests = new MeshRequests<numMeshes>([](MeshRequests<numMeshes>& request, ThreadResources&)
 			{
 				auto& zone = request.zone();
 				delete &request;
-				componentUploaded(zone, threadResources, globalResources);
+				componentUploaded(zone);
 			});
 			meshRequests->load(
 				{
 					{
 						MeshNames::bath,
-						[](MeshManager::MeshStreamingRequest& request, void*, void*, Mesh& mesh)
+						[](MeshManager::MeshStreamingRequest& request, void*, Mesh& mesh)
 						{
 							auto resources = static_cast<HDResources*>(static_cast<MeshRequest&>(request).zone.newData);
 							resources->bathModel1.mesh = &mesh;
@@ -328,7 +328,7 @@ namespace
 					},
 					{
 						MeshNames::plane1,
-						[](MeshManager::MeshStreamingRequest& request, void*, void*, Mesh& mesh)
+						[](MeshManager::MeshStreamingRequest& request, void*, Mesh& mesh)
 						{
 							auto resources = static_cast<HDResources*>(static_cast<MeshRequest&>(request).zone.newData);
 							resources->groundModel.mesh = &mesh;
@@ -336,7 +336,7 @@ namespace
 					},
 					{
 						MeshNames::wall,
-						[](MeshManager::MeshStreamingRequest& request, void*, void*, Mesh& mesh)
+						[](MeshManager::MeshStreamingRequest& request, void*, Mesh& mesh)
 						{
 							auto resources = static_cast<HDResources*>(static_cast<MeshRequest&>(request).zone.newData);
 							resources->wallModel.mesh = &mesh;
@@ -344,7 +344,7 @@ namespace
 					},
 					{
 						MeshNames::water,
-						[](MeshManager::MeshStreamingRequest& request, void*, void*, Mesh& mesh)
+						[](MeshManager::MeshStreamingRequest& request, void*, Mesh& mesh)
 						{
 							auto resources = static_cast<HDResources*>(static_cast<MeshRequest&>(request).zone.newData);
 							resources->waterModel.mesh = &mesh;
@@ -352,7 +352,7 @@ namespace
 					},
 					{
 						MeshNames::cube,
-						[](MeshManager::MeshStreamingRequest& request, void*, void*, Mesh& mesh)
+						[](MeshManager::MeshStreamingRequest& request, void*, Mesh& mesh)
 						{
 							auto resources = static_cast<HDResources*>(static_cast<MeshRequest&>(request).zone.newData);
 							resources->iceModel.mesh = &mesh;
@@ -360,7 +360,7 @@ namespace
 					},
 					{
 						MeshNames::square,
-						[](MeshManager::MeshStreamingRequest& request, void*, void*, Mesh& mesh)
+						[](MeshManager::MeshStreamingRequest& request, void*, Mesh& mesh)
 						{
 							auto resources = static_cast<HDResources*>(static_cast<MeshRequest&>(request).zone.newData);
 							resources->fireModel1.mesh = &mesh;
@@ -369,7 +369,7 @@ namespace
 					},
 					{
 						MeshNames::aabb,
-						[](MeshManager::MeshStreamingRequest& request, void*, void*, Mesh& mesh)
+						[](MeshManager::MeshStreamingRequest& request, void*, Mesh& mesh)
 						{
 							auto resources = static_cast<HDResources*>(static_cast<MeshRequest&>(request).zone.newData);
 							resources->cubeWithPos = &mesh;
@@ -377,13 +377,13 @@ namespace
 					},
 					{
 						MeshNames::squareWithPos,
-						[](MeshManager::MeshStreamingRequest& request, void*, void*, Mesh& mesh)
+						[](MeshManager::MeshStreamingRequest& request, void*, Mesh& mesh)
 						{
 							auto resources = static_cast<HDResources*>(static_cast<MeshRequest&>(request).zone.newData);
 							resources->squareWithPos = &mesh;
 						}
 					},
-				}, zone, threadResources, globalResources);
+				}, zone, threadResources, globalResources.meshManager);
 
 			constexpr uint64_t pointLightConstantBufferAlignedSize = (sizeof(LightConstantBuffer) + (uint64_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (uint64_t)1u) & 
 				~((uint64_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (uint64_t)1u);
@@ -397,12 +397,13 @@ namespace
 
 		~HDResources() {}
 
-		static void create(void* context, ThreadResources& threadResources, GlobalResources& globalResources)
+		static void create(void* context, ThreadResources& threadResources)
 		{
-			Zone<ThreadResources, GlobalResources>& zone = *static_cast<Zone<ThreadResources, GlobalResources>*>(context);
+			Zone<ThreadResources>& zone = *static_cast<Zone<ThreadResources>*>(context);
+			auto& globalResources = *static_cast<GlobalResources*>(zone.context);
 			zone.newData = operator new(sizeof(HDResources));
 			new(zone.newData) HDResources(threadResources, globalResources, zone);
-			componentUploaded(zone, threadResources, globalResources);
+			componentUploaded(zone);
 		}
 
 		void update1(ThreadResources&, GlobalResources& globalResources)
@@ -671,53 +672,53 @@ namespace
 		{
 			static constexpr unsigned int numberOfComponentsToUnload = 2u;
 			std::atomic<unsigned int> numberOfComponentsUnloaded = 0u;
-			Zone<ThreadResources, GlobalResources>& zone;
+			Zone<ThreadResources>& zone;
 
-			void componentUnloaded(void* tr, void* gr)
+			void componentUnloaded(void*)
 			{
 				if (numberOfComponentsUnloaded.fetch_add(1u, std::memory_order_acq_rel) == (numberOfComponentsToUnload - 1u))
 				{
-					auto& threadResources = *static_cast<ThreadResources*>(tr);
-					auto& globalResources = *static_cast<GlobalResources*>(gr);
 					auto& zoneRef = zone;
 					delete this;
 					auto resource = static_cast<HDResources*>(zoneRef.oldData);
-					zoneRef.finishedDeletingOldState(threadResources, globalResources);
+					auto& globalResources = *static_cast<GlobalResources*>(zoneRef.context);
+					zoneRef.finishedDeletingOldState(globalResources.taskShedular);
 					resource->~HDResources();
 					operator delete(resource);
 				}
 			}
 
-			HdUnloader(Zone<ThreadResources, GlobalResources>& zone1) :
-				TextureUnloader<numTextures>([](TextureUnloader<numTextures>& unloader, void* tr, void* gr)
+			HdUnloader(Zone<ThreadResources>& zone1) :
+				TextureUnloader<numTextures>([](TextureUnloader<numTextures>& unloader, void* tr)
 					{
-						static_cast<HdUnloader&>(unloader).componentUnloaded(tr, gr);
+						static_cast<HdUnloader&>(unloader).componentUnloaded(tr);
 					}),
-				MeshUnloader<numMeshes>([](MeshUnloader<numMeshes>& unloader, void* tr, void* gr)
+				MeshUnloader<numMeshes>([](MeshUnloader<numMeshes>& unloader, void* tr)
 					{
-						static_cast<HdUnloader&>(unloader).componentUnloaded(tr, gr);
+						static_cast<HdUnloader&>(unloader).componentUnloaded(tr);
 					}),
 						zone(zone1)
 					{}
 		public:
-			static HdUnloader* create(Zone<ThreadResources, GlobalResources>& zone1)
+			static HdUnloader* create(Zone<ThreadResources>& zone1)
 			{
 				return new HdUnloader(zone1);
 			}
 
-			void unloadTextures(const wchar_t* const(&filenames)[numTextures], ThreadResources& threadResources, GlobalResources& globalResources)
+			void unloadTextures(const wchar_t* const(&filenames)[numTextures], ThreadResources& threadResources, TextureManager& textureManager)
 			{
-				static_cast<TextureUnloader<numTextures>&>(*this).unload(filenames, threadResources, globalResources);
+				static_cast<TextureUnloader<numTextures>&>(*this).unload(filenames, threadResources, textureManager);
 			}
 
-			void unloadMeshes(const wchar_t* const(&filenames)[numMeshes], ThreadResources& threadResources, GlobalResources& globalResources)
+			void unloadMeshes(const wchar_t* const(&filenames)[numMeshes], ThreadResources& threadResources, MeshManager& meshManager)
 			{
-				static_cast<MeshUnloader<numMeshes>&>(*this).unload(filenames, threadResources, globalResources);
+				static_cast<MeshUnloader<numMeshes>&>(*this).unload(filenames, threadResources, meshManager);
 			}
 		};
 
-		void destruct(Zone<ThreadResources, GlobalResources>& zone, ThreadResources& threadResources, GlobalResources& globalResources)
+		void destruct(Zone<ThreadResources>& zone, ThreadResources& threadResources)
 		{
+			auto& globalResources = *static_cast<GlobalResources*>(zone.context);
 			auto& graphicsEngine = globalResources.graphicsEngine;
 			
 			graphicsEngine.descriptorAllocator.deallocate(reflectionCameraBackBuffer);
@@ -735,7 +736,7 @@ namespace
 					TextureNames::firenoise01,
 					TextureNames::fire01,
 					TextureNames::firealpha01,
-				}, threadResources, globalResources);
+				}, threadResources, globalResources.textureManager);
 
 			hdUnloader->unloadMeshes(
 				{
@@ -747,7 +748,7 @@ namespace
 					MeshNames::square,
 					MeshNames::aabb,
 					MeshNames::squareWithPos,
-				}, threadResources, globalResources);
+				}, threadResources, globalResources.meshManager);
 		}
 	};
 
@@ -758,9 +759,10 @@ namespace
 		constexpr static unsigned int numTextures = 1u;
 
 
-		static void callback(Zone<ThreadResources, GlobalResources>& zone, ThreadResources& threadResources, GlobalResources& globalResources)
+		static void callback(Zone<ThreadResources>& zone)
 		{
-			zone.componentUploaded(threadResources, globalResources, numComponents);
+			auto& globalResources = *static_cast<GlobalResources*>(zone.context);
+			zone.componentUploaded(globalResources.taskShedular, numComponents);
 		}
 	public:
 		D3D12Resource perObjectConstantBuffers;
@@ -773,7 +775,7 @@ namespace
 		D3D12_GPU_VIRTUAL_ADDRESS pointLightConstantBufferGpuAddress;
 
 
-		MDResources(ThreadResources& threadResources, GlobalResources& globalResources, Zone<ThreadResources, GlobalResources>& zone) :
+		MDResources(ThreadResources& threadResources, GlobalResources& globalResources, Zone<ThreadResources>& zone) :
 			light(DirectX::XMFLOAT4(0.1f, 0.1f, 0.1f, 1.0f), DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f), DirectX::XMFLOAT3(0.0f, -0.894427191f, 0.447213595f)),
 			perObjectConstantBuffers(globalResources.graphicsEngine.graphicsDevice, []()
 		{
@@ -809,32 +811,28 @@ namespace
 			new(&bathModel) BathModel2(PerObjectConstantBuffersGpuAddress, cpuConstantBuffer);
 
 			TextureManager& textureManager = globalResources.textureManager;
-			TextureRequest* marble01Request = new TextureRequest([](TextureManager::TextureStreamingRequest& request, void* tr, void* gr, unsigned int textureDescriptor)
+			TextureRequest* marble01Request = new TextureRequest([](TextureManager::TextureStreamingRequest& request, void*, unsigned int textureDescriptor)
 			{
-				ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
-				GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
 				auto& zone = static_cast<TextureRequest&>(request).zone;
 				auto resources = ((MDResources*)zone.newData);
 				resources->bathModel.setDiffuseTexture(textureDescriptor, resources->perObjectConstantBuffersCpuAddress, resources->perObjectConstantBuffers->GetGPUVirtualAddress());
 
 				delete static_cast<TextureRequest*>(&request);
-				callback(zone, threadResources, globalResources);
+				callback(zone);
 			}, TextureNames::marble01, zone);
-			textureManager.load(marble01Request, threadResources, globalResources);
+			textureManager.load(*marble01Request, threadResources);
 
 			MeshManager& meshManager = globalResources.meshManager;
-			MeshRequest* bathRequest = new MeshRequest([](MeshManager::MeshStreamingRequest& request, void* tr, void* gr, Mesh& mesh)
+			MeshRequest* bathRequest = new MeshRequest([](MeshManager::MeshStreamingRequest& request, void*, Mesh& mesh)
 			{
-				ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
-				GlobalResources& globalResources = *static_cast<GlobalResources*>(gr);
 				auto& zone = static_cast<MeshRequest&>(request).zone;
 				auto resources = ((MDResources*)zone.newData);
 				resources->bathModel.mesh = &mesh;
 
 				delete static_cast<MeshRequest*>(&request);
-				callback(zone, threadResources, globalResources);
+				callback(zone);
 			}, MeshNames::bath, zone);
-			meshManager.load(bathRequest, threadResources, globalResources);
+			meshManager.load(bathRequest, threadResources);
 
 			constexpr uint64_t pointLightConstantBufferAlignedSize = (sizeof(LightConstantBuffer) + (uint64_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (uint64_t)1u) &
 				~((uint64_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (uint64_t)1u);
@@ -849,56 +847,56 @@ namespace
 		{
 			static constexpr unsigned int numberOfComponentsToUnload = 2u;
 			std::atomic<unsigned int> numberOfComponentsUnloaded = 0u;
-			Zone<ThreadResources, GlobalResources>& zone;
+			Zone<ThreadResources>& zone;
 
-			void componentUnloaded(void* tr, void* gr)
+			void componentUnloaded(void*)
 			{
 				if (numberOfComponentsUnloaded.fetch_add(1u, std::memory_order_acq_rel) == (numberOfComponentsToUnload - 1u))
 				{
-					auto& threadResources = *static_cast<ThreadResources*>(tr);
-					auto& globalResources = *static_cast<GlobalResources*>(gr);
 					auto& zoneRef = zone;
 					delete this;
 					auto resource = static_cast<MDResources*>(zoneRef.oldData);
-					zoneRef.finishedDeletingOldState(threadResources, globalResources);
+					auto& globalResources = *static_cast<GlobalResources*>(zoneRef.context);
+					zoneRef.finishedDeletingOldState(globalResources.taskShedular);
 					resource->~MDResources();
 					operator delete(resource);
 				}
 			}
 
-			MdUnloader(Zone<ThreadResources, GlobalResources>& zone1) :
-				TextureManager::UnloadRequest(TextureNames::marble01, [](AsynchronousFileManager::ReadRequest& unloader, void* tr, void* gr)
+			MdUnloader(Zone<ThreadResources>& zone1) :
+				TextureManager::UnloadRequest(TextureNames::marble01, [](AsynchronousFileManager::ReadRequest& unloader, void* tr)
 					{
-						static_cast<MdUnloader&>(static_cast<TextureManager::UnloadRequest&>(unloader)).componentUnloaded(tr, gr);
+						static_cast<MdUnloader&>(static_cast<TextureManager::UnloadRequest&>(unloader)).componentUnloaded(tr);
 					}),
-				MeshManager::UnloadRequest(MeshNames::bath, [](AsynchronousFileManager::ReadRequest& unloader, void* tr, void* gr)
+				MeshManager::UnloadRequest(MeshNames::bath, [](AsynchronousFileManager::ReadRequest& unloader, void* tr)
 					{
-						static_cast<MdUnloader&>(static_cast<MeshManager::UnloadRequest&>(unloader)).componentUnloaded(tr, gr);
+						static_cast<MdUnloader&>(static_cast<MeshManager::UnloadRequest&>(unloader)).componentUnloaded(tr);
 					}),
 						zone(zone1)
 					{}
 		public:
-			static MdUnloader* create(Zone<ThreadResources, GlobalResources>& zone1)
+			static MdUnloader* create(Zone<ThreadResources>& zone1)
 			{
 				return new MdUnloader(zone1);
 			}
 
-			void unload(TextureManager& textureManager, MeshManager& meshManager, ThreadResources& threadResources, GlobalResources& globalResources)
+			void unload(TextureManager& textureManager, MeshManager& meshManager, ThreadResources& threadResources)
 			{
-				textureManager.unload(this, threadResources, globalResources);
-				meshManager.unload(this, threadResources, globalResources);
+				textureManager.unload(*this, threadResources);
+				meshManager.unload(this, threadResources);
 			}
 		};
 
-		void destruct(Zone<ThreadResources, GlobalResources>& zone, ThreadResources& threadResources, GlobalResources& globalResources)
+		void destruct(Zone<ThreadResources>& zone, ThreadResources& threadResources)
 		{
 			perObjectConstantBuffers->Unmap(0u, nullptr);
 
+			auto& globalResources = *static_cast<GlobalResources*>(zone.context);
 			auto& textureManager = globalResources.textureManager;
 			auto& meshManager = globalResources.meshManager;
 
 			auto mdUnloader = MdUnloader::create(zone);
-			mdUnloader->unload(textureManager, meshManager, threadResources, globalResources);
+			mdUnloader->unload(textureManager, meshManager, threadResources);
 		}
 
 		~MDResources() {}
@@ -932,19 +930,21 @@ namespace
 			}
 		}
 
-		static void create(void* context, ThreadResources& threadResources, GlobalResources& globalResources)
+		static void create(void* context, ThreadResources& threadResources)
 		{
-			Zone<ThreadResources, GlobalResources>& zone = *static_cast<Zone<ThreadResources, GlobalResources>*>(context);
+			Zone<ThreadResources>& zone = *static_cast<Zone<ThreadResources>*>(context);
+			auto& globalResources = *static_cast<GlobalResources*>(zone.context);
 			zone.newData = operator new(sizeof(MDResources));
 			new(zone.newData) MDResources(threadResources, globalResources, zone);
-			callback(zone, threadResources, globalResources);
+			callback(zone);
 		}
 	};
 
-	static void update2(void* context, ThreadResources& threadResources, GlobalResources& globalResources);
-	static void update1(void* context, ThreadResources& threadResources, GlobalResources& globalResources)
+	static void update2(void* context, ThreadResources& threadResources);
+	static void update1(void* context, ThreadResources& threadResources)
 	{
-		Zone<ThreadResources, GlobalResources>& zone = *static_cast<Zone<ThreadResources, GlobalResources>*>(context);
+		Zone<ThreadResources>& zone = *static_cast<Zone<ThreadResources>*>(context);
+		auto& globalResources = *static_cast<GlobalResources*>(zone.context);
 
 		zone.lastUsedData = zone.currentData;
 		zone.lastUsedState = zone.currentState;
@@ -962,9 +962,10 @@ namespace
 		}
 	}
 
-	static void update2(void* context, ThreadResources& threadResources, GlobalResources& globalResources)
+	static void update2(void* context, ThreadResources& threadResources)
 	{
-		Zone<ThreadResources, GlobalResources>& zone = *static_cast<Zone<ThreadResources, GlobalResources>*>(context);
+		Zone<ThreadResources>& zone = *static_cast<Zone<ThreadResources>*>(context);
+		auto& globalResources = *static_cast<GlobalResources*>(zone.context);
 
 		switch (zone.lastUsedState)
 		{
@@ -981,7 +982,7 @@ namespace
 
 	struct Zone1Functions
 	{
-		static void createNewStateData(Zone<ThreadResources, GlobalResources>& zone, ThreadResources& threadResources, GlobalResources&)
+		static void createNewStateData(Zone<ThreadResources>& zone, ThreadResources& threadResources)
 		{
 			switch (zone.newState)
 			{
@@ -994,7 +995,7 @@ namespace
 			}
 		}
 
-		static void deleteOldStateData(Zone<ThreadResources, GlobalResources>& zone, ThreadResources& threadResources, GlobalResources& globalResources)
+		static void deleteOldStateData(Zone<ThreadResources>& zone, ThreadResources& threadResources)
 		{
 			switch (zone.oldState)
 			{
@@ -1003,43 +1004,46 @@ namespace
 				auto resource = static_cast<HDResources*>(zone.oldData);
 				auto zoneEntity = resource->zoneEntity;
 				RemoveReflectionCameraRequest* removeReflectionCameraRequest = new RemoveReflectionCameraRequest(zoneEntity,
-					[](RenderPass1::RenderToTextureSubPass::RemoveCamerasRequest& req, void* tr, void*)
+					[](RenderPass1::RenderToTextureSubPass::RemoveCamerasRequest& req, void* tr)
 				{
 					auto& request = static_cast<RemoveReflectionCameraRequest&>(req);
 					auto& zone = request.zone;
 					delete &request;
 
 					ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
-					threadResources.taskShedular.pushPrimaryTask(1u, { &zone, [](void* requester, ThreadResources&, GlobalResources& globalResources)
+					threadResources.taskShedular.pushPrimaryTask(1u, { &zone, [](void* requester, ThreadResources&)
 					{
-						auto& zone = *static_cast<Zone<ThreadResources, GlobalResources>*>(requester);
-						zone.executeWhenGpuFinishesCurrentFrame(globalResources, [](LinkedTask& task, void* tr, void*)
+						auto& zone = *static_cast<Zone<ThreadResources>*>(requester);
+						GraphicsEngine& graphicsEngine = static_cast<GlobalResources*>(zone.context)->graphicsEngine;
+						zone.executeWhenGpuFinishesCurrentFrame(graphicsEngine, [](LinkedTask& task, void* tr)
 						{
-							auto& zone = Zone<ThreadResources, GlobalResources>::from(task);
+							auto& zone = Zone<ThreadResources>::from(task);
 							ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
-							threadResources.taskShedular.pushBackgroundTask({ &zone, [](void* context, ThreadResources& threadResources, GlobalResources& globalResources)
+							threadResources.taskShedular.pushBackgroundTask({ &zone, [](void* context, ThreadResources& threadResources)
 							{
-								Zone<ThreadResources, GlobalResources>& zone = *static_cast<Zone<ThreadResources, GlobalResources>*>(context);
+								Zone<ThreadResources>& zone = *static_cast<Zone<ThreadResources>*>(context);
 								auto resource = static_cast<HDResources*>(zone.oldData);
-								resource->destruct(zone, threadResources, globalResources);
+								resource->destruct(zone, threadResources);
 							} });
 						});
 					} });
 				}, zone);
-				globalResources.renderPass.renderToTextureSubPass().removeCamera(*removeReflectionCameraRequest, globalResources.renderPass, threadResources, globalResources);
+				auto& globalResources = *static_cast<GlobalResources*>(zone.context);
+				globalResources.renderPass.renderToTextureSubPass().removeCamera(*removeReflectionCameraRequest, globalResources.renderPass, threadResources);
 				break;
 			}
 			case 1u:
 			{
-				zone.executeWhenGpuFinishesCurrentFrame(globalResources, [](LinkedTask& task, void* tr, void*)
+				GraphicsEngine& graphicsEngine = static_cast<GlobalResources*>(zone.context)->graphicsEngine;
+				zone.executeWhenGpuFinishesCurrentFrame(graphicsEngine, [](LinkedTask& task, void* tr)
 				{
-					auto& zone = Zone<ThreadResources, GlobalResources>::from(task);
+					auto& zone = Zone<ThreadResources>::from(task);
 					ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
-					threadResources.taskShedular.pushBackgroundTask({ &zone, [](void* context, ThreadResources& threadResources, GlobalResources& globalResources)
+					threadResources.taskShedular.pushBackgroundTask({ &zone, [](void* context, ThreadResources& threadResources)
 					{
-						auto& zone = *static_cast<Zone<ThreadResources, GlobalResources>*>(context);
+						auto& zone = *static_cast<Zone<ThreadResources>*>(context);
 						auto resource = static_cast<MDResources*>(zone.oldData);
-						resource->destruct(zone, threadResources, globalResources);
+						resource->destruct(zone, threadResources);
 					} });
 				});
 				break;
@@ -1047,20 +1051,20 @@ namespace
 			}
 		}
 
-		static Range<Portal*> getPortals(Zone<ThreadResources, GlobalResources>&)
+		static Range<Portal*> getPortals(Zone<ThreadResources>&)
 		{
 			static Portal portals[1] = {Portal{Vector3(64.0f, 6.0f, 84.0f), Vector3(64.0f, 6.0f, 84.0f), 1u}};
 			return range(portals, portals + 1u);
 		}
 
-		static void start(Zone<ThreadResources, GlobalResources>& zone, ThreadResources& threadResources, GlobalResources&)
+		static void start(Zone<ThreadResources>& zone, ThreadResources& threadResources)
 		{
 			threadResources.taskShedular.pushPrimaryTask(0u, { &zone, update1 });
 		}
 	};
 }
 
-Zone<ThreadResources, GlobalResources> Zone1()
+Zone<ThreadResources> Zone1(void* context)
 {
-	return Zone<ThreadResources, GlobalResources>::create<Zone1Functions>(2u);
+	return Zone<ThreadResources>::create<Zone1Functions>(2u, context);
 }

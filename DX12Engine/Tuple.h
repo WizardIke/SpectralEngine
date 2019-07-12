@@ -1,5 +1,7 @@
 #pragma once
 #include <cstddef> //std::size_t
+#include <type_traits> //std::integral_constant
+
 /* 
  * Similar to std::tuple but is an aggregate
  */
@@ -105,4 +107,27 @@ constexpr typename tuple_element<i, Tuple<Ts...>>::type const&& get(const Tuple<
 	{
 		return get<i - 1u>(std::move(t.tail));
 	}
+}
+
+template<class T>
+class tuple_size;
+template<class... Ts>
+class tuple_size<Tuple<Ts...>> : public std::integral_constant<std::size_t, sizeof...(Ts)> { };
+
+template<class T>
+class tuple_size<const T> : public std::integral_constant<std::size_t, tuple_size<T>::value> { };
+
+template<class T>
+class tuple_size<volatile T> : public std::integral_constant<std::size_t, tuple_size<T>::value> { };
+
+template<class T>
+class tuple_size<const volatile T> : public std::integral_constant<std::size_t, tuple_size<T>::value> { };
+
+template<class T>
+inline constexpr std::size_t tuple_size_v = tuple_size<T>::value;
+
+template<class... Ts>
+constexpr Tuple<Ts&&...> forward_as_tuple(Ts&&... args) noexcept
+{
+	return Tuple<Ts&&...>{std::forward<Ts>(args)...};
 }

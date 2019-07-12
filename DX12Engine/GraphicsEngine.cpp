@@ -184,7 +184,7 @@ void GraphicsEngine::endFrame(Window& window, ID3D12CommandList** const commandL
 	frameIndex = window.getCurrentBackBufferIndex();
 }
 
-void GraphicsEngine::startFrame(void* tr, void* gr)
+void GraphicsEngine::startFrame(void* tr)
 {
 	const uint64_t fenceValueToWaitFor = fenceValue - frameBufferCount;
 	if (directFence->GetCompletedValue() < fenceValueToWaitFor)
@@ -194,7 +194,7 @@ void GraphicsEngine::startFrame(void* tr, void* gr)
 		WaitForSingleObject(directFenceEvent, INFINITE);
 	}
 
-	gpuFrameCompletionQueue.update(frameIndex, tr, gr);
+	gpuFrameCompletionQueue.update(frameIndex, tr);
 }
 
 void GraphicsEngine::waitForPreviousFrame(ID3D12CommandQueue& commandQueue)

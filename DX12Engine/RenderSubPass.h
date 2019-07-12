@@ -3,13 +3,19 @@
 #include "frameBufferCount.h"
 #include "D3D12GraphicsCommandList.h"
 #include "Frustum.h"
-#include "Array.h"
+#include "Tuple.h"
+#include <utility> //std::make_index_sequence, std::index_sequence
+#include <array>
+#include "makeArray.h"
 #include "Range.h"
 #include "ResizingArray.h"
 #include "FastIterationHashSet.h"
 #include "ReflectionCamera.h"
 #include "GraphicsEngine.h"
 #include "RenderPassMessage.h"
+#ifndef NDEBUG
+#include <string>
+#endif
 
 template<class Camera_t, bool isStaticNumberOfCameras, std::size_t initialSize>
 struct CameraStoragePicker;
@@ -17,9 +23,9 @@ struct CameraStoragePicker;
 template<class Camera_t, std::size_t initialSize>
 struct CameraStoragePicker<Camera_t, true, initialSize>
 {
-	using iterator = typename Array<Camera_t, initialSize>::iterator;
-	using const_iterator = typename Array<Camera_t, initialSize>::const_iterator;
-	Array<Camera_t, initialSize> mCameras;
+	using iterator = typename std::array<Camera_t, initialSize>::iterator;
+	using const_iterator = typename std::array<Camera_t, initialSize>::const_iterator;
+	std::array<Camera_t, initialSize> mCameras;
 };
 
 template<class Camera_t, std::size_t initialSize>
@@ -33,8 +39,8 @@ public:
 	Container mCameras;
 };
 
-//use std::tuple<std::integral_constant<unsigned int, value>, ...> for dependencies
-//use std::tuple<std::integral_constant<D3D12_RESOURCE_STATES, value>, ...> for dependencyStates
+//use Tuple<std::integral_constant<unsigned int, value>, ...> for dependencies
+//use Tuple<std::integral_constant<D3D12_RESOURCE_STATES, value>, ...> for dependencyStates
 template<class Camera_t, D3D12_RESOURCE_STATES state1, class Dependencies_t, class DependencyStates_t, unsigned int commandListsPerFrame1, D3D12_RESOURCE_STATES stateAfter1 = state1, bool isStaticNumberOfCameras = false, std::size_t initialSize = 0u>
 class RenderSubPass : public CameraStoragePicker<Camera_t, isStaticNumberOfCameras, initialSize>
 {
@@ -52,40 +58,67 @@ public:
 
 	class AddCameraRequest : public RenderPassMessage
 	{
-		static void execute(RenderPassMessage& message, void* tr, void* gr)
+		static void execute(RenderPassMessage& message, void* tr)
 		{
 			AddCameraRequest& addRequest = static_cast<AddCameraRequest&>(message);
 			auto& cameras = addRequest.subPass->mCameras;
 			cameras.insert(addRequest.entity, std::move(addRequest.camera));
-			addRequest.callback(addRequest, tr, gr);
+			addRequest.callback(addRequest, tr);
 		}
 	public:
 		RenderSubPass* subPass;
 		unsigned long entity;
-		void(*callback)(AddCameraRequest&, void* tr, void* gr);
+		void(*callback)(AddCameraRequest&, void* tr);
 		Camera camera;
 
-		AddCameraRequest(unsigned long entity1, Camera&& camera1, void(*callback1)(AddCameraRequest&, void* tr, void* gr)) : RenderPassMessage{execute}, entity(entity1), camera(std::move(camera1)), callback(callback1) {}
+		AddCameraRequest(unsigned long entity1, Camera&& camera1, void(*callback1)(AddCameraRequest&, void* tr)) : RenderPassMessage{execute}, entity(entity1), camera(std::move(camera1)), callback(callback1) {}
 	};
 
 	class RemoveCamerasRequest : public RenderPassMessage
 	{
-		static void execute(RenderPassMessage& message, void* tr, void* gr)
+		static void execute(RenderPassMessage& message, void* tr)
 		{
 			RemoveCamerasRequest& removeRequest = static_cast<RemoveCamerasRequest&>(message);
 			auto& cameras = removeRequest.subPass->mCameras;
 			cameras.erase(removeRequest.entity);
-			removeRequest.callback(removeRequest, tr, gr);
+			removeRequest.callback(removeRequest, tr);
 		}
 	public:
 		RenderSubPass* subPass;
 		unsigned long entity;
-		void(*callback)(RemoveCamerasRequest&, void* tr, void* gr);
+		void(*callback)(RemoveCamerasRequest&, void* tr);
 
-		RemoveCamerasRequest(unsigned long entity1, void(*callback1)(RemoveCamerasRequest&, void* tr, void* gr)) : RenderPassMessage{execute}, entity(entity1), callback(callback1) {}
+		RemoveCamerasRequest(unsigned long entity1, void(*callback1)(RemoveCamerasRequest&, void* tr)) : RenderPassMessage{execute}, entity(entity1), callback(callback1) {}
 	};
 
 	RenderSubPass() noexcept {}
+private:
+	template<class ArgsTuple, std::size_t... indices>
+	Camera makeCamera(std::index_sequence<indices...>, ArgsTuple&& parameters)
+	{
+		return { std::forward<tuple_element_t<indices, ArgsTuple>>(get<indices>(parameters))... };
+	}
+
+	template<class ArgsTuple>
+	Camera makeCamera(ArgsTuple&& parameters)
+	{
+		return makeCamera(std::make_index_sequence<tuple_size<std::remove_reference_t<ArgsTuple>>::value>(), std::forward<ArgsTuple>(parameters));
+	}
+
+	template<class ArgsTuple, std::size_t... indices>
+	RenderSubPass(std::index_sequence<indices...>, ArgsTuple&& parameterPacks) :
+		CameraStoragePicker_t{ makeCamera<tuple_element_t<indices, ArgsTuple>>(std::forward<tuple_element_t<indices, ArgsTuple>>(get<indices>(parameterPacks)))... }
+	{}
+public:
+	/*
+	Each parameter should be a tuple containing the arguments required to construct a camera
+	*/
+	template<class... ParameterPacks>
+	RenderSubPass(ParameterPacks&&... parameterPacks) :
+		RenderSubPass(std::make_index_sequence<sizeof...(ParameterPacks)>(),
+			forward_as_tuple(std::forward<ParameterPacks>(parameterPacks)...))
+	{}
+
 	RenderSubPass(RenderSubPass<Camera_t, state1, Dependencies_t, DependencyStates_t, commandListsPerFrame1, stateAfter1, isStaticNumberOfCameras, initialSize>&& other) noexcept : CameraStoragePicker_t(std::move(static_cast<CameraStoragePicker_t&>(other))) {}
 
 	void operator=(RenderSubPass<Camera_t, state1, Dependencies_t, DependencyStates_t, commandListsPerFrame1, stateAfter1, isStaticNumberOfCameras, initialSize>&& other) noexcept
@@ -116,41 +149,41 @@ public:
 	/*
 	Can be called from a primary thread
 	*/
-	template<class RenderPass, class ThreadResources, class GlobalResources, bool isStaticNumberOfCameras1 = isStaticNumberOfCameras>
-	std::enable_if_t<!isStaticNumberOfCameras1, void> addCamera(AddCameraRequest& addCameraRequest, RenderPass& renderPass, ThreadResources& threadResources, GlobalResources& globalResources)
+	template<class RenderPass, class ThreadResources, bool isStaticNumberOfCameras1 = isStaticNumberOfCameras>
+	std::enable_if_t<!isStaticNumberOfCameras1, void> addCamera(AddCameraRequest& addCameraRequest, RenderPass& renderPass, ThreadResources& threadResources)
 	{
 		addCameraRequest.subPass = this;
-		renderPass.addMessage(addCameraRequest, threadResources, globalResources);
+		renderPass.addMessage(addCameraRequest, threadResources);
 	}
 
 	/*
 	Can be called from a background thread
 	*/
-	template<class RenderPass, class ThreadResources, class GlobalResources, bool isStaticNumberOfCameras1 = isStaticNumberOfCameras>
-	std::enable_if_t<!isStaticNumberOfCameras1, void> addCameraFromBackground(AddCameraRequest& addCameraRequest, RenderPass& renderPass, ThreadResources& threadResources, GlobalResources& globalResources)
+	template<class RenderPass, class TaskShedular, bool isStaticNumberOfCameras1 = isStaticNumberOfCameras>
+	std::enable_if_t<!isStaticNumberOfCameras1, void> addCameraFromBackground(AddCameraRequest& addCameraRequest, RenderPass& renderPass, TaskShedular& taskShedular)
 	{
 		addCameraRequest.subPass = this;
-		renderPass.addMessageFromBackground(addCameraRequest, threadResources, globalResources);
+		renderPass.addMessageFromBackground(addCameraRequest, taskShedular);
 	}
 
 	/*
 	Can be called from a primary thread
 	*/
-	template<class RenderPass, class ThreadResources, class GlobalResources, bool isStaticNumberOfCameras1 = isStaticNumberOfCameras>
-	std::enable_if_t<!isStaticNumberOfCameras1, void> removeCamera(RemoveCamerasRequest& removeCamerasRequest, RenderPass& renderPass, ThreadResources& threadResources, GlobalResources& globalResources) noexcept
+	template<class RenderPass, class ThreadResources, bool isStaticNumberOfCameras1 = isStaticNumberOfCameras>
+	std::enable_if_t<!isStaticNumberOfCameras1, void> removeCamera(RemoveCamerasRequest& removeCamerasRequest, RenderPass& renderPass, ThreadResources& threadResources) noexcept
 	{
 		removeCamerasRequest.subPass = this;
-		renderPass.addMessage(removeCamerasRequest, threadResources, globalResources);
+		renderPass.addMessage(removeCamerasRequest, threadResources);
 	}
 
 	/*
 	Can be called from a background thread
 	*/
-	template<class RenderPass, class ThreadResources, class GlobalResources, bool isStaticNumberOfCameras1 = isStaticNumberOfCameras>
-	std::enable_if_t<!isStaticNumberOfCameras1, void> removeCameraFromBackground(RemoveCamerasRequest& removeCamerasRequest, RenderPass& renderPass, ThreadResources& threadResources, GlobalResources& globalResources) noexcept
+	template<class RenderPass, class TaskShedular, bool isStaticNumberOfCameras1 = isStaticNumberOfCameras>
+	std::enable_if_t<!isStaticNumberOfCameras1, void> removeCameraFromBackground(RemoveCamerasRequest& removeCamerasRequest, RenderPass& renderPass, TaskShedular& taskShedular) noexcept
 	{
 		removeCamerasRequest.subPass = this;
-		renderPass.addMessageFromBackground(removeCamerasRequest, threadResources, globalResources);
+		renderPass.addMessageFromBackground(removeCamerasRequest, taskShedular);
 	}
 
 	bool isInView() const noexcept
@@ -170,10 +203,39 @@ public:
 	protected:
 		struct PerFrameData
 		{
-			Array<D3D12CommandAllocator, commandListsPerFrame> commandAllocators;
-			Array<D3D12GraphicsCommandList, commandListsPerFrame> commandLists;
+			std::array<D3D12CommandAllocator, commandListsPerFrame> commandAllocators;
+			std::array<D3D12GraphicsCommandList, commandListsPerFrame> commandLists;
+
+			PerFrameData(std::size_t i, ID3D12Device* graphicsDevice) :
+				commandAllocators{ makeArray<commandListsPerFrame>([i, graphicsDevice](std::size_t j)
+					{
+						D3D12CommandAllocator allocator(graphicsDevice, D3D12_COMMAND_LIST_TYPE_DIRECT);
+#ifndef NDEBUG
+						std::wstring name = L"Direct command allocator ";
+						name += std::to_wstring(i);
+						name += L", ";
+						name += std::to_wstring(j);
+						allocator->SetName(name.c_str());
+#endif
+						return allocator;
+					}) },
+				commandLists{ makeArray<commandListsPerFrame>([i, graphicsDevice, &commandAllocators = this->commandAllocators](std::size_t j)
+					{
+						ID3D12CommandAllocator* allocator = commandAllocators[j];
+						D3D12GraphicsCommandList commandList(graphicsDevice, 0u, D3D12_COMMAND_LIST_TYPE_DIRECT, allocator, nullptr);
+						commandList->Close();
+#ifndef NDEBUG
+						std::wstring name = L"Direct command list ";
+						name += std::to_wstring(i);
+						name += L", ";
+						name += std::to_wstring(j);
+						commandList->SetName(name.c_str());
+#endif // NDEBUG
+						return commandList;
+					}) }
+			{}
 		};
-		Array<PerFrameData, frameBufferCount> perFrameDatas;
+		std::array<PerFrameData, frameBufferCount> perFrameDatas;
 
 		void bindRootArguments(ID3D12RootSignature* rootSignature, ID3D12DescriptorHeap* mainDescriptorHeap) noexcept
 		{
@@ -202,56 +264,15 @@ public:
 		}
 		ThreadLocal() = delete;
 	public:
-		ThreadLocal(ThreadLocal&& other) noexcept
-		{
-			auto end = perFrameDatas.end();
-			for (auto perFrameData1 = perFrameDatas.begin(), perFrameData2 = other.perFrameDatas.begin(); perFrameData1 != end; ++perFrameData1, ++perFrameData2)
-			{
-				auto& commandAllocators1 = perFrameData1->commandAllocators;
-				auto& commandAllocators2 = perFrameData2->commandAllocators;
-				auto end2 = commandAllocators1.end();
-				for (auto commandAllocator1 = commandAllocators1.begin(), commandAllocator2 = commandAllocators2.begin(); commandAllocator1 != end2; ++commandAllocator1, ++commandAllocator2)
-				{
-					*commandAllocator1 = std::move(*commandAllocator2);
-				}
+		ThreadLocal(ThreadLocal&& other) noexcept = default;
 
-				auto& commandLists1 = perFrameData1->commandLists;
-				auto& commandLists2 = perFrameData2->commandLists;
-				auto end3 = commandLists1.end();
-				for (auto commandList1 = commandLists1.begin(), commandList2 = commandLists2.begin(); commandList1 != end3; ++commandList1, ++commandList2)
+		ThreadLocal(GraphicsEngine& graphicsEngine) :
+			perFrameDatas{ makeArray<frameBufferCount>([&graphicsEngine](std::size_t i)
 				{
-					*commandList1 = std::move(*commandList2);
-				}
-			}
-		}
-		ThreadLocal(GraphicsEngine& graphicsEngine)
+					return PerFrameData{i, graphicsEngine.graphicsDevice};
+				}) }
 		{
 			auto frameIndex = graphicsEngine.frameIndex;
-			auto i = 0u;
-			for (auto& perFrameData : perFrameDatas)
-			{
-				auto* commandList = &perFrameData.commandLists[0u];
-				for (auto& allocator : perFrameData.commandAllocators)
-				{
-					allocator.~D3D12CommandAllocator();
-					new(&allocator) D3D12CommandAllocator(graphicsEngine.graphicsDevice, D3D12_COMMAND_LIST_TYPE_DIRECT);
-					commandList->~D3D12GraphicsCommandList();
-					new(commandList) D3D12GraphicsCommandList(graphicsEngine.graphicsDevice, 0u, D3D12_COMMAND_LIST_TYPE_DIRECT, allocator, nullptr);
-					(*commandList)->Close();
-
-#ifndef NDEBUG
-					std::wstring name = L"Direct command allocator ";
-					name += std::to_wstring(i);
-					allocator->SetName(name.c_str());
-
-					name = L"Direct command list ";
-					name += std::to_wstring(i);
-					(*commandList)->SetName(name.c_str());
-#endif // NDEBUG
-					++commandList;
-				}
-				++i;
-			}
 			currentData = &perFrameDatas[frameIndex];
 		}
 
@@ -330,9 +351,9 @@ public:
 
 		}
 
-		template<class ThreadResources, class GlobalResources>
+		template<class ThreadResources>
 		void update2LastThread(ID3D12CommandList**& commandLists, unsigned int numThreads, RenderSubPass<Camera, state1, Dependencies_t, DependencyStates_t, commandListsPerFrame, stateAfter1, isStaticNumberOfCameras, initialSize>&,
-			ThreadResources&, GlobalResources&)
+			ThreadResources&)
 		{
 			update2(commandLists, numThreads);
 		}
@@ -360,9 +381,9 @@ public:
 	public:
 		ThreadLocal(GraphicsEngine& graphicsEngine) : RenderSubPass<Camera_t, state1, Dependencies_t, DependencyStates_t, commandListsPerFrame1, stateAfter1, true, 1u>::ThreadLocal(graphicsEngine) {}
 
-		template<class ThreadResources, class GlobalResources>
+		template<class ThreadResources>
 		void update2LastThread(ID3D12CommandList**& commandLists, unsigned int numThreads, RenderMainSubPass<Camera_t, state1, Dependencies_t, DependencyStates_t, commandListsPerFrame1, stateAfter1>& renderSubPass,
-			ThreadResources&, GlobalResources&)
+			ThreadResources&)
 		{
 			auto cameras = renderSubPass.cameras();
 			auto camerasEnd = cameras.end();
@@ -594,15 +615,15 @@ public:
 			}
 		}
 
-		template<class ThreadResources, class GlobalResources>
+		template<class ThreadResources>
 		void update2LastThread(ID3D12CommandList**& commandLists, unsigned int numThreads, RenderSubPassGroup<RenderSubPass_t>& renderSubPassGroup,
-			ThreadResources& threadResources, GlobalResources& globalResources)
+			ThreadResources& threadResources)
 		{
 			const auto end = mSubPasses.end();
 			auto subPass = renderSubPassGroup.mSubPasses.begin();
 			for (auto subPassLocal = mSubPasses.begin(); subPassLocal != end; ++subPassLocal, ++subPass)
 			{
-				subPassLocal->update2LastThread(commandLists, numThreads, *subPass, threadResources, globalResources);
+				subPassLocal->update2LastThread(commandLists, numThreads, *subPass, threadResources);
 			}
 		}
 

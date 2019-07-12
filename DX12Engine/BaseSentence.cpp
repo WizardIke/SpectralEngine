@@ -1,5 +1,6 @@
 #include "BaseSentence.h"
 #include "HresultException.h"
+#include "makeArray.h"
 
 constexpr inline float setPositionX(const float pos)
 {
@@ -19,7 +20,7 @@ BaseSentence::BaseSentence(const unsigned int maxLength, ID3D12Device* const Dev
 	maxLength(maxLength),
 	color(color),
 	position(setPositionX(Position.x), setPositionY(Position.y)), 
-	textVertexBuffer([Device, maxLength](std::size_t, D3D12Resource& element)
+	textVertexBuffer(makeArray<frameBufferCount>([Device, maxLength]()
 {
 	D3D12_HEAP_PROPERTIES heapProperties;
 	heapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY::D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
@@ -41,8 +42,8 @@ BaseSentence::BaseSentence(const unsigned int maxLength, ID3D12Device* const Dev
 	resourceDesc.SampleDesc.Quality = 0u;
 	resourceDesc.Width = maxLength * sizeof(TextVertex);
 
-	new(&element) D3D12Resource(Device, heapProperties, D3D12_HEAP_FLAG_NONE, resourceDesc, D3D12_RESOURCE_STATE_GENERIC_READ);
-})
+	return D3D12Resource(Device, heapProperties, D3D12_HEAP_FLAG_NONE, resourceDesc, D3D12_RESOURCE_STATE_GENERIC_READ);
+}))
 {
 	HRESULT hr;
 #ifndef NDEBUG

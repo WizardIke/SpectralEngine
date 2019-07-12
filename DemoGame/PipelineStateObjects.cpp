@@ -1,6 +1,7 @@
 #include "PipelineStateObjects.h"
 #include <d3d12.h>
 #include <IOCompletionQueue.h>
+#include <makeArray.h>
 
 #include "PipelineStateObjectDescs/BasicPso.h"
 #include "PipelineStateObjectDescs/CopyPso.h"
@@ -32,22 +33,22 @@ PipelineStateObjects::PipelineStateObjects(AsynchronousFileManager& asynchronous
 
 PipelineStateObjects::PipelineLoaderImpl::PipelineLoaderImpl(GraphicsPipelineStateDesc* const(&graphicsPipelineStateDescs)[numberOfComponents], D3D12PipelineState* const(&output)[numberOfComponents],
 	AsynchronousFileManager& asynchronousFileManager, ID3D12Device& grphicsDevice, PipelineLoader& pipelineLoader, ID3D12RootSignature& rootSignature) :
-	shaderLoaders([&](std::size_t i, ShaderLoader& shaderLoader)
-{
-	new(&shaderLoader) ShaderLoader(*graphicsPipelineStateDescs[i], asynchronousFileManager, grphicsDevice, componentLoaded, &pipelineLoader, *output[i]);
-})
+	psoLoaders{ makeArray<numberOfComponents>([&](std::size_t i)
+		{
+			return ShaderLoader{*graphicsPipelineStateDescs[i], asynchronousFileManager, grphicsDevice, componentLoaded, &pipelineLoader, *output[i]};
+		}) }
 {
 	for (auto graphicsPipelineStateDesc : graphicsPipelineStateDescs)
 	{
 		graphicsPipelineStateDesc->pRootSignature = &rootSignature;
 	}
-	for (auto& loader : shaderLoaders)
+	for (auto& loader : psoLoaders)
 	{
 		PsoLoader::loadPsoWithVertexAndPixelShaders(loader, asynchronousFileManager);
 	}
 }
 
-void PipelineStateObjects::PipelineLoaderImpl::componentLoaded(PsoLoader::PsoWithVertexAndPixelShaderRequest& request1, D3D12PipelineState pso, void* tr, void* gr)
+void PipelineStateObjects::PipelineLoaderImpl::componentLoaded(PsoLoader::PsoWithVertexAndPixelShaderRequest& request1, D3D12PipelineState pso, void* tr)
 {
 	auto& request = static_cast<ShaderLoader&>(request1);
 	request.piplineStateObject = std::move(pso);
@@ -55,6 +56,6 @@ void PipelineStateObjects::PipelineLoaderImpl::componentLoaded(PsoLoader::PsoWit
 	if(pipelineLoader->impl.numberOfcomponentsLoaded.fetch_add(1u, std::memory_order_acq_rel) == (numberOfComponents - 1u))
 	{
 		pipelineLoader->impl.~PipelineLoaderImpl();
-		pipelineLoader->loadingFinished(*pipelineLoader, tr, gr);
+		pipelineLoader->loadingFinished(*pipelineLoader, tr);
 	}
 }

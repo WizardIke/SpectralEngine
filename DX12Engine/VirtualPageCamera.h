@@ -26,20 +26,14 @@ public:
 	constexpr static float screenDepth = 128.0f * 31.5f;
 	constexpr static float screenNear = 0.1f;
 
-	VirtualPageCamera() {}
 	VirtualPageCamera(ID3D12Resource* image, D3D12_CPU_DESCRIPTOR_HANDLE renderTargetView, D3D12_CPU_DESCRIPTOR_HANDLE depthSencilView,
-		unsigned int width, unsigned int height, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1, unsigned char*& constantBufferCpuAddress1, float fieldOfView,
-		Transform& target);
-	void init(ID3D12Resource* image, D3D12_CPU_DESCRIPTOR_HANDLE renderTargetView1, D3D12_CPU_DESCRIPTOR_HANDLE depthSencilView1,
-		unsigned int width, unsigned int height, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1, unsigned char*& constantBufferCpuAddress1, float fieldOfView,
-		Transform& target)
-	{
-		this->~VirtualPageCamera();
-		new(this) VirtualPageCamera(image, renderTargetView1, depthSencilView1, width, height, constantBufferGpuAddress1, constantBufferCpuAddress1, fieldOfView, target);
-	}
-	~VirtualPageCamera();
+		unsigned int width, unsigned int height, Transform& target, float fieldOfView);
 
-	void render(const GraphicsEngine& graphicsEngine, float mipBias);
+	~VirtualPageCamera() = default;
+
+	void setConstantBuffers(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1, unsigned char*& constantBufferCpuAddress1);
+
+	void beforeRender(const GraphicsEngine& graphicsEngine, float mipBias);
 	bool isInView() const { return true; }
 	void bind(uint32_t frameIndex, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end)
 	{
@@ -61,6 +55,6 @@ public:
 	DirectX::XMMATRIX& projectionMatrix() { return mProjectionMatrix; }
 	template<class Void>
 	D3D12_CPU_DESCRIPTOR_HANDLE getRenderTargetView(Void& notUsed) { return renderTargetView; }
-	unsigned int width() { return mWidth; }
-	unsigned int height() { return mHeight; }
+	unsigned int width() const noexcept { return mWidth; }
+	unsigned int height() const noexcept { return mHeight; }
 };

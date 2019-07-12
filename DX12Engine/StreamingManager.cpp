@@ -1,5 +1,6 @@
 #include "StreamingManager.h"
 #include "DDSFileLoader.h"
+#include "makeArray.h"
 
 StreamingManager::StreamingManager(ID3D12Device& graphicsDevice, unsigned long uploadHeapStartingSize) :
 	copyCommandQueue(&graphicsDevice, []()
@@ -39,7 +40,8 @@ StreamingManager::StreamingManager(ID3D12Device& graphicsDevice, unsigned long u
 	uploadResouceDesc.Flags = D3D12_RESOURCE_FLAGS::D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE;
 
 	return uploadResouceDesc;
-}(), D3D12_RESOURCE_STATE_GENERIC_READ)
+}(), D3D12_RESOURCE_STATE_GENERIC_READ),
+	graphicsDevice(graphicsDevice)
 {
 	D3D12_RANGE Range = { 0u, 0u };
 	uploadBuffer->Map(0u, &Range, reinterpret_cast<void**>(&uploadBufferCpuAddress));
@@ -50,7 +52,7 @@ StreamingManager::StreamingManager(ID3D12Device& graphicsDevice, unsigned long u
 #endif // NDEBUG
 }
 
-void StreamingManager::run(ID3D12Device& device, void* threadResources, void* globalResources)
+void StreamingManager::run(void* tr)
 {
 	do
 	{
@@ -81,15 +83,15 @@ void StreamingManager::run(ID3D12Device& device, void* threadResources, void* gl
 		waitingForSpaceRequestsEnd->next = nullptr;
 		if(hasSpaceToFree)
 		{
-			freeSpace(threadResources, globalResources);
+			freeSpace(tr);
 		}
 
 		//load resources into the upload buffer if there is enough space
-		allocateSpace(device, threadResources, globalResources);
+		allocateSpace(tr);
 	} while(!messageQueue.stop());
 }
 
-void StreamingManager::freeSpace(void* threadResources, void* globalResources)
+void StreamingManager::freeSpace(void* tr)
 {
 	auto readPos = uploadBufferReadPos;
 	while(processingRequestsStart != nullptr)
@@ -98,12 +100,12 @@ void StreamingManager::freeSpace(void* threadResources, void* globalResources)
 		if(!request.readyToDelete) break;
 		readPos += request.numberOfBytesToFree; //free CPU memory
 		processingRequestsStart = processingRequestsStart->nextToDelete; //Need to do this now as the next line will delete request
-		request.deleteStreamingRequest(&request, threadResources, globalResources);
+		request.deleteStreamingRequest(&request, tr);
 	}
 	uploadBufferReadPos = readPos;
 }
 
-void StreamingManager::allocateSpace(ID3D12Device& graphicsDevice, void* executor, void* sharedResources)
+void StreamingManager::allocateSpace(void* tr)
 {
 	while(waitingForSpaceRequestsStart != nullptr)
 	{
@@ -140,7 +142,7 @@ void StreamingManager::allocateSpace(ID3D12Device& graphicsDevice, void* executo
 			uploadRequest.uploadBufferCurrentCpuAddress = uploadBufferCpuAddress + newUploadBufferWritePos;
 			uploadRequest.uploadResourceOffset = newUploadBufferWritePos;
 			uploadRequest.uploadResource = uploadBuffer;
-			uploadRequest.streamResource(&uploadRequest, executor, sharedResources);
+			uploadRequest.streamResource(&uploadRequest, tr);
 
 			uploadBufferWritePos = requiredWriteIndex;
 
@@ -157,7 +159,7 @@ void StreamingManager::allocateSpace(ID3D12Device& graphicsDevice, void* executo
 				}
 				else
 				{
-					increaseBufferCapacity(graphicsDevice);
+					increaseBufferCapacity();
 				}
 			}
 			else
@@ -169,7 +171,7 @@ void StreamingManager::allocateSpace(ID3D12Device& graphicsDevice, void* executo
 	}
 }
 
-void StreamingManager::increaseBufferCapacity(ID3D12Device& graphicsDevice)
+void StreamingManager::increaseBufferCapacity()
 {
 	D3D12_RANGE writtenRange{0u, uploadBufferCapasity};
 	uploadBuffer->Unmap(0u, &writtenRange);
@@ -207,17 +209,17 @@ void StreamingManager::stop(StreamingManager::ThreadLocal& local, HANDLE fenceEv
 	local.stop(*this, fenceEvent);
 }
 
-StreamingManager::ThreadLocal::ThreadLocal(ID3D12Device* const graphicsDevice) :
-	commandAllocators([graphicsDevice](std::size_t, D3D12CommandAllocator& allocator)
-{
-	new(&allocator) D3D12CommandAllocator(graphicsDevice, D3D12_COMMAND_LIST_TYPE::D3D12_COMMAND_LIST_TYPE_COPY);
-}),
+StreamingManager::ThreadLocal::ThreadLocal(ID3D12Device& graphicsDevice) :
+	commandAllocators{ makeArray<2u>([&graphicsDevice]()
+		{
+			return D3D12CommandAllocator(&graphicsDevice, D3D12_COMMAND_LIST_TYPE::D3D12_COMMAND_LIST_TYPE_COPY);
+		}) },
 	fenceValue{ 0u },
-	copyFence(graphicsDevice, 0u, D3D12_FENCE_FLAG_NONE)
+	copyFence(&graphicsDevice, 0u, D3D12_FENCE_FLAG_NONE)
 {
-	new(&commandLists[1u]) D3D12GraphicsCommandList(graphicsDevice, 0u, D3D12_COMMAND_LIST_TYPE::D3D12_COMMAND_LIST_TYPE_COPY, commandAllocators[0u], nullptr);
+	new(&commandLists[1u]) D3D12GraphicsCommandList(&graphicsDevice, 0u, D3D12_COMMAND_LIST_TYPE::D3D12_COMMAND_LIST_TYPE_COPY, commandAllocators[0u], nullptr);
 	commandLists[1u]->Close();
-	new(&commandLists[0u]) D3D12GraphicsCommandList(graphicsDevice, 0u, D3D12_COMMAND_LIST_TYPE::D3D12_COMMAND_LIST_TYPE_COPY, commandAllocators[0u], nullptr);
+	new(&commandLists[0u]) D3D12GraphicsCommandList(&graphicsDevice, 0u, D3D12_COMMAND_LIST_TYPE::D3D12_COMMAND_LIST_TYPE_COPY, commandAllocators[0u], nullptr);
 	currentCommandList = commandLists[0u];
 
 #ifndef NDEBUG
@@ -228,7 +230,7 @@ StreamingManager::ThreadLocal::ThreadLocal(ID3D12Device* const graphicsDevice) :
 #endif // NDEBUG
 }
 
-void StreamingManager::ThreadLocal::update(StreamingManager& streamingManager, void* threadResources, void* globalResources)
+void StreamingManager::ThreadLocal::update(StreamingManager& streamingManager, void* tr)
 {
 	if (copyFence->GetCompletedValue() == fenceValue)
 	{
@@ -260,11 +262,11 @@ void StreamingManager::ThreadLocal::update(StreamingManager& streamingManager, v
 
 		currentCommandList->Reset(currentCommandAllocator, nullptr);
 
-		completionEventManager.update(index, threadResources, globalResources);
+		completionEventManager.update(index, tr);
 	}
 }
 
-void StreamingManager::ThreadLocal::addCopyCompletionEvent(void* requester, void(*unloadCallback)(void* const requester, void* executor, void* sharedResources))
+void StreamingManager::ThreadLocal::addCopyCompletionEvent(void* requester, void(*unloadCallback)(void* const requester, void* tr))
 {
 	completionEventManager.addRequest(requester, unloadCallback, bufferIndex());
 }

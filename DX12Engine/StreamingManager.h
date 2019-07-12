@@ -1,7 +1,7 @@
 #pragma once
 #include "D3D12CommandQueue.h"
 #include "D3D12Fence.h"
-#include "Array.h"
+#include <array>
 #include "D3D12CommandAllocator.h"
 #include "D3D12GraphicsCommandList.h"
 #include <memory>
@@ -24,8 +24,8 @@ public:
 	public:
 		StreamingRequest() {}
 
-		void(*deleteStreamingRequest)(StreamingRequest* request, void* threadResources, void* globalResources);
-		void(*streamResource)(StreamingRequest* request, void* threadResources, void* globalResources);
+		void(*deleteStreamingRequest)(StreamingRequest* request, void* tr);
+		void(*streamResource)(StreamingRequest* request, void* tr);
 		unsigned long resourceSize;
 
 		unsigned long uploadResourceOffset;
@@ -42,7 +42,7 @@ public:
 	{
 		D3D12Fence copyFence;
 		uint64_t fenceValue;
-		Array<D3D12CommandAllocator, 2u> commandAllocators;
+		std::array<D3D12CommandAllocator, 2u> commandAllocators;
 		D3D12GraphicsCommandList commandLists[2u];
 		ID3D12GraphicsCommandList* currentCommandList;
 		GpuCompletionEventManager<2> completionEventManager;
@@ -52,10 +52,10 @@ public:
 		friend class StreamingManager;
 		void stop(StreamingManager& streamingManager, HANDLE fenceEvent);
 	public:
-		ThreadLocal(ID3D12Device* const graphicsDevice);
+		ThreadLocal(ID3D12Device& graphicsDevice);
 		ID3D12GraphicsCommandList& copyCommandList() { return *currentCommandList; }
-		void update(StreamingManager& streamingManager, void* threadResources, void* globalResources);
-		void addCopyCompletionEvent(void* requester, void(*unloadCallback)(void* requester, void* executor, void* sharedResources));
+		void update(StreamingManager& streamingManager, void* tr);
+		void addCopyCompletionEvent(void* requester, void(*unloadCallback)(void* requester, void* tr));
 	};
 private:
 	ActorQueue messageQueue;
@@ -71,40 +71,41 @@ private:
 	unsigned long uploadBufferReadPos = 0u;
 
 	D3D12CommandQueue copyCommandQueue;
+	ID3D12Device& graphicsDevice;
 
-	void run(ID3D12Device& device, void* threadResources, void* globalResources);
-	void freeSpace(void* threadResources, void* globalResources);
-	void allocateSpace(ID3D12Device& graphicsDevice, void* executor, void* sharedResources);
-	void increaseBufferCapacity(ID3D12Device& graphicsDevice);
+	void run(void* tr);
+	void freeSpace(void* tr);
+	void allocateSpace(void* tr);
+	void increaseBufferCapacity();
 public:
 	StreamingManager(ID3D12Device& graphicsDevice, unsigned long uploadHeapStartingSize);
 
-	template<class ThreadResources, class GlobalResources>
-	void addUploadRequest(StreamingRequest* request, ThreadResources& threadResources, GlobalResources&)
+	template<class ThreadResources>
+	void addUploadRequest(StreamingRequest* request, ThreadResources& threadResources)
 	{
 		request->action = Action::allocate;
 		bool needsStarting = messageQueue.push(request);
 		if(needsStarting)
 		{
-			threadResources.taskShedular.pushBackgroundTask({this, [](void* requester, ThreadResources& threadResources, GlobalResources& globalResources)
+			threadResources.taskShedular.pushBackgroundTask({this, [](void* requester, ThreadResources& threadResources)
 			{
 				auto& streamingManager = *static_cast<StreamingManager*>(requester);
-				streamingManager.run(*globalResources.graphicsEngine.graphicsDevice, &threadResources, &globalResources);
+				streamingManager.run(&threadResources);
 			}});
 		}
 	}
 
-	template<class ThreadResources, class GlobalResources>
-	void uploadFinished(StreamingRequest* request, ThreadResources& threadResources, GlobalResources&)
+	template<class ThreadResources>
+	void uploadFinished(StreamingRequest* request, ThreadResources& threadResources)
 	{
 		request->action = Action::deallocate;
 		bool needsStarting = messageQueue.push(request);
 		if(needsStarting)
 		{
-			threadResources.taskShedular.pushBackgroundTask({this, [](void* requester, ThreadResources& threadResources, GlobalResources& globalResources)
+			threadResources.taskShedular.pushBackgroundTask({this, [](void* requester, ThreadResources& threadResources)
 			{
 				auto& streamingManager = *static_cast<StreamingManager*>(requester);
-				streamingManager.run(*globalResources.graphicsEngine.graphicsDevice, &threadResources, &globalResources);
+				streamingManager.run(&threadResources);
 			}});
 		}
 	}

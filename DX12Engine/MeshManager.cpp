@@ -1,8 +1,11 @@
 #include "MeshManager.h"
 #include <cassert>
 
-MeshManager::MeshManager() {}
-MeshManager::~MeshManager() {}
+MeshManager::MeshManager(AsynchronousFileManager& asynchronousFileManager, StreamingManager& streamingManager, ID3D12Device& graphicsDevice) :
+	asynchronousFileManager(asynchronousFileManager),
+	streamingManager(streamingManager),
+	graphicsDevice(graphicsDevice)
+{}
 
 void MeshManager::fillUploadRequestHelper(MeshStreamingRequest& uploadRequest, uint32_t vertexCount, uint32_t indexCount, uint32_t vertexStride)
 {
@@ -85,7 +88,7 @@ void MeshManager::createMeshResources(ID3D12Resource*& vertices, ID3D12Resource*
 #endif // NDEBUG
 }
 
-void MeshManager::unloadMesh(UnloadRequest& unloadRequest, void* tr, void* gr)
+void MeshManager::unloadMesh(UnloadRequest& unloadRequest, void* tr)
 {
 	auto meshPtr = meshInfos.find(unloadRequest.filename);
 	auto& meshInfo = meshPtr->second;
@@ -95,7 +98,7 @@ void MeshManager::unloadMesh(UnloadRequest& unloadRequest, void* tr, void* gr)
 		meshInfos.erase(meshPtr);
 	}
 
-	unloadRequest.deleteReadRequest(unloadRequest, tr, gr);
+	unloadRequest.deleteReadRequest(unloadRequest, tr);
 }
 
 static void createIndices(uint32_t* indexUploadBuffer, ID3D12Resource* indices, ID3D12Resource* uploadResource,
@@ -110,7 +113,7 @@ static void createIndices(uint32_t* indexUploadBuffer, ID3D12Resource* indices, 
 }
 
 void MeshManager::meshWithPositionTextureNormalTangentBitangentUseResourceHelper(MeshStreamingRequest& uploadRequest, const unsigned char* buffer, ID3D12Device* graphicsDevice,
-	StreamingManager::ThreadLocal& streamingManager, void(*copyStarted)(void* requester, void* tr, void* gr))
+	StreamingManager::ThreadLocal& streamingManager, void(*copyStarted)(void* requester, void* tr))
 {
 	constexpr auto vertexStrideInBytes = sizeof(MeshWithPositionTextureNormalTangentBitangent);
 	auto vertexSizeBytes = uploadRequest.verticesSize;
@@ -138,7 +141,7 @@ void MeshManager::meshWithPositionTextureNormalTangentBitangentUseResourceHelper
 }
 
 void MeshManager::meshWithPositionTextureNormalUseResourceHelper(MeshStreamingRequest& uploadRequest, const unsigned char* buffer, ID3D12Device* graphicsDevice,
-	StreamingManager::ThreadLocal& streamingManager, void(*copyStarted)(void* requester, void* tr, void* gr))
+	StreamingManager::ThreadLocal& streamingManager, void(*copyStarted)(void* requester, void* tr))
 {
 	auto vertexSizeBytes = uploadRequest.verticesSize;
 	auto indexSizeBytes = uploadRequest.indicesSize;
@@ -189,7 +192,7 @@ void MeshManager::meshWithPositionTextureNormalUseResourceHelper(MeshStreamingRe
 }
 
 void MeshManager::meshWithPositionTextureUseResourceHelper(MeshStreamingRequest& uploadRequest, const unsigned char* buffer, ID3D12Device* graphicsDevice,
-	StreamingManager::ThreadLocal& streamingManager, void(*copyStarted)(void* requester, void* tr, void* gr))
+	StreamingManager::ThreadLocal& streamingManager, void(*copyStarted)(void* requester, void* tr))
 {
 	auto vertexSizeBytes = uploadRequest.verticesSize;
 	auto indexSizeBytes = uploadRequest.indicesSize;
@@ -234,7 +237,7 @@ void MeshManager::meshWithPositionTextureUseResourceHelper(MeshStreamingRequest&
 }
 
 void MeshManager::meshWithPositionUseResourceHelper(MeshStreamingRequest& uploadRequest, const unsigned char* buffer, ID3D12Device* graphicsDevice,
-	StreamingManager::ThreadLocal& streamingManager, void(*copyStarted)(void* requester, void* tr, void* gr))
+	StreamingManager::ThreadLocal& streamingManager, void(*copyStarted)(void* requester, void* tr))
 {
 	auto vertexSizeBytes = uploadRequest.verticesSize;
 	auto indexSizeBytes = uploadRequest.indicesSize;
@@ -273,7 +276,7 @@ void MeshManager::meshWithPositionUseResourceHelper(MeshStreamingRequest& upload
 	streamingManager.addCopyCompletionEvent(&uploadRequest, copyStarted);
 }
 
-void MeshManager::notifyMeshReady(MeshStreamingRequest* request, void* tr, void* gr)
+void MeshManager::notifyMeshReady(MeshStreamingRequest* request, void* tr)
 {
 	MeshInfo& meshInfo = meshInfos[request->filename];
 	meshInfo.lastRequest = nullptr;
@@ -283,7 +286,7 @@ void MeshManager::notifyMeshReady(MeshStreamingRequest* request, void* tr, void*
 	{
 		auto old = request;
 		request = request->nextMeshRequest; //Need to do this now as old could be reused by the next line
-		old->meshLoaded(*old, tr, gr, mesh);
+		old->meshLoaded(*old, tr, mesh);
 	} while(request != nullptr);
 }
 

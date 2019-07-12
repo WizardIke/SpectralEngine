@@ -60,7 +60,7 @@ public:
 	//can only be called after the memory effects of all pushes are visable.
 	bool pop(T& item)
 	{
-		const std::ptrdiff_t oldEndIndex = mEndIndex.fetch_sub(1, std::memory_order::memory_order_relaxed) - 1;
+		const std::ptrdiff_t oldEndIndex = mEndIndex.fetch_sub(1, std::memory_order_relaxed) - 1;
 		if(oldEndIndex < 0) return false;
 		item = std::move(mBegin[oldEndIndex]);
 		mBegin[oldEndIndex].~T();

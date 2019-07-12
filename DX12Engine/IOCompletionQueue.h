@@ -10,9 +10,9 @@ struct IOCompletionPacket
 	ULONG_PTR completionKey;
 	OVERLAPPED* overlapped;
 
-	bool operator()(void* executor, void* sharedResources)
+	bool operator()(void* tr)
 	{
-		return ((bool(*)(void* executor, void* sharedResources, DWORD numberOfBytes, LPOVERLAPPED overlapped))(completionKey))(executor, sharedResources, numberOfBytesTransfered, overlapped);
+		return ((bool(*)(void* tr, DWORD numberOfBytes, LPOVERLAPPED overlapped))(completionKey))(tr, numberOfBytesTransfered, overlapped);
 	}
 };
 

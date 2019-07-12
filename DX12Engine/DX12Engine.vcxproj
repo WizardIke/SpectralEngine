@@ -228,7 +228,6 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="ActorQueue.h" />
-    <ClInclude Include="Array.h" />
     <ClInclude Include="AsynchronousFileManager.h" />
     <ClInclude Include="AtomicSinglyLinked.h" />
     <ClInclude Include="AudioFormatNotSupportedException.h" />
@@ -240,6 +239,7 @@
     <ClInclude Include="GraphicsPipelineStateDesc.h" />
     <ClInclude Include="HashSet.h" />
     <ClInclude Include="LinkedTask.h" />
+    <ClInclude Include="makeArray.h" />
     <ClInclude Include="PageAllocationInfo.h" />
     <ClInclude Include="PageCachePerTextureData.h" />
     <ClInclude Include="PageResourceLocation.h" />
@@ -250,6 +250,8 @@
     <ClInclude Include="RenderPassMessage.h" />
     <ClInclude Include="SinglyLinked.h" />
     <ClInclude Include="RunnableIOCompletionQueue.h" />
+    <ClInclude Include="ThreadBarrier.h" />
+    <ClInclude Include="Tuple.h" />
     <ClInclude Include="UnorderedMultiProducerSingleConsumerQueue.h" />
     <ClInclude Include="Vector3.h" />
     <ClInclude Include="VirtualTextureInfoByID.h" />
@@ -311,7 +313,6 @@
     <ClInclude Include="TaskShedular.h" />
     <ClInclude Include="TemplateFloat.h" />
     <ClInclude Include="VirtualTextureInfo.h" />
-    <ClInclude Include="ThreadBarrier.h" />
     <ClInclude Include="Vector2.h" />
     <ClInclude Include="Vector4.h" />
     <ClInclude Include="VirtualPageCamera.h" />
@@ -385,7 +386,6 @@
     <ClCompile Include="PlayerPosition.cpp" />
     <ClCompile Include="StreamingManager.cpp" />
     <ClCompile Include="TextureManager.cpp" />
-    <ClCompile Include="ThreadBarrier.cpp" />
     <ClInclude Include="ThreadsafePoolAllocator.h" />
     <ClCompile Include="Timer.cpp" />
     <ClCompile Include="Transform.cpp" />
