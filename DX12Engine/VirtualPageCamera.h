@@ -5,7 +5,6 @@
 #include "frameBufferCount.h"
 #include "Frustum.h"
 #include "Shaders/VtFeedbackCameraMaterial.h"
-#include <new>
 #include "CameraUtil.h"
 class GraphicsEngine;
 

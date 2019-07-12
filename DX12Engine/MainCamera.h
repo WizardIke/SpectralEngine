@@ -6,7 +6,6 @@
 #include <DirectXMath.h>
 #include "Vector3.h"
 #include "frameBufferCount.h"
-#include <new>
 class Window;
 class GraphicsEngine;
 
