@@ -43,7 +43,11 @@ public:
 		static void componentLoaded(PsoLoader::PsoWithVertexAndPixelShaderRequest& request, D3D12PipelineState pso, void* tr);
 
 		PipelineLoaderImpl(GraphicsPipelineStateDesc* const(&graphicsPipelineStateDescs)[numberOfComponents], D3D12PipelineState* const(&output)[numberOfComponents],
-			AsynchronousFileManager& asynchronousFileManager, ID3D12Device& grphicsDevice, PipelineLoader& pipelineLoader, ID3D12RootSignature& rootSignature);
+			AsynchronousFileManager& asynchronousFileManager, ID3D12Device& grphicsDevice, PipelineLoader& pipelineLoader, ID3D12RootSignature& rootSignature
+#ifndef NDEBUG
+			, bool isWarp
+#endif
+		);
 	};
 
 	class PipelineLoader
@@ -63,7 +67,11 @@ public:
 		~PipelineLoader() {}
 	};
 
-	PipelineStateObjects(AsynchronousFileManager& asynchronousFileManager, ID3D12Device& graphicsDevice, RootSignatures& rootSignatures, PipelineLoader& pipelineLoader);
+	PipelineStateObjects(AsynchronousFileManager& asynchronousFileManager, ID3D12Device& graphicsDevice, RootSignatures& rootSignatures, PipelineLoader& pipelineLoader
+#ifndef NDEBUG
+		, bool isWarp
+#endif
+	);
 	~PipelineStateObjects() {}
 
 	D3D12PipelineState text;

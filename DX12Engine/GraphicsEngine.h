@@ -126,13 +126,21 @@ private:
 		D3D12_RESOURCE_BINDING_TIER resourceBindingTier;
 	};
 
-	GraphicsEngine(Window& window, DXGIFactory factory, DXGI_ADAPTER_FLAG avoidedAdapterFlags);
+	GraphicsEngine(Window& window, DXGIFactory factory,
+#ifndef NDEBUG
+		bool& isWarp,
+#endif
+		DXGI_ADAPTER_FLAG avoidedAdapterFlags);
 	GraphicsEngine(Window& window, IDXGIFactory5* factory, AdapterAndDeviceAndResourceBindingTier adapterAndDevice);
 public:
 	D3D12DescriptorHeap mainDescriptorHeap;
 	DescriptorAllocator descriptorAllocator;
 
-	GraphicsEngine(Window& window, bool enableGpuDebugging, DXGI_ADAPTER_FLAG avoidedAdapterFlags = DXGI_ADAPTER_FLAG::DXGI_ADAPTER_FLAG_NONE);
+	GraphicsEngine(Window& window, bool enableGpuDebugging,
+#ifndef NDEBUG
+		bool& isWarp,
+#endif
+		DXGI_ADAPTER_FLAG avoidedAdapterFlags = DXGI_ADAPTER_FLAG::DXGI_ADAPTER_FLAG_NONE);
 	~GraphicsEngine();
 
 	void endFrame(Window& window, ID3D12CommandList** ppCommandLists, unsigned int numLists);

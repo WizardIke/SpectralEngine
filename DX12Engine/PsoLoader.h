@@ -90,7 +90,8 @@ public:
 				asynchronousFileManager.openFileForReading(graphicsPipelineStateDesc.pixelShaderFileName),
 				graphicsPipelineStateDesc,
 				grphicsDevice,
-				psoLoadedCallback1) {}
+				psoLoadedCallback1)
+		{}
 
 		void load(AsynchronousFileManager& asynchronousFileManager)
 		{

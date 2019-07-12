@@ -35,7 +35,11 @@ class GlobalResources
 	class Unloader;
 	friend class Unloader;
 
-	GlobalResources(unsigned int numberOfThreads, bool fullScreen, bool vSync, bool enableGpuDebugging, void*);
+	GlobalResources(unsigned int numberOfThreads, bool fullScreen, bool vSync, bool enableGpuDebugging, void*
+#ifndef NDEBUG
+		, bool isWarp = false
+#endif
+	);
 
 	/*
 	Can only be called on main thread

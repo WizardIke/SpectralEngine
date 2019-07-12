@@ -5,10 +5,26 @@
 #include "Window.h"
 #include "GraphicsAdapterNotFound.h"
 
-GraphicsEngine::GraphicsEngine(Window& window, bool enableGpuDebugging, DXGI_ADAPTER_FLAG avoidedAdapterFlags) : GraphicsEngine(window, DXGIFactory(enableGpuDebugging), avoidedAdapterFlags)
+GraphicsEngine::GraphicsEngine(Window& window, bool enableGpuDebugging,
+#ifndef NDEBUG
+	bool& isWarp,
+#endif
+	DXGI_ADAPTER_FLAG avoidedAdapterFlags) : GraphicsEngine(window, DXGIFactory(enableGpuDebugging),
+#ifndef NDEBUG
+		isWarp,
+#endif
+		avoidedAdapterFlags)
 {}
 
-GraphicsEngine::GraphicsEngine(Window& window, DXGIFactory factory, DXGI_ADAPTER_FLAG avoidedAdapterFlags) : GraphicsEngine(window, factory, [&factory, &window, avoidedAdapterFlags]()
+GraphicsEngine::GraphicsEngine(Window& window, DXGIFactory factory,
+#ifndef NDEBUG
+	bool& isWarp,
+#endif
+	DXGI_ADAPTER_FLAG avoidedAdapterFlags) : GraphicsEngine(window, factory, [&factory, &window,
+#ifndef NDEBUG
+		&isWarp,
+#endif
+		avoidedAdapterFlags]()
 {
 	AdapterAndDeviceAndResourceBindingTier adapterAndDeviceAndResourceBindingTier = {};
 
@@ -23,7 +39,7 @@ GraphicsEngine::GraphicsEngine(Window& window, DXGIFactory factory, DXGI_ADAPTER
 		adapter1->Release();
 		if(result == S_OK)
 		{
-			if(!(desc.Flags & avoidedAdapterFlags) && SUCCEEDED(D3D12CreateDevice(adapter3, D3D_FEATURE_LEVEL_11_0, _uuidof(ID3D12Device), nullptr))) //this adapter is good
+			if((desc.Flags & avoidedAdapterFlags) == 0u)
 			{
 				ID3D12Device* device;
 				HRESULT hr = D3D12CreateDevice(adapter1, D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&device));
@@ -46,6 +62,9 @@ GraphicsEngine::GraphicsEngine(Window& window, DXGIFactory factory, DXGI_ADAPTER
 				adapterAndDeviceAndResourceBindingTier.device = device;
 				adapterAndDeviceAndResourceBindingTier.resourceBindingTier = featureData.ResourceBindingTier;
 				found = true;
+#ifndef NDEBUG
+				isWarp = ((desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE) != 0u);
+#endif
 				break;
 			}
 			adapter3->Release();

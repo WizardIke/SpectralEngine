@@ -276,13 +276,21 @@ static const wchar_t* const musicFiles[] =
 
 GlobalResources::GlobalResources() : GlobalResources(std::thread::hardware_concurrency(), false, false, false, new InitialResourceLoader(*this, TextureNames::Arial)) {}
 
-GlobalResources::GlobalResources(const unsigned int numberOfThreads, bool fullScreen, bool vSync, bool enableGpuDebugging, void* initialResourceLoader) :
+GlobalResources::GlobalResources(const unsigned int numberOfThreads, bool fullScreen, bool vSync, bool enableGpuDebugging, void* initialResourceLoader
+#ifndef NDEBUG
+	, bool isWarp
+#endif
+) :
 	isRunning(false),
 	window(this, windowCallback, [fullScreen]() {if (fullScreen) { return GetSystemMetrics(SM_CXVIRTUALSCREEN); } else return GetSystemMetrics(SM_CXSCREEN) / 2; }(),
 		[fullScreen]() {if (fullScreen) { return GetSystemMetrics(SM_CYVIRTUALSCREEN); } else return GetSystemMetrics(SM_CYSCREEN) / 2; }(),
 		[fullScreen]() {if (fullScreen) { return 0; } else return GetSystemMetrics(SM_CXSCREEN) / 5; }(),
 		[fullScreen]() {if (fullScreen) { return 0; } else return GetSystemMetrics(SM_CYSCREEN) / 5; }(), fullScreen, vSync),
-	graphicsEngine(window, enableGpuDebugging, /*DXGI_ADAPTER_FLAG::DXGI_ADAPTER_FLAG_SOFTWARE*/DXGI_ADAPTER_FLAG::DXGI_ADAPTER_FLAG_NONE),
+	graphicsEngine(window, enableGpuDebugging, 
+#ifndef NDEBUG
+		isWarp,
+#endif
+		/*DXGI_ADAPTER_FLAG::DXGI_ADAPTER_FLAG_SOFTWARE*/DXGI_ADAPTER_FLAG::DXGI_ADAPTER_FLAG_NONE),
 	streamingManager(*graphicsEngine.graphicsDevice, 32u * 1024u * 1024u),
 	taskShedular(numberOfThreads > 2u ? numberOfThreads : 2u, ThreadResources::endUpdate1),
 	mainThreadResources(0u, *this, ThreadResources::mainEndUpdate2),
@@ -295,7 +303,11 @@ GlobalResources::GlobalResources(const unsigned int numberOfThreads, bool fullSc
 	inputManager(),
 	inputHandler(window, { PlayerPosition::mouseMoved, &playerPosition }),
 	rootSignatures(graphicsEngine.graphicsDevice),
-	pipelineStateObjects(asynchronousFileManager, *graphicsEngine.graphicsDevice, rootSignatures, *static_cast<InitialResourceLoader*>(initialResourceLoader)),
+	pipelineStateObjects(asynchronousFileManager, *graphicsEngine.graphicsDevice, rootSignatures, *static_cast<InitialResourceLoader*>(initialResourceLoader)
+#ifndef NDEBUG
+		, isWarp
+#endif
+	),
 	sharedConstantBuffer(graphicsEngine.graphicsDevice, []()
 	{
 		D3D12_HEAP_PROPERTIES heapProperties;

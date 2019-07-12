@@ -20,7 +20,11 @@
 #include "PipelineStateObjectDescs/WaterWithReflectionTexturePso.h"
 
 
-PipelineStateObjects::PipelineStateObjects(AsynchronousFileManager& asynchronousFileManager, ID3D12Device& grphicsDevice, RootSignatures& rootSignatures, PipelineLoader& pipelineLoader)
+PipelineStateObjects::PipelineStateObjects(AsynchronousFileManager& asynchronousFileManager, ID3D12Device& grphicsDevice, RootSignatures& rootSignatures, PipelineLoader& pipelineLoader
+#ifndef NDEBUG
+	, bool isWarp
+#endif
+)
 {
 	new(&pipelineLoader.impl) PipelineLoaderImpl(
 		{ &PipelineStateObjectDescs::Text::desc, &PipelineStateObjectDescs::DirectionalLight::desc, &PipelineStateObjectDescs::DirectionalLightVt::desc, &PipelineStateObjectDescs::DirectionalLightVtTwoSided::desc, &PipelineStateObjectDescs::PointLight::desc,
@@ -28,11 +32,18 @@ PipelineStateObjects::PipelineStateObjects(AsynchronousFileManager& asynchronous
 		&PipelineStateObjectDescs::Copy::desc, &PipelineStateObjectDescs::VtFeedback::desc, &PipelineStateObjectDescs::VtFeedbackWithNormals::desc, &PipelineStateObjectDescs::VtFeedbackWithNormalsTwoSided::desc, &PipelineStateObjectDescs::VtDebugDraw::desc },
 		{ &text, &directionalLight, &directionalLightVt, &directionalLightVtTwoSided, &pointLight, &waterWithReflectionTexture, &waterNoReflectionTexture, &glass, &basic, &fire, &copy, &vtFeedback, &vtFeedbackWithNormals, &vtFeedbackWithNormalsTwoSided, &vtDebugDraw },
 		asynchronousFileManager, grphicsDevice, pipelineLoader, *rootSignatures.rootSignature
+#ifndef NDEBUG
+		, isWarp
+#endif
 	);
 }
 
 PipelineStateObjects::PipelineLoaderImpl::PipelineLoaderImpl(GraphicsPipelineStateDesc* const(&graphicsPipelineStateDescs)[numberOfComponents], D3D12PipelineState* const(&output)[numberOfComponents],
-	AsynchronousFileManager& asynchronousFileManager, ID3D12Device& grphicsDevice, PipelineLoader& pipelineLoader, ID3D12RootSignature& rootSignature) :
+	AsynchronousFileManager& asynchronousFileManager, ID3D12Device& grphicsDevice, PipelineLoader& pipelineLoader, ID3D12RootSignature& rootSignature
+#ifndef NDEBUG
+	, bool isWarp
+#endif
+) :
 	psoLoaders{ makeArray<numberOfComponents>([&](std::size_t i)
 		{
 			return ShaderLoader{*graphicsPipelineStateDescs[i], asynchronousFileManager, grphicsDevice, componentLoaded, &pipelineLoader, *output[i]};
@@ -41,6 +52,12 @@ PipelineStateObjects::PipelineLoaderImpl::PipelineLoaderImpl(GraphicsPipelineSta
 	for (auto graphicsPipelineStateDesc : graphicsPipelineStateDescs)
 	{
 		graphicsPipelineStateDesc->pRootSignature = &rootSignature;
+#ifndef NDEBUG
+		if (isWarp)
+		{
+			graphicsPipelineStateDesc->Flags = D3D12_PIPELINE_STATE_FLAG_TOOL_DEBUG;
+		}
+#endif
 	}
 	for (auto& loader : psoLoaders)
 	{
