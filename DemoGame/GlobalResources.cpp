@@ -333,7 +333,7 @@ GlobalResources::GlobalResources(const unsigned int numberOfThreads, bool fullSc
 		resourceDesc.Width = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT; // size of the resource heap. Must be a multiple of 64KB for constant buffers
 		return resourceDesc;
 	}(), D3D12_RESOURCE_STATE_GENERIC_READ),
-	renderPass(taskShedular, streamingManager, graphicsEngine, asynchronousFileManager, window.width(), window.height(), playerPosition.location, 0.25f * 3.141f),
+	renderPass(taskShedular, streamingManager, graphicsEngine, asynchronousFileManager, window.width(), window.height(), playerPosition.location, 0.25f * 3.141f, window),
 	virtualTextureManager(renderPass.virtualTextureFeedbackSubPass().pageProvider, streamingManager, graphicsEngine, asynchronousFileManager),
 	arial(L"Arial.fnt", mainThreadResources, textureManager, window, *static_cast<InitialResourceLoader*>(initialResourceLoader)),
 	userInterface(*this),
@@ -373,7 +373,7 @@ GlobalResources::GlobalResources(const unsigned int numberOfThreads, bool fullSc
 	auto constantBuffersGpuAddress = sharedConstantBuffer->GetGPUVirtualAddress();
 
 	renderPass.setConstantBuffers(constantBuffersGpuAddress, cpuConstantBuffer);
-	mainCamera().init(window, graphicsEngine, window.width(), window.height(), constantBuffersGpuAddress, cpuConstantBuffer, 0.25f * 3.141f, playerPosition.location);
+	mainCamera().setConstantBuffers(constantBuffersGpuAddress, cpuConstantBuffer);
 	userInterface.setConstantBuffers(constantBuffersGpuAddress, cpuConstantBuffer);
 	arial.setConstantBuffers(constantBuffersGpuAddress, cpuConstantBuffer);
 

@@ -18,7 +18,6 @@ class MainCamera
 	constexpr static unsigned int bufferSizePS = (sizeof(CameraConstantBuffer) + (size_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (size_t)1u)
 		& ~((size_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (size_t)1u);
 
-
 	CameraConstantBuffer* constantBufferCpuAddress;
 	D3D12_GPU_VIRTUAL_ADDRESS constantBufferGpuAddress;
 	Transform mLocation;
@@ -32,18 +31,18 @@ public:
 	constexpr static float screenDepth = 128.0f * 31.5f;
 	constexpr static float screenNear = 0.1f;
 
-	MainCamera() {}
-	MainCamera(Window& window, GraphicsEngine& graphicsEngine, unsigned int width, unsigned int height, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1,
-		unsigned char*& constantBufferCpuAddress1, float fieldOfView, const Transform& target);
-	void init(Window& window, GraphicsEngine& graphicsEngine, unsigned int width, unsigned int height, D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1,
-		unsigned char*& constantBufferCpuAddress1, float fieldOfView, const Transform& target)
-	{
-		this->~MainCamera();
-		new(this) MainCamera(window, graphicsEngine, width, height, constantBufferGpuAddress1, constantBufferCpuAddress1, fieldOfView, target);
-	}
+	MainCamera(Window& window, GraphicsEngine& graphicsEngine, float fieldOfView, const Transform& target);
+#if defined(_MSC_VER)
+	/*
+	Initialization of array members doesn't seam to have copy elision in some cases when it should in c++17.
+	*/
+	MainCamera(MainCamera&&);
+#endif
+
+	void setConstantBuffers(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1, unsigned char*& constantBufferCpuAddress1);
 
 	void destruct(GraphicsEngine& graphicsEngine);
-	~MainCamera();
+	~MainCamera() = default;
 
 	void update(const Transform& target);
 	void beforeRender(Window& window, GraphicsEngine& graphicsEngine);

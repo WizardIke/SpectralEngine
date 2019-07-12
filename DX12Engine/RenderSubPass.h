@@ -375,7 +375,10 @@ public:
 template<class Camera_t, D3D12_RESOURCE_STATES state1, class Dependencies_t, class DependencyStates_t, unsigned int commandListsPerFrame1, D3D12_RESOURCE_STATES stateAfter1 = state1>
 class RenderMainSubPass : public RenderSubPass<Camera_t, state1, Dependencies_t, DependencyStates_t, commandListsPerFrame1, stateAfter1, true, 1u>
 {
+	using Base = RenderSubPass<Camera_t, state1, Dependencies_t, DependencyStates_t, commandListsPerFrame1, stateAfter1, true, 1u>;
 public:
+	RenderMainSubPass(Window& window, GraphicsEngine& graphicsEngine, float fieldOfView, const Transform& target) : Base{ forward_as_tuple(window, graphicsEngine, fieldOfView, target) } {}
+
 	class ThreadLocal : public RenderSubPass<Camera_t, state1, Dependencies_t, DependencyStates_t, commandListsPerFrame1, stateAfter1, true, 1u>::ThreadLocal
 	{
 	public:

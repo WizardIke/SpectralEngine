@@ -9,6 +9,7 @@
 #include <Tuple.h>
 #include <Range.h>
 #include <TaskShedular.h>
+#include <Window.h>
 class ThreadResources;
 
 class RenderPass1
@@ -27,7 +28,7 @@ private:
 	RenderPass11 data;
 public:
 	RenderPass1(TaskShedular<ThreadResources>& taskShedular, StreamingManager& streamingManager, GraphicsEngine& graphicsEngine, AsynchronousFileManager& asynchronousFileManager,
-		uint32_t virtualTextureFeedbackWidth, uint32_t virtualTextureFeedbackHeight, Transform& mainCameraTransform, float fieldOfView);
+		uint32_t virtualTextureFeedbackWidth, uint32_t virtualTextureFeedbackHeight, Transform& mainCameraTransform, float fieldOfView, Window& window);
 
 	void setConstantBuffers(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpu, unsigned char*& constantBufferCpu);
 

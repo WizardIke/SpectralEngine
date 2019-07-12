@@ -2,7 +2,7 @@
 
 namespace CameraUtil
 {
-	D3D12_VIEWPORT getViewPort(unsigned int width, unsigned int height)
+	D3D12_VIEWPORT getViewPort(unsigned int width, unsigned int height) noexcept
 	{
 		D3D12_VIEWPORT viewPort;
 		viewPort.Height = static_cast<FLOAT>(height);
@@ -14,7 +14,7 @@ namespace CameraUtil
 		return viewPort;
 	}
 
-	D3D12_RECT getScissorRect(unsigned int width, unsigned int height)
+	D3D12_RECT getScissorRect(unsigned int width, unsigned int height) noexcept
 	{
 		D3D12_RECT scissorRect;
 		scissorRect.top = 0;
