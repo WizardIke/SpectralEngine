@@ -46,17 +46,15 @@ struct Font
 	// this will return a FontChar given a wide character
 	FontChar* getChar(wchar_t c);
 
-	Font() {}
-
 	template<class ThreadResources>
-	Font(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, unsigned char*& constantBufferCpuAddress, const wchar_t* const filename, ThreadResources& threadResources, TextureManager& textureManager,
+	Font(const wchar_t* const filename, ThreadResources& threadResources, TextureManager& textureManager,
 		Window& window, TextureManager::TextureStreamingRequest& textureRequest)
 	{
 		textureManager.load(textureRequest, threadResources);
-		auto windowWidth = window.width();
-		auto windowHeight = window.height();
-		create(constantBufferGpuAddress, constantBufferCpuAddress, filename, windowWidth, windowHeight);
+		create(filename, window.width(), window.height());
 	}
+
+	void setConstantBuffers(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, unsigned char*& constantBufferCpuAddress);
 
 	template<class ThreadResources>
 	void destruct(ThreadResources& threadResources, TextureManager& textureManager, const wchar_t* const textureFile)
@@ -68,7 +66,7 @@ struct Font
 		textureManager.unload(*textureUnloader, threadResources);
 	}
 
-	~Font() {}
+	~Font() = default;
 
 	void setDiffuseTexture(uint32_t diffuseTexture, unsigned char* cpuStartAddress, D3D12_GPU_VIRTUAL_ADDRESS gpuStartAddress)
 	{
@@ -76,6 +74,5 @@ struct Font
 		buffer->diffuseTexture = diffuseTexture;
 	}
 private:
-	void create(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, unsigned char*& constantBufferCpuAddress, const wchar_t* const filename,
-		unsigned int windowWidth, unsigned int windowHeight);
+	void create(const wchar_t* const filename, unsigned int windowWidth, unsigned int windowHeight);
 };

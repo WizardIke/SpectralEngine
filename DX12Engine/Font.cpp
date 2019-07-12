@@ -24,14 +24,15 @@ FontChar* Font::getChar(const wchar_t c)
 	return nullptr;
 }
 
-void Font::create(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, unsigned char*& constantBufferCpuAddress, const wchar_t* const filename,
-	unsigned int windowWidth, unsigned int windowHeight)
+void Font::setConstantBuffers(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, unsigned char*& constantBufferCpuAddress)
 {
 	constantBufferCpuAddress += psPerObjectConstantBufferSize;
 	psPerObjectCBVGpuAddress = constantBufferGpuAddress;
 	constantBufferGpuAddress += psPerObjectConstantBufferSize;
+}
 
-
+void Font::create(const wchar_t* const filename, unsigned int windowWidth, unsigned int windowHeight)
+{
 	std::wifstream fs;
 	fs.open(filename);
 

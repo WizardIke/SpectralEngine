@@ -335,6 +335,7 @@ GlobalResources::GlobalResources(const unsigned int numberOfThreads, bool fullSc
 	}(), D3D12_RESOURCE_STATE_GENERIC_READ),
 	renderPass(taskShedular, streamingManager, graphicsEngine, asynchronousFileManager, window.width(), window.height(), playerPosition.location, 0.25f * 3.141f),
 	virtualTextureManager(renderPass.virtualTextureFeedbackSubPass().pageProvider, streamingManager, graphicsEngine, asynchronousFileManager),
+	arial(L"Arial.fnt", mainThreadResources, textureManager, window, *static_cast<InitialResourceLoader*>(initialResourceLoader)),
 	userInterface(*this),
 	areas(this),
 	ambientMusic(soundEngine, asynchronousFileManager, musicFiles, sizeof(musicFiles) / sizeof(musicFiles[0])),
@@ -374,8 +375,7 @@ GlobalResources::GlobalResources(const unsigned int numberOfThreads, bool fullSc
 	renderPass.setConstantBuffers(constantBuffersGpuAddress, cpuConstantBuffer);
 	mainCamera().init(window, graphicsEngine, window.width(), window.height(), constantBuffersGpuAddress, cpuConstantBuffer, 0.25f * 3.141f, playerPosition.location);
 	userInterface.setConstantBuffers(constantBuffersGpuAddress, cpuConstantBuffer);
-	arial.~Font();
-	new(&arial) Font(constantBuffersGpuAddress, cpuConstantBuffer, L"Arial.fnt", mainThreadResources, textureManager, window, *static_cast<InitialResourceLoader*>(initialResourceLoader));
+	arial.setConstantBuffers(constantBuffersGpuAddress, cpuConstantBuffer);
 
 	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc;
 	srvDesc.Format = DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM;
