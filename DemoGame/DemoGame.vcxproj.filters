@@ -34,9 +34,6 @@
     <Filter Include="UserInterface">
       <UniqueIdentifier>{b3ba8eaa-9188-4de4-9e17-8861ccaa8f4e}</UniqueIdentifier>
     </Filter>
-    <Filter Include="UserInterface\Sentences">
-      <UniqueIdentifier>{8fdafff8-5626-43f9-9661-c6a41db4a2ce}</UniqueIdentifier>
-    </Filter>
     <Filter Include="AmbientMusic">
       <UniqueIdentifier>{09e79b3c-09df-4a55-ad80-f7e66f2c888b}</UniqueIdentifier>
     </Filter>
@@ -79,12 +76,6 @@
     <ClCompile Include="UserInterface\UserInterface.cpp">
       <Filter>UserInterface</Filter>
     </ClCompile>
-    <ClCompile Include="UserInterface\Sentences\CPUUsageSentence.cpp">
-      <Filter>UserInterface\Sentences</Filter>
-    </ClCompile>
-    <ClCompile Include="UserInterface\Sentences\FPSSentence.cpp">
-      <Filter>UserInterface\Sentences</Filter>
-    </ClCompile>
     <ClCompile Include="AmbientMusic.cpp">
       <Filter>AmbientMusic</Filter>
     </ClCompile>
@@ -111,6 +102,12 @@
     </ClCompile>
     <ClCompile Include="Cave\CaveModelPart1.cpp">
       <Filter>Models</Filter>
+    </ClCompile>
+    <ClCompile Include="UserInterface\Sentences\CPUUsageSentence.cpp">
+      <Filter>UserInterface</Filter>
+    </ClCompile>
+    <ClCompile Include="UserInterface\Sentences\FPSSentence.cpp">
+      <Filter>UserInterface</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -146,12 +143,6 @@
     </ClInclude>
     <ClInclude Include="UserInterface\UserInterface.h">
       <Filter>UserInterface</Filter>
-    </ClInclude>
-    <ClInclude Include="UserInterface\Sentences\CPUUsageSentence.h">
-      <Filter>UserInterface\Sentences</Filter>
-    </ClInclude>
-    <ClInclude Include="UserInterface\Sentences\FPSSentence.h">
-      <Filter>UserInterface\Sentences</Filter>
     </ClInclude>
     <ClInclude Include="AmbientMusic.h">
       <Filter>AmbientMusic</Filter>
@@ -201,6 +192,12 @@
     </ClInclude>
     <ClInclude Include="Cave\CaveModelPart1.h">
       <Filter>Models</Filter>
+    </ClInclude>
+    <ClInclude Include="UserInterface\Sentences\CPUUsageSentence.h">
+      <Filter>UserInterface</Filter>
+    </ClInclude>
+    <ClInclude Include="UserInterface\Sentences\FPSSentence.h">
+      <Filter>UserInterface</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
