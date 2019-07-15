@@ -12,8 +12,8 @@ struct Font
 {
 	struct FontKerning
 	{
-		uint64_t firstIdAndSecoundId; // the first character
-		float amount; // the amount to add/subtract to second characters x
+		uint64_t firstIdAndSecoundId;
+		float amount; // the amount to add to second characters x
 	};
 	struct PSPerObjectConstantBuffer
 	{
@@ -22,36 +22,26 @@ struct Font
 
 	constexpr static std::size_t psPerObjectConstantBufferSize = (sizeof(PSPerObjectConstantBuffer) + D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull) & ~(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull);
 
-	std::wstring name; // name of the font
-	int size; // size of font, lineheight and baseheight will be based on this as if this is a single unit (1.0)
-	float lineHeight; // will be normalized
-	float baseHeight; // will be normalized
-	int textureWidth; // width of the font texture
-	int textureHeight; // height of the font texture
+	float lineHeight; //how much a newline charactors moves down by.
 	D3D12_GPU_VIRTUAL_ADDRESS psPerObjectCBVGpuAddress;
-	unsigned int numCharacters; // number of characters in the font
+	unsigned int numCharacters;
 	std::unique_ptr<FontChar[]> charList;
-	unsigned int numKernings; // the number of kernings
+	unsigned int numKernings;
 	std::unique_ptr<FontKerning[]> kerningsList; //sorted array was faster than unordered_map
-
-	float leftpadding;					   // these are how much the character is padded in the texture. We
-	float toppadding;					   // add padding to give sampling a little space so it does not accidentally
-	float rightpadding;					   // padd the surrounding characters. We will need to subtract these paddings
-	float bottompadding;				   // from the actual spacing between characters to remove the gaps you would otherwise see
 
 
 	// this will return the amount of kerning we need to use for two characters
-	float getKerning(wchar_t first, wchar_t second);
+	float getKerning(wchar_t first, wchar_t second) const;
 
 	// this will return a FontChar given a wide character
-	FontChar* getChar(wchar_t c);
+	const FontChar* getChar(wchar_t c) const;
 
 	template<class ThreadResources>
 	Font(const wchar_t* const filename, ThreadResources& threadResources, TextureManager& textureManager,
-		Window& window, TextureManager::TextureStreamingRequest& textureRequest)
+		float aspectRatio, TextureManager::TextureStreamingRequest& textureRequest)
 	{
 		textureManager.load(textureRequest, threadResources);
-		create(filename, window.width(), window.height());
+		create(filename, aspectRatio);
 	}
 
 	void setConstantBuffers(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, unsigned char*& constantBufferCpuAddress);
@@ -74,5 +64,5 @@ struct Font
 		buffer->diffuseTexture = diffuseTexture;
 	}
 private:
-	void create(const wchar_t* const filename, unsigned int windowWidth, unsigned int windowHeight);
+	void create(const wchar_t* const filename, float aspectRatio);
 };

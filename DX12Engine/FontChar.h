@@ -14,7 +14,6 @@ public:
 
 	float width; // width of character in screen coords
 	float height; // height of character in screen coords
-	
 	float xoffset; // offset from current cursor pos to left side of character in screen coords
 	float yoffset; // offset from top of line to top of character in screen coords
 	float xadvance; // how far to move to right for next character in screen coords

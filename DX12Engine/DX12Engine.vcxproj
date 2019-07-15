@@ -321,7 +321,7 @@
     <ClInclude Include="Exception.h" />
     <ClInclude Include="FileNotFoundException.h" />
     <ClInclude Include="FormatNotSupportedException.h" />
-    <ClInclude Include="BaseSentence.h" />
+    <ClInclude Include="DynamicTextRenderer.h" />
     <ClInclude Include="MainCamera.h" />
     <ClInclude Include="ID3D12ResourceCreationFailedException.h" />
     <ClInclude Include="ID3D12ResourceMapFailedException.h" />
@@ -365,7 +365,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="AsynchronousFileManager.cpp" />
-    <ClCompile Include="BaseSentence.cpp" />
+    <ClCompile Include="DynamicTextRenderer.cpp" />
     <ClCompile Include="CameraUtil.cpp" />
     <ClCompile Include="PageCachePerTextureData.cpp" />
     <ClCompile Include="VirtualFeedbackSubPass.cpp" />

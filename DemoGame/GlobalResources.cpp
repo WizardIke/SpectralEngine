@@ -274,7 +274,7 @@ static const wchar_t* const musicFiles[] =
 	L"../DemoGame/Music/Tropic_Strike.sound"
 };
 
-GlobalResources::GlobalResources() : GlobalResources(std::thread::hardware_concurrency(), false, false, false, new InitialResourceLoader(*this, TextureNames::Arial)) {}
+GlobalResources::GlobalResources() : GlobalResources(std::thread::hardware_concurrency(), true, false, false, new InitialResourceLoader(*this, TextureNames::Arial)) {}
 
 GlobalResources::GlobalResources(const unsigned int numberOfThreads, bool fullScreen, bool vSync, bool enableGpuDebugging, void* initialResourceLoader
 #ifndef NDEBUG
@@ -335,7 +335,7 @@ GlobalResources::GlobalResources(const unsigned int numberOfThreads, bool fullSc
 	}(), D3D12_RESOURCE_STATE_GENERIC_READ),
 	renderPass(taskShedular, streamingManager, graphicsEngine, asynchronousFileManager, window.width(), window.height(), playerPosition.location, 0.25f * 3.141f, window),
 	virtualTextureManager(renderPass.virtualTextureFeedbackSubPass().pageProvider, streamingManager, graphicsEngine, asynchronousFileManager),
-	arial(L"Arial.fnt", mainThreadResources, textureManager, window, *static_cast<InitialResourceLoader*>(initialResourceLoader)),
+	arial(L"Arial.fnt", mainThreadResources, textureManager, (float)window.width() / (float)window.height(), *static_cast<InitialResourceLoader*>(initialResourceLoader)),
 	userInterface(*this),
 	areas(this),
 	ambientMusic(soundEngine, asynchronousFileManager, musicFiles, sizeof(musicFiles) / sizeof(musicFiles[0])),

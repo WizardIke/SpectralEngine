@@ -91,9 +91,6 @@
     <Filter Include="TextRendering">
       <UniqueIdentifier>{6702ec9e-05d4-40ef-85a6-85de628ee38f}</UniqueIdentifier>
     </Filter>
-    <Filter Include="TextRendering\BaseSentence">
-      <UniqueIdentifier>{3c8e1518-3306-4072-b0be-3cbde7bdf7c9}</UniqueIdentifier>
-    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="HresultException.h">
@@ -221,9 +218,6 @@
     </ClInclude>
     <ClInclude Include="Win32Event.h">
       <Filter>D3D12</Filter>
-    </ClInclude>
-    <ClInclude Include="BaseSentence.h">
-      <Filter>TextRendering\BaseSentence</Filter>
     </ClInclude>
     <ClInclude Include="Timer.h">
       <Filter>Timer</Filter>
@@ -426,6 +420,9 @@
     <ClInclude Include="ThreadBarrier.h" />
     <ClInclude Include="makeArray.h" />
     <ClInclude Include="Tuple.h" />
+    <ClInclude Include="DynamicTextRenderer.h">
+      <Filter>TextRendering</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DDSFileLoader.cpp">
@@ -451,9 +448,6 @@
     </ClCompile>
     <ClCompile Include="Quaternion.cpp">
       <Filter>Math\Quaternion</Filter>
-    </ClCompile>
-    <ClCompile Include="BaseSentence.cpp">
-      <Filter>TextRendering\BaseSentence</Filter>
     </ClCompile>
     <ClCompile Include="Timer.cpp">
       <Filter>Timer</Filter>
@@ -509,6 +503,9 @@
     </ClCompile>
     <ClCompile Include="PageCachePerTextureData.cpp">
       <Filter>VirtualTexturing</Filter>
+    </ClCompile>
+    <ClCompile Include="DynamicTextRenderer.cpp">
+      <Filter>TextRendering</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

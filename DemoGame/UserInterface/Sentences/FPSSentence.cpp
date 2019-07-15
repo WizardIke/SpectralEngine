@@ -1,11 +1,10 @@
 #include "FPSSentence.h"
 
-FPSSentence::FPSSentence(ID3D12Device* const Device, Font* const Font, const DirectX::XMFLOAT2 Position, const DirectX::XMFLOAT2 Size) :
-	BaseSentence(10u, Device, Font, L"Fps 0", Position, Size, DirectX::XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f)),
+FPSSentence::FPSSentence(ID3D12Device* const Device, const Font* const Font, const DirectX::XMFLOAT2 Position, const DirectX::XMFLOAT2 Size) :
+	DynamicTextRenderer(10u, Device, Font, L"Fps 0", Position, Size, DirectX::XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f)),
 	timePassed(0u),
-	count(0u) {}
-
-FPSSentence::~FPSSentence() {}
+	count(0u)
+{}
 
 void FPSSentence::update(float frameTime)
 {

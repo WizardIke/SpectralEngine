@@ -1,4 +1,4 @@
-#include "BaseSentence.h"
+#include "DynamicTextRenderer.h"
 #include "HresultException.h"
 #include "makeArray.h"
 
@@ -13,13 +13,13 @@ constexpr inline float setPositionY(const float pos)
 }
 
 
-BaseSentence::BaseSentence(const unsigned int maxLength, ID3D12Device* const Device, Font* const Font, const wchar_t* Text, const DirectX::XMFLOAT2 Position, const DirectX::XMFLOAT2 Size, const DirectX::XMFLOAT4 color) :
+DynamicTextRenderer::DynamicTextRenderer(const unsigned int maxLength, ID3D12Device* const Device, const Font* const Font, const wchar_t* Text, const DirectX::XMFLOAT2 Position, const DirectX::XMFLOAT2 Size, const DirectX::XMFLOAT4 color) :
 	font(Font),
 	text(Text),
 	size(Size),
 	maxLength(maxLength),
 	color(color),
-	position(setPositionX(Position.x), setPositionY(Position.y)), 
+	position(Position),
 	textVertexBuffer(makeArray<frameBufferCount>([Device, maxLength]()
 {
 	D3D12_HEAP_PROPERTIES heapProperties;
@@ -47,7 +47,7 @@ BaseSentence::BaseSentence(const unsigned int maxLength, ID3D12Device* const Dev
 {
 	HRESULT hr;
 #ifndef NDEBUG
-	for (auto i = 0u; i < frameBufferCount; ++i)
+	for (auto i = 0u; i != frameBufferCount; ++i)
 	{
 		wchar_t name[45] = L"Text Vertex Buffer Upload Resource ";
 		wchar_t number[5];
@@ -68,13 +68,8 @@ BaseSentence::BaseSentence(const unsigned int maxLength, ID3D12Device* const Dev
 	}
 }
 
-BaseSentence::~BaseSentence() {}
-
-void BaseSentence::beforeRender(uint32_t frameIndex)
+void DynamicTextRenderer::beforeRender(uint32_t frameIndex)
 {
-	float horrizontalPadding = font->leftpadding + font->rightpadding;
-	float verticalPadding = font->toppadding + font->bottompadding;
-
 	float x = position.x;
 	float y = position.y;
 
@@ -84,15 +79,15 @@ void BaseSentence::beforeRender(uint32_t frameIndex)
 	unsigned int currentVertexIndex = 0u;
 	for (auto currentChar : text)
 	{
-		auto fontChar = font->getChar(currentChar);
+		const auto fontChar = font->getChar(currentChar);
 		// character not in font char set
-		if (!fontChar) continue;
+		if (fontChar == nullptr) continue;
 
 		// new line
 		if (currentChar == L'\n')
 		{
 			x = position.x;
-			y -= (font->lineHeight + verticalPadding) * size.y;
+			y -= font->lineHeight * size.y;
 			continue;
 		}
 
@@ -100,32 +95,33 @@ void BaseSentence::beforeRender(uint32_t frameIndex)
 
 		float kerning = font->getKerning(lastChar, currentChar);
 
-		new(&vert[currentVertexIndex]) TextVertex(
-			color.x,
-			color.y,
-			color.z,
-			color.w,
-			fontChar->u,
-			fontChar->v,
-			fontChar->twidth,
-			fontChar->theight,
-			x + ((fontChar->xoffset + kerning) * size.x),
-			y - (fontChar->yoffset * size.y),
-			fontChar->width * size.x,
-			fontChar->height * size.y
-		);
+		new(&vert[currentVertexIndex]) TextVertex
+		{ 
+			{
+				x + ((fontChar->xoffset + kerning) * size.x),
+				y - (fontChar->yoffset * size.y),
+				fontChar->width * size.x,
+				fontChar->height * size.y
+			},
+			{
+				fontChar->u,
+				fontChar->v,
+				fontChar->twidth,
+				fontChar->theight
+			},
+			{
+				color.x,
+				color.y,
+				color.z,
+				color.w
+			}
+		};
 
 		++currentVertexIndex;
 
-		// remove horrizontal padding and advance to next char position
-		x += (fontChar->xadvance - horrizontalPadding + kerning) * size.x;
+		//advance to next char position
+		x += (fontChar->xadvance + kerning) * size.x;
 
 		lastChar = currentChar;
 	}
-}
-
-void BaseSentence::setPosition(const DirectX::XMFLOAT2 pos)
-{
-	position.x = setPositionX(pos.x);
-	position.y = setPositionY(pos.y);
 }

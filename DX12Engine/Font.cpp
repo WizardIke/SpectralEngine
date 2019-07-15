@@ -3,7 +3,7 @@
 #include "TextureManager.h"
 #include <fstream>
 
-float Font::getKerning(const wchar_t first, const wchar_t second)
+float Font::getKerning(const wchar_t first, const wchar_t second) const
 {
 	uint64_t searchId = ((uint64_t)first << 32u) | (uint64_t)second;
 	auto i = std::lower_bound(&kerningsList[0u], &kerningsList[numKernings], searchId, [](const FontKerning& lhs, uint64_t rhs) {return lhs.firstIdAndSecoundId < rhs; });
@@ -14,7 +14,7 @@ float Font::getKerning(const wchar_t first, const wchar_t second)
 	return 0.0f;
 }
 
-FontChar* Font::getChar(const wchar_t c)
+const FontChar* Font::getChar(const wchar_t c) const
 {
 	auto i = std::lower_bound(&charList[0u], &charList[numCharacters], c, [](const FontChar& lhs, wchar_t rhs) {return lhs.id < rhs; });
 	if (i->id == c)
@@ -31,71 +31,51 @@ void Font::setConstantBuffers(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddres
 	constantBufferGpuAddress += psPerObjectConstantBufferSize;
 }
 
-void Font::create(const wchar_t* const filename, unsigned int windowWidth, unsigned int windowHeight)
+void Font::create(const wchar_t* const filename, float aspectRatio)
 {
-	std::wifstream fs;
-	fs.open(filename);
+	std::wifstream fs(filename);
 
 	std::wstring tmp;
-	size_t startpos;
+	std::size_t startpos;
 
 	// extract font name
 	fs >> tmp >> tmp; // info face="Arial"
 	startpos = tmp.find(L"\"") + 1;
-	name = tmp.substr(startpos, tmp.size() - startpos - 1);
+	std::wstring name = tmp.substr(startpos, tmp.size() - startpos - 1);
 
 	// get font size
 	fs >> tmp; // size=73
-	startpos = tmp.find(L"=") + 1;
-	size = std::stoi(tmp.substr(startpos, tmp.size() - startpos));
 
 	// bold, italic, charset, unicode, stretchH, smooth, aa, padding, spacing
 	fs >> tmp >> tmp >> tmp >> tmp >> tmp >> tmp >> tmp; // bold=0 italic=0 charset="" unicode=0 stretchH=100 smooth=1 aa=1 
-
-														 // get padding
 	fs >> tmp; // padding=5,5,5,5 
-	startpos = tmp.find(L"=") + 1;
-	tmp = tmp.substr(startpos, tmp.size() - startpos); // 5,5,5,5
-
-													   // get up padding
-	startpos = tmp.find(L",") + 1;
-	toppadding = std::stoi(tmp.substr(0, startpos)) / (float)windowWidth;
-
-	// get right padding
-	tmp = tmp.substr(startpos, tmp.size() - startpos);
-	startpos = tmp.find(L",") + 1;
-	rightpadding = std::stoi(tmp.substr(0, startpos)) / (float)windowWidth;
-
-	// get down padding
-	tmp = tmp.substr(startpos, tmp.size() - startpos);
-	startpos = tmp.find(L",") + 1;
-	bottompadding = std::stoi(tmp.substr(0, startpos)) / (float)windowWidth;
-
-	// get left padding
-	tmp = tmp.substr(startpos, tmp.size() - startpos);
-	leftpadding = std::stoi(tmp) / (float)windowWidth;
-
 	fs >> tmp; // spacing=0,0
 
-			   // get lineheight (how much to move down for each line), and normalize (between 0.0 and 1.0 based on size of font)
+	// lineheight is how much to move down for each line
 	fs >> tmp >> tmp; // common lineHeight=95
 	startpos = tmp.find(L"=") + 1;
-	lineHeight = (float)std::stoi(tmp.substr(startpos, tmp.size() - startpos)) / (float)windowHeight;
+	int lineHeightInPixels = std::stoi(tmp.substr(startpos, tmp.size() - startpos));
 
-	// get base height (height of all characters), and normalize (between 0.0 and 1.0 based on size of font)
+	// baseHeight is the offset from the top of line, to where the base of each character is.
 	fs >> tmp; // base=68
-	startpos = tmp.find(L"=") + 1;
-	baseHeight = (float)std::stoi(tmp.substr(startpos, tmp.size() - startpos)) / (float)windowHeight;
 
 	// get texture width
 	fs >> tmp; // scaleW=512
 	startpos = tmp.find(L"=") + 1;
-	textureWidth = std::stoi(tmp.substr(startpos, tmp.size() - startpos));
+	int textureWidth = std::stoi(tmp.substr(startpos, tmp.size() - startpos));
 
 	// get texture height
 	fs >> tmp; // scaleH=512
 	startpos = tmp.find(L"=") + 1;
-	textureHeight = std::stoi(tmp.substr(startpos, tmp.size() - startpos));
+	int textureHeight = std::stoi(tmp.substr(startpos, tmp.size() - startpos));
+
+	const float oneOverWidth = 1.0f / (float)textureWidth;
+	const float oneOverHeight = 1.0f / (float)textureHeight;
+
+	const float widthMultiplier = oneOverWidth * 2.0f;
+	const float heightMultiplier = aspectRatio * oneOverHeight * 2.0f;
+
+	lineHeight = lineHeightInPixels * heightMultiplier;
 
 	// get pages, packed, page id
 	fs >> tmp >> tmp; // pages=1 packed=0
@@ -115,7 +95,7 @@ void Font::create(const wchar_t* const filename, unsigned int windowWidth, unsig
 	// initialize the character list
 	charList.reset(new FontChar[numCharacters]);
 
-	for (auto i = 0u; i < numCharacters; ++i)
+	for (auto i = 0u; i != numCharacters; ++i)
 	{
 		// get unicode id
 		fs >> tmp >> tmp; // char id=0
@@ -125,41 +105,43 @@ void Font::create(const wchar_t* const filename, unsigned int windowWidth, unsig
 		// get x
 		fs >> tmp; // x=392
 		startpos = tmp.find(L"=") + 1;
-		charList[i].u = (float)std::stoi(tmp.substr(startpos, tmp.size() - startpos)) / (float)textureWidth;
+		int pixelU = std::stoi(tmp.substr(startpos, tmp.size() - startpos));
+		charList[i].u = ((float)pixelU + 0.5f) * oneOverWidth;
 
 		// get y
 		fs >> tmp; // y=340
 		startpos = tmp.find(L"=") + 1;
-		charList[i].v = (float)std::stoi(tmp.substr(startpos, tmp.size() - startpos)) / (float)textureHeight;
+		int pixelV = std::stoi(tmp.substr(startpos, tmp.size() - startpos));
+		charList[i].v = ((float)pixelV + 0.5f) * oneOverHeight;
 
 		// get width
 		fs >> tmp; // width=47
 		startpos = tmp.find(L"=") + 1;
 		tmp = tmp.substr(startpos, tmp.size() - startpos);
-		charList[i].width = (float)std::stoi(tmp) / (float)windowWidth;
-		charList[i].twidth = (float)std::stoi(tmp) / (float)textureWidth;
+		charList[i].width = (float)std::stoi(tmp) * widthMultiplier;
+		charList[i].twidth = (float)std::stoi(tmp) * oneOverWidth;
 
 		// get height
 		fs >> tmp; // height=57
 		startpos = tmp.find(L"=") + 1;
 		tmp = tmp.substr(startpos, tmp.size() - startpos);
-		charList[i].height = (float)std::stoi(tmp) / (float)windowHeight;
-		charList[i].theight = (float)std::stoi(tmp) / (float)textureHeight;
+		charList[i].height = (float)std::stoi(tmp) * heightMultiplier;
+		charList[i].theight = (float)std::stoi(tmp) * oneOverHeight;
 
 		// get xoffset
 		fs >> tmp; // xoffset=-6
 		startpos = tmp.find(L"=") + 1;
-		charList[i].xoffset = (float)std::stoi(tmp.substr(startpos, tmp.size() - startpos)) / (float)windowWidth;
+		charList[i].xoffset = (float)std::stoi(tmp.substr(startpos, tmp.size() - startpos)) * widthMultiplier;
 
 		// get yoffset
 		fs >> tmp; // yoffset=16
 		startpos = tmp.find(L"=") + 1;
-		charList[i].yoffset = (float)std::stoi(tmp.substr(startpos, tmp.size() - startpos)) / (float)windowHeight;
+		charList[i].yoffset = (float)std::stoi(tmp.substr(startpos, tmp.size() - startpos)) * heightMultiplier;
 
 		// get xadvance
 		fs >> tmp; // xadvance=65
 		startpos = tmp.find(L"=") + 1;
-		charList[i].xadvance = (float)std::stoi(tmp.substr(startpos, tmp.size() - startpos)) / (float)windowWidth;
+		charList[i].xadvance = (float)std::stoi(tmp.substr(startpos, tmp.size() - startpos)) * widthMultiplier;
 
 		// get page
 		// get channel
@@ -175,7 +157,7 @@ void Font::create(const wchar_t* const filename, unsigned int windowWidth, unsig
 	// initialize the kernings list
 	kerningsList.reset(new FontKerning[numKernings]);
 
-	for (auto i = 0u; i < numKernings; ++i)
+	for (auto i = 0u; i != numKernings; ++i)
 	{
 		// get first character
 		fs >> tmp >> tmp; // kerning first=87
@@ -190,8 +172,8 @@ void Font::create(const wchar_t* const filename, unsigned int windowWidth, unsig
 		// get amount
 		fs >> tmp; // amount=-1
 		startpos = tmp.find(L"=") + 1;
-		float t = (float)std::stoi(tmp.substr(startpos, tmp.size() - startpos));
-		kerningsList[i].amount = t / (float)windowWidth;
+		int amountInPixels = std::stoi(tmp.substr(startpos, tmp.size() - startpos));
+		kerningsList[i].amount = (float)amountInPixels * widthMultiplier;
 	}
 	std::sort(&kerningsList[0u], &kerningsList[numKernings], [](const FontKerning& lhs, const FontKerning& rhs) {return lhs.firstIdAndSecoundId < rhs.firstIdAndSecoundId; });
 }

@@ -3,16 +3,15 @@
 #pragma comment(lib, "pdh.lib")
 
 #include <pdh.h>
-#include <BaseSentence.h>
+#include <DynamicTextRenderer.h>
 
-class CPUUsageSentence : public BaseSentence
+class CPUUsageSentence : public DynamicTextRenderer
 {
 	float timeSinceLastUpdate = 0.0f;
 	HQUERY queryHandle;
 	HCOUNTER counterHandle;
 public:
-	CPUUsageSentence() {}
-	CPUUsageSentence(ID3D12Device* const Device, Font* const Font, const DirectX::XMFLOAT2 Position, const DirectX::XMFLOAT2 Size, const DirectX::XMFLOAT4 color);
+	CPUUsageSentence(ID3D12Device* Device, const Font* Font, DirectX::XMFLOAT2 Position, DirectX::XMFLOAT2 Size, DirectX::XMFLOAT4 color);
 	~CPUUsageSentence();
 	void update(float frameTime);
 };

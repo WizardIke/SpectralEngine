@@ -1,14 +1,13 @@
 #pragma once
 
-#include <BaseSentence.h>
+#include <DynamicTextRenderer.h>
 
-class FPSSentence : public BaseSentence
+class FPSSentence : public DynamicTextRenderer
 {
 	float timePassed;
 	unsigned int count;
 public:
-	FPSSentence() {}
-	FPSSentence(ID3D12Device* const Device, Font* const Font, const DirectX::XMFLOAT2 Position, const DirectX::XMFLOAT2 Size);
-	~FPSSentence();
+	FPSSentence(ID3D12Device* Device, const Font* Font, DirectX::XMFLOAT2 Position, DirectX::XMFLOAT2 Size);
+	~FPSSentence() = default;
 	void update(float frameTime);
 };

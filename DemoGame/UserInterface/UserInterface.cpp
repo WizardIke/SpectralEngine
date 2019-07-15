@@ -4,9 +4,9 @@
 #include "../GlobalResources.h"
 
 UserInterface::UserInterface(GlobalResources& globalResources) :
-	CPUUsageSentence(globalResources.graphicsEngine.graphicsDevice, &globalResources.arial, DirectX::XMFLOAT2(0.01f, 0.01f), DirectX::XMFLOAT2(1.0f, 1.0f),
+	CPUUsageSentence(globalResources.graphicsEngine.graphicsDevice, &globalResources.arial, DirectX::XMFLOAT2(-0.98f, 0.96f), DirectX::XMFLOAT2(0.2f, 0.2f),
 		DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f)),
-	FPSSentence(globalResources.graphicsEngine.graphicsDevice, &globalResources.arial, DirectX::XMFLOAT2(0.01f, 0.07f), DirectX::XMFLOAT2(1.0f, 1.0f)),
+	FPSSentence(globalResources.graphicsEngine.graphicsDevice, &globalResources.arial, DirectX::XMFLOAT2(-0.98f, 0.86f), DirectX::XMFLOAT2(0.2f, 0.2f)),
 	globalResources(globalResources)
 {
 	const VirtualPageCamera& camera = (*globalResources.renderPass.virtualTextureFeedbackSubPass().cameras().begin());
