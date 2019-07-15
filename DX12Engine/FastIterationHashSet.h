@@ -2,6 +2,7 @@
 #include <functional> //std::hash, std::equal_to
 #include <cstddef> //std::size_t
 #include <limits> //std::numeric_limits
+#include <type_traits> //std::is_trivially_destructible_v
 
 /*
 * Implements a set using hashing.
@@ -26,7 +27,7 @@ public:
 	using pointer = value_type*;
 	using const_pointer = const value_type*;
 
-	using iterator = value_type * ;
+	using iterator = value_type*;
 	using const_iterator = const value_type*;
 private:
 	class Node
@@ -113,13 +114,138 @@ private:
 		using lookUpAllocatorWrapper::allocateLookUp;
 		using lookUpAllocatorWrapper::deallocateLookUp;
 
-		FastIterationHashMap::pointer values;
-		FastIterationHashMap::key_type* keys;
-		FastIterationHashMap::Node* lookUp;
-		FastIterationHashMap::size_type maxBucketCount;
-		FastIterationHashMap::size_type size;
-		FastIterationHashMap::size_type loadThreshold;
-		float maxLoadFactor = 0.5f;
+		using value_type = FastIterationHashMap::value_type;
+		using key_type = FastIterationHashMap::key_type;
+		using size_type = FastIterationHashMap::size_type;
+		using Node = FastIterationHashMap::Node;
+
+		value_type* values;
+		key_type* keys;
+		Node* lookUp;
+		size_type maxBucketCount;
+		size_type size;
+		size_type loadThreshold;
+		float maxLoadFactor;
+
+	private:
+		void copyHelper(const Impl& other)
+		{
+			maxBucketCount = other.maxBucketCount;
+			size = other.size;
+			loadThreshold = other.loadThreshold;
+			maxLoadFactor = other.maxLoadFactor;
+			if (maxBucketCount != (size_type)0u)
+			{
+				values = allocateValue(loadThreshold);
+				keys = allocateKey(loadThreshold);
+				const auto currentSize = size;
+				for (size_type i = (size_type)0u; i != currentSize; ++i)
+				{
+					new(&values[i]) value_type(other.values[i]);
+					new(&keys[i]) key_type(other.keys[i]);
+				}
+
+				lookUp = allocateLookUp(maxBucketCount);
+				const auto maxBucketCountTemp = maxBucketCount;
+				for (size_type i = (size_type)0u; i != maxBucketCountTemp; ++i)
+				{
+					new(lookUp + i) Node(other.lookUp[i]);
+				}
+			}
+			else
+			{
+				values = nullptr;
+				keys = nullptr;
+				lookUp = nullptr;
+			}
+		}
+
+		void destruct()
+		{
+			if (maxBucketCount != (size_type)0u)
+			{
+				const auto currentSize = size;
+				for (size_type i = (size_type)0u; i != currentSize; ++i)
+				{
+					values[i].~value_type();
+					keys[i].~key_type();
+				}
+				deallocateValue(values, loadThreshold);
+				deallocateKey(keys, loadThreshold);
+				static_assert(std::is_trivially_destructible_v<Node>);
+				deallocateLookUp(lookUp, maxBucketCount);
+			}
+		}
+	public:
+
+		Impl() noexcept :
+			values(nullptr),
+			keys(nullptr),
+			lookUp(nullptr),
+			maxBucketCount(0u),
+			size(0u),
+			loadThreshold(0u),
+			maxLoadFactor(0.5f)
+		{}
+
+		Impl(Impl&& other) noexcept :
+			values(other.values),
+			keys(other.keys),
+			lookUp(other.lookUp),
+			maxBucketCount(other.maxBucketCount),
+			size(other.size),
+			loadThreshold(other.loadThreshold),
+			maxLoadFactor(other.maxLoadFactor)
+		{
+			other.maxBucketCount = 0u;
+		}
+
+		Impl(const Impl& other) :
+			HasherWrapper(static_cast<const HasherWrapper&>(other)),
+			EqualToWrapper(static_cast<const EqualToWrapper&>(other)),
+			ValueAllocatorWrapper(static_cast<const ValueAllocatorWrapper&>(other)),
+			KeyAllocatorWrapper(static_cast<const KeyAllocatorWrapper&>(other)),
+			lookUpAllocatorWrapper(static_cast<const lookUpAllocatorWrapper&>(other))
+		{
+			copyConstruct(other);
+		}
+
+		~Impl() noexcept
+		{
+			destruct();
+		}
+
+		void operator=(Impl&& other)
+		{
+			destruct();
+
+			static_cast<HasherWrapper&>(*this) = static_cast<HasherWrapper&&>(std::move(other));
+			static_cast<EqualToWrapper&>(*this) = static_cast<EqualToWrapper&&>(std::move(other));
+			static_cast<ValueAllocatorWrapper&>(*this) = static_cast<ValueAllocatorWrapper&&>(std::move(other));
+			static_cast<KeyAllocatorWrapper&>(*this) = static_cast<KeyAllocatorWrapper&&>(std::move(other));
+			static_cast<lookUpAllocatorWrapper&>(*this) = static_cast<lookUpAllocatorWrapper&&>(std::move(other));
+			values = other.values;
+			keys = other.keys;
+			lookUp = other.lookUp;
+			maxBucketCount = other.maxBucketCount;
+			size = other.size;
+			loadThreshold = other.loadThreshold;
+			maxLoadFactor = other.maxLoadFactor;
+
+			other.maxBucketCount = (size_type)0u;
+		}
+
+		void operator=(const Impl& other)
+		{
+			destruct();
+
+			static_cast<HasherWrapper&>(*this) = static_cast<const HasherWrapper&>(other);
+			static_cast<EqualToWrapper&>(*this) = static_cast<const EqualToWrapper&>(other);
+			static_cast<ValueAllocatorWrapper&>(*this) = static_cast<const ValueAllocatorWrapper&>(other);
+			static_cast<KeyAllocatorWrapper&>(*this) = static_cast<const KeyAllocatorWrapper&>(other);
+			static_cast<lookUpAllocatorWrapper&>(*this) = static_cast<const lookUpAllocatorWrapper&>(other);
+			copyConstruct(other);
+		}
 	};
 	Impl impl;
 
@@ -281,100 +407,50 @@ private:
 		return impl.loadThreshold;
 	}
 public:
-	FastIterationHashMap() noexcept
-	{
-		impl.values = nullptr;
-		impl.keys = nullptr;
-		impl.maxBucketCount = (size_type)0u;
-		impl.size = (size_type)0u;
-		impl.loadThreshold = (size_type)0u;
-		impl.maxLoadFactor = 0.5f;
-	}
+	FastIterationHashMap() noexcept = default;
 
-	FastIterationHashMap(FastIterationHashMap&& other) noexcept : impl(std::move(other.impl)) 
-	{
-		other.impl.maxBucketCount = (size_type)0u;
-	}
+	FastIterationHashMap(FastIterationHashMap&&) noexcept = default;
 
-	FastIterationHashMap(const FastIterationHashMap& other)
-	{
-		impl.maxBucketCount = other.impl.maxBucketCount;
-		impl.size = other.impl.size;
-		impl.loadThreshold = other.impl.loadThreshold;
-		impl.maxLoadFactor = other.impl.maxLoadFactor;
-		if(impl.maxBucketCount != (size_type)0u)
-		{
-			impl.values = impl.allocateValue(impl.loadThreshold);
-			impl.keys = impl.allocateKey(impl.loadThreshold);
+	FastIterationHashMap(const FastIterationHashMap&) = default;
 
-			const auto currentSize = impl.size;
-			for(size_type i = (size_type)0u; i != currentSize; ++i)
-			{
-				impl.values[i] = other.impl.values[i];
-				impl.keys[i] = other.impl.keys[i];
-			}
-		}
-		else
-		{
-			impl.values = nullptr;
-			impl.keys = nullptr;
-		}
-	}
-
-	~FastIterationHashMap()
-	{
-		if(impl.maxBucketCount != (size_type)0u)
-		{
-			const auto currentSize = impl.size;
-			for(size_type i = (size_type)0u; i != currentSize; ++i)
-			{
-				impl.values[i].~value_type();
-				impl.keys[i].~key_type();
-			}
-			impl.deallocateValue(impl.values, impl.loadThreshold);
-			impl.deallocateKey(impl.keys, impl.loadThreshold);
-			impl.deallocateLookUp(impl.lookUp, impl.maxBucketCount);
-		}
-	}
+	~FastIterationHashMap() noexcept = default;
 
 	void operator=(FastIterationHashMap&& other)
 	{
-		this->~FastIterationHashMap();
-		new(this) FastIterationHashMap(std::move(other));
+		impl = std::move(other.impl);
 	}
 
 	void operator=(const FastIterationHashMap& other)
 	{
-		this->~FastIterationHashMap();
-		new(this) FastIterationHashMap(other);
+		impl = other.impl;
 	}
 
-	iterator begin()
+	iterator begin() noexcept
 	{
 		return impl.values;
 	}
 
-	const_iterator begin() const
+	const_iterator begin() const noexcept
 	{
 		return impl.values;
 	}
 
-	const_iterator cbegin() const
+	const_iterator cbegin() const noexcept
 	{
 		return impl.values;
 	}
 
-	iterator end()
+	iterator end() noexcept
 	{
 		return impl.values + impl.size;
 	}
 
-	const_iterator end() const
+	const_iterator end() const noexcept
 	{
 		return impl.values + impl.size;
 	}
 
-	const_iterator cend() const
+	const_iterator cend() const noexcept
 	{
 		return impl.values + impl.size;
 	}

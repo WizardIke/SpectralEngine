@@ -68,13 +68,25 @@ private:
 		mEnd = buffer + size;
 		mCapacityEnd = buffer + newSize;
 	}
+
+	void destruct()
+	{
+		if (buffer != nullptr)
+		{
+			while (buffer != mEnd)
+			{
+				--mEnd;
+				mEnd->~Element();
+			}
+			this->deallocate(buffer, mCapacityEnd - buffer);
+		}
+	}
 public:
 	ResizingArray() noexcept : buffer(nullptr), mEnd(nullptr), mCapacityEnd(nullptr) {}
 
-	ResizingArray(ResizingArray&& other) : buffer(other.buffer), mEnd(other.mEnd), mCapacityEnd(other.mCapacityEnd)
+	ResizingArray(ResizingArray&& other) : Allocator(static_cast<Allocator&&>(other)), buffer(other.buffer), mEnd(other.mEnd), mCapacityEnd(other.mCapacityEnd)
 	{
 		other.buffer = nullptr;
-		other.mEnd = nullptr;
 	}
 
 	ResizingArray(const Size capacity)
@@ -96,7 +108,7 @@ public:
 		{
 			for (i = 0u; i < capacity.size; ++i)
 			{
-				new(&buffer[i]) Element(std::move(initializer(i)));
+				new(&buffer[i]) Element(initializer(i));
 			}
 		}
 		catch (...)
@@ -148,7 +160,7 @@ public:
 		{
 			for (i = 0u; i < size.size; ++i)
 			{
-				new(&buffer[i]) Element(std::move(initializer(i)));
+				new(&buffer[i]) Element(initializer(i));
 			}
 		}
 		catch (...)
@@ -244,15 +256,7 @@ public:
 
 	~ResizingArray()
 	{
-		if (buffer != mEnd)
-		{
-			do
-			{
-				--mEnd;
-				mEnd->~Element();
-			} while (buffer != mEnd);
-			this->deallocate(buffer, mCapacityEnd - buffer);
-		}
+		destruct();
 	}
 
 	bool empty() const noexcept
@@ -275,13 +279,22 @@ public:
 		temp = this->mCapacityEnd;
 		this->mCapacityEnd = other.mCapacityEnd;
 		other.mCapacityEnd = temp;
+
+		Allocator temp2 = static_cast<Allocator&&>(other);
+		static_cast<Allocator&>(other) = static_cast<Allocator&&>(*this);
+		static_cast<Allocator&>(*this) = std::move(temp2);
 	}
 
-	const ResizingArray& operator=(ResizingArray&& other)
+	void operator=(ResizingArray&& other)
 	{
-		this->~ResizingArray();
-		new(this) ResizingArray(std::move(other));
-		return *this;
+		destruct();
+
+		static_cast<Allocator&>(*this) = static_cast<Allocator&&>(other);
+		buffer = other.buffer;
+		mEnd = other.mEnd;
+		mCapacityEnd = other.mCapacityEnd;
+
+		other.buffer = nullptr;
 	}
 
 	constexpr static std::size_t max_size() noexcept

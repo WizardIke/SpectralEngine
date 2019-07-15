@@ -106,8 +106,44 @@ namespace
 			descriptorheapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
 			descriptorheapDesc.NodeMask = 0u;
 			return descriptorheapDesc;
-		}())
-
+		}()),
+			renderTargetTexture(globalResources.graphicsEngine.graphicsDevice, []()
+				{
+					D3D12_HEAP_PROPERTIES heapProperties;
+					heapProperties.Type = D3D12_HEAP_TYPE_DEFAULT;
+					heapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+					heapProperties.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+					heapProperties.VisibleNodeMask = 0u;
+					heapProperties.CreationNodeMask = 0u;
+					return heapProperties;
+				}(),
+				D3D12_HEAP_FLAG_ALLOW_ALL_BUFFERS_AND_TEXTURES,
+				[&window = globalResources.window]()
+					{
+						D3D12_RESOURCE_DESC resourcesDesc;
+						resourcesDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+						resourcesDesc.Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
+						resourcesDesc.Width = window.width();
+						resourcesDesc.Height = window.height();
+						resourcesDesc.DepthOrArraySize = 1u;
+						resourcesDesc.MipLevels = 1u;
+						resourcesDesc.Format = DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM;
+						resourcesDesc.SampleDesc = { 1u, 0u };
+						resourcesDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+						resourcesDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+						return resourcesDesc;
+					}(), 
+				D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+				[]()
+					{
+						D3D12_CLEAR_VALUE clearValue;
+						clearValue.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+						clearValue.Color[0] = 0.0f;
+						clearValue.Color[1] = 0.0f;
+						clearValue.Color[2] = 0.0f;
+						clearValue.Color[3] = 1.0f;
+						return clearValue;
+					}())
 		{
 #ifndef NDEBUG
 			renderTargetTexturesDescriptorHeap->SetName(L"Zone 1 Render Target texture descriptor heap");
@@ -122,36 +158,6 @@ namespace
 			if (FAILED(hr)) throw HresultException(hr);
 			auto PerObjectConstantBuffersGpuAddress = perObjectConstantBuffers->GetGPUVirtualAddress();
 			unsigned char* cpuConstantBuffer = perObjectConstantBuffersCpuAddress;
-
-			D3D12_HEAP_PROPERTIES heapProperties;
-			heapProperties.Type = D3D12_HEAP_TYPE_DEFAULT;
-			heapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
-			heapProperties.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
-			heapProperties.VisibleNodeMask = 0u;
-			heapProperties.CreationNodeMask = 0u;
-
-			D3D12_RESOURCE_DESC resourcesDesc;
-			resourcesDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-			resourcesDesc.Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
-			resourcesDesc.Width = globalResources.window.width();
-			resourcesDesc.Height = globalResources.window.height();
-			resourcesDesc.DepthOrArraySize = 1u;
-			resourcesDesc.MipLevels = 1u;
-			resourcesDesc.Format = DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM;
-			resourcesDesc.SampleDesc = { 1u, 0u };
-			resourcesDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
-			resourcesDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
-
-			D3D12_CLEAR_VALUE clearValue;
-			clearValue.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-			clearValue.Color[0] = 0.0f;
-			clearValue.Color[1] = 0.0f;
-			clearValue.Color[2] = 0.0f;
-			clearValue.Color[3] = 1.0f;
-
-			
-			new(&renderTargetTexture) D3D12Resource(globalResources.graphicsEngine.graphicsDevice, heapProperties, D3D12_HEAP_FLAG_ALLOW_ALL_BUFFERS_AND_TEXTURES, resourcesDesc,
-				D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, clearValue);
 
 #ifndef NDEBUG
 			std::wstring name = L" zone1 render to texture 0";

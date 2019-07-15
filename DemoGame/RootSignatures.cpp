@@ -1,7 +1,6 @@
 #include "RootSignatures.h"
 #include <d3d12.h>
 #include <D3DBlob.h>
-#include <new>
 
 RootSignatures::RootSignatures(ID3D12Device* const device)
 {

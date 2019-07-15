@@ -7,6 +7,20 @@ class DynamicArray : private Allocator
 {
 	Element* buffer;
 	Element* mEnd;
+
+	void destruct()
+	{
+		if (buffer != mEnd)
+		{
+			size_type size = mEnd - buffer;
+			do
+			{
+				--mEnd;
+				mEnd->~Element();
+			} while (buffer != mEnd);
+			this->deallocate(buffer, size);
+		}
+	}
 public:
 	using allocator_type = Allocator;
 	using size_type = std::size_t;
@@ -29,10 +43,11 @@ public:
 		}
 	};
 
-	DynamicArray(DynamicArray&& over)
+	DynamicArray(DynamicArray&& other) :
+		Allocator(static_cast<Allocator&&>(other)),
+		buffer(other.buffer),
+		mEnd(other.mEnd)
 	{
-		buffer = other.buffer;
-		mEnd = other.mEnd;
 		other.mEnd = buffer;
 	}
 
@@ -234,16 +249,7 @@ public:
 
 	~DynamicArray()
 	{
-		if (buffer != mEnd)
-		{
-			size_type size = mEnd - buffer;
-			do
-			{
-				--mEnd;
-				mEnd->~Element();
-			} while (buffer != mEnd);
-			this->deallocate(buffer, size);
-		}
+		destruct();
 	}
 
 	constexpr bool empty() const noexcept
@@ -251,7 +257,7 @@ public:
 		return buffer == mEnd;
 	}
 
-	void swap(DynamicArray& other) // noexcept(noexcept(std::swap(declval<ElementType&>(), declval<ElementType&>())))
+	void swap(DynamicArray& other)
 	{
 		Element* temp;
 		temp = this->mEnd;
@@ -261,13 +267,20 @@ public:
 		temo = this->temp;
 		this->buffer = other.buffer;
 		other.buffer = temp;
+
+		Allocator temp2 = static_cast<Allocator&&>(other);
+		static_cast<Allocator&>(other) = static_cast<Allocator&&>(*this);
+		static_cast<Allocator&>(*this) = std::move(temp2);
 	}
 
-	const DynamicArray& operator=(DynamicArray&& other)
+	void operator=(DynamicArray&& other)
 	{
-		this->~DynamicArray();
-		new(this) DynamicArray(std::move(other));
-		return *this;
+		destruct();
+
+		static_cast<Allocator&>(*this) = static_cast<Allocator&&>(other);
+		buffer = other.buffer;
+		mEnd = other.mEnd;
+		other.mEnd = buffer;
 	}
 
 	constexpr std::size_t max_size() const noexcept

@@ -190,11 +190,115 @@ private:
 		using AllocatorWrapper::allocate;
 		using AllocatorWrapper::deallocate;
 
-		HashSet::Node* data = nullptr;
-		HashSet::size_type maxBucketCount = 0u;
-		HashSet::size_type mSize = 0u;
-		HashSet::size_type loadThreshold = 0u;
-		float maxLoadFactor = 0.5f;
+		using value_type = HashSet::value_type;
+
+		HashSet::Node* data;
+		HashSet::size_type maxBucketCount;
+		HashSet::size_type mSize;
+		HashSet::size_type loadThreshold;
+		float maxLoadFactor;
+	private:
+		void copyHelper(const Impl& other)
+		{
+			if (other.mSize != 0u)
+			{
+				data = allocate(other.maxBucketCount + 1u);
+				const auto maxBucketCountTemp = other.maxBucketCount;
+				maxBucketCount = maxBucketCountTemp;
+				mSize = other.mSize;
+				loadThreshold = other.loadThreshold;
+				maxLoadFactor = other.maxLoadFactor;
+				const auto maxBucketCountTemp = maxBucketCount;
+				for (size_type i = 0u; i != maxBucketCountTemp; ++i)
+				{
+					new(&data[i]) HashSet::Node(other.data[i]);
+				}
+			}
+			else
+			{
+				data = nullptr;
+				maxBucketCount = 0u;
+				mSize = 0u;
+				loadThreshold = 0u;
+				maxLoadFactor = 0.5f;
+			}
+		}
+
+		void destruct()
+		{
+			if (maxBucketCount != 0u)
+			{
+				if (mSize != 0u)
+				{
+					const auto dataEnd = data + maxBucketCount;
+					for (Node* n = data; n != dataEnd; ++n)
+					{
+						if (n->distanceFromIdealPosition() != 0u)
+						{
+							n->data().~value_type();
+						}
+					}
+				}
+				deallocate(data, maxBucketCount + 1u);
+			}
+		}
+	public:
+		Impl() noexcept :
+			data(nullptr),
+			maxBucketCount(0u),
+			mSize(0u),
+			loadThreshold(0u),
+			maxLoadFactor(0.5f)
+		{}
+
+		Impl(Impl&& other) noexcept :
+			data(other.data),
+			maxBucketCount(other.maxBucketCount),
+			mSize(other.mSize),
+			loadThreshold(other.loadThreshold),
+			maxLoadFactor(other.maxLoadFactor)
+		{
+			other.maxBucketCount = 0u;
+		}
+
+		Impl(const Impl& other) :
+			HasherWrapper(static_cast<const HasherWrapper&>(other)),
+			EqualToWrapper(static_cast<const EqualToWrapper&>(other)),
+			AllocatorWrapper(static_cast<const AllocatorWrapper&>(other))
+		{
+			copyHelper(other);
+		}
+
+		void operator=(const Impl& other)
+		{
+			destruct();
+
+			static_cast<HasherWrapper&>(*this) = static_cast<const HasherWrapper&>(other);
+			static_cast<EqualToWrapper&>(*this) = static_cast<const EqualToWrapper&>(other);
+			static_cast<AllocatorWrapper&>(*this) = static_cast<const AllocatorWrapper&>(other);
+			copyHelper(other);
+		}
+
+		void operator=(Impl&& other)
+		{
+			destruct();
+
+			static_cast<HasherWrapper&>(*this) = static_cast<HasherWrapper&&>(std::move(other));
+			static_cast<EqualToWrapper&>(*this) = static_cast<EqualToWrapper&&>(std::move(other));
+			static_cast<AllocatorWrapper&>(*this) = static_cast<AllocatorWrapper&&>(std::move(other));
+			data = other.data;
+			maxBucketCount = other.maxBucketCount;
+			mSize = other.mSize;
+			loadThreshold = other.loadThreshold;
+			maxLoadFactor = other.maxLoadFactor;
+
+			other.maxBucketCount = 0u;
+		}
+
+		~Impl() noexcept
+		{
+			destruct();
+		}
 	};
 	Impl impl;
 	
@@ -348,58 +452,22 @@ private:
 		}
 	}
 public:
-	HashSet() noexcept {}
+	HashSet() noexcept = default;
 
-	HashSet(HashSet&& other) noexcept : impl(std::move(other.impl))
-	{
-		other.impl.maxBucketCount = 0u;
-	}
+	HashSet(HashSet&&) noexcept = default;
 
-	HashSet(const HashSet& other)
-	{
-		if (other.impl.mSize != 0u)
-		{
-			impl.data = impl.allocate(other.impl.maxBucketCount + 1u);
-			impl.maxBucketCount = other.impl.maxBucketCount;
-			impl.mSize = other.impl.mSize;
-			impl.loadThreshold = other.impl.loadThreshold;
-			impl.maxLoadFactor = other.impl.maxLoadFactor;
-			for (size_type i = 0u; i != impl.maxBucketCount; ++i)
-			{
-				impl.data[i] = other.impl.data[i];
-			}
-		}
-	}
+	HashSet(const HashSet&) = default;
 
-	~HashSet()
-	{
-		if (impl.maxBucketCount != 0u)
-		{
-			if(impl.mSize != 0u)
-			{
-				const auto dataEnd = impl.data + impl.maxBucketCount;
-				for(Node* n = impl.data; n != dataEnd; ++n)
-				{
-					if(n->distanceFromIdealPosition() != 0u)
-					{
-						n->data().~value_type();
-					}
-				}
-			}
-			impl.deallocate(impl.data, impl.maxBucketCount + 1u);
-		}
-	}
+	~HashSet() noexcept = default;
 
 	void operator=(HashSet&& other)
 	{
-		this->~HashSet();
-		new(this) HashSet(std::move(other));
+		impl = std::move(other.impl);
 	}
 
 	void operator=(const HashSet& other)
 	{
-		this->~HashSet();
-		new(this) HashSet(other);
+		impl = other.impl;
 	}
 
 	iterator begin()
