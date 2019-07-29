@@ -141,15 +141,15 @@ private:
 				const auto currentSize = size;
 				for (size_type i = (size_type)0u; i != currentSize; ++i)
 				{
-					new(&values[i]) value_type(other.values[i]);
-					new(&keys[i]) key_type(other.keys[i]);
+					new(&values[i]) value_type{ other.values[i] };
+					new(&keys[i]) key_type{ other.keys[i] };
 				}
 
 				lookUp = allocateLookUp(maxBucketCount);
 				const auto maxBucketCountTemp = maxBucketCount;
 				for (size_type i = (size_type)0u; i != maxBucketCountTemp; ++i)
 				{
-					new(lookUp + i) Node(other.lookUp[i]);
+					new(lookUp + i) Node{ other.lookUp[i] };
 				}
 			}
 			else
@@ -285,7 +285,7 @@ private:
 			key_type* newKeys = impl.allocateKey(newLoadThreshold);
 			for(size_type i = 0u; i != newLoadThreshold; ++i)
 			{
-				newKeys[i] = std::move(impl.keys[i]);
+				new(&newKeys[i]) key_type{ std::move(impl.keys[i]) };
 				impl.keys[i].~key_type();
 			}
 			impl.deallocateKey(impl.keys, impl.loadThreshold);
@@ -485,8 +485,38 @@ public:
 		const size_type dataIndex = impl.size;
 		const size_type bucketIndex = (size_type)(impl.hash(key) & (impl.maxBucketCount - 1u));
 		++impl.size;
-		impl.keys[dataIndex] = std::move(key);
-		impl.values[dataIndex] = std::move(value);
+		new(&impl.keys[dataIndex]) key_type{ std::move(key) };
+		new(&impl.values[dataIndex]) value_type{ std::move(value) };
+		swapInElement(dataIndex, bucketIndex, impl.lookUp, impl.maxBucketCount - 1u);
+	}
+
+	void insert(const key_type& key, value_type&& value)
+	{
+		if (impl.size == impl.loadThreshold)
+		{
+			auto nextMaxBucketCountAndLoadThreshold = nextCapacity(impl.maxBucketCount, impl.loadThreshold, impl.maxLoadFactor);
+			rehashNoChecks(nextMaxBucketCountAndLoadThreshold.maxBucketCount, nextMaxBucketCountAndLoadThreshold.loadThreshold);
+		}
+		const size_type dataIndex = impl.size;
+		const size_type bucketIndex = (size_type)(impl.hash(key) & (impl.maxBucketCount - 1u));
+		++impl.size;
+		new(&impl.keys[dataIndex]) key_type{ key };
+		new(&impl.values[dataIndex]) value_type{ std::move(value) };
+		swapInElement(dataIndex, bucketIndex, impl.lookUp, impl.maxBucketCount - 1u);
+	}
+
+	void insert(key_type&& key, const value_type& value)
+	{
+		if (impl.size == impl.loadThreshold)
+		{
+			auto nextMaxBucketCountAndLoadThreshold = nextCapacity(impl.maxBucketCount, impl.loadThreshold, impl.maxLoadFactor);
+			rehashNoChecks(nextMaxBucketCountAndLoadThreshold.maxBucketCount, nextMaxBucketCountAndLoadThreshold.loadThreshold);
+		}
+		const size_type dataIndex = impl.size;
+		const size_type bucketIndex = (size_type)(impl.hash(key) & (impl.maxBucketCount - 1u));
+		++impl.size;
+		new(&impl.keys[dataIndex]) key_type{ std::move(key) };
+		new(&impl.values[dataIndex]) value_type{ value };
 		swapInElement(dataIndex, bucketIndex, impl.lookUp, impl.maxBucketCount - 1u);
 	}
 
@@ -500,8 +530,8 @@ public:
 		const size_type dataIndex = impl.size;
 		const size_type bucketIndex = (size_type)(impl.hash(key) & (impl.maxBucketCount - 1u));
 		++impl.size;
-		impl.keys[dataIndex] = key;
-		impl.values[dataIndex] = value;
+		new(&impl.keys[dataIndex]) key_type{ key };
+		new(&impl.values[dataIndex]) value_type{ value };
 		swapInElement(dataIndex, bucketIndex, impl.lookUp, impl.maxBucketCount - 1u);
 	}
 
@@ -523,8 +553,8 @@ public:
 		const auto size = impl.size;
 		if(indexInData != size)
 		{
-			impl.values[indexInData] = impl.values[std::move(size)];
-			impl.keys[indexInData] = impl.keys[std::move(size)];
+			impl.values[indexInData] = std::move(impl.values[size]);
+			impl.keys[indexInData] = std::move(impl.keys[size]);
 		}
 		impl.values[size].~value_type();
 		impl.keys[size].~key_type();
