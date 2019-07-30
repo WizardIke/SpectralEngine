@@ -9,6 +9,6 @@ public:
 	Vector3 position;
 	Vector3 rotation;
 
-	DirectX::XMMATRIX toMatrix();
-	Transform reflection(float height);
+	DirectX::XMMATRIX toMatrix() const;
+	Transform reflection(float height) const;
 };

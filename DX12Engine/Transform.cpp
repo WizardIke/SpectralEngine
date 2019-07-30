@@ -1,6 +1,6 @@
 #include "Transform.h"
 
-DirectX::XMMATRIX Transform::toMatrix()
+DirectX::XMMATRIX Transform::toMatrix() const
 {
 	DirectX::XMVECTOR positionVector = DirectX::XMVectorSet(position.x(), position.y(), position.z(), 0.0f);
 	DirectX::XMMATRIX rotationMatrix = DirectX::XMMatrixRotationRollPitchYaw(rotation.x(), rotation.y(), rotation.z());
@@ -14,7 +14,7 @@ DirectX::XMMATRIX Transform::toMatrix()
 	return DirectX::XMMatrixLookAtLH(positionVector, lookAtVector, upVector);
 }
 
-Transform Transform::reflection(float height)
+Transform Transform::reflection(float height) const
 {
 	Transform transform;
 	transform.position.x() = position.x();
