@@ -23,6 +23,7 @@ namespace Keys
 	constexpr UINT escape = VK_ESCAPE;
 	constexpr UINT f1 = VK_F1;
 	constexpr UINT f2 = VK_F2;
+	constexpr UINT f11 = VK_F11;
 	constexpr UINT leftMouse = VK_LBUTTON;
 	constexpr UINT rightMouse = VK_RBUTTON;
 	constexpr UINT middleMouse = VK_MBUTTON;
