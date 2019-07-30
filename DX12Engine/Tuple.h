@@ -111,17 +111,18 @@ constexpr typename tuple_element<i, Tuple<Ts...>>::type const&& get(const Tuple<
 
 template<class T>
 class tuple_size;
+
 template<class... Ts>
 class tuple_size<Tuple<Ts...>> : public std::integral_constant<std::size_t, sizeof...(Ts)> { };
 
-template<class T>
-class tuple_size<const T> : public std::integral_constant<std::size_t, tuple_size<T>::value> { };
+template<class... Ts>
+class tuple_size<const Tuple<Ts...>> : public std::integral_constant<std::size_t, tuple_size<Tuple<Ts...>>::value> { };
 
-template<class T>
-class tuple_size<volatile T> : public std::integral_constant<std::size_t, tuple_size<T>::value> { };
+template<class... Ts>
+class tuple_size<volatile Tuple<Ts...>> : public std::integral_constant<std::size_t, tuple_size<Tuple<Ts...>>::value> { };
 
-template<class T>
-class tuple_size<const volatile T> : public std::integral_constant<std::size_t, tuple_size<T>::value> { };
+template<class... Ts>
+class tuple_size<const volatile Tuple<Ts...>> : public std::integral_constant<std::size_t, tuple_size<Tuple<Ts...>>::value> { };
 
 template<class T>
 inline constexpr std::size_t tuple_size_v = tuple_size<T>::value;

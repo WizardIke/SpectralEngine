@@ -11,6 +11,7 @@ class GraphicsEngine;
 
 class MainCamera
 {
+	float fieldOfView;
 	D3D12DescriptorHeap renderTargetViewDescriptorHeap;
 	uint32_t backBufferTextures[frameBufferCount];
 
@@ -19,7 +20,7 @@ class MainCamera
 
 	CameraConstantBuffer* constantBufferCpuAddress;
 	D3D12_GPU_VIRTUAL_ADDRESS constantBufferGpuAddress;
-	Transform mLocation;
+	const Transform& mLocation;
 	Frustum mFrustum;
 	D3D12_CPU_DESCRIPTOR_HANDLE renderTargetViews[frameBufferCount];
 	D3D12_CPU_DESCRIPTOR_HANDLE depthSencilView;
@@ -40,21 +41,22 @@ public:
 
 	void setConstantBuffers(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1, unsigned char*& constantBufferCpuAddress1);
 
+	void resize(Window& window, GraphicsEngine& graphicsEngine);
+
 	void destruct(GraphicsEngine& graphicsEngine);
 	~MainCamera() = default;
 
-	void update(const Transform& target);
 	void beforeRender(Window& window, GraphicsEngine& graphicsEngine);
-	bool isInView() const { return true; }
+	static constexpr bool isInView() { return true; }
 	void bind(uint32_t frameIndex, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end);
 	void bindFirstThread(uint32_t frameIndex, ID3D12GraphicsCommandList** first, ID3D12GraphicsCommandList** end);
-	ID3D12Resource* getImage() { return mImage; };
-	const ID3D12Resource* getImage() const { return mImage; }
-	Vector3& position() { return mLocation.position; }
-	DirectX::XMMATRIX& projectionMatrix() { return mProjectionMatrix; }
-	Transform& transform() { return mLocation; }
+	ID3D12Resource& getImage() { return *mImage; };
+	const ID3D12Resource& getImage() const { return *mImage; }
+	const Vector3& position() const { return mLocation.position; }
+	const DirectX::XMMATRIX& projectionMatrix() const { return mProjectionMatrix; }
+	const Transform& transform() const { return mLocation; }
 	const Frustum& frustum() const { return mFrustum; }
-	D3D12_CPU_DESCRIPTOR_HANDLE getRenderTargetView(uint32_t frameIndex);
-	unsigned int width() { return mWidth; }
-	unsigned int height() { return mHeight; }
+	D3D12_CPU_DESCRIPTOR_HANDLE getRenderTargetView(uint32_t frameIndex) const;
+	unsigned int width() const { return mWidth; }
+	unsigned int height() const { return mHeight; }
 };

@@ -188,10 +188,9 @@ depthStencilHeap(graphicsDevice, []()
 
 	window.createSwapChain(*this, factory);
 	frameIndex = window.getCurrentBackBufferIndex();
-	window.setForgroundAndShow();
-}
 
-GraphicsEngine::~GraphicsEngine() {}
+	factory->MakeWindowAssociation(window.native_handle(), DXGI_MWA_NO_ALT_ENTER);
+}
 
 void GraphicsEngine::endFrame(Window& window, ID3D12CommandList** const commandLists, const unsigned int numLists)
 {
@@ -262,17 +261,19 @@ SinglyLinked* GraphicsEngine::GpuFrameCompletionQueue::EventQueue::popAll() noex
 	return items;
 }
 
-void GraphicsEngine::stop()
+void GraphicsEngine::waitForGpuIdle()
 {
 	auto hr = directCommandQueue->Signal(directFence, fenceValue);
 	if (FAILED(hr)) throw HresultException(hr);
 
-	if (directFence->GetCompletedValue() < fenceValue)
+	if (directFence->GetCompletedValue() != fenceValue)
 	{
 		hr = directFence->SetEventOnCompletion(fenceValue, directFenceEvent);
 		if (FAILED(hr)) throw HresultException(hr);
 		WaitForSingleObject(directFenceEvent, INFINITE);
 	}
+
+	++fenceValue;
 }
 
 HANDLE GraphicsEngine::getFrameEvent()

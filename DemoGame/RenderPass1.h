@@ -92,13 +92,18 @@ public:
 		return get<virtualTextureFeedbackSubPassIndex>(data.subPasses());
 	}
 
-	void addMessage(RenderPassMessage& message, ThreadResources& threadResources)
+	void addMessage(LinkedTask& message, ThreadResources& threadResources)
 	{
 		data.addMessage(message, threadResources);
 	}
 
-	void addMessageFromBackground(RenderPassMessage& message, TaskShedular<ThreadResources>& taskShedular)
+	void addMessageFromBackground(LinkedTask& message, TaskShedular<ThreadResources>& taskShedular)
 	{
 		data.addMessageFromBackground(message, taskShedular);
+	}
+
+	void resize(unsigned int width, unsigned int height, Window& window, GraphicsEngine& graphicsEngine)
+	{
+		data.resize(Tuple{ width, height }, forward_as_tuple(width, height, graphicsEngine.depthStencilDescriptorHeap->GetCPUDescriptorHandleForHeapStart(), graphicsEngine), forward_as_tuple(window, graphicsEngine));
 	}
 };

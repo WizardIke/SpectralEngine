@@ -41,6 +41,7 @@ public:
 	bool spaceDown = false;
 	bool f1Down = false;
 	bool f2Down = false;
+	bool f11Down = false;
 	bool f1Toggled = false;
 
 	int previousMousePosX, previousMousePosY;

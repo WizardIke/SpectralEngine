@@ -72,6 +72,21 @@ bool InputHandler::keyDown(UINT keyCode, UINT, GlobalResources& globalResources)
 			globalResources.window.setVSync(!globalResources.window.getVSync());
 		}
 		return true;
+	case Keys::f11:
+		if (!f11Down)
+		{
+			f11Down = true;
+			auto& window = globalResources.window;
+			if (window.isFullscreen())
+			{
+				window.setWindowed();
+			}
+			else
+			{
+				window.setFullScreen();
+			}
+		}
+		return true;
 	default:
 		return false;
 	}
@@ -121,16 +136,13 @@ bool InputHandler::keyUp(UINT keyCode, UINT, GlobalResources&)
 		spaceDown = false;
 		return true;
 	case Keys::f1:
-		if(f1Down)
-		{
-			f1Down = false;
-		}
+		f1Down = false;
 		return true;
 	case Keys::f2:
-		if(f2Down)
-		{
-			f2Down = false;
-		}
+		f2Down = false;
+		return true;
+	case Keys::f11:
+		f11Down = false;
 		return true;
 	default:
 		return false;

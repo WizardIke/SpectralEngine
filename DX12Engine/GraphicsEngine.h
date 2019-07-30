@@ -141,7 +141,7 @@ public:
 		bool& isWarp,
 #endif
 		DXGI_ADAPTER_FLAG avoidedAdapterFlags = DXGI_ADAPTER_FLAG::DXGI_ADAPTER_FLAG_NONE);
-	~GraphicsEngine();
+	~GraphicsEngine() = default;
 
 	void endFrame(Window& window, ID3D12CommandList** ppCommandLists, unsigned int numLists);
 	void startFrame(void* tr);
@@ -150,7 +150,7 @@ public:
 	using Task = GpuFrameCompletionQueue::Task;
 	void executeWhenGpuFinishesCurrentFrame(Task& task);
 
-	void stop();
+	void waitForGpuIdle();
 	HANDLE getFrameEvent();
 };
 void operator+=(D3D12_CPU_DESCRIPTOR_HANDLE& handle, std::size_t offset);

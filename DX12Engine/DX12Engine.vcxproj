@@ -247,7 +247,7 @@
     <ClInclude Include="PrimaryTaskFromOtherThreadQueue.h" />
     <ClInclude Include="PriorityQueue.h" />
     <ClInclude Include="PsoLoader.h" />
-    <ClInclude Include="RenderPassMessage.h" />
+    <ClInclude Include="RenderToTexture.h" />
     <ClInclude Include="SinglyLinked.h" />
     <ClInclude Include="RunnableIOCompletionQueue.h" />
     <ClInclude Include="ThreadBarrier.h" />

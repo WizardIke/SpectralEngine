@@ -8,7 +8,7 @@
 #include <atomic>
 #include "GraphicsEngine.h"
 #include "ActorQueue.h"
-#include "RenderPassMessage.h"
+#include "LinkedTask.h"
 #include "PrimaryTaskFromOtherThreadQueue.h"
 #include "TaskShedular.h"
 class Window;
@@ -29,7 +29,7 @@ class RenderPass : private PrimaryTaskFromOtherThreadQueue::Task
 			SinglyLinked* temp = messageQueue.popAll();
 			while(temp != nullptr)
 			{
-				auto& message = *static_cast<RenderPassMessage*>(temp);
+				auto& message = *static_cast<LinkedTask*>(temp);
 				temp = temp->next; //Allow reuse of next
 				message.execute(message, tr);
 				updateBarrierCount();
@@ -102,7 +102,7 @@ public:
 	{}
 
 	template<class ThreadResources>
-	void addMessage(RenderPassMessage& message, ThreadResources& threadResources)
+	void addMessage(LinkedTask& message, ThreadResources& threadResources)
 	{
 		bool needsStarting = messageQueue.push(&message);
 		if(needsStarting)
@@ -116,7 +116,7 @@ public:
 	}
 
 	template<class ThreadResources>
-	void addMessageFromBackground(RenderPassMessage& message, TaskShedular<ThreadResources>& taskShedular)
+	void addMessageFromBackground(LinkedTask& message, TaskShedular<ThreadResources>& taskShedular)
 	{
 		bool needsStarting = messageQueue.push(&message);
 		if(needsStarting)
@@ -133,6 +133,28 @@ public:
 	Tuple<RenderSubPass_t...>& subPasses()
 	{
 		return mSubPasses;
+	}
+private:
+	template<class ArgsTuple, class SubPass, std::size_t... indices>
+	static void resizeSubPass(ArgsTuple&& args, SubPass& subPass, std::index_sequence<indices...>)
+	{
+		subPass.resize(get<indices>(args)...);
+	}
+
+	template<unsigned int i, unsigned int end, class ArgsTuplesTuple>
+	void resize([[maybe_unused]] ArgsTuplesTuple&& argsTuplesTuple)
+	{
+		if constexpr (i != end)
+		{
+			resizeSubPass(get<i>(std::forward<ArgsTuplesTuple>(argsTuplesTuple)), get<i>(mSubPasses), std::make_index_sequence<tuple_size_v<std::remove_reference_t<decltype(get<i>(argsTuplesTuple))>>>());
+			resize<i + 1u, end, ArgsTuplesTuple>(std::forward<ArgsTuplesTuple>(argsTuplesTuple));
+		}
+	}
+public:
+	template<class... ArgsTuples>
+	void resize(ArgsTuples&&... argsTuples)
+	{
+		resize<0, sizeof...(RenderSubPass_t), Tuple<ArgsTuples&&...>>(forward_as_tuple(std::forward<ArgsTuples>(argsTuples)...));
 	}
 
 	class ThreadLocal
@@ -298,7 +320,7 @@ public:
 				{
 					barriers[barrierCount].Flags = flags;
 					barriers[barrierCount].Type = D3D12_RESOURCE_BARRIER_TYPE::D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-					barriers[barrierCount].Transition.pResource = camera.getImage();
+					barriers[barrierCount].Transition.pResource = &camera.getImage();
 					barriers[barrierCount].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
 					barriers[barrierCount].Transition.StateBefore = stateBefore;
 					barriers[barrierCount].Transition.StateAfter = stateAfter;

@@ -223,4 +223,9 @@ public:
 	void deleteTexture(UnloadRequest& unloadRequest);
 	void allocateTexturePinned(AllocateTextureRequest& allocateRequest);
 	void allocateTexturePacked(AllocateTextureRequest& allocateRequest);
+
+	void executeBeforeProcessPageRequests(LinkedTask& task)
+	{
+		messageQueue.push(&task);
+	}
 };

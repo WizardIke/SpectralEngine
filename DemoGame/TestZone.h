@@ -146,7 +146,6 @@ class TestZoneFunctions
 
 		void update2(ThreadResources& threadResources, GlobalResources& globalResources)
 		{
-			const auto frameIndex = globalResources.graphicsEngine.frameIndex;
 			const auto commandList = threadResources.renderPass.colorSubPass().opaqueCommandList();
 			const auto vtFeedbackCommandList = threadResources.renderPass.virtualTextureFeedbackSubPass().firstCommandList();
 

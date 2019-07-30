@@ -385,9 +385,6 @@
     <ClInclude Include="WorldManagerStopRequest.h">
       <Filter>WorldStreaming</Filter>
     </ClInclude>
-    <ClInclude Include="RenderPassMessage.h">
-      <Filter>RenderPass</Filter>
-    </ClInclude>
     <ClInclude Include="FastIterationHashSet.h">
       <Filter>HashSets</Filter>
     </ClInclude>
@@ -423,6 +420,7 @@
     <ClInclude Include="DynamicTextRenderer.h">
       <Filter>TextRendering</Filter>
     </ClInclude>
+    <ClInclude Include="RenderToTexture.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DDSFileLoader.cpp">

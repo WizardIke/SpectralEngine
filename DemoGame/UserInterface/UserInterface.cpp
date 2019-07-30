@@ -84,7 +84,7 @@ void UserInterface::update2(ThreadResources& threadResources)
 		auto& subPass = globalResources.renderPass.virtualTextureFeedbackSubPass();
 		if (subPass.isInView())
 		{
-			auto image = (*globalResources.renderPass.virtualTextureFeedbackSubPass().cameras().begin()).getImage();
+			auto image = &(*globalResources.renderPass.virtualTextureFeedbackSubPass().cameras().begin()).getImage();
 
 			D3D12_RESOURCE_BARRIER barrier[2];
 			barrier[0].Type = D3D12_RESOURCE_BARRIER_TYPE::D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;

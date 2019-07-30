@@ -370,6 +370,20 @@ private:
 		}
 	}
 
+	static void swapOutElement(size_type previousBucket, size_type bucketIndex, Node* lookUp, size_type mask)
+	{
+		while (lookUp[bucketIndex].distanceFromIdealPosition > 1u)
+		{
+			const size_type newDistance = lookUp[bucketIndex].distanceFromIdealPosition - 1u;
+			lookUp[previousBucket].distanceFromIdealPosition = newDistance;
+			lookUp[previousBucket].indexInData = lookUp[bucketIndex].indexInData;
+
+			previousBucket = bucketIndex;
+			bucketIndex = (previousBucket + 1u) & mask;
+		}
+		lookUp[previousBucket].distanceFromIdealPosition = 0u;
+	}
+
 	size_type findLookUpIndex(const key_type& key)
 	{
 		if(impl.maxBucketCount == 0u) return std::numeric_limits<size_type>::max();
@@ -388,7 +402,7 @@ private:
 	}
 
 	/*
-	returns capacity if not found
+	returns size if not found
 	*/
 	size_type findIndexInData(const key_type& key)
 	{
@@ -404,7 +418,7 @@ private:
 			bucketIndex = (bucketIndex + (size_type)1u) & mask;
 			++distanceFromIdealBucket;
 		}
-		return impl.loadThreshold;
+		return impl.size;
 	}
 public:
 	FastIterationHashMap() noexcept = default;
@@ -559,21 +573,41 @@ public:
 		impl.values[size].~value_type();
 		impl.keys[size].~key_type();
 
-		while(impl.lookUp[bucket].distanceFromIdealPosition > 1u)
-		{
-			const size_type newDistance = impl.lookUp[bucket].distanceFromIdealPosition - 1u;
-			impl.lookUp[previousBucket].distanceFromIdealPosition = newDistance;
-			impl.lookUp[previousBucket].indexInData = impl.lookUp[bucket].indexInData;
+		swapOutElement(previousBucket, bucket, impl.lookUp, mask);
+	}
 
-			previousBucket = bucket;
-			bucket = (previousBucket + 1u) & mask;
+	/*
+	Cannot be called if the element isn't present
+	*/
+	value_type eraseAndGet(const key_type& key)
+	{
+		/**
+		* Shift items back into the new empty space until we reach an empty space or an item in its ideal position.
+		*/
+		size_type previousBucket = findLookUpIndex(key);
+		assert(previousBucket != std::numeric_limits<size_type>::max());
+
+		const auto mask = impl.maxBucketCount - (size_type)1u;
+		size_type bucket = (previousBucket + (size_type)1u) & mask;
+
+		const auto indexInData = impl.lookUp[previousBucket].indexInData;
+		value_type retVal = std::move(impl.values[indexInData]);
+		--impl.size;
+		const auto size = impl.size;
+		if (indexInData != size)
+		{
+			impl.values[indexInData] = std::move(impl.values[size]);
+			impl.keys[indexInData] = std::move(impl.keys[size]);
 		}
-		impl.lookUp[previousBucket].distanceFromIdealPosition = 0u;
+		impl.values[size].~value_type();
+		impl.keys[size].~key_type();
+
+		swapOutElement(previousBucket, bucket, impl.lookUp, mask);
+		return retVal;
 	}
 
 	iterator find(const key_type& key)
 	{
-		const size_type indexInData = findIndexInData(key);
-		return impl.values + indexInData;
+		return impl.values + findIndexInData(key);
 	}
 };

@@ -3,7 +3,20 @@
 #include "Window.h"
 #include "GraphicsEngine.h"
 
-MainCamera::MainCamera(Window& window, GraphicsEngine& graphicsEngine, float fieldOfView, const Transform& target) :
+static D3D12_SHADER_RESOURCE_VIEW_DESC getBackBufferSrvDesc()
+{
+	D3D12_SHADER_RESOURCE_VIEW_DESC backBufferSrvDesc;
+	backBufferSrvDesc.Format = DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM;
+	backBufferSrvDesc.ViewDimension = D3D12_SRV_DIMENSION::D3D12_SRV_DIMENSION_TEXTURE2D;
+	backBufferSrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	backBufferSrvDesc.Texture2D.MipLevels = 1u;
+	backBufferSrvDesc.Texture2D.MostDetailedMip = 0u;
+	backBufferSrvDesc.Texture2D.PlaneSlice = 0u;
+	backBufferSrvDesc.Texture2D.ResourceMinLODClamp = 0u;
+	return backBufferSrvDesc;
+}
+
+MainCamera::MainCamera(Window& window, GraphicsEngine& graphicsEngine, float fieldOfView1, const Transform& target) :
 	renderTargetViewDescriptorHeap(graphicsEngine.graphicsDevice, []()
 {
 	D3D12_DESCRIPTOR_HEAP_DESC renderTargetViewHeapDesc;
@@ -15,10 +28,10 @@ MainCamera::MainCamera(Window& window, GraphicsEngine& graphicsEngine, float fie
 }()),
 	mWidth(window.width()),
 	mHeight(window.height()),
-	mImage(window.getBuffer(graphicsEngine.frameIndex)),
 	depthSencilView(graphicsEngine.depthStencilDescriptorHeap->GetCPUDescriptorHandleForHeapStart()),
-	mProjectionMatrix(DirectX::XMMatrixPerspectiveFovLH(fieldOfView, /*screenAspect*/static_cast<float>(window.width()) / static_cast<float>(window.height()), screenNear, screenDepth)),
-	mLocation{ target.position, target.rotation }
+	mProjectionMatrix(DirectX::XMMatrixPerspectiveFovLH(fieldOfView1, /*screenAspect*/static_cast<float>(window.width()) / static_cast<float>(window.height()), screenNear, screenDepth)),
+	mLocation{ target },
+	fieldOfView(fieldOfView1)
 {
 	auto currentRenderTargetView = renderTargetViewDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
 	for (auto& renderTargetView : renderTargetViews)
@@ -27,14 +40,7 @@ MainCamera::MainCamera(Window& window, GraphicsEngine& graphicsEngine, float fie
 		currentRenderTargetView += graphicsEngine.renderTargetViewDescriptorSize;
 	}
 
-	D3D12_SHADER_RESOURCE_VIEW_DESC backBufferSrvDesc;
-	backBufferSrvDesc.Format = DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM;
-	backBufferSrvDesc.ViewDimension = D3D12_SRV_DIMENSION::D3D12_SRV_DIMENSION_TEXTURE2D;
-	backBufferSrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-	backBufferSrvDesc.Texture2D.MipLevels = 1u;
-	backBufferSrvDesc.Texture2D.MostDetailedMip = 0u;
-	backBufferSrvDesc.Texture2D.PlaneSlice = 0u;
-	backBufferSrvDesc.Texture2D.ResourceMinLODClamp = 0u;
+	D3D12_SHADER_RESOURCE_VIEW_DESC backBufferSrvDesc = getBackBufferSrvDesc();
 	auto shaderResourceViewCpuDescriptorHandle = graphicsEngine.mainDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
 	D3D12_CPU_DESCRIPTOR_HANDLE backbufferRenderTargetViewHandle = renderTargetViewDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
 	for (auto i = 0u; i != frameBufferCount; ++i)
@@ -46,8 +52,6 @@ MainCamera::MainCamera(Window& window, GraphicsEngine& graphicsEngine, float fie
 		graphicsEngine.graphicsDevice->CreateShaderResourceView(window.getBuffer(i), &backBufferSrvDesc,
 			shaderResourceViewCpuDescriptorHandle + backBufferTextures[i] * graphicsEngine.cbvAndSrvAndUavDescriptorSize);
 	}
-	
-	mFrustum.update(mProjectionMatrix, mLocation.toMatrix(), screenNear, screenDepth);
 }
 
 void MainCamera::setConstantBuffers(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress1, unsigned char*& constantBufferCpuAddress1)
@@ -57,18 +61,40 @@ void MainCamera::setConstantBuffers(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpu
 	constantBufferGpuAddress = constantBufferGpuAddress1;
 	constantBufferGpuAddress1 += bufferSizePS * frameBufferCount;
 
-	auto viewProjectionMatrix = mLocation.toMatrix() * mProjectionMatrix;
+	for (auto i = 0u; i != frameBufferCount; ++i)
+	{
+		auto constantBuffer = reinterpret_cast<CameraConstantBuffer*>(reinterpret_cast<unsigned char*>(constantBufferCpuAddress) + i * bufferSizePS);
+		constantBuffer->screenWidth = (float)mWidth;
+		constantBuffer->screenHeight = (float)mHeight;
+		constantBuffer->backBufferTexture = backBufferTextures[i];
+	}
+}
+
+void MainCamera::resize(Window& window, GraphicsEngine& graphicsEngine)
+{
+	mWidth = window.width();
+	mHeight = window.height();
+	float aspectRatio = static_cast<float>(window.width()) / static_cast<float>(window.height());
+	mProjectionMatrix = DirectX::XMMatrixPerspectiveFovLH(fieldOfView, aspectRatio, screenNear, screenDepth),
+
+	depthSencilView = graphicsEngine.depthStencilDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
+	D3D12_SHADER_RESOURCE_VIEW_DESC backBufferSrvDesc = getBackBufferSrvDesc();
+	auto shaderResourceViewCpuDescriptorHandle = graphicsEngine.mainDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
+	D3D12_CPU_DESCRIPTOR_HANDLE backbufferRenderTargetViewHandle = renderTargetViewDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
+	for (auto i = 0u; i != frameBufferCount; ++i)
+	{
+		graphicsEngine.graphicsDevice->CreateRenderTargetView(window.getBuffer(i), nullptr, backbufferRenderTargetViewHandle);
+		backbufferRenderTargetViewHandle.ptr += graphicsEngine.renderTargetViewDescriptorSize;
+
+		graphicsEngine.graphicsDevice->CreateShaderResourceView(window.getBuffer(i), &backBufferSrvDesc,
+			shaderResourceViewCpuDescriptorHandle + backBufferTextures[i] * graphicsEngine.cbvAndSrvAndUavDescriptorSize);
+	}
 
 	for (auto i = 0u; i != frameBufferCount; ++i)
 	{
 		auto constantBuffer = reinterpret_cast<CameraConstantBuffer*>(reinterpret_cast<unsigned char*>(constantBufferCpuAddress) + i * bufferSizePS);
-		constantBuffer->viewProjectionMatrix = viewProjectionMatrix;
-		constantBuffer->cameraPosition.x = mLocation.position.x();
-		constantBuffer->cameraPosition.y = mLocation.position.y();
-		constantBuffer->cameraPosition.z = mLocation.position.z();
 		constantBuffer->screenWidth = (float)mWidth;
 		constantBuffer->screenHeight = (float)mHeight;
-		constantBuffer->backBufferTexture = backBufferTextures[i];
 	}
 }
 
@@ -78,12 +104,6 @@ void MainCamera::destruct(GraphicsEngine& graphicsEngine)
 	{
 		graphicsEngine.descriptorAllocator.deallocate(backBufferTextures[i]);
 	}
-}
-
-void MainCamera::update(const Transform& target)
-{
-	mLocation.position = target.position;
-	mLocation.rotation = target.rotation;
 }
 
 void MainCamera::beforeRender(Window& window, GraphicsEngine& graphicsEngine)
@@ -115,7 +135,7 @@ void MainCamera::bindFirstThread(uint32_t frameIndex, ID3D12GraphicsCommandList*
 	commandList->ClearDepthStencilView(depthSencilView, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0u, nullptr);
 }
 
-D3D12_CPU_DESCRIPTOR_HANDLE MainCamera::getRenderTargetView(uint32_t frameIndex)
+D3D12_CPU_DESCRIPTOR_HANDLE MainCamera::getRenderTargetView(uint32_t frameIndex) const
 {
 	return renderTargetViews[frameIndex];
 }

@@ -212,9 +212,45 @@ LRESULT CALLBACK GlobalResources::windowCallback(HWND hwnd, UINT message, WPARAM
 		}
 		return 0;
 	}
+	case WM_SIZE:
+	{
+		auto& window = globalResources.window;
+		RECT clientRect;
+		GetClientRect(window.native_handle(), &clientRect);
+		unsigned int width = clientRect.right - clientRect.left;
+		unsigned int height = clientRect.bottom - clientRect.top;
+		if ((window.width() != width || window.height() != height) && wParam != SIZE_MINIMIZED)
+		{
+			globalResources.onResize(width, height);
+		}
+		if (wParam == SIZE_MAXIMIZED)
+		{
+			window.onStateChanged(Window::State::maximized);
+		}
+		else if (wParam == SIZE_RESTORED)
+		{
+			window.onStateChanged(Window::State::normal);
+		}
+	}
+	case WM_MOVE:
+	{
+		int xPos = (int)(short)LOWORD(lParam);
+		int yPos = (int)(short)HIWORD(lParam);
+		auto& window = globalResources.window;
+		window.onMove(xPos, yPos);
+	}
 	default:
 		return DefWindowProc(hwnd, message, wParam, lParam);
 	}
+}
+
+void GlobalResources::onResize(unsigned int width, unsigned int height)
+{
+	graphicsEngine.waitForGpuIdle();
+	window.onResize(width, height);
+	refractionRenderer.resize(width, height, graphicsEngine);
+	renderPass.resize(width, height, window, graphicsEngine);
+	graphicsEngine.frameIndex = window.getCurrentBackBufferIndex();
 }
 
 class GlobalResources::InitialResourceLoader : public TextureManager::TextureStreamingRequest, public PipelineStateObjects::PipelineLoader, private PrimaryTaskFromOtherThreadQueue::Task
@@ -274,18 +310,20 @@ static const wchar_t* const musicFiles[] =
 	L"../DemoGame/Music/Tropic_Strike.sound"
 };
 
-GlobalResources::GlobalResources() : GlobalResources(std::thread::hardware_concurrency(), true, false, false, new InitialResourceLoader(*this, TextureNames::Arial)) {}
+GlobalResources::GlobalResources() : GlobalResources(std::thread::hardware_concurrency(),
+	Window::State::fullscreen, GetSystemMetrics(SM_CXVIRTUALSCREEN), GetSystemMetrics(SM_CYVIRTUALSCREEN), GetSystemMetrics(SM_XVIRTUALSCREEN), GetSystemMetrics(SM_YVIRTUALSCREEN),
+	false, false, new InitialResourceLoader(*this, TextureNames::Arial)) {}
 
-GlobalResources::GlobalResources(const unsigned int numberOfThreads, bool fullScreen, bool vSync, bool enableGpuDebugging, void* initialResourceLoader
+GlobalResources::GlobalResources(const unsigned int numberOfThreads, Window::State windowState, int screenWidth, int screenHeight, int screenPositionX, int screenPositionY,
+	bool vSync, bool enableGpuDebugging, void* initialResourceLoader
 #ifndef NDEBUG
 	, bool isWarp
 #endif
 ) :
 	isRunning(false),
-	window(this, windowCallback, [fullScreen]() {if (fullScreen) { return GetSystemMetrics(SM_CXVIRTUALSCREEN); } else return GetSystemMetrics(SM_CXSCREEN) / 2; }(),
-		[fullScreen]() {if (fullScreen) { return GetSystemMetrics(SM_CYVIRTUALSCREEN); } else return GetSystemMetrics(SM_CYSCREEN) / 2; }(),
-		[fullScreen]() {if (fullScreen) { return 0; } else return GetSystemMetrics(SM_CXSCREEN) / 5; }(),
-		[fullScreen]() {if (fullScreen) { return 0; } else return GetSystemMetrics(SM_CYSCREEN) / 5; }(), fullScreen, vSync),
+	window(this, windowCallback, (unsigned int)screenWidth, (unsigned int)screenHeight, screenPositionX, screenPositionY,
+		((unsigned int)screenWidth) / 2u, ((unsigned int)screenHeight) / 2u, screenPositionX + screenWidth / 4, screenPositionY + screenHeight / 5,
+		windowState, vSync),
 	graphicsEngine(window, enableGpuDebugging, 
 #ifndef NDEBUG
 		isWarp,
@@ -340,25 +378,7 @@ GlobalResources::GlobalResources(const unsigned int numberOfThreads, bool fullSc
 	areas(this),
 	ambientMusic(soundEngine, asynchronousFileManager, musicFiles, sizeof(musicFiles) / sizeof(musicFiles[0])),
 	playerPosition(Vector3(59.0f, 4.0f, 10.0f), Vector3(0.0f, 0.2f, 0.0f)),
-	warpTexture(graphicsEngine.graphicsDevice, []()
-	{
-		D3D12_HEAP_PROPERTIES properties;
-		properties.Type = D3D12_HEAP_TYPE::D3D12_HEAP_TYPE_DEFAULT;
-		properties.VisibleNodeMask = 0u;
-		properties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY::D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
-		properties.CreationNodeMask = 0u;
-		properties.MemoryPoolPreference = D3D12_MEMORY_POOL::D3D12_MEMORY_POOL_UNKNOWN;
-		return properties;
-	}(), D3D12_HEAP_FLAGS::D3D12_HEAP_FLAG_NONE, window.getBuffer(0u)->GetDesc(), D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE),
-	warpTextureCpuDescriptorHeap(graphicsEngine.graphicsDevice, []()
-	{
-		D3D12_DESCRIPTOR_HEAP_DESC desc;
-		desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE::D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
-		desc.NumDescriptors = 1;
-		desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-		desc.NodeMask = 0;
-		return desc;
-	}()),
+	refractionRenderer(window.width(), window.height(), graphicsEngine),
 	readyToPresentEvent(nullptr, FALSE, FALSE, nullptr)
 {
 	areas.setPosition(playerPosition.location.position, 0u);
@@ -377,34 +397,12 @@ GlobalResources::GlobalResources(const unsigned int numberOfThreads, bool fullSc
 	userInterface.setConstantBuffers(constantBuffersGpuAddress, cpuConstantBuffer);
 	arial.setConstantBuffers(constantBuffersGpuAddress, cpuConstantBuffer);
 
-	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc;
-	srvDesc.Format = DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM;
-	srvDesc.ViewDimension = D3D12_SRV_DIMENSION::D3D12_SRV_DIMENSION_TEXTURE2D;
-	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-	srvDesc.Texture2D.MipLevels = 1u;
-	srvDesc.Texture2D.MostDetailedMip = 0u;
-	srvDesc.Texture2D.PlaneSlice = 0u;
-	srvDesc.Texture2D.ResourceMinLODClamp = 0u;
-	warpTextureDescriptorIndex = graphicsEngine.descriptorAllocator.allocate();
-	graphicsEngine.graphicsDevice->CreateShaderResourceView(warpTexture, &srvDesc, graphicsEngine.mainDescriptorHeap->GetCPUDescriptorHandleForHeapStart() +
-		graphicsEngine.cbvAndSrvAndUavDescriptorSize * warpTextureDescriptorIndex);
-
-	D3D12_RENDER_TARGET_VIEW_DESC warpTextureRtvDesc;
-	warpTextureRtvDesc.Format = DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM;
-	warpTextureRtvDesc.ViewDimension = D3D12_RTV_DIMENSION::D3D12_RTV_DIMENSION_TEXTURE2D;
-	warpTextureRtvDesc.Texture2D.MipSlice = 0u;
-	warpTextureRtvDesc.Texture2D.PlaneSlice = 0u;
-	graphicsEngine.graphicsDevice->CreateRenderTargetView(warpTexture, &warpTextureRtvDesc, warpTextureCpuDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
-
-#ifndef NDEBUG
-	warpTexture->SetName(L"Warp texture");
-	warpTextureCpuDescriptorHeap->SetName(L"Warp texture descriptor heap");
-#endif
+	window.setForgroundAndShow();
 }
 
 GlobalResources::~GlobalResources()
 {
-	graphicsEngine.descriptorAllocator.deallocate(warpTextureDescriptorIndex);
+	refractionRenderer.destruct(graphicsEngine);
 	mainCamera().destruct(graphicsEngine);
 	arial.destruct(mainThreadResources, textureManager, TextureNames::Arial);
 }
@@ -418,7 +416,6 @@ bool GlobalResources::update()
 	}
 	timer.update();
 	playerPosition.update(timer.frameTime(), inputHandler.aDown, inputHandler.dDown, inputHandler.wDown, inputHandler.sDown, inputHandler.spaceDown);
-	mainCamera().update(playerPosition.location);
 
 	return false;
 }
@@ -489,7 +486,7 @@ bool GlobalResources::quit(ThreadResources& threadResources, void* context)
 	threadResources.taskShedular.stop(globalResources.taskShedular, [&globalResources, &threadResources]()
 		{
 			//flush the command queues so command allocators and other gpu resources can be freed.
-			globalResources.graphicsEngine.stop();
+			globalResources.graphicsEngine.waitForGpuIdle();
 			globalResources.streamingManager.stop(threadResources.streamingManager, globalResources.graphicsEngine.getFrameEvent());
 		});
 	return true;

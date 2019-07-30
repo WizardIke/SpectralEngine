@@ -22,7 +22,7 @@
 #include "Areas.h"
 #include "AmbientMusic.h"
 #include <PlayerPosition.h>
-#include <D3D12DescriptorHeap.h>
+#include <RenderToTexture.h>
 #include <Win32Event.h>
 #include <atomic>
 #include <EntityGenerator.h>
@@ -35,7 +35,8 @@ class GlobalResources
 	class Unloader;
 	friend class Unloader;
 
-	GlobalResources(unsigned int numberOfThreads, bool fullScreen, bool vSync, bool enableGpuDebugging, void*
+	GlobalResources(const unsigned int numberOfThreads, Window::State windowState, int screenWidth, int screenHeight, int screenPositionX, int screenPositionY,
+		bool vSync, bool enableGpuDebugging, void*
 #ifndef NDEBUG
 		, bool isWarp = false
 #endif
@@ -47,6 +48,8 @@ class GlobalResources
 	bool update();
 
 	void beforeRender();
+
+	void onResize(unsigned int width, unsigned int height);
 
 	static void primaryThreadFunction(unsigned int i, unsigned int primaryThreadCount, GlobalResources& globalReources);
 	static void backgroundThreadFunction(unsigned int i, unsigned int threadCount, GlobalResources& globalReources);
@@ -83,9 +86,7 @@ public:
 	Areas areas;
 	AmbientMusic ambientMusic;
 	PlayerPosition playerPosition;
-	D3D12Resource warpTexture;
-	unsigned int warpTextureDescriptorIndex;
-	D3D12DescriptorHeap warpTextureCpuDescriptorHeap;
+	RenderToTexture refractionRenderer;
 	Event readyToPresentEvent;
 	std::atomic<unsigned int> readyToPresentCount = 0u;
 	EntityGenerator entityGenerator;

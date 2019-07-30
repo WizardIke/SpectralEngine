@@ -14,14 +14,25 @@ class GraphicsEngine;
 class Window
 {
 	friend GraphicsEngine;
-	static constexpr auto applicationName = L"DX12Engine";
+	static constexpr auto applicationName = L"Sprectral Engine";
 	constexpr static float fieldOfView = 3.141592654f / 4.0f;
-
+public:
+	enum class State
+	{
+		fullscreen,
+		maximized,
+		normal
+	};
+private:
 	HWND windowHandle;
+	DWORD style;
 	DXGISwapChain4 swapChain;
 	D3D12Resource buffers[frameBufferCount];
-	unsigned int mwidth, mheight;
-	bool fullScreen;
+	unsigned int fullscreenWidth, fullscreenHeight, fullscreenPositionX, fullscreenPositionY;
+	unsigned int windowedWidth, windowedHeight, windowedPositionX, windowedPositionY;
+	unsigned int mWidth, mHeight, mPositionX, mPositionY;
+	State windowedState;
+	State state;
 	bool vSync;
 
 	void createSwapChain(GraphicsEngine& graphicsEngine, IDXGIFactory5* dxgiFactory);
@@ -29,19 +40,29 @@ class Window
 	void shutdown();
 public:
 	Window(void* callbackData, LRESULT CALLBACK WndProc(HWND hwnd, UINT umessage, WPARAM wparam, LPARAM lparam),
-		unsigned int width, unsigned int height, int positionX, int positionY, bool fullScreen, bool vSync);
+		unsigned int fullscreenWidth, unsigned int fullscreenHeight, int fullscreenPositionX, int fullscreenPositionY,
+		unsigned int windowedWidth, unsigned int windowedHeight, unsigned int windowedPositionX, unsigned int windowedPositionY,
+		State state, bool vSync);
 	~Window();
 
-	void resize(unsigned int width, unsigned int height, int positionX, int positionY);
+	void onMove(int posX, int posY);
+	void onResize(unsigned int width, unsigned int height);
+	void onStateChanged(State state);
+
 	void setForgroundAndShow();
 
 	unsigned int width() const
 	{
-		return mwidth;
+		return mWidth;
 	}
 	unsigned int height() const
 	{
-		return mheight;
+		return mHeight;
+	}
+
+	bool isFullscreen() const
+	{
+		return state == State::fullscreen;
 	}
 
 	HWND native_handle()

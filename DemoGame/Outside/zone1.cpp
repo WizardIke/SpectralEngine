@@ -51,11 +51,8 @@ namespace
 		Mesh* cubeWithPos;
 		D3D12Resource perObjectConstantBuffers;
 		unsigned char* perObjectConstantBuffersCpuAddress;
-		D3D12Resource renderTargetTexture;
-		D3D12_RESOURCE_STATES waterRenderTargetTextureState;
-		D3D12DescriptorHeap renderTargetTexturesDescriptorHeap;
+		//D3D12_RESOURCE_STATES waterRenderTargetTextureState;
 		unsigned long zoneEntity; //used to attach components e.g. cameras
-		unsigned int reflectionCameraBackBuffer;
 
 		Light light;
 		PointLight pointLights[numPointLights];
@@ -96,61 +93,11 @@ namespace
 			resourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 			resourceDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
 			return resourceDesc;
-		}(), D3D12_RESOURCE_STATE_GENERIC_READ),
-
-			renderTargetTexturesDescriptorHeap(globalResources.graphicsEngine.graphicsDevice, []()
+		}(), D3D12_RESOURCE_STATE_GENERIC_READ)
 		{
-			D3D12_DESCRIPTOR_HEAP_DESC descriptorheapDesc;
-			descriptorheapDesc.NumDescriptors = 1u;
-			descriptorheapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE; //RTVs aren't shader visable
-			descriptorheapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
-			descriptorheapDesc.NodeMask = 0u;
-			return descriptorheapDesc;
-		}()),
-			renderTargetTexture(globalResources.graphicsEngine.graphicsDevice, []()
-				{
-					D3D12_HEAP_PROPERTIES heapProperties;
-					heapProperties.Type = D3D12_HEAP_TYPE_DEFAULT;
-					heapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
-					heapProperties.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
-					heapProperties.VisibleNodeMask = 0u;
-					heapProperties.CreationNodeMask = 0u;
-					return heapProperties;
-				}(),
-				D3D12_HEAP_FLAG_ALLOW_ALL_BUFFERS_AND_TEXTURES,
-				[&window = globalResources.window]()
-					{
-						D3D12_RESOURCE_DESC resourcesDesc;
-						resourcesDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-						resourcesDesc.Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
-						resourcesDesc.Width = window.width();
-						resourcesDesc.Height = window.height();
-						resourcesDesc.DepthOrArraySize = 1u;
-						resourcesDesc.MipLevels = 1u;
-						resourcesDesc.Format = DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM;
-						resourcesDesc.SampleDesc = { 1u, 0u };
-						resourcesDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
-						resourcesDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
-						return resourcesDesc;
-					}(), 
-				D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
-				[]()
-					{
-						D3D12_CLEAR_VALUE clearValue;
-						clearValue.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-						clearValue.Color[0] = 0.0f;
-						clearValue.Color[1] = 0.0f;
-						clearValue.Color[2] = 0.0f;
-						clearValue.Color[3] = 1.0f;
-						return clearValue;
-					}())
-		{
-#ifndef NDEBUG
-			renderTargetTexturesDescriptorHeap->SetName(L"Zone 1 Render Target texture descriptor heap");
-#endif
 			pointLights[0u] = PointLight{ Vector4{ 20.0f, 2.0f, 2.0f, 1.0f }, Vector4{ 52.0f, 5.0f, 76.0f, 1.f } };
 			pointLights[1u] = PointLight{ Vector4{ 2.0f, 20.0f, 2.0f, 1.0f }, Vector4{ 76.0f, 5.0f, 76.0f, 1.f } };
-			pointLights[2u] = PointLight{ Vector4{ 2.0f, 2.0f, 20.0f, 1.0f },Vector4{ 52.0f, 5.0f, 52.0f, 1.f } };
+			pointLights[2u] = PointLight{ Vector4{ 2.0f, 2.0f, 20.0f, 1.0f }, Vector4{ 52.0f, 5.0f, 52.0f, 1.f } };
 			pointLights[3u] = PointLight{ Vector4{ 20.0f, 20.0f, 20.0f, 1.0f }, Vector4{ 76.0f, 5.0f, 52.0f, 1.f } };
 
 			D3D12_RANGE readRange{ 0u, 0u };
@@ -159,58 +106,21 @@ namespace
 			auto PerObjectConstantBuffersGpuAddress = perObjectConstantBuffers->GetGPUVirtualAddress();
 			unsigned char* cpuConstantBuffer = perObjectConstantBuffersCpuAddress;
 
-#ifndef NDEBUG
-			std::wstring name = L" zone1 render to texture 0";
-			renderTargetTexture->SetName(name.c_str());
-#endif // NDEBUG
-
-			{
-				D3D12_RENDER_TARGET_VIEW_DESC HDRenderTargetViewDesc;
-				HDRenderTargetViewDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-				HDRenderTargetViewDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
-				HDRenderTargetViewDesc.Texture2D.MipSlice = 0u;
-				HDRenderTargetViewDesc.Texture2D.PlaneSlice = 0u;
-
-				auto shaderResourceViewCpuDescriptorHandle = globalResources.graphicsEngine.mainDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
-				auto srvSize = globalResources.graphicsEngine.cbvAndSrvAndUavDescriptorSize;
-				auto tempRenderTargetTexturesCpuDescriptorHandle = renderTargetTexturesDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
-
-				D3D12_SHADER_RESOURCE_VIEW_DESC backBufferSrvDesc;
-				backBufferSrvDesc.Format = DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM;
-				backBufferSrvDesc.ViewDimension = D3D12_SRV_DIMENSION::D3D12_SRV_DIMENSION_TEXTURE2D;
-				backBufferSrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-				backBufferSrvDesc.Texture2D.MipLevels = 1u;
-				backBufferSrvDesc.Texture2D.MostDetailedMip = 0u;
-				backBufferSrvDesc.Texture2D.PlaneSlice = 0u;
-				backBufferSrvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
-
-				globalResources.graphicsEngine.graphicsDevice->CreateRenderTargetView(renderTargetTexture, &HDRenderTargetViewDesc, tempRenderTargetTexturesCpuDescriptorHandle);
-
-				reflectionCameraBackBuffer = globalResources.graphicsEngine.descriptorAllocator.allocate();
-				globalResources.graphicsEngine.graphicsDevice->CreateShaderResourceView(renderTargetTexture, &backBufferSrvDesc,
-					shaderResourceViewCpuDescriptorHandle + reflectionCameraBackBuffer * srvSize);
-			}
-
 			zoneEntity = globalResources.entityGenerator.generate();
+			unsigned int reflectionCameraBackBufferIndex;
 			{
-				auto tempRenderTargetTexturesCpuDescriptorHandle = renderTargetTexturesDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
 				auto depthStencilHandle = globalResources.graphicsEngine.depthStencilDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
 				Transform transform = globalResources.mainCamera().transform().reflection(waterModel.reflectionHeight());
 
-				uint32_t backBuffers[frameBufferCount];
-				for (auto j = 0u; j != frameBufferCount; ++j)
-				{
-					backBuffers[j] = reflectionCameraBackBuffer;
-				}
-				AddReflectionCamera* addCameraRequest = new AddReflectionCamera(zoneEntity, ReflectionCamera(
-					renderTargetTexture, tempRenderTargetTexturesCpuDescriptorHandle, depthStencilHandle, globalResources.window.width(), globalResources.window.height(), PerObjectConstantBuffersGpuAddress,
-					cpuConstantBuffer, 0.25f * 3.141f, transform, backBuffers), [](auto& request, void*)
+				AddReflectionCamera* addCameraRequest = new AddReflectionCamera(zoneEntity, ReflectionCamera(depthStencilHandle, globalResources.window.width(), globalResources.window.height(), PerObjectConstantBuffersGpuAddress,
+					cpuConstantBuffer, 0.25f * 3.141f, transform, globalResources.graphicsEngine), [](auto& request, void*)
 					{
 						AddReflectionCamera& addRequest = static_cast<AddReflectionCamera&>(request);
 						auto& zone = addRequest.zone;
 						delete &addRequest;
 						componentUploaded(zone);
 					}, zone);
+				reflectionCameraBackBufferIndex = addCameraRequest->camera.getShaderResourceViewIndex();
 				globalResources.renderPass.renderToTextureSubPass().addCameraFromBackground(*addCameraRequest, globalResources.renderPass, globalResources.taskShedular);
 			}
 
@@ -220,10 +130,10 @@ namespace
 
 			wallModel.setConstantBuffers(PerObjectConstantBuffersGpuAddress, cpuConstantBuffer);
 
-			waterModel.setConstantBuffers(PerObjectConstantBuffersGpuAddress, cpuConstantBuffer, reflectionCameraBackBuffer,
-				globalResources.warpTextureDescriptorIndex);
+			waterModel.setConstantBuffers(PerObjectConstantBuffersGpuAddress, cpuConstantBuffer, reflectionCameraBackBufferIndex,
+				globalResources.refractionRenderer.shaderResourceViewDescriptorIndex());
 
-			iceModel.setConstantBuffers(PerObjectConstantBuffersGpuAddress, cpuConstantBuffer, globalResources.warpTextureDescriptorIndex);
+			iceModel.setConstantBuffers(PerObjectConstantBuffersGpuAddress, cpuConstantBuffer, globalResources.refractionRenderer.shaderResourceViewDescriptorIndex());
 
 			fireModel1.setConstantBuffers(PerObjectConstantBuffersGpuAddress, cpuConstantBuffer);
 
@@ -460,7 +370,7 @@ namespace
 				auto& camera = *globalResources.renderPass.renderToTextureSubPass().findCamera(zoneEntity);
 				const auto& frustum = camera.frustum();
 				const auto commandList = threadResources.renderPass.renderToTextureSubPass().firstCommandList();
-				auto warpTextureCpuDescriptorHandle = globalResources.warpTextureCpuDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
+				auto warpTextureCpuDescriptorHandle = globalResources.refractionRenderer.renderTargetDescriptorHandle();
 				auto backBufferRenderTargetCpuHandle = camera.getRenderTargetView();
 
 				commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
@@ -471,14 +381,14 @@ namespace
 				D3D12_RESOURCE_BARRIER copyStartBarriers[2u];
 				copyStartBarriers[0u].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
 				copyStartBarriers[0u].Flags = D3D12_RESOURCE_BARRIER_FLAGS::D3D12_RESOURCE_BARRIER_FLAG_NONE;
-				copyStartBarriers[0u].Transition.pResource = globalResources.warpTexture;
+				copyStartBarriers[0u].Transition.pResource = &globalResources.refractionRenderer.resource();
 				copyStartBarriers[0u].Transition.StateBefore = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
 				copyStartBarriers[0u].Transition.StateAfter = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET;
 				copyStartBarriers[0u].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
 
 				copyStartBarriers[1u].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
 				copyStartBarriers[1u].Flags = D3D12_RESOURCE_BARRIER_FLAGS::D3D12_RESOURCE_BARRIER_FLAG_NONE;
-				copyStartBarriers[1u].Transition.pResource = camera.getImage();
+				copyStartBarriers[1u].Transition.pResource = &camera.getImage();
 				copyStartBarriers[1u].Transition.StateBefore = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET;
 				copyStartBarriers[1u].Transition.StateAfter = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
 				copyStartBarriers[1u].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
@@ -486,7 +396,7 @@ namespace
 				D3D12_RESOURCE_BARRIER copyEndBarriers[2u];
 				copyEndBarriers[0u].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
 				copyEndBarriers[0u].Flags = D3D12_RESOURCE_BARRIER_FLAGS::D3D12_RESOURCE_BARRIER_FLAG_NONE;
-				copyEndBarriers[0u].Transition.pResource = globalResources.warpTexture;
+				copyEndBarriers[0u].Transition.pResource = &globalResources.refractionRenderer.resource();
 				copyEndBarriers[0u].Transition.StateBefore = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET;
 				copyEndBarriers[0u].Transition.StateAfter = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
 				copyEndBarriers[0u].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
@@ -539,12 +449,12 @@ namespace
 			const auto transparantCommandList = threadResources.renderPass.colorSubPass().transparentCommandList();
 			auto depthStencilHandle = globalResources.graphicsEngine.depthStencilDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
 			auto backBufferRenderTargetCpuHandle = globalResources.mainCamera().getRenderTargetView(frameIndex);
-			auto warpTextureCpuDescriptorHandle = globalResources.warpTextureCpuDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
+			auto warpTextureCpuDescriptorHandle = globalResources.refractionRenderer.renderTargetDescriptorHandle();
 
 			D3D12_RESOURCE_BARRIER copyStartBarriers[2u];
 			copyStartBarriers[0u].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
 			copyStartBarriers[0u].Flags = D3D12_RESOURCE_BARRIER_FLAGS::D3D12_RESOURCE_BARRIER_FLAG_NONE;
-			copyStartBarriers[0u].Transition.pResource = globalResources.warpTexture;
+			copyStartBarriers[0u].Transition.pResource = &globalResources.refractionRenderer.resource();
 			copyStartBarriers[0u].Transition.StateBefore = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
 			copyStartBarriers[0u].Transition.StateAfter = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET;
 			copyStartBarriers[0u].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
@@ -559,7 +469,7 @@ namespace
 			D3D12_RESOURCE_BARRIER copyEndBarriers[2u];
 			copyEndBarriers[0u].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
 			copyEndBarriers[0u].Flags = D3D12_RESOURCE_BARRIER_FLAGS::D3D12_RESOURCE_BARRIER_FLAG_NONE;
-			copyEndBarriers[0u].Transition.pResource = globalResources.warpTexture;
+			copyEndBarriers[0u].Transition.pResource = &globalResources.refractionRenderer.resource();
 			copyEndBarriers[0u].Transition.StateBefore = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET;
 			copyEndBarriers[0u].Transition.StateAfter = D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
 			copyEndBarriers[0u].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
@@ -723,9 +633,7 @@ namespace
 		void destruct(Zone<ThreadResources>& zone, ThreadResources& threadResources)
 		{
 			auto& globalResources = *static_cast<GlobalResources*>(zone.context);
-			auto& graphicsEngine = globalResources.graphicsEngine;
-			
-			graphicsEngine.descriptorAllocator.deallocate(reflectionCameraBackBuffer);
+
 			perObjectConstantBuffers->Unmap(0u, nullptr);
 
 			auto hdUnloader = HdUnloader::create(zone);
@@ -1009,29 +917,34 @@ namespace
 				auto zoneEntity = resource->zoneEntity;
 				RemoveReflectionCameraRequest* removeReflectionCameraRequest = new RemoveReflectionCameraRequest(zoneEntity,
 					[](RenderPass1::RenderToTextureSubPass::RemoveCamerasRequest& req, void* tr)
-				{
-					auto& request = static_cast<RemoveReflectionCameraRequest&>(req);
-					auto& zone = request.zone;
-					delete &request;
-
-					ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
-					threadResources.taskShedular.pushPrimaryTask(1u, { &zone, [](void* requester, ThreadResources&)
 					{
-						auto& zone = *static_cast<Zone<ThreadResources>*>(requester);
-						GraphicsEngine& graphicsEngine = static_cast<GlobalResources*>(zone.context)->graphicsEngine;
-						zone.executeWhenGpuFinishesCurrentFrame(graphicsEngine, [](LinkedTask& task, void* tr)
+						auto& request = static_cast<RemoveReflectionCameraRequest&>(req);
+						ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
+						threadResources.taskShedular.pushPrimaryTask(1u, { &request, [](void* requester, ThreadResources&)
 						{
-							auto& zone = Zone<ThreadResources>::from(task);
-							ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
-							threadResources.taskShedular.pushBackgroundTask({ &zone, [](void* context, ThreadResources& threadResources)
+							auto& request = *static_cast<RemoveReflectionCameraRequest*>(requester);
+							auto& zone = request.zone;
+							GraphicsEngine& graphicsEngine = static_cast<GlobalResources*>(zone.context)->graphicsEngine;
+
+							request.execute = [](LinkedTask& task, void* tr)
 							{
-								Zone<ThreadResources>& zone = *static_cast<Zone<ThreadResources>*>(context);
-								auto resource = static_cast<HDResources*>(zone.oldData);
-								resource->destruct(zone, threadResources);
-							} });
-						});
-					} });
-				}, zone);
+								RemoveReflectionCameraRequest& request = static_cast<RemoveReflectionCameraRequest&>(task);
+								auto& zone = request.zone;
+								GraphicsEngine& graphicsEngine = static_cast<GlobalResources*>(zone.context)->graphicsEngine;
+								request.camera.destruct(graphicsEngine);
+								delete &request;
+
+								ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
+								threadResources.taskShedular.pushBackgroundTask({ &zone, [](void* context, ThreadResources& threadResources)
+								{
+									Zone<ThreadResources>& zone = *static_cast<Zone<ThreadResources>*>(context);
+									auto resource = static_cast<HDResources*>(zone.oldData);
+									resource->destruct(zone, threadResources);
+								} });
+							};
+							graphicsEngine.executeWhenGpuFinishesCurrentFrame(request);
+						} });
+					}, zone);
 				auto& globalResources = *static_cast<GlobalResources*>(zone.context);
 				globalResources.renderPass.renderToTextureSubPass().removeCamera(*removeReflectionCameraRequest, globalResources.renderPass, threadResources);
 				break;

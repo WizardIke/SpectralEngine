@@ -4,13 +4,35 @@
 #include <string>
 #endif
 
+static constexpr DWORD makeBorderlessStyle(DWORD style)
+{
+	return style & ~((DWORD)WS_CAPTION | (DWORD)WS_MAXIMIZEBOX | (DWORD)WS_MINIMIZEBOX | (DWORD)WS_SYSMENU | (DWORD)WS_THICKFRAME);
+}
+
 Window::Window(void* callbackData, LRESULT CALLBACK WndProc(HWND hwnd, UINT umessage, WPARAM wparam, LPARAM lparam),
-	unsigned int width, unsigned int height, int positionX, int positionY, bool fullScreen, bool vSync) : fullScreen(fullScreen), vSync(vSync)
+	unsigned int fullscreenWidth, unsigned int fullscreenHeight, int fullscreenPositionX, int fullscreenPositionY,
+	unsigned int windowedWidth, unsigned int windowedHeight, unsigned int windowedPositionX, unsigned int windowedPositionY,
+	State state, bool vSync) :
+	state(state),
+	windowedState(state == State::fullscreen ? State::normal : state),
+	vSync(vSync),
+	mWidth(state == State::fullscreen ? fullscreenWidth : windowedWidth),
+	mHeight(state == State::fullscreen ? fullscreenHeight : windowedHeight),
+	mPositionX(state == State::fullscreen ? fullscreenPositionX : windowedPositionX),
+	mPositionY(state == State::fullscreen ? fullscreenPositionY : windowedPositionY),
+	windowedWidth(windowedWidth),
+	windowedHeight(windowedHeight),
+	windowedPositionX(windowedPositionX),
+	windowedPositionY(windowedPositionY),
+	fullscreenWidth(fullscreenWidth),
+	fullscreenHeight(fullscreenHeight),
+	fullscreenPositionX(fullscreenPositionX),
+	fullscreenPositionY(fullscreenPositionY)
 {
 	auto instanceHandle = GetModuleHandleW(nullptr);
 
 	WNDCLASSEX windowClassDesc;
-	windowClassDesc.style = CS_HREDRAW | CS_VREDRAW | CS_OWNDC;
+	windowClassDesc.style = CS_HREDRAW | CS_VREDRAW;
 	windowClassDesc.lpfnWndProc = WndProc;
 	windowClassDesc.cbClsExtra = 0;
 	windowClassDesc.cbWndExtra = 0;
@@ -26,25 +48,67 @@ Window::Window(void* callbackData, LRESULT CALLBACK WndProc(HWND hwnd, UINT umes
 	RegisterClassExW(&windowClassDesc);
 
 	// Create the window with the screen settings and get the handle to it.
-	windowHandle = CreateWindowExW(WS_EX_APPWINDOW, applicationName, applicationName, WS_CLIPSIBLINGS | WS_CLIPCHILDREN | WS_POPUP, positionX, positionY, width, height, nullptr, nullptr, instanceHandle, callbackData);
-
-	mwidth = width;
-	mheight = height;
+	style = WS_OVERLAPPEDWINDOW;
+	auto currentStyle = state == State::fullscreen ? makeBorderlessStyle(style) : style;
+	auto extendedStyle = WS_EX_APPWINDOW;
+#ifdef NDEBUG //topmost windows cover the window used for debugging
+	if (state == State::fullscreen)
+	{
+		extendedStyle |= WS_EX_TOPMOST;
+	}
+#endif
+	windowHandle = CreateWindowExW(extendedStyle, applicationName, applicationName, currentStyle, mPositionX, mPositionY, mWidth, mHeight, nullptr, nullptr, instanceHandle, callbackData);
 }
 
-void Window::resize(unsigned int width, unsigned int height, int positionX, int positionY)
+void Window::onResize(unsigned int width, unsigned int height)
 {
-	mwidth = width;
-	mheight = height;
+	mWidth = width;
+	mHeight = height;
 
-	MoveWindow(windowHandle, positionX, positionY, width, height, FALSE);
+	for (unsigned int i = 0u; i != frameBufferCount; ++i)
+	{
+		buffers[i] = nullptr;
+	}
+	swapChain->ResizeBuffers(0u, width, height, DXGI_FORMAT_UNKNOWN, 0u);
 
-	swapChain->ResizeBuffers(0u, 0u, 0u, DXGI_FORMAT::DXGI_FORMAT_UNKNOWN, 0u);
+	for (unsigned int i = 0u; i != frameBufferCount; ++i)
+	{
+		HRESULT hr = swapChain->GetBuffer(i, IID_PPV_ARGS(&buffers[i].set()));
+		assert(hr == S_OK);
+
+#ifndef NDEBUG
+		std::wstring name = L"backbuffer render target ";
+		name += std::to_wstring(i);
+		buffers[i]->SetName(name.c_str());
+#endif
+	}
+}
+
+void Window::onMove(int posX, int posY)
+{
+	mPositionX = posX;
+	mPositionY = posY;
+}
+
+void Window::onStateChanged(State newState)
+{
+	if (state != State::fullscreen)
+	{
+		state = newState;
+	}
 }
 
 void Window::setForgroundAndShow()
 {
-	ShowWindow(windowHandle, SW_SHOW);
+	if (state == State::normal)
+	{
+		ShowWindow(windowHandle, SW_SHOWNORMAL);
+	}
+	else
+	{
+		ShowWindow(windowHandle, SW_SHOWMAXIMIZED);
+	}
+	
 	SetForegroundWindow(windowHandle);
 	SetFocus(windowHandle);
 	ShowCursor(FALSE);
@@ -67,10 +131,6 @@ void Window::destroy()
 void Window::shutdown()
 {
 	ShowCursor(TRUE);
-	if (fullScreen)
-	{
-		ChangeDisplaySettingsW(nullptr, 0u);
-	}
 	DestroyWindow(windowHandle);
 	UnregisterClassW(applicationName, nullptr);
 }
@@ -78,19 +138,15 @@ void Window::shutdown()
 void Window::createSwapChain(GraphicsEngine& graphicsEngine, IDXGIFactory5* dxgiFactory)
 {
 	DXGI_SWAP_CHAIN_FULLSCREEN_DESC fullscreenDesc;
-	DXGI_SWAP_CHAIN_FULLSCREEN_DESC* fullscreenDescPointer = nullptr;
-	if (fullScreen)
-	{
-		fullscreenDesc.RefreshRate.Numerator = 0u;
-		fullscreenDesc.RefreshRate.Denominator = 1u;
-		fullscreenDesc.Scaling = DXGI_MODE_SCALING_UNSPECIFIED;
-		fullscreenDesc.ScanlineOrdering = DXGI_MODE_SCANLINE_ORDER_UNSPECIFIED;
-		fullscreenDesc.Windowed = FALSE;
-		fullscreenDescPointer = &fullscreenDesc;
-	}
+	fullscreenDesc.RefreshRate.Numerator = 0u;
+	fullscreenDesc.RefreshRate.Denominator = 1u;
+	fullscreenDesc.Scaling = DXGI_MODE_SCALING_UNSPECIFIED;
+	fullscreenDesc.ScanlineOrdering = DXGI_MODE_SCANLINE_ORDER_UNSPECIFIED;
+	fullscreenDesc.Windowed = TRUE;
+
 	DXGI_SWAP_CHAIN_DESC1 swapChainDesc;
-	swapChainDesc.Width = mwidth;
-	swapChainDesc.Height = mheight;
+	swapChainDesc.Width = mWidth;
+	swapChainDesc.Height = mHeight;
 	swapChainDesc.BufferCount = frameBufferCount;
 	swapChainDesc.AlphaMode = DXGI_ALPHA_MODE_UNSPECIFIED;
 	swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
@@ -102,7 +158,7 @@ void Window::createSwapChain(GraphicsEngine& graphicsEngine, IDXGIFactory5* dxgi
 	swapChainDesc.Stereo = FALSE;
 	swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
 
-	swapChain = DXGISwapChain4(dxgiFactory, graphicsEngine.directCommandQueue, windowHandle, &swapChainDesc, fullscreenDescPointer, nullptr);
+	swapChain = DXGISwapChain4(dxgiFactory, graphicsEngine.directCommandQueue, windowHandle, &swapChainDesc, &fullscreenDesc, nullptr);
 
 	for (unsigned int i = 0u; i != frameBufferCount; ++i)
 	{
@@ -135,14 +191,35 @@ void Window::present()
 
 void Window::setFullScreen()
 {
-	ChangeDisplaySettingsW(nullptr, CDS_FULLSCREEN);
-	swapChain->SetFullscreenState(TRUE, nullptr);
+	// Make the window borderless.
+	SetWindowLong(windowHandle, GWL_STYLE, makeBorderlessStyle(style));
+
+	windowedWidth = mWidth;
+	windowedHeight = mHeight;
+	windowedPositionX = mPositionX;
+	windowedPositionY = mPositionY;
+	windowedState = state;
+	state = State::fullscreen;
+	SetWindowPos(windowHandle,
+#ifdef NDEBUG //topmost windows cover the window used for debugging
+		HWND_TOPMOST,
+#else
+		HWND_NOTOPMOST,
+#endif
+		fullscreenPositionX, fullscreenPositionY, fullscreenWidth, fullscreenHeight, SWP_FRAMECHANGED | SWP_NOACTIVATE);
+	ShowWindow(windowHandle, SW_SHOWMAXIMIZED);
 }
 
 void Window::setWindowed()
 {
-	swapChain->SetFullscreenState(FALSE, nullptr);
-	ChangeDisplaySettingsW(nullptr, 0u);
+	SetWindowLong(windowHandle, GWL_STYLE, style);
+	
+	state = windowedState;
+	SetWindowPos(windowHandle, HWND_NOTOPMOST, windowedPositionX, windowedPositionY, windowedWidth, windowedHeight, SWP_FRAMECHANGED | SWP_NOACTIVATE);
+	if (windowedState == State::normal)
+	{
+		ShowWindow(windowHandle, SW_SHOWNORMAL);
+	}
 }
 
 bool Window::processMessagesForAllWindowsCreatedOnCurrentThread()

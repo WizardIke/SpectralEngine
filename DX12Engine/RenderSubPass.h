@@ -5,14 +5,14 @@
 #include "Frustum.h"
 #include "Tuple.h"
 #include <utility> //std::make_index_sequence, std::index_sequence
-#include <array>
+#include <array> //std::array
 #include "makeArray.h"
 #include "Range.h"
 #include "ResizingArray.h"
 #include "FastIterationHashSet.h"
 #include "ReflectionCamera.h"
 #include "GraphicsEngine.h"
-#include "RenderPassMessage.h"
+#include "LinkedTask.h"
 #ifndef NDEBUG
 #include <string>
 #endif
@@ -56,9 +56,9 @@ public:
 	constexpr static auto commandListsPerFrame = commandListsPerFrame1;
 	constexpr static bool isPresentSubPass = false;
 
-	class AddCameraRequest : public RenderPassMessage
+	class AddCameraRequest : public LinkedTask
 	{
-		static void execute(RenderPassMessage& message, void* tr)
+		static void execute(LinkedTask& message, void* tr)
 		{
 			AddCameraRequest& addRequest = static_cast<AddCameraRequest&>(message);
 			auto& cameras = addRequest.subPass->mCameras;
@@ -71,24 +71,39 @@ public:
 		void(*callback)(AddCameraRequest&, void* tr);
 		Camera camera;
 
-		AddCameraRequest(unsigned long entity1, Camera&& camera1, void(*callback1)(AddCameraRequest&, void* tr)) : RenderPassMessage{execute}, entity(entity1), camera(std::move(camera1)), callback(callback1) {}
+		AddCameraRequest(unsigned long entity1, Camera&& camera1, void(*callback1)(AddCameraRequest&, void* tr)) :
+			LinkedTask{execute},
+			entity(entity1),
+			camera(std::move(camera1)),
+			callback(callback1)
+		{}
 	};
 
-	class RemoveCamerasRequest : public RenderPassMessage
+	class RemoveCamerasRequest : public LinkedTask
 	{
-		static void execute(RenderPassMessage& message, void* tr)
+		static void executeFunction(LinkedTask& message, void* tr)
 		{
 			RemoveCamerasRequest& removeRequest = static_cast<RemoveCamerasRequest&>(message);
 			auto& cameras = removeRequest.subPass->mCameras;
-			cameras.erase(removeRequest.entity);
+			new(&removeRequest.camera) Camera(cameras.eraseAndGet(removeRequest.entity));
 			removeRequest.callback(removeRequest, tr);
 		}
 	public:
 		RenderSubPass* subPass;
 		unsigned long entity;
 		void(*callback)(RemoveCamerasRequest&, void* tr);
+		union
+		{
+			Camera camera;
+		};
 
-		RemoveCamerasRequest(unsigned long entity1, void(*callback1)(RemoveCamerasRequest&, void* tr)) : RenderPassMessage{execute}, entity(entity1), callback(callback1) {}
+		RemoveCamerasRequest(unsigned long entity1, void(*callback1)(RemoveCamerasRequest&, void* tr)) : LinkedTask{ executeFunction }, entity(entity1), callback(callback1)
+		{}
+
+		~RemoveCamerasRequest()
+		{
+			camera.~Camera();
+		}
 	};
 
 	RenderSubPass() noexcept {}
@@ -119,7 +134,9 @@ public:
 			forward_as_tuple(std::forward<ParameterPacks>(parameterPacks)...))
 	{}
 
-	RenderSubPass(RenderSubPass<Camera_t, state1, Dependencies_t, DependencyStates_t, commandListsPerFrame1, stateAfter1, isStaticNumberOfCameras, initialSize>&& other) noexcept : CameraStoragePicker_t(std::move(static_cast<CameraStoragePicker_t&>(other))) {}
+	RenderSubPass(RenderSubPass<Camera_t, state1, Dependencies_t, DependencyStates_t, commandListsPerFrame1, stateAfter1, isStaticNumberOfCameras, initialSize>&& other) noexcept :
+		CameraStoragePicker_t(std::move(static_cast<CameraStoragePicker_t&>(other)))
+	{}
 
 	void operator=(RenderSubPass<Camera_t, state1, Dependencies_t, DependencyStates_t, commandListsPerFrame1, stateAfter1, isStaticNumberOfCameras, initialSize>&& other) noexcept
 	{
@@ -196,6 +213,15 @@ public:
 			}
 		}
 		return false;
+	}
+
+	template<class... Args>
+	void resize(Args&&... args)
+	{
+		for (auto& camera : this->mCameras)
+		{
+			camera.resize(std::forward<Args>(args)...);
+		}
 	}
 
 	class ThreadLocal
@@ -392,7 +418,7 @@ public:
 				auto& camera = *cam;
 				barriers[barrierCount].Flags = D3D12_RESOURCE_BARRIER_FLAGS::D3D12_RESOURCE_BARRIER_FLAG_NONE;
 				barriers[barrierCount].Type = D3D12_RESOURCE_BARRIER_TYPE::D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-				barriers[barrierCount].Transition.pResource = camera.getImage();
+				barriers[barrierCount].Transition.pResource = &camera.getImage();
 				barriers[barrierCount].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
 				barriers[barrierCount].Transition.StateBefore = state;
 				barriers[barrierCount].Transition.StateAfter = stateAfter;
@@ -562,6 +588,15 @@ public:
 			}
 		}
 		return false;
+	}
+
+	template<class... Args>
+	void resize(Args&&... args)
+	{
+		for (auto& subPass : mSubPasses)
+		{
+			subPass.resize(std::forward<Args>(args)...);
+		}
 	}
 
 	class ThreadLocal
