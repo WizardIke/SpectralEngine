@@ -248,9 +248,9 @@ void GlobalResources::onResize(unsigned int width, unsigned int height)
 {
 	graphicsEngine.waitForGpuIdle();
 	window.onResize(width, height);
+	graphicsEngine.resize(window);
 	refractionRenderer.resize(width, height, graphicsEngine);
 	renderPass.resize(width, height, window, graphicsEngine);
-	graphicsEngine.frameIndex = window.getCurrentBackBufferIndex();
 }
 
 class GlobalResources::InitialResourceLoader : public TextureManager::TextureStreamingRequest, public PipelineStateObjects::PipelineLoader, private PrimaryTaskFromOtherThreadQueue::Task

@@ -106,7 +106,7 @@ depthStencilDescriptorHeap(graphicsDevice, []()
 	depthStencilViewDescriptorHeapDesc.NodeMask = 0;
 	return depthStencilViewDescriptorHeapDesc;
 }()),
-depthStencilHeap(graphicsDevice, []()
+depthStencilResource(graphicsDevice, []()
 {
 	D3D12_HEAP_PROPERTIES depthSencilHeapProperties;
 	depthSencilHeapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
@@ -154,12 +154,12 @@ depthStencilHeap(graphicsDevice, []()
 	depthStencilDesc.Flags = D3D12_DSV_FLAG_NONE;
 	depthStencilDesc.Texture2D.MipSlice = 0;
 
-	graphicsDevice->CreateDepthStencilView(depthStencilHeap, &depthStencilDesc, depthStencilDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
+	graphicsDevice->CreateDepthStencilView(depthStencilResource, &depthStencilDesc, depthStencilDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
 
 
 #ifndef NDEBUG
 	depthStencilDescriptorHeap->SetName(L"Depth/Stencil Descriptor Heap");
-	depthStencilHeap->SetName(L"Depth/Stencil Resource Heap");
+	depthStencilResource->SetName(L"Depth/Stencil Resource");
 	directCommandQueue->SetName(L"Direct command queue");
 	graphicsDevice->SetName(L"Graphics device");
 	mainDescriptorHeap->SetName(L"Main Descriptor Heap");
@@ -190,6 +190,56 @@ depthStencilHeap(graphicsDevice, []()
 	frameIndex = window.getCurrentBackBufferIndex();
 
 	factory->MakeWindowAssociation(window.native_handle(), DXGI_MWA_NO_ALT_ENTER);
+}
+
+void GraphicsEngine::resize(Window& window)
+{
+	depthStencilResource = D3D12Resource(graphicsDevice, []()
+		{
+			D3D12_HEAP_PROPERTIES depthSencilHeapProperties;
+			depthSencilHeapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+			depthSencilHeapProperties.CreationNodeMask = 1u;
+			depthSencilHeapProperties.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+			depthSencilHeapProperties.Type = D3D12_HEAP_TYPE_DEFAULT;
+			depthSencilHeapProperties.VisibleNodeMask = 1u;
+			return depthSencilHeapProperties;
+		}(), D3D12_HEAP_FLAGS::D3D12_HEAP_FLAG_NONE, [&window]()
+		{
+			D3D12_RESOURCE_DESC depthSencilHeapResourcesDesc;
+			depthSencilHeapResourcesDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+			depthSencilHeapResourcesDesc.Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
+			depthSencilHeapResourcesDesc.Width = window.width();
+			depthSencilHeapResourcesDesc.Height = window.height();
+			depthSencilHeapResourcesDesc.DepthOrArraySize = 1u;
+			depthSencilHeapResourcesDesc.MipLevels = 1u;
+			depthSencilHeapResourcesDesc.Format = DXGI_FORMAT_D32_FLOAT;
+			depthSencilHeapResourcesDesc.SampleDesc.Count = 1u;
+			depthSencilHeapResourcesDesc.SampleDesc.Quality = 0u;
+			depthSencilHeapResourcesDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+			depthSencilHeapResourcesDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
+			return depthSencilHeapResourcesDesc;
+		}(), D3D12_RESOURCE_STATE_DEPTH_WRITE, []()
+		{
+			D3D12_CLEAR_VALUE depthOptimizedClearValue;
+			depthOptimizedClearValue.Format = DXGI_FORMAT_D32_FLOAT;
+			depthOptimizedClearValue.DepthStencil.Depth = 1.0f;
+			depthOptimizedClearValue.DepthStencil.Stencil = 0;
+			return depthOptimizedClearValue;
+		}());
+
+#ifndef NDEBUG
+	depthStencilResource->SetName(L"Depth/Stencil Resource");
+#endif // _DEBUG
+
+	D3D12_DEPTH_STENCIL_VIEW_DESC depthStencilDesc;
+	depthStencilDesc.Format = DXGI_FORMAT_D32_FLOAT;
+	depthStencilDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
+	depthStencilDesc.Flags = D3D12_DSV_FLAG_NONE;
+	depthStencilDesc.Texture2D.MipSlice = 0;
+
+	graphicsDevice->CreateDepthStencilView(depthStencilResource, &depthStencilDesc, depthStencilDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
+
+	frameIndex = window.getCurrentBackBufferIndex();
 }
 
 void GraphicsEngine::endFrame(Window& window, ID3D12CommandList** const commandLists, const unsigned int numLists)

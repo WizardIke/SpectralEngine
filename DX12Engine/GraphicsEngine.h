@@ -86,7 +86,7 @@ public:
 	uint32_t cbvAndSrvAndUavDescriptorSize;
 
 	D3D12DescriptorHeap depthStencilDescriptorHeap;
-	D3D12Resource depthStencilHeap;
+	D3D12Resource depthStencilResource;
 private:
 	class DescriptorAllocator
 	{
@@ -149,6 +149,8 @@ public:
 
 	using Task = GpuFrameCompletionQueue::Task;
 	void executeWhenGpuFinishesCurrentFrame(Task& task);
+
+	void resize(Window& window);
 
 	void waitForGpuIdle();
 	HANDLE getFrameEvent();
