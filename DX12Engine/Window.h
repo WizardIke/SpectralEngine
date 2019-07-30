@@ -80,6 +80,9 @@ public:
 
 	void destroy();
 
+	void showCursor();
+	void hideCursor();
+
 	/*
 	Returns true if the program should quit
 	*/

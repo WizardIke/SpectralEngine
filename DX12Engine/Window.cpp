@@ -6,7 +6,7 @@
 
 static constexpr DWORD makeBorderlessStyle(DWORD style)
 {
-	return style & ~((DWORD)WS_CAPTION | (DWORD)WS_MAXIMIZEBOX | (DWORD)WS_MINIMIZEBOX | (DWORD)WS_SYSMENU | (DWORD)WS_THICKFRAME);
+	return (style & ~((DWORD)WS_CAPTION | (DWORD)WS_MAXIMIZEBOX | (DWORD)WS_MINIMIZEBOX | (DWORD)WS_SYSMENU | (DWORD)WS_THICKFRAME)) | WS_POPUP;
 }
 
 Window::Window(void* callbackData, LRESULT CALLBACK WndProc(HWND hwnd, UINT umessage, WPARAM wparam, LPARAM lparam),
@@ -57,7 +57,9 @@ Window::Window(void* callbackData, LRESULT CALLBACK WndProc(HWND hwnd, UINT umes
 		extendedStyle |= WS_EX_TOPMOST;
 	}
 #endif
-	windowHandle = CreateWindowExW(extendedStyle, applicationName, applicationName, currentStyle, mPositionX, mPositionY, mWidth, mHeight, nullptr, nullptr, instanceHandle, callbackData);
+	RECT rect{ (LONG)mPositionX, (LONG)mPositionY, (LONG)(mPositionX + mWidth), (LONG)(mPositionY + mHeight) };
+	AdjustWindowRectEx(&rect, currentStyle, FALSE, extendedStyle);
+	windowHandle = CreateWindowExW(extendedStyle, applicationName, applicationName, currentStyle, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top, nullptr, nullptr, instanceHandle, callbackData);
 }
 
 void Window::onResize(unsigned int width, unsigned int height)
@@ -111,7 +113,16 @@ void Window::setForgroundAndShow()
 	
 	SetForegroundWindow(windowHandle);
 	SetFocus(windowHandle);
-	ShowCursor(FALSE);
+}
+
+void Window::showCursor()
+{
+	while (ShowCursor(TRUE) < 0);
+}
+
+void Window::hideCursor()
+{
+	while (ShowCursor(FALSE) >= 0);
 }
 
 Window::~Window() 
@@ -130,7 +141,6 @@ void Window::destroy()
 
 void Window::shutdown()
 {
-	ShowCursor(TRUE);
 	DestroyWindow(windowHandle);
 	UnregisterClassW(applicationName, nullptr);
 }
@@ -194,10 +204,10 @@ void Window::setFullScreen()
 	// Make the window borderless.
 	SetWindowLong(windowHandle, GWL_STYLE, makeBorderlessStyle(style));
 
-	windowedWidth = mWidth;
-	windowedHeight = mHeight;
-	windowedPositionX = mPositionX;
-	windowedPositionY = mPositionY;
+	//windowedWidth = mWidth;
+	//windowedHeight = mHeight;
+	//windowedPositionX = mPositionX;
+	//windowedPositionY = mPositionY;
 	windowedState = state;
 	state = State::fullscreen;
 	SetWindowPos(windowHandle,
@@ -215,7 +225,9 @@ void Window::setWindowed()
 	SetWindowLong(windowHandle, GWL_STYLE, style);
 	
 	state = windowedState;
-	SetWindowPos(windowHandle, HWND_NOTOPMOST, windowedPositionX, windowedPositionY, windowedWidth, windowedHeight, SWP_FRAMECHANGED | SWP_NOACTIVATE);
+	RECT rect{ (LONG)windowedPositionX, (LONG)windowedPositionY, (LONG)(windowedPositionX + windowedWidth), (LONG)(windowedPositionY + windowedHeight) };
+	AdjustWindowRectEx(&rect, style, FALSE, WS_EX_APPWINDOW);
+	SetWindowPos(windowHandle, HWND_NOTOPMOST, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top, SWP_FRAMECHANGED | SWP_NOACTIVATE);
 	if (windowedState == State::normal)
 	{
 		ShowWindow(windowHandle, SW_SHOWNORMAL);

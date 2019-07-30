@@ -214,11 +214,10 @@ LRESULT CALLBACK GlobalResources::windowCallback(HWND hwnd, UINT message, WPARAM
 	}
 	case WM_SIZE:
 	{
+		//This is sometimes send before a window is resized so GetClientRect can't be used to get the window size and we have to hope that width and height can fit into 16-bits each.
 		auto& window = globalResources.window;
-		RECT clientRect;
-		GetClientRect(window.native_handle(), &clientRect);
-		unsigned int width = clientRect.right - clientRect.left;
-		unsigned int height = clientRect.bottom - clientRect.top;
+		unsigned int width = LOWORD(lParam);
+		unsigned int height = HIWORD(lParam);
 		if ((window.width() != width || window.height() != height) && wParam != SIZE_MINIMIZED)
 		{
 			globalResources.onResize(width, height);
@@ -311,7 +310,7 @@ static const wchar_t* const musicFiles[] =
 };
 
 GlobalResources::GlobalResources() : GlobalResources(std::thread::hardware_concurrency(),
-	Window::State::fullscreen, GetSystemMetrics(SM_CXVIRTUALSCREEN), GetSystemMetrics(SM_CYVIRTUALSCREEN), GetSystemMetrics(SM_XVIRTUALSCREEN), GetSystemMetrics(SM_YVIRTUALSCREEN),
+	Window::State::normal, GetSystemMetrics(SM_CXVIRTUALSCREEN), GetSystemMetrics(SM_CYVIRTUALSCREEN), GetSystemMetrics(SM_XVIRTUALSCREEN), GetSystemMetrics(SM_YVIRTUALSCREEN),
 	false, false, new InitialResourceLoader(*this, TextureNames::Arial)) {}
 
 GlobalResources::GlobalResources(const unsigned int numberOfThreads, Window::State windowState, int screenWidth, int screenHeight, int screenPositionX, int screenPositionY,
@@ -398,6 +397,7 @@ GlobalResources::GlobalResources(const unsigned int numberOfThreads, Window::Sta
 	arial.setConstantBuffers(constantBuffersGpuAddress, cpuConstantBuffer);
 
 	window.setForgroundAndShow();
+	window.hideCursor();
 }
 
 GlobalResources::~GlobalResources()
