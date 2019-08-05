@@ -504,12 +504,6 @@ static std::string replaceFileExtension(std::string_view str, std::string_view e
 	return result;
 }
 
-static constexpr std::size_t alignPadding(std::size_t length, std::size_t alignment) noexcept
-{
-	auto paddedLength = (length + (alignment - 1u)) & ~(alignment - 1u);
-	return paddedLength - length;
-}
-
 static constexpr StencilOp stringToStencilOp(std::string_view data, bool& succeeded) noexcept
 {
 	StencilOp op = StencilOp::keep;
