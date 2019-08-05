@@ -24,10 +24,28 @@ private:
 	{
 		std::size_t operator()(const ResourceId& key) const
 		{
-			std::size_t result = (std::size_t)key.filename;
-			result = result * 31u + key.start;
-			result = result * 31u + key.end;
-			return result;
+			if constexpr (sizeof(std::size_t) <= 4u)
+			{
+				std::size_t result = 2166136261u;
+				for (auto current = key.filename; *current != '\0'; ++current)
+				{
+					result = (result ^ std::size_t{ *current }) * 16777619u;
+				}
+				result = result * 31u + key.start;
+				result = result * 31u + key.end;
+				return result;
+			}
+			else
+			{
+				std::size_t result = 14695981039346656037u;
+				for (auto current = key.filename; *current != '\0'; ++current)
+				{
+					result = (result ^ std::size_t{ *current }) * 1099511628211u;
+				}
+				result = result * 31u + key.start;
+				result = result * 31u + key.end;
+				return result;
+			}
 		}
 	};
 public:
