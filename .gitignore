@@ -4,6 +4,8 @@
 # generated pso descs
 DemoGame/PipelineStateObjectDescs/*.h
 
+DX12Engine/tools/*.exe
+
 # Compiled shaders
 *.cso
 
