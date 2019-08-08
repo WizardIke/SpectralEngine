@@ -3,6 +3,13 @@
 #include <string>
 #include <codecvt>
 #include <memory>
+#include <stdexcept>
+
+#ifndef MAKEFOURCC
+#define MAKEFOURCC(ch0, ch1, ch2, ch3)                              \
+                ((DWORD)(BYTE)(ch0) | ((DWORD)(BYTE)(ch1) << 8) |   \
+                ((DWORD)(BYTE)(ch2) << 16) | ((DWORD)(BYTE)(ch3) << 24 ))
+#endif /* defined(MAKEFOURCC) */
 
 std::wstring stringToWstring(const std::string& t_str)
 {
@@ -234,6 +241,7 @@ constexpr uint32_t DDS_MAGIC = 0x20534444;
 constexpr uint32_t DDS_RGB = 0x00000040;
 constexpr uint32_t DDS_LUMINANCE = 0x00020000;
 constexpr uint32_t DDS_ALPHA = 0x00000002;
+constexpr uint32_t DDS_ALPHAPIXELS = 0x00000001;
 constexpr uint32_t DDS_FOURCC = 0x00000004;
 constexpr uint32_t DDS_ALPHA_MODE_UNKNOWN = 0x0;
 
@@ -256,69 +264,6 @@ constexpr uint32_t DDS_CUBEMAP_POSITIVEZ = 0x00004200; // DDSCAPS2_CUBEMAP | DDS
 constexpr uint32_t DDS_CUBEMAP_NEGATIVEZ = 0x00008200; // DDSCAPS2_CUBEMAP | DDSCAPS2_CUBEMAP_NEGATIVEZ
 constexpr uint32_t DDS_CUBEMAP_ALLFACES = (DDS_CUBEMAP_POSITIVEX | DDS_CUBEMAP_NEGATIVEX | DDS_CUBEMAP_POSITIVEY | DDS_CUBEMAP_NEGATIVEY | DDS_CUBEMAP_POSITIVEZ | DDS_CUBEMAP_NEGATIVEZ);
 
-TextureInfo getDDSTextureInfoFromFile(File& textureFile);
-DDS_PIXELFORMAT dxgiFormatToDdsPixelFormat(DXGI_FORMAT format);
-
-int main(int argc, char** argv)
-{
-	std::wstring fileName(stringToWstring(argv[1]));
-	File file(fileName.c_str(), File::accessRight::genericRead, File::shareMode::readMode, File::creationMode::openExisting);
-	auto textureInfo = getDDSTextureInfoFromFile(file);
-	
-	size_t dataLength = file.size() - file.getPosition();
-	std::unique_ptr<unsigned char[]> data(new unsigned char[dataLength]);
-	file.read(data.get(), (uint32_t)dataLength);
-
-	File outFile(L"converted_file.dds", File::accessRight::genericWrite, File::shareMode::writeMode, File::creationMode::createNew);
-	DdsHeaderDx12 header;
-	header.arraySize = textureInfo.isCubeMap ? textureInfo.arraySize / 6u: textureInfo.arraySize;
-	header.caps3 = 0u;
-	header.caps4 = 0u;
-	header.ddsMagicNumber = DDS_MAGIC;
-	header.depth = textureInfo.depth;
-	header.dimension = (uint32_t)textureInfo.dimension;
-	header.dxgiFormat = textureInfo.format;
-	header.height = textureInfo.height;
-	header.mipMapCount = textureInfo.mipLevels;
-	std::fill(std::begin(header.reserved1), std::end(header.reserved1), 0u);
-	header.reserved2 = 0u;
-	header.size = (sizeof(DDS_HEADER) - 4u);
-	header.width = textureInfo.width;
-	header.miscFlag = textureInfo.isCubeMap ? DDS_RESOURCE_MISC_TEXTURECUBE : 0u;
-	header.ddspf.size = sizeof(DDS_PIXELFORMAT);
-	header.ddspf.RBitMask = 0x00000000;
-	header.ddspf.GBitMask = 0x00000000;
-	header.ddspf.BBitMask = 0x00000000;
-	header.ddspf.ABitMask = 0x00000000;
-	header.ddspf.flags = DDS_FOURCC;
-	header.ddspf.fourCC = MAKEFOURCC('D', 'X', '1', '0');
-	header.ddspf.RGBBitCount = 0;
-	constexpr uint32_t DDSCAPS_COMPLEX = 0x8;
-	constexpr uint32_t DDSCAPS_MIPMAP = 0x400000;
-	constexpr uint32_t DDSCAPS_TEXTURE = 0x1000;
-	uint32_t caps = DDSCAPS_TEXTURE;
-	if (textureInfo.mipLevels > 1) caps |= DDSCAPS_MIPMAP;
-	if (textureInfo.mipLevels > 1 || textureInfo.arraySize > 1) caps |= DDSCAPS_COMPLEX;
-	header.caps = caps;
-	uint32_t caps2 = 0u;
-	if(textureInfo.dimension > D3D12_RESOURCE_DIMENSION::D3D12_RESOURCE_DIMENSION_TEXTURE3D) caps2 |= DDSCAPS2_VOLUME;
-	if(textureInfo.isCubeMap) caps2 |= DDS_CUBEMAP_ALLFACES;
-	header.caps2 = caps2;
-	uint32_t flags = DDSD_CAPS | DDSD_HEIGHT | DDSD_WIDTH | DDSD_PIXELFORMAT;
-	if (textureInfo.mipLevels > 1) flags |= DDSD_MIPMAPCOUNT;
-	if (textureInfo.dimension > D3D12_RESOURCE_DIMENSION::D3D12_RESOURCE_DIMENSION_TEXTURE3D) flags |= DDSD_DEPTH;
-	header.flags = flags;
-	header.miscFlags2 = DDS_ALPHA_MODE_UNKNOWN;
-	header.pitchOrLinearSize = 0u;
-
-	outFile.write(header);
-	outFile.write(data.get(), (uint32_t)dataLength);
-
-	file.close();
-	outFile.close();
-
-	std::cout << "Finished";
-}
 
 DDS_PIXELFORMAT dxgiFormatToDdsPixelFormat(DXGI_FORMAT format)
 {
@@ -873,6 +818,13 @@ static DXGI_FORMAT getDXGIFormat(const DDS_PIXELFORMAT& ddpf)
 			return DXGI_FORMAT_A8_UNORM;
 		}
 	}
+	else if (ddpf.flags & DDS_ALPHAPIXELS)
+	{
+		if(8 == ddpf.RGBBitCount)
+		{
+			return DXGI_FORMAT_A8_UNORM;
+		}
+	}
 	else if (ddpf.flags & DDS_FOURCC)
 	{
 		if (MAKEFOURCC('D', 'X', 'T', '1') == ddpf.fourCC)
@@ -981,7 +933,7 @@ TextureInfo getDDSTextureInfoFromFile(File& textureFile)
 	size_t fileSize = textureFile.size();
 	if (fileSize < (sizeof(DDS_HEADER)))
 	{
-		throw false;
+		throw std::runtime_error("file size too small for header");
 	}
 
 	DDS_HEADER ddsHeader;
@@ -990,7 +942,7 @@ TextureInfo getDDSTextureInfoFromFile(File& textureFile)
 	if (ddsHeader.ddsMagicNumber != DDS_MAGIC || ddsHeader.size != (sizeof(DDS_HEADER) - 4u) ||
 		ddsHeader.ddspf.size != sizeof(DDS_PIXELFORMAT))
 	{
-		throw false;
+		throw std::runtime_error("invalid magic numbers");
 	}
 
 	uint32_t dimension = D3D12_RESOURCE_DIMENSION_UNKNOWN;
@@ -1003,7 +955,7 @@ TextureInfo getDDSTextureInfoFromFile(File& textureFile)
 		// Must be long enough for both headers
 		if (fileSize < (sizeof(DDS_HEADER) + sizeof(DDS_HEADER_DXT10)))
 		{
-			throw false;
+			throw std::runtime_error("file size too small for expended header");
 		}
 
 		DDS_HEADER_DXT10 d3d10ext;
@@ -1012,7 +964,7 @@ TextureInfo getDDSTextureInfoFromFile(File& textureFile)
 		arraySize = d3d10ext.arraySize;
 		if (arraySize == 0u)
 		{
-			throw false;
+			throw std::runtime_error("array size must be at least one");
 		}
 
 		format = d3d10ext.dxgiFormat;
@@ -1023,12 +975,12 @@ TextureInfo getDDSTextureInfoFromFile(File& textureFile)
 		case DXGI_FORMAT_IA44:
 		case DXGI_FORMAT_P8:
 		case DXGI_FORMAT_A8P8:
-			throw false;
+			throw std::runtime_error("invalid format");
 
 		default:
 			if (bitsPerPixel(format) == 0u)
 			{
-				throw false;
+				throw std::runtime_error("invalid format");
 			}
 		}
 
@@ -1040,7 +992,7 @@ TextureInfo getDDSTextureInfoFromFile(File& textureFile)
 			// D3DX writes 1D textures with a fixed Height of 1
 			if ((ddsHeader.flags & DDSD_HEIGHT) && ddsHeader.height != 1u)
 			{
-				throw false;
+				throw std::runtime_error("1D texture must have a height of one");
 			}
 			ddsHeader.height = 1;
 			ddsHeader.depth = 1;
@@ -1058,17 +1010,17 @@ TextureInfo getDDSTextureInfoFromFile(File& textureFile)
 		case D3D12_RESOURCE_DIMENSION_TEXTURE3D:
 			if (!(ddsHeader.flags & DDSD_DEPTH))
 			{
-				throw false;
+				throw std::runtime_error("3D texture must have depth flag set");
 			}
 
 			if (arraySize > 1)
 			{
-				throw false;
+				throw std::runtime_error("3D texture can't have an array size greater than one");
 			}
 			break;
 
 		default:
-			throw false;
+			throw std::runtime_error("unknown texture diminsion");
 		}
 	}
 	else
@@ -1077,7 +1029,7 @@ TextureInfo getDDSTextureInfoFromFile(File& textureFile)
 
 		if (format == DXGI_FORMAT_UNKNOWN)
 		{
-			throw false;
+			throw std::runtime_error("unknown format");
 		}
 
 		if (ddsHeader.flags & DDSD_DEPTH)
@@ -1091,7 +1043,7 @@ TextureInfo getDDSTextureInfoFromFile(File& textureFile)
 				// We require all six faces to be defined
 				if ((ddsHeader.caps2 & DDS_CUBEMAP_ALLFACES) != DDS_CUBEMAP_ALLFACES)
 				{
-					throw false;
+					throw std::runtime_error("cubemaps must have all faces");
 				}
 				isCubeMap = true;
 				arraySize = 6;
@@ -1105,7 +1057,7 @@ TextureInfo getDDSTextureInfoFromFile(File& textureFile)
 
 		if(bitsPerPixel(format) == 0u)
 		{
-			throw false;
+			throw std::runtime_error("invalid format");
 		}
 	}
 
@@ -1118,4 +1070,76 @@ TextureInfo getDDSTextureInfoFromFile(File& textureFile)
 	textureInfo.mipLevels = ddsHeader.mipMapCount == 0u ? 1u : ddsHeader.mipMapCount;
 	textureInfo.isCubeMap = isCubeMap;
 	return textureInfo;
+}
+
+int main(int argc, char** argv)
+{
+	try
+	{
+		std::wstring fileName(stringToWstring(argv[1]));
+		File file(fileName.c_str(), File::accessRight::genericRead, File::shareMode::readMode, File::creationMode::openExisting);
+		auto textureInfo = getDDSTextureInfoFromFile(file);
+		
+		size_t dataLength = file.size() - file.getPosition();
+		std::unique_ptr<unsigned char[]> data(new unsigned char[dataLength]);
+		file.read(data.get(), (uint32_t)dataLength);
+
+		File outFile(L"converted_file.dds", File::accessRight::genericWrite, File::shareMode::writeMode, File::creationMode::createNew);
+		DdsHeaderDx12 header;
+		header.arraySize = textureInfo.isCubeMap ? textureInfo.arraySize / 6u: textureInfo.arraySize;
+		header.caps3 = 0u;
+		header.caps4 = 0u;
+		header.ddsMagicNumber = DDS_MAGIC;
+		header.depth = textureInfo.depth;
+		header.dimension = (uint32_t)textureInfo.dimension;
+		header.dxgiFormat = textureInfo.format;
+		header.height = textureInfo.height;
+		header.mipMapCount = textureInfo.mipLevels;
+		std::fill(std::begin(header.reserved1), std::end(header.reserved1), 0u);
+		header.reserved2 = 0u;
+		header.size = (sizeof(DDS_HEADER) - 4u);
+		header.width = textureInfo.width;
+		header.miscFlag = textureInfo.isCubeMap ? DDS_RESOURCE_MISC_TEXTURECUBE : 0u;
+		header.ddspf.size = sizeof(DDS_PIXELFORMAT);
+		header.ddspf.RBitMask = 0x00000000;
+		header.ddspf.GBitMask = 0x00000000;
+		header.ddspf.BBitMask = 0x00000000;
+		header.ddspf.ABitMask = 0x00000000;
+		header.ddspf.flags = DDS_FOURCC;
+		header.ddspf.fourCC = MAKEFOURCC('D', 'X', '1', '0');
+		header.ddspf.RGBBitCount = 0;
+		constexpr uint32_t DDSCAPS_COMPLEX = 0x8;
+		constexpr uint32_t DDSCAPS_MIPMAP = 0x400000;
+		constexpr uint32_t DDSCAPS_TEXTURE = 0x1000;
+		uint32_t caps = DDSCAPS_TEXTURE;
+		if (textureInfo.mipLevels > 1) caps |= DDSCAPS_MIPMAP;
+		if (textureInfo.mipLevels > 1 || textureInfo.arraySize > 1) caps |= DDSCAPS_COMPLEX;
+		header.caps = caps;
+		uint32_t caps2 = 0u;
+		if(textureInfo.dimension > D3D12_RESOURCE_DIMENSION::D3D12_RESOURCE_DIMENSION_TEXTURE3D) caps2 |= DDSCAPS2_VOLUME;
+		if(textureInfo.isCubeMap) caps2 |= DDS_CUBEMAP_ALLFACES;
+		header.caps2 = caps2;
+		uint32_t flags = DDSD_CAPS | DDSD_HEIGHT | DDSD_WIDTH | DDSD_PIXELFORMAT;
+		if (textureInfo.mipLevels > 1) flags |= DDSD_MIPMAPCOUNT;
+		if (textureInfo.dimension > D3D12_RESOURCE_DIMENSION::D3D12_RESOURCE_DIMENSION_TEXTURE3D) flags |= DDSD_DEPTH;
+		header.flags = flags;
+		header.miscFlags2 = DDS_ALPHA_MODE_UNKNOWN;
+		header.pitchOrLinearSize = 0u;
+
+		outFile.write(header);
+		outFile.write(data.get(), (uint32_t)dataLength);
+
+		file.close();
+		outFile.close();
+
+		std::cout << "Finished\n";
+	}
+	catch(const std::exception& e)
+	{
+		std::cout << "failed " << e.what() << "\n";
+	}
+	catch(...)
+	{
+		std::cout << "failed\n";
+	}
 }
