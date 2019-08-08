@@ -1,3 +1,5 @@
+#define _SILENCE_CXX17_CODECVT_HEADER_DEPRECATION_WARNING
+
 #include <iostream>
 #include <fstream>
 #include <vector>
@@ -29,14 +31,15 @@ struct Kerning
 struct FontDescriptor
 {
 	std::wstring textureFileName;
-	float lineHeight;
+	float width;
+	float height;
 	float scaleW;
 	float scaleH;
 	std::vector<CharDescriptor> charDescriptors;
 	std::vector<Kerning> kernings;
 };
 
-static std::vector<std::string_view> splitByChar(std::string_view str, char token)
+static std::vector<std::string_view> splitByCharIngoringDuplicateSeparators(std::string_view str, char token)
 {
 	std::vector<std::string_view> results;
 	std::size_t startIndex = 0u;
@@ -45,7 +48,10 @@ static std::vector<std::string_view> splitByChar(std::string_view str, char toke
 	{
 		if (str[i] == token)
 		{
-			results.push_back(str.substr(startIndex, i - startIndex));
+			if (startIndex != i)
+			{
+				results.push_back(str.substr(startIndex, i - startIndex));
+			}
 			startIndex = i + 1u;
 		}
 		if (i + 1u == strSize)
@@ -70,7 +76,7 @@ static constexpr std::string_view trim(std::string_view str,
 	return str.substr(strBegin, strRange);
 }
 
-static unsigned long stringToLong(std::string_view str)
+static long stringToLong(std::string_view str)
 {
 	return std::stol(std::string(str));
 }
@@ -91,40 +97,70 @@ static std::wstring toWstring(std::string_view str)
 static bool passLine(std::string_view line, unsigned long lineNumber, FontDescriptor& font)
 {
 	auto trimmedLine = trim(line);
-	if(trimmedLine.empty()) { return true; }
-	auto tokens = splitByChar(trimmedLine, ' ');
-	if(tokens[0] == "common")
+	if (trimmedLine.empty()) { return true; }
+	auto tokens = splitByCharIngoringDuplicateSeparators(trimmedLine, ' ');
+	if (tokens[0] == "common")
 	{
 		auto end = tokens.end();
-		for(auto current = tokens.begin() + 1u; current != end; ++current)
+		for (auto current = tokens.begin() + 1u; current != end; ++current)
 		{
 			auto info = trim(*current);
-			
-			
+
+
 			auto indexOfNameEnd = info.find_first_of("=");
 			if (indexOfNameEnd == std::string_view::npos || indexOfNameEnd == 0)
 			{
 				std::cout << "error on line: " << lineNumber << std::endl;
 				return false;
 			}
+			if (indexOfNameEnd == info.size())
+			{
+				std::cout << "error on line: " << lineNumber << std::endl;
+				return false;
+			}
 			std::string_view name = info.substr(0, indexOfNameEnd);
-			std::string_view data = info.substr(indexOfNameEnd, info.size() - indexOfNameEnd);
-			
-			if(name == "lineHeight")
+			std::string_view data = info.substr(indexOfNameEnd + 1u, info.size() - indexOfNameEnd - 1u);
+
+			if (name == "lineHeight")
 			{
-				font.lineHeight = static_cast<float>(stringToLong(data));
+				try
+				{
+					font.height = static_cast<float>(stringToLong(data));
+					font.width = font.height;
+				}
+				catch (...)
+				{
+					std::cout << "invalid lineHeight of " << data << " on line " << lineNumber << std::endl;
+					return false;
+				}
 			}
-			else if(name == "scaleW")
+			else if (name == "scaleW")
 			{
-				font.scaleW = static_cast<float>(stringToLong(data));
+				try
+				{
+					font.scaleW = static_cast<float>(stringToLong(data));
+				}
+				catch (...)
+				{
+					std::cout << "invalid scaleW of " << data << " on line " << lineNumber << std::endl;
+					return false;
+				}
 			}
-			else if(name == "scaleH")
+			else if (name == "scaleH")
 			{
-				font.scaleH = static_cast<float>(stringToLong(data));
+				try
+				{
+					font.scaleH = static_cast<float>(stringToLong(data));
+				}
+				catch (...)
+				{
+					std::cout << "invalid scaleH of " << data << " on line " << lineNumber << std::endl;
+					return false;
+				}
 			}
-			else if(name == "pages")
+			else if (name == "pages")
 			{
-				if(data != "1")
+				if (data != "1")
 				{
 					std::cout << "error on line " << lineNumber << " fonts that use more than one texture aren't supported" << std::endl;
 					return false;
@@ -132,161 +168,245 @@ static bool passLine(std::string_view line, unsigned long lineNumber, FontDescri
 			}
 		}
 	}
-	else if(tokens[0] == "page")
+	else if (tokens[0] == "page")
 	{
 		auto end = tokens.end();
-		for(auto current = tokens.begin() + 1u; current != end; ++current)
+		for (auto current = tokens.begin() + 1u; current != end; ++current)
 		{
 			auto info = trim(*current);
-			
-			
+
+
 			auto indexOfNameEnd = info.find_first_of("=");
 			if (indexOfNameEnd == std::string_view::npos || indexOfNameEnd == 0)
 			{
 				std::cout << "error on line: " << lineNumber << std::endl;
 				return false;
 			}
-			std::string_view name = info.substr(0, indexOfNameEnd);
-			std::string_view data = info.substr(indexOfNameEnd, info.size() - indexOfNameEnd);
-			
-			if(name == "file")
+			if (indexOfNameEnd == info.size())
 			{
-				font.textureFileName = toWstring(data);
+				std::cout << "error on line: " << lineNumber << std::endl;
+				return false;
+			}
+			std::string_view name = info.substr(0, indexOfNameEnd);
+			std::string_view data = info.substr(indexOfNameEnd + 1u, info.size() - indexOfNameEnd - 1u);
+
+			if (name == "file")
+			{
+				font.textureFileName = toWstring(trim(data, "\""));
 			}
 		}
 	}
-	else if(tokens[0] == "chars")
+	else if (tokens[0] == "chars")
 	{
 		auto end = tokens.end();
-		for(auto current = tokens.begin() + 1u; current != end; ++current)
+		for (auto current = tokens.begin() + 1u; current != end; ++current)
 		{
 			auto info = trim(*current);
-			
-			
+
+
 			auto indexOfNameEnd = info.find_first_of("=");
 			if (indexOfNameEnd == std::string_view::npos || indexOfNameEnd == 0)
 			{
 				std::cout << "error on line: " << lineNumber << std::endl;
 				return false;
 			}
+			if (indexOfNameEnd == info.size())
+			{
+				std::cout << "error on line: " << lineNumber << std::endl;
+				return false;
+			}
 			std::string_view name = info.substr(0, indexOfNameEnd);
-			std::string_view data = info.substr(indexOfNameEnd, info.size() - indexOfNameEnd);
-			
-			if(name == "count")
+			std::string_view data = info.substr(indexOfNameEnd + 1u, info.size() - indexOfNameEnd - 1u);
+
+			if (name == "count")
 			{
 				font.charDescriptors.reserve(std::stoul(std::string(data)));
 			}
 		}
 	}
-	else if(tokens[0] == "char")
+	else if (tokens[0] == "char")
 	{
 		CharDescriptor charDesc{};
 		auto end = tokens.end();
-		for(auto current = tokens.begin() + 1u; current != end; ++current)
+		for (auto current = tokens.begin() + 1u; current != end; ++current)
 		{
 			auto info = trim(*current);
-			
-			
+
+
 			auto indexOfNameEnd = info.find_first_of("=");
 			if (indexOfNameEnd == std::string_view::npos || indexOfNameEnd == 0)
 			{
-				std::cout << "error on line: " << lineNumber << std::endl;
+				std::cout << info << " is not given a value on line " << lineNumber << std::endl;
 				return false;
 			}
 			std::string_view name = info.substr(0, indexOfNameEnd);
-			std::string_view data = info.substr(indexOfNameEnd, info.size() - indexOfNameEnd);
-			
-			if(name == "id")
+			std::string_view data = info.substr(indexOfNameEnd + 1u, info.size() - indexOfNameEnd - 1u);
+
+			if (name == "id")
 			{
-				charDesc.id = static_cast<uint32_t>(std::stoul(std::string(data)));
+				try
+				{
+					charDesc.id = static_cast<uint32_t>(std::stoul(std::string(data)));
+				}
+				catch (...)
+				{
+					std::cout << "invalid id of " << data << " on line " << lineNumber << std::endl;
+					return false;
+				}
 			}
-			else if(name == "x")
+			else if (name == "x")
 			{
-				charDesc.x = static_cast<float>(stringToLong(data));
+				try
+				{
+					charDesc.x = static_cast<float>(stringToLong(data));
+				}
+				catch (...)
+				{
+					std::cout << "invalid x of " << data << " on line " << lineNumber << std::endl;
+					return false;
+				}
 			}
-			else if(name == "y")
+			else if (name == "y")
 			{
-				charDesc.y = static_cast<float>(stringToLong(data));
+				try
+				{
+					charDesc.y = static_cast<float>(stringToLong(data));
+				}
+				catch (...)
+				{
+					std::cout << "invalid y of " << data << " on line " << lineNumber << std::endl;
+					return false;
+				}
 			}
-			else if(name == "width")
+			else if (name == "width")
 			{
-				charDesc.width = static_cast<float>(stringToLong(data));
+				try
+				{
+					charDesc.width = static_cast<float>(stringToLong(data));
+				}
+				catch (...)
+				{
+					std::cout << "invalid width of " << data << " on line " << lineNumber << std::endl;
+					return false;
+				}
 			}
-			else if(name == "height")
+			else if (name == "height")
 			{
-				charDesc.height = static_cast<float>(stringToLong(data));
+				try
+				{
+					charDesc.height = static_cast<float>(stringToLong(data));
+				}
+				catch (...)
+				{
+					std::cout << "invalid height of " << data << " on line " << lineNumber << std::endl;
+					return false;
+				}
 			}
-			else if(name == "xoffset")
+			else if (name == "xoffset")
 			{
-				charDesc.offsetX = static_cast<float>(stringToLong(data));
+				try
+				{
+					charDesc.offsetX = static_cast<float>(stringToLong(data));
+				}
+				catch (...)
+				{
+					std::cout << "invalid xoffset of " << data << " on line " << lineNumber << std::endl;
+					return false;
+				}
 			}
-			else if(name == "yoffset")
+			else if (name == "yoffset")
 			{
-				charDesc.offsetY = static_cast<float>(stringToLong(data));
+				try
+				{
+					charDesc.offsetY = static_cast<float>(stringToLong(data));
+				}
+				catch (...)
+				{
+					std::cout << "invalid yoffset of " << data << " on line " << lineNumber << std::endl;
+					return false;
+				}
 			}
-			else if(name == "xadvance")
+			else if (name == "xadvance")
 			{
-				charDesc.advanceX = static_cast<float>(stringToLong(data));
+				try
+				{
+					charDesc.advanceX = static_cast<float>(stringToLong(data));
+				}
+				catch (...)
+				{
+					std::cout << "invalid xadvance of " << data << " on line " << lineNumber << std::endl;
+					return false;
+				}
 			}
 		}
-		
+
 		font.charDescriptors.push_back(std::move(charDesc));
 	}
-	else if(tokens[0] == "kernings")
+	else if (tokens[0] == "kernings")
 	{
 		auto end = tokens.end();
-		for(auto current = tokens.begin() + 1u; current != end; ++current)
+		for (auto current = tokens.begin() + 1u; current != end; ++current)
 		{
 			auto info = trim(*current);
-			
-			
+
+
 			auto indexOfNameEnd = info.find_first_of("=");
 			if (indexOfNameEnd == std::string_view::npos || indexOfNameEnd == 0)
 			{
 				std::cout << "error on line: " << lineNumber << std::endl;
 				return false;
 			}
-			std::string_view name = info.substr(0, indexOfNameEnd);
-			std::string_view data = info.substr(indexOfNameEnd, info.size() - indexOfNameEnd);
-			
-			if(name == "count")
+			if (indexOfNameEnd == info.size())
 			{
-				font.kernings.resize(std::stoul(std::string(data)));
+				std::cout << "error on line: " << lineNumber << std::endl;
+				return false;
+			}
+			std::string_view name = info.substr(0, indexOfNameEnd);
+			std::string_view data = info.substr(indexOfNameEnd + 1u, info.size() - indexOfNameEnd - 1u);
+
+			if (name == "count")
+			{
+				font.kernings.reserve(std::stoul(std::string(data)));
 			}
 		}
 	}
-	else if(tokens[0] == "kerning")
+	else if (tokens[0] == "kerning")
 	{
-		Kerning kerning{0u, 0.0f};
+		Kerning kerning{ 0u, 0.0f };
 		auto end = tokens.end();
-		for(auto current = tokens.begin() + 1u; current != end; ++current)
+		for (auto current = tokens.begin() + 1u; current != end; ++current)
 		{
 			auto info = trim(*current);
-			
-			
+
+
 			auto indexOfNameEnd = info.find_first_of("=");
 			if (indexOfNameEnd == std::string_view::npos || indexOfNameEnd == 0)
 			{
 				std::cout << "error on line: " << lineNumber << std::endl;
 				return false;
 			}
+			if (indexOfNameEnd == info.size())
+			{
+				std::cout << "error on line: " << lineNumber << std::endl;
+				return false;
+			}
 			std::string_view name = info.substr(0, indexOfNameEnd);
-			std::string_view data = info.substr(indexOfNameEnd, info.size() - indexOfNameEnd);
-			
-			if(name == "first")
+			std::string_view data = info.substr(indexOfNameEnd + 1u, info.size() - indexOfNameEnd - 1u);
+
+			if (name == "first")
 			{
 				kerning.firstAndSecondChar |= static_cast<uint64_t>(std::stoul(std::string(data))) << 32u;
 			}
-			else if(name == "second")
+			else if (name == "second")
 			{
 				kerning.firstAndSecondChar |= static_cast<uint64_t>(std::stoul(std::string(data)));
 			}
-			else if(name == "amount")
+			else if (name == "amount")
 			{
 				kerning.amount = static_cast<float>(stringToLong(data));
 			}
 		}
-		
+
 		font.kernings.push_back(std::move(kerning));
 	}
 	return true;
@@ -298,8 +418,9 @@ static void normalizeFontScale(FontDescriptor& font)
 	const float oneOverScaleY = 1.0f / font.scaleH;
 	font.scaleW = 1.0f;
 	font.scaleH = 1.0f;
-	font.lineHeight *= oneOverScaleY;
-	for(auto& charDesc : font.charDescriptors)
+	font.width *= oneOverScaleX;
+	font.height *= oneOverScaleY;
+	for (auto& charDesc : font.charDescriptors)
 	{
 		charDesc.x *= oneOverScaleX;
 		charDesc.y *= oneOverScaleY;
@@ -309,7 +430,7 @@ static void normalizeFontScale(FontDescriptor& font)
 		charDesc.offsetY *= oneOverScaleY;
 		charDesc.advanceX *= oneOverScaleX;
 	}
-	for(auto& kerning : font.kernings)
+	for (auto& kerning : font.kernings)
 	{
 		kerning.amount *= oneOverScaleX;
 	}
@@ -319,7 +440,7 @@ static void sortFont(FontDescriptor& font)
 {
 	std::sort(font.charDescriptors.begin(), font.charDescriptors.end(),
 		[](const CharDescriptor& lhs, const CharDescriptor& rhs) {return lhs.id < rhs.id; });
-		
+
 	std::sort(font.kernings.begin(), font.kernings.end(),
 		[](const Kerning& lhs, const Kerning& rhs) {return lhs.firstAndSecondChar < rhs.firstAndSecondChar; });
 }
@@ -335,24 +456,31 @@ static void writeToFontFile(std::ofstream& outFile, const FontDescriptor& font)
 	outFile.write(reinterpret_cast<const char*>(font.textureFileName.c_str()), fileNameLengthBytes);
 	constexpr char padding = '\0';
 	auto paddedLength = alignedLength(fileNameLengthBytes, alignof(uint32_t));
-	for(auto i = paddedLength - fileNameLengthBytes; i != 0u; --i)
+	for (auto i = paddedLength - fileNameLengthBytes; i != 0u; --i)
 	{
 		outFile.write(&padding, sizeof(char));
 	}
+
+	outFile.write(reinterpret_cast<const char*>(&font.width), sizeof(float));
+	outFile.write(reinterpret_cast<const char*>(&font.height), sizeof(float));
+
 	uint32_t charCount = static_cast<uint32_t>(font.charDescriptors.size());
 	outFile.write(reinterpret_cast<const char*>(&charCount), sizeof(uint32_t));
-	if(font.charDescriptors.size() != 0u)
+	if (font.charDescriptors.size() != 0u)
 	{
 		outFile.write(reinterpret_cast<const char*>(font.charDescriptors.data()), font.charDescriptors.size() * sizeof(CharDescriptor));
 	}
+
 	uint32_t kerningCount = static_cast<uint32_t>(font.kernings.size());
-	auto lengthWritten = paddedLength + sizeof(uint32_t) + font.charDescriptors.size() * sizeof(CharDescriptor) + sizeof(uint32_t);
+	outFile.write(reinterpret_cast<const char*>(&kerningCount), sizeof(uint32_t));
+	auto lengthWritten = paddedLength + sizeof(float) + sizeof(float) + sizeof(uint32_t)
+		+ font.charDescriptors.size() * sizeof(CharDescriptor) + sizeof(uint32_t);
 	paddedLength = alignedLength(lengthWritten, alignof(Kerning));
-	for(auto i = paddedLength - lengthWritten; i != 0u; --i)
+	for (auto i = paddedLength - lengthWritten; i != 0u; --i)
 	{
 		outFile.write(&padding, sizeof(char));
 	}
-	if(font.kernings.size() != 0u)
+	if (font.kernings.size() != 0u)
 	{
 		outFile.write(reinterpret_cast<const char*>(font.kernings.data()), font.kernings.size() * sizeof(Kerning));
 	}
@@ -360,33 +488,45 @@ static void writeToFontFile(std::ofstream& outFile, const FontDescriptor& font)
 
 int main(int argc, char** argv)
 {
-	if(argc < 2)
+	if (argc < 2)
 	{
+		std::cout << "no filename given\n";
 		return 1;
 	}
-	std::ifstream inFile{argv[1]};
-	
-	FontDescriptor font{};
-	std::string line;
-	unsigned long lineNumber = 1u;
-	while (std::getline(inFile, line))
+	try
 	{
-		bool succeeded = passLine(line, lineNumber, font);
-		if(!succeeded)
+		std::ifstream inFile{ argv[1] };
+
+		FontDescriptor font{};
+		std::string line;
+		unsigned long lineNumber = 1u;
+		while (std::getline(inFile, line))
 		{
-			return 1;
+			bool succeeded = passLine(line, lineNumber, font);
+			if (!succeeded)
+			{
+				return 1;
+			}
+			++lineNumber;
 		}
-		++lineNumber;
+		inFile.close();
+
+		normalizeFontScale(font);
+		sortFont(font);
+
+		auto outFileName = replaceFileExtension(argv[1], ".font");
+		std::ofstream outFile{ outFileName, std::ios::binary };
+		writeToFontFile(outFile, font);
+		outFile.close();
+
+		std::cout << "done\n";
 	}
-	inFile.close();
-	
-	normalizeFontScale(font);
-	sortFont(font);
-	
-	auto outFileName = replaceFileExtension(argv[1], ".font");
-	std::ofstream outFile{outFileName, std::ios::binary};
-	writeToFontFile(outFile, font);
-	outFile.close();
-	
-	std::cout << "done\n";
+	catch (std::exception& e)
+	{
+		std::cout << "failed: " << e.what() << "\n";
+	}
+	catch (...)
+	{
+		std::cout << "failed\n";
+	}
 }
