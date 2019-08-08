@@ -50,6 +50,7 @@ public:
 
 		void(*textureLoaded)(TextureStreamingRequest& request, void* tr, unsigned int textureDescriptor);
 
+		TextureStreamingRequest() {}
 		TextureStreamingRequest(void(*textureLoaded)(TextureStreamingRequest& request, void* tr, unsigned int textureDescriptor),
 			const wchar_t * filename) :
 			textureLoaded(textureLoaded)

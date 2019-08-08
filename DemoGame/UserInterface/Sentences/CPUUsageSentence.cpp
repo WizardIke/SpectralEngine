@@ -1,8 +1,8 @@
 #include "CPUUsageSentence.h"
 #include "../../GlobalResources.h"
 
-CPUUsageSentence::CPUUsageSentence(ID3D12Device* const Device, const Font* const Font, const DirectX::XMFLOAT2 Position, const DirectX::XMFLOAT2 Size, const DirectX::XMFLOAT4 color) : 
-	DynamicTextRenderer(8u, Device, Font, L"Cpu 0%", Position, Size, color)
+CPUUsageSentence::CPUUsageSentence(ID3D12Device* const device, const DirectX::XMFLOAT2 position, const DirectX::XMFLOAT2 size, const DirectX::XMFLOAT4 color) : 
+	DynamicTextRenderer(8u, device, L"Cpu 0%", position, size, color)
 {
 	// Create a query object to poll cpu usage.
 	queryHandle = nullptr;

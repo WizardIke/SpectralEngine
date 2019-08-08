@@ -36,6 +36,8 @@ private:
 	unsigned int descriptorIndex;
 
 	GlobalResources& globalResources;
+
+	UserInterface(GlobalResources& globalResources, float aspectRatio);
 public:
 	UserInterface(GlobalResources& globalResources);
 	~UserInterface();
@@ -51,6 +53,12 @@ public:
 	Must be called from primary thread
 	*/
 	void stop(StopRequest& stopRequest, ThreadResources& threadResources);
+
+	void setFont(const Font& font) noexcept
+	{
+		CPUUsageSentence.setFont(font);
+		FPSSentence.setFont(font);
+	}
 
 	void setDisplayVirtualFeedbackTexture(bool value) { displayVirtualFeedbackTexture = value; }
 };

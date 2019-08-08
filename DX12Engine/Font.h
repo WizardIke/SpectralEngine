@@ -1,68 +1,155 @@
 #pragma once
 
-#include <string>
-#include "FontChar.h"
-#include <memory>
-#include <d3d12.h>
+#include <cstddef> //std::size_t
+#include <cstdint> //uint64_t, uint32_t
+#include <d3d12.h> //D3D12_GPU_VIRTUAL_ADDRESS
 #include "TextureManager.h"
-#include "Window.h"
-class GraphicsEngine;
+#include "AsynchronousFileManager.h"
 
-struct Font
+class Font
 {
-	struct FontKerning
+private:
+	template<class ThreadResources>
+	static void fontFileLoaded(AsynchronousFileManager::ReadRequest& request, AsynchronousFileManager&, void* tr, const unsigned char* data)
+	{
+		LoadRequest& loadRequest = static_cast<LoadRequest&>(static_cast<FontFileLoadRequest&>(request));
+		fontFileLoadedHelper(loadRequest, data);
+		TextureManager& textureManager = *loadRequest.textureManager;
+		textureManager.load(static_cast<TextureManager::TextureStreamingRequest&>(loadRequest), *static_cast<ThreadResources*>(tr));
+	}
+
+	static void textureLoaded(TextureManager::TextureStreamingRequest& request, void* tr, unsigned int textureDescriptor);
+
+	struct FontFileLoadRequest : public AsynchronousFileManager::ReadRequest 
+	{
+		FontFileLoadRequest() {}
+		FontFileLoadRequest(const wchar_t* filename, File file, std::size_t start, std::size_t end,
+			void(*fileLoadedCallback)(ReadRequest& request, AsynchronousFileManager& asynchronousFileManager, void* tr, const unsigned char* data)) :
+			ReadRequest(filename, file, start, end, fileLoadedCallback)
+		{}
+	};
+public:
+	struct Kerning
 	{
 		uint64_t firstIdAndSecoundId;
-		float amount; // the amount to add to second characters x
+		float amount; // the amount to add to second characters x in texture space
 	};
+
+	class Character
+	{
+	public:
+		uint32_t id;
+		float u; // u texture coordinate
+		float v; // v texture coordinate
+		float twidth; // width of character in texture space
+		float theight; // height of character in texture space
+		float xoffset; // offset from current cursor pos to left side of character in texture space
+		float yoffset; // offset from top of line to top of character in texture space
+		float xadvance; // how far to move to right for next character in texture space
+	};
+
+	class LoadRequest : FontFileLoadRequest, TextureManager::TextureStreamingRequest
+	{
+		friend class Font;
+		Font* font;
+		void(*fontLoadedCallback)(LoadRequest& request, void* tr);
+		TextureManager* textureManager;
+	public:
+		LoadRequest(const wchar_t* filename, void(*fontLoadedCallback1)(LoadRequest& request, void* tr)) :
+			fontLoadedCallback(fontLoadedCallback1)
+		{
+			auto& fileRequest = *static_cast<FontFileLoadRequest*>(this);
+			fileRequest.filename = filename;
+		}
+	};
+
+	class UnloadRequest : FontFileLoadRequest, TextureManager::Message
+	{
+		friend class Font;
+		void(*fontUnloadedCallback)(UnloadRequest& request, void* tr);
+		AsynchronousFileManager* asynchronousFileManager;
+	public:
+		UnloadRequest(const wchar_t* filename, void(*fontUnloadedCallback1)(UnloadRequest& request, void* tr)) :
+			fontUnloadedCallback{ fontUnloadedCallback1 }
+		{
+			auto& fileRequest = *static_cast<FontFileLoadRequest*>(this);
+			fileRequest.filename = filename;
+		}
+	};
+private:
+	static void fontFileLoadedHelper(LoadRequest& loadRequest, const unsigned char* data);
+
 	struct PSPerObjectConstantBuffer
 	{
 		uint32_t diffuseTexture;
 	};
-
 	constexpr static std::size_t psPerObjectConstantBufferSize = (sizeof(PSPerObjectConstantBuffer) + D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull) & ~(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull);
 
-	float lineHeight; //how much a newline charactors moves down by.
 	D3D12_GPU_VIRTUAL_ADDRESS psPerObjectCBVGpuAddress;
-	unsigned int numCharacters;
-	std::unique_ptr<FontChar[]> charList;
-	unsigned int numKernings;
-	std::unique_ptr<FontKerning[]> kerningsList; //sorted array was faster than unordered_map
-
-
+	PSPerObjectConstantBuffer* psPerObjectCBVCpuAddress;
+	std::size_t dataSize;
+	const unsigned char* data;
+	float mWidth; //The width of the square that will fit a charactor in texture space
+	float mHeight; //The height of the square that will fit a charactor in texture space
+	
+	unsigned long numCharacters;
+	const Character* charList; //sorted array was faster than unordered_map
+	unsigned long numKernings;
+	const Kerning* kerningsList; //sorted array was faster than unordered_map
+public:
 	// this will return the amount of kerning we need to use for two characters
-	float getKerning(wchar_t first, wchar_t second) const;
+	float getKerning(wchar_t first, wchar_t second) const noexcept;
 
 	// this will return a FontChar given a wide character
-	const FontChar* getChar(wchar_t c) const;
+	const Character* getChar(wchar_t c) const noexcept;
 
-	template<class ThreadResources>
-	Font(const wchar_t* const filename, ThreadResources& threadResources, TextureManager& textureManager,
-		float aspectRatio, TextureManager::TextureStreamingRequest& textureRequest)
-	{
-		textureManager.load(textureRequest, threadResources);
-		create(filename, aspectRatio);
-	}
+	float width() const noexcept { return mWidth; }
+	float height() const noexcept { return mHeight; }
+	D3D12_GPU_VIRTUAL_ADDRESS getConstantBuffer() const noexcept { return psPerObjectCBVGpuAddress; }
 
+	Font() {}
+	~Font() = default;
+
+	//Must be called before load
 	void setConstantBuffers(D3D12_GPU_VIRTUAL_ADDRESS& constantBufferGpuAddress, unsigned char*& constantBufferCpuAddress);
 
 	template<class ThreadResources>
-	void destruct(ThreadResources& threadResources, TextureManager& textureManager, const wchar_t* const textureFile)
+	void load(LoadRequest& loadRequest, AsynchronousFileManager& asynchronousFileManager, TextureManager& textureManager, ThreadResources&)
 	{
-		auto textureUnloader = new TextureManager::Message(textureFile, [](AsynchronousFileManager::ReadRequest& request, void*)
+		loadRequest.textureManager = &textureManager;
+		loadRequest.font = this;
+		auto& fileRequest = static_cast<FontFileLoadRequest&>(loadRequest);
+		fileRequest.file = asynchronousFileManager.openFileForReading(fileRequest.filename);
+		fileRequest.start = 0u;
+		fileRequest.end = fileRequest.file.size();
+		fileRequest.fileLoadedCallback = fontFileLoaded<ThreadResources>;
+		asynchronousFileManager.readFile(fileRequest);
+	}
+
+	template<class ThreadResources>
+	void destruct(UnloadRequest& unloadRequest, AsynchronousFileManager& asynchronousFileManager, TextureManager& textureManager, ThreadResources& threadResources)
+	{
+		unloadRequest.asynchronousFileManager = &asynchronousFileManager;
+
+		auto& textureRequest = static_cast<TextureManager::Message&>(unloadRequest);
+		textureRequest.filename = reinterpret_cast<const wchar_t*>(data);
+		textureRequest.deleteReadRequest = [](AsynchronousFileManager::ReadRequest& request, void*)
 		{
-			delete static_cast<TextureManager::Message*>(&request);
-		});
-		textureManager.unload(*textureUnloader, threadResources);
-	}
+			auto& unloadRequest = static_cast<UnloadRequest&>(static_cast<TextureManager::Message&>(request));
+			AsynchronousFileManager& asynchronousFileManager = *unloadRequest.asynchronousFileManager;
+			auto& fileRequest = static_cast<FontFileLoadRequest&>(unloadRequest);
+			asynchronousFileManager.discard(fileRequest);
+		};
 
-	~Font() = default;
+		auto& fileRequest = static_cast<FontFileLoadRequest&>(unloadRequest);
+		fileRequest.start = 0u;
+		fileRequest.end = dataSize;
+		fileRequest.deleteReadRequest = [](AsynchronousFileManager::ReadRequest& request, void* tr)
+		{
+			auto& unloadRequest = static_cast<UnloadRequest&>(static_cast<FontFileLoadRequest&>(request));
+			unloadRequest.fontUnloadedCallback(unloadRequest, tr);
+		};
 
-	void setDiffuseTexture(uint32_t diffuseTexture, unsigned char* cpuStartAddress, D3D12_GPU_VIRTUAL_ADDRESS gpuStartAddress)
-	{
-		auto buffer = reinterpret_cast<PSPerObjectConstantBuffer*>(cpuStartAddress + (psPerObjectCBVGpuAddress - gpuStartAddress));
-		buffer->diffuseTexture = diffuseTexture;
+		textureManager.unload(textureRequest, threadResources);
 	}
-private:
-	void create(const wchar_t* const filename, float aspectRatio);
 };

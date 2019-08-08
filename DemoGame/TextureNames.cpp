@@ -19,4 +19,3 @@ const wchar_t* TextureNames::icebump01 = L"../DemoGame/Textures/icebump01.dds";
 const wchar_t* TextureNames::firenoise01 = L"../DemoGame/Textures/firenoise01.dds";
 const wchar_t* TextureNames::fire01 = L"../DemoGame/Textures/fire01.dds";
 const wchar_t* TextureNames::firealpha01 = L"../DemoGame/Textures/firealpha01.dds";
-const wchar_t* TextureNames::Arial = L"../DemoGame/Textures/Arial.dds";

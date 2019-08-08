@@ -189,9 +189,6 @@
     <ClInclude Include="Font.h">
       <Filter>TextRendering</Filter>
     </ClInclude>
-    <ClInclude Include="FontChar.h">
-      <Filter>TextRendering</Filter>
-    </ClInclude>
     <ClInclude Include="Frustum.h">
       <Filter>Frustum</Filter>
     </ClInclude>

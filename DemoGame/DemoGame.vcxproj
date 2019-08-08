@@ -280,8 +280,6 @@
   <ItemGroup>
     <Image Include="Textures\alpha01.dds" />
     <Image Include="Textures\aluminium01.dds" />
-    <Image Include="Textures\Arial.dds" />
-    <Image Include="Textures\Arial.png" />
     <Image Include="Textures\blue01.dds" />
     <Image Include="Textures\braynzar.jpg" />
     <Image Include="Textures\bump01.dds" />

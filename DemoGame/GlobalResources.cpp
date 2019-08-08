@@ -36,6 +36,54 @@ namespace
 }
 #endif
 
+class GlobalResources::InitialResourceLoader : public Font::LoadRequest, public PipelineStateObjects::PipelineLoader, private PrimaryTaskFromOtherThreadQueue::Task
+{
+	static void fontsLoadedCallback(Font::LoadRequest& request1, void* tr)
+	{
+		ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
+		InitialResourceLoader& request = static_cast<InitialResourceLoader&>(request1);
+		request.globalResources.userInterface.setFont(request.globalResources.arial);
+		request.componentLoaded(threadResources);
+	}
+
+	static void pipelineStateObjectsLoadedCallback(PipelineStateObjects::PipelineLoader& pipelineLoader, void* tr)
+	{
+		ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
+		InitialResourceLoader& request1 = static_cast<InitialResourceLoader&>(pipelineLoader);
+		request1.componentLoaded(threadResources);
+	}
+
+	void componentLoaded(ThreadResources&)
+	{
+		if (numberOfComponentsLoaded.fetch_add(1u, std::memory_order_acq_rel) == (numberOfComponentsToLoad - 1u))
+		{
+			execute = [](PrimaryTaskFromOtherThreadQueue::Task& task, void* tr)
+			{
+				ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
+				InitialResourceLoader& request = static_cast<InitialResourceLoader&>(task);
+
+				request.globalResources.isRunning = true;
+
+				request.globalResources.userInterface.start(threadResources);
+				request.globalResources.areas.start(threadResources);
+
+				delete &request;
+			};
+			globalResources.taskShedular.pushPrimaryTaskFromOtherThread(0u, *this);
+		}
+	}
+
+	static constexpr unsigned int numberOfComponentsToLoad = 2u;
+	std::atomic<unsigned int> numberOfComponentsLoaded = 0u;
+	GlobalResources& globalResources;
+public:
+	InitialResourceLoader(GlobalResources& globalResources, const wchar_t* fontFilename) :
+		Font::LoadRequest(fontFilename, fontsLoadedCallback),
+		PipelineStateObjects::PipelineLoader(pipelineStateObjectsLoadedCallback),
+		globalResources(globalResources)
+	{}
+};
+
 class GlobalResources::Unloader : private PrimaryTaskFromOtherThreadQueue::Task
 {
 	class AmbientMusicStopRequests : public AmbientMusic::StopRequest
@@ -54,6 +102,15 @@ class GlobalResources::Unloader : private PrimaryTaskFromOtherThreadQueue::Task
 
 		UserInterfaceStopRequest(Unloader* unloader, void(*callback)(UserInterface::StopRequest& stopRequest, void* tr)) :
 			unloader(unloader), UserInterface::StopRequest(callback) {}
+	};
+
+	class FontStopRequest : public Font::UnloadRequest
+	{
+	public:
+		Unloader* unloader;
+
+		FontStopRequest(Unloader* unloader, const wchar_t* fileName, void(*callback)(Font::UnloadRequest& stopRequest, void* tr)) :
+			unloader(unloader), Font::UnloadRequest(fileName, callback) {}
 	};
 
 	class AreasStopRequest : public Areas::StopRequest
@@ -85,6 +142,7 @@ class GlobalResources::Unloader : private PrimaryTaskFromOtherThreadQueue::Task
 
 	AmbientMusicStopRequests ambientMusicStopRequests;
 	UserInterfaceStopRequest userInterfaceStopRequest;
+	FontStopRequest fontStopRequest;
 	AreasStopRequest areasStopRequest;
 
 	IoCompletionQueueStopRequest ioCompletionQueueStopRequest;
@@ -136,7 +194,12 @@ public:
 		}),
 		userInterfaceStopRequest(this, [](UserInterface::StopRequest& stopRequest, void* tr)
 		{
-			static_cast<UserInterfaceStopRequest&>(stopRequest).unloader->componentUnloaded1(tr);
+			auto& unloader = *static_cast<UserInterfaceStopRequest&>(stopRequest).unloader;
+			unloader.globalResources.arial.destruct(unloader.fontStopRequest, unloader.globalResources.asynchronousFileManager, unloader.globalResources.textureManager, *static_cast<ThreadResources*>(tr));
+		}),
+		fontStopRequest(this, L"../DemoGame/Fonts/Arial.font", [](Font::UnloadRequest& stopRequest, void* tr)
+		{
+			static_cast<FontStopRequest&>(stopRequest).unloader->componentUnloaded1(tr);
 		}),
 		areasStopRequest(this, [](Areas::StopRequest& stopRequest, void* tr)
 		{
@@ -252,57 +315,6 @@ void GlobalResources::onResize(unsigned int width, unsigned int height)
 	renderPass.resize(width, height, window, graphicsEngine);
 }
 
-class GlobalResources::InitialResourceLoader : public TextureManager::TextureStreamingRequest, public PipelineStateObjects::PipelineLoader, private PrimaryTaskFromOtherThreadQueue::Task
-{
-	static void fontsLoadedCallback(TextureManager::TextureStreamingRequest& request1, void* tr, unsigned int textureID)
-	{
-		ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
-		InitialResourceLoader& request = static_cast<InitialResourceLoader&>(request1);
-
-		request.globalResources.arial.setDiffuseTexture(textureID, request.globalResources.constantBuffersCpuAddress, request.globalResources.sharedConstantBuffer->GetGPUVirtualAddress());
-
-		
-		request.componentLoaded(threadResources);
-	}
-
-	static void pipelineStateObjectsLoadedCallback(PipelineStateObjects::PipelineLoader& pipelineLoader, void* tr)
-	{
-		ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
-		InitialResourceLoader& request1 = static_cast<InitialResourceLoader&>(pipelineLoader);
-		request1.componentLoaded(threadResources);
-	}
-
-	void componentLoaded(ThreadResources&)
-	{
-		if(numberOfComponentsLoaded.fetch_add(1u, std::memory_order_acq_rel) == (numberOfComponentsToLoad - 1u))
-		{
-			execute = [](PrimaryTaskFromOtherThreadQueue::Task& task, void* tr)
-			{
-				ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
-				InitialResourceLoader& request = static_cast<InitialResourceLoader&>(task);
-
-				request.globalResources.isRunning = true;
-
-				request.globalResources.userInterface.start(threadResources);
-				request.globalResources.areas.start(threadResources);
-
-				delete &request;
-			};
-			globalResources.taskShedular.pushPrimaryTaskFromOtherThread(0u, *this);
-		}
-	}
-
-	static constexpr unsigned int numberOfComponentsToLoad = 2u;
-	std::atomic<unsigned int> numberOfComponentsLoaded = 0u;
-	GlobalResources& globalResources;
-public:
-	InitialResourceLoader(GlobalResources& globalResources, const wchar_t* fontFilename) :
-		TextureManager::TextureStreamingRequest(fontsLoadedCallback, fontFilename),
-		PipelineStateObjects::PipelineLoader(pipelineStateObjectsLoadedCallback),
-		globalResources(globalResources)
-	{}
-};
-
 static const wchar_t* const musicFiles[] = 
 {
 	L"../DemoGame/Music/Heroic_Demise_New.sound",
@@ -311,7 +323,7 @@ static const wchar_t* const musicFiles[] =
 
 GlobalResources::GlobalResources() : GlobalResources(std::thread::hardware_concurrency(),
 	Window::State::normal, GetSystemMetrics(SM_CXVIRTUALSCREEN), GetSystemMetrics(SM_CYVIRTUALSCREEN), GetSystemMetrics(SM_XVIRTUALSCREEN), GetSystemMetrics(SM_YVIRTUALSCREEN),
-	false, false, new InitialResourceLoader(*this, TextureNames::Arial)) {}
+	false, false, new InitialResourceLoader(*this, L"../DemoGame/Fonts/Arial.font")) {}
 
 GlobalResources::GlobalResources(const unsigned int numberOfThreads, Window::State windowState, int screenWidth, int screenHeight, int screenPositionX, int screenPositionY,
 	bool vSync, bool enableGpuDebugging, void* initialResourceLoader
@@ -372,7 +384,7 @@ GlobalResources::GlobalResources(const unsigned int numberOfThreads, Window::Sta
 	}(), D3D12_RESOURCE_STATE_GENERIC_READ),
 	renderPass(taskShedular, streamingManager, graphicsEngine, asynchronousFileManager, window.width(), window.height(), playerPosition.location, 0.25f * 3.141f, window),
 	virtualTextureManager(renderPass.virtualTextureFeedbackSubPass().pageProvider, streamingManager, graphicsEngine, asynchronousFileManager),
-	arial(L"Arial.fnt", mainThreadResources, textureManager, (float)window.width() / (float)window.height(), *static_cast<InitialResourceLoader*>(initialResourceLoader)),
+	arial(),
 	userInterface(*this),
 	areas(this),
 	ambientMusic(soundEngine, asynchronousFileManager, musicFiles, sizeof(musicFiles) / sizeof(musicFiles[0])),
@@ -395,6 +407,7 @@ GlobalResources::GlobalResources(const unsigned int numberOfThreads, Window::Sta
 	mainCamera().setConstantBuffers(constantBuffersGpuAddress, cpuConstantBuffer);
 	userInterface.setConstantBuffers(constantBuffersGpuAddress, cpuConstantBuffer);
 	arial.setConstantBuffers(constantBuffersGpuAddress, cpuConstantBuffer);
+	arial.load(*static_cast<InitialResourceLoader*>(initialResourceLoader), asynchronousFileManager, textureManager, mainThreadResources);
 
 	window.setForgroundAndShow();
 	window.hideCursor();
@@ -404,7 +417,6 @@ GlobalResources::~GlobalResources()
 {
 	refractionRenderer.destruct(graphicsEngine);
 	mainCamera().destruct(graphicsEngine);
-	arial.destruct(mainThreadResources, textureManager, TextureNames::Arial);
 }
 
 bool GlobalResources::update()

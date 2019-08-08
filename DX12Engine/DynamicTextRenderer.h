@@ -17,18 +17,20 @@ class DynamicTextRenderer
 
 	std::array<D3D12Resource, frameBufferCount> textVertexBuffer;
 	unsigned int maxLength;
-	DirectX::XMFLOAT2 position;
 	TextVertex* textVBGPUAddress[frameBufferCount];
+	const Font* font = nullptr;
+	DirectX::XMFLOAT2 position;
+	DirectX::XMFLOAT2 size;
 public:
-	DynamicTextRenderer(unsigned int maxLength, ID3D12Device* Device, const Font* Font, const wchar_t* Text, DirectX::XMFLOAT2 Position, DirectX::XMFLOAT2 Size, DirectX::XMFLOAT4 color);
+	DynamicTextRenderer(unsigned int maxLength, ID3D12Device* Device, std::wstring text, DirectX::XMFLOAT2 Position, DirectX::XMFLOAT2 Size, DirectX::XMFLOAT4 color);
 	
 	~DynamicTextRenderer() = default;
 
 	void beforeRender(uint32_t FrameIndex);
 
-	const Font* font;
+	void setFont(const Font& font) noexcept;
+
 	std::wstring text;
-	DirectX::XMFLOAT2 size;
 	DirectX::XMFLOAT4 color;
 
 	D3D12_VERTEX_BUFFER_VIEW textVertexBufferView[frameBufferCount];

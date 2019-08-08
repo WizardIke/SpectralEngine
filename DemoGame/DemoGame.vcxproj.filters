@@ -242,12 +242,6 @@
     <Image Include="Textures\aluminium01.dds">
       <Filter>Textures</Filter>
     </Image>
-    <Image Include="Textures\Arial.dds">
-      <Filter>Textures</Filter>
-    </Image>
-    <Image Include="Textures\Arial.png">
-      <Filter>Textures</Filter>
-    </Image>
     <Image Include="Textures\blue01.dds">
       <Filter>Textures</Filter>
     </Image>

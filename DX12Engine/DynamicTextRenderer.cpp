@@ -2,25 +2,13 @@
 #include "HresultException.h"
 #include "makeArray.h"
 
-constexpr inline float setPositionX(const float pos)
-{
-	return (pos * 2.0f) - 1.0f;
-}
-
-constexpr inline float setPositionY(const float pos)
-{
-	return ((1.0f - pos) * 2.0f) - 1.0f;
-}
-
-
-DynamicTextRenderer::DynamicTextRenderer(const unsigned int maxLength, ID3D12Device* const Device, const Font* const Font, const wchar_t* Text, const DirectX::XMFLOAT2 Position, const DirectX::XMFLOAT2 Size, const DirectX::XMFLOAT4 color) :
-	font(Font),
-	text(Text),
-	size(Size),
+DynamicTextRenderer::DynamicTextRenderer(const unsigned int maxLength, ID3D12Device* const device, std::wstring text, const DirectX::XMFLOAT2 position, const DirectX::XMFLOAT2 size, const DirectX::XMFLOAT4 color) :
+	text(std::move(text)),
+	size(size),
 	maxLength(maxLength),
 	color(color),
-	position(Position),
-	textVertexBuffer(makeArray<frameBufferCount>([Device, maxLength]()
+	position(position),
+	textVertexBuffer(makeArray<frameBufferCount>([device, maxLength]()
 {
 	D3D12_HEAP_PROPERTIES heapProperties;
 	heapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY::D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
@@ -42,7 +30,7 @@ DynamicTextRenderer::DynamicTextRenderer(const unsigned int maxLength, ID3D12Dev
 	resourceDesc.SampleDesc.Quality = 0u;
 	resourceDesc.Width = maxLength * sizeof(TextVertex);
 
-	return D3D12Resource(Device, heapProperties, D3D12_HEAP_FLAG_NONE, resourceDesc, D3D12_RESOURCE_STATE_GENERIC_READ);
+	return D3D12Resource(device, heapProperties, D3D12_HEAP_FLAG_NONE, resourceDesc, D3D12_RESOURCE_STATE_GENERIC_READ);
 }))
 {
 	HRESULT hr;
@@ -68,8 +56,21 @@ DynamicTextRenderer::DynamicTextRenderer(const unsigned int maxLength, ID3D12Dev
 	}
 }
 
+void DynamicTextRenderer::setFont(const Font& newFont) noexcept
+{
+	if (font != nullptr)
+	{
+		size.x *= font->width();
+		size.y *= font->height();
+	}
+	font = &newFont;
+	size.x /= newFont.width();
+	size.y /= newFont.height();
+}
+
 void DynamicTextRenderer::beforeRender(uint32_t frameIndex)
 {
+	assert(font != nullptr);
 	float x = position.x;
 	float y = position.y;
 
@@ -87,7 +88,7 @@ void DynamicTextRenderer::beforeRender(uint32_t frameIndex)
 		if (currentChar == L'\n')
 		{
 			x = position.x;
-			y -= font->lineHeight * size.y;
+			y -= font->height() * size.y;
 			continue;
 		}
 
@@ -100,8 +101,8 @@ void DynamicTextRenderer::beforeRender(uint32_t frameIndex)
 			{
 				x + ((fontChar->xoffset + kerning) * size.x),
 				y - (fontChar->yoffset * size.y),
-				fontChar->width * size.x,
-				fontChar->height * size.y
+				fontChar->twidth * size.x,
+				fontChar->theight * size.y
 			},
 			{
 				fontChar->u,

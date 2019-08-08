@@ -1,7 +1,8 @@
 #include "FPSSentence.h"
+#include <string>
 
-FPSSentence::FPSSentence(ID3D12Device* const Device, const Font* const Font, const DirectX::XMFLOAT2 Position, const DirectX::XMFLOAT2 Size) :
-	DynamicTextRenderer(10u, Device, Font, L"Fps 0", Position, Size, DirectX::XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f)),
+FPSSentence::FPSSentence(ID3D12Device* const device, const DirectX::XMFLOAT2 position, const DirectX::XMFLOAT2 size) :
+	DynamicTextRenderer(10u, device, L"Fps 0", position, size, DirectX::XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f)),
 	timePassed(0u),
 	count(0u)
 {}

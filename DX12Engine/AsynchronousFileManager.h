@@ -54,7 +54,6 @@ public:
 	{
 	public:
 		AsynchronousFileManager* asynchronousFileManager;
-		//location to read
 		File file;
 		//location to put the result
 		unsigned char* buffer;
@@ -71,6 +70,16 @@ public:
 			file(file),
 			fileLoadedCallback(fileLoadedCallback),
 			deleteReadRequest(deleteRequest)
+		{
+			this->filename = filename;
+			this->start = start;
+			this->end = end;
+		}
+
+		ReadRequest(const wchar_t* filename, File file, std::size_t start, std::size_t end,
+			void(*fileLoadedCallback)(ReadRequest& request, AsynchronousFileManager& asynchronousFileManager, void* tr, const unsigned char* data)) :
+			file(file),
+			fileLoadedCallback(fileLoadedCallback)
 		{
 			this->filename = filename;
 			this->start = start;

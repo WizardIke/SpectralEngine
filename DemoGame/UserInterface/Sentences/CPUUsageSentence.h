@@ -11,7 +11,7 @@ class CPUUsageSentence : public DynamicTextRenderer
 	HQUERY queryHandle;
 	HCOUNTER counterHandle;
 public:
-	CPUUsageSentence(ID3D12Device* Device, const Font* Font, DirectX::XMFLOAT2 Position, DirectX::XMFLOAT2 Size, DirectX::XMFLOAT4 color);
+	CPUUsageSentence(ID3D12Device* Device, DirectX::XMFLOAT2 Position, DirectX::XMFLOAT2 Size, DirectX::XMFLOAT4 color);
 	~CPUUsageSentence();
 	void update(float frameTime);
 };

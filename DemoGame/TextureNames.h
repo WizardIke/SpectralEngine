@@ -22,5 +22,4 @@ public:
 	static const wchar_t* firenoise01;
 	static const wchar_t* fire01;
 	static const wchar_t* firealpha01;
-	static const wchar_t* Arial;
 };

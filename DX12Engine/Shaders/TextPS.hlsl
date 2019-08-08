@@ -15,5 +15,5 @@ struct Input
 
 float4 main(Input input) : SV_TARGET
 {
-    return input.color * textures[diffuseTexture].Sample(transparentBorderedSample, input.texCoords);
+    return float4(input.color.rgb, input.color.a * textures[diffuseTexture].Sample(transparentBorderedSample, input.texCoords).a);
 }

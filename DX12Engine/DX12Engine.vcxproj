@@ -340,7 +340,6 @@
     <ClInclude Include="InputManager.h" />
     <ClInclude Include="Light.h" />
     <ClInclude Include="GraphicsEngine.h" />
-    <ClInclude Include="FontChar.h" />
     <ClInclude Include="Font.h" />
     <ClInclude Include="Frustum.h" />
     <ClInclude Include="SoundDecoder.h" />

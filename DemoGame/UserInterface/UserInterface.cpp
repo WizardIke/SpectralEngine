@@ -4,9 +4,13 @@
 #include "../GlobalResources.h"
 
 UserInterface::UserInterface(GlobalResources& globalResources) :
-	CPUUsageSentence(globalResources.graphicsEngine.graphicsDevice, &globalResources.arial, DirectX::XMFLOAT2(-0.98f, 0.96f), DirectX::XMFLOAT2(0.2f, 0.2f),
+	UserInterface(globalResources, static_cast<float>(globalResources.window.width()) / static_cast<float>(globalResources.window.height()))
+{}
+
+UserInterface::UserInterface(GlobalResources& globalResources, float aspectRatio) :
+	CPUUsageSentence(globalResources.graphicsEngine.graphicsDevice, DirectX::XMFLOAT2(-0.98f, 1.0f - 0.01f * aspectRatio), DirectX::XMFLOAT2(0.1f, 0.1f * aspectRatio),
 		DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f)),
-	FPSSentence(globalResources.graphicsEngine.graphicsDevice, &globalResources.arial, DirectX::XMFLOAT2(-0.98f, 0.86f), DirectX::XMFLOAT2(0.2f, 0.2f)),
+	FPSSentence(globalResources.graphicsEngine.graphicsDevice, DirectX::XMFLOAT2(-0.98f, 1.0f - 0.12f * aspectRatio), DirectX::XMFLOAT2(0.1f, 0.1f * aspectRatio)),
 	globalResources(globalResources)
 {
 	const VirtualPageCamera& camera = (*globalResources.renderPass.virtualTextureFeedbackSubPass().cameras().begin());
@@ -71,7 +75,7 @@ void UserInterface::update2(ThreadResources& threadResources)
 	
 	opaqueDirectCommandList->SetPipelineState(globalResources.pipelineStateObjects.text);
 	opaqueDirectCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
-	opaqueDirectCommandList->SetGraphicsRootConstantBufferView(3u, globalResources.arial.psPerObjectCBVGpuAddress);
+	opaqueDirectCommandList->SetGraphicsRootConstantBufferView(3u, globalResources.arial.getConstantBuffer());
 
 	opaqueDirectCommandList->IASetVertexBuffers(0u, 1u, &CPUUsageSentence.textVertexBufferView[frameIndex]);
 	opaqueDirectCommandList->DrawInstanced(4u, static_cast<UINT>(CPUUsageSentence.text.length()), 0u, 0u);
