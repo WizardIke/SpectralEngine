@@ -8,6 +8,11 @@ enum VertexType : uint32_t
 	position3f_texCoords2f_normal3f_tangent3f_bitangent3f = 3u,
 	position3f_color3f = 4u,
 	position3f_color4f = 5u,
+	position3f_normal3f = 6u,
+	texCoords2f = 7u,
+	texCoords2f_normal3f = 8u,
+	normal3f = 9u,
+	none = 10u,
 };
 
 struct Vertex_position3f
