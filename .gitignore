@@ -58,7 +58,8 @@ artifacts/
 *_i.h
 *.ilk
 *.meta
-*.obj
+#obj files are needed to store meshes
+#*.obj
 *.pch
 *.pdb
 *.pgc
