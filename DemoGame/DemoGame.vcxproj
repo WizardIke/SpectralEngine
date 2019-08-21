@@ -438,4 +438,14 @@
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
+  <ItemDefinitionGroup>  
+    <CustomBuildStep>  
+      <Command>"$(OutDir)ResourceBuilder.exe" "$(ProjectDir)" "$(OutDir)" "$(OutDir)"</Command>  
+      <Outputs>$(OutDir)Resources\;$(ProjectDir)Resources.h</Outputs>  
+      <Inputs>$(ProjectDir)Resources\</Inputs>  
+    </CustomBuildStep>  
+  </ItemDefinitionGroup>   
+  <PropertyGroup>   
+    <CustomBuildBeforeTargets>ClCompile</CustomBuildBeforeTargets>  
+  </PropertyGroup>   
 </Project>

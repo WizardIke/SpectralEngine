@@ -768,7 +768,8 @@ static constexpr LogicOp stringToLogicOp(std::string_view str, bool& succeeded) 
 
 static std::string convertShaderName(const std::filesystem::path& oldName, const std::filesystem::path& baseInputPath, const std::filesystem::path& inputPath)
 {
-	auto absolutePath = inputPath / oldName;
+	auto absolutePath = inputPath.parent_path() / oldName;
+	absolutePath = std::filesystem::canonical(absolutePath);
 	auto vertexShaderPath = absolutePath.lexically_relative(baseInputPath);
 	vertexShaderPath.replace_extension();
 	std::string vertexShaderName{};
@@ -1771,8 +1772,8 @@ static void writeToCppHeaderFile(const GraphicsPipelineStateDesc& psoDesc, std::
 	outFile << "\tpublic:\n";
 	outFile << "\t\tstatic inline GraphicsPipelineStateDesc desc =\n";
 	outFile << "\t\t{\n";
-	outFile << "\t\t\tL" << psoDesc.vertexShader << ",\n";
-	outFile << "\t\t\tL" << psoDesc.pixelShader << ",\n";
+	outFile << "\t\t\t" << psoDesc.vertexShader << ",\n";
+	outFile << "\t\t\t" << psoDesc.pixelShader << ",\n";
 	outFile << "\t\t\tD3D12_STREAM_OUTPUT_DESC{soDeclarations, numSoDeclarations, bufferStrides, numBufferStrides, " << psoDesc.streamOutput.rasterizedStream << "},\n";
 	outFile << "\t\t\tD3D12_BLEND_DESC\n";
 	outFile << "\t\t\t{\n";
@@ -1846,8 +1847,13 @@ bool importResource(const std::filesystem::path& baseInputPath, const std::files
 		return false;
 	}
 
-	auto outputDirectory = baseInputPath / relativeInputPath.parent_path() / "Generated";
-	auto outputPath = outputDirectory / relativeInputPath.stem() / ".h";
+	auto outputDirectory = baseInputPath / "Generated" / relativeInputPath.parent_path();
+	auto outputPath = outputDirectory / relativeInputPath.stem();
+	outputPath += ".h";
+	if (!std::filesystem::exists(outputDirectory))
+	{
+		std::filesystem::create_directories(outputDirectory);
+	}
 	std::ofstream outFile(outputPath);
 	writeToCppHeaderFile(psoDesc, outFile, relativeInputPath.stem().string(), baseInputPath.lexically_relative(outputDirectory) / "Resources.h");
 	outFile.close();

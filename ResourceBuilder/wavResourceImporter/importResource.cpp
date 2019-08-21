@@ -127,6 +127,11 @@ bool importResource(const std::filesystem::path& baseInputPath, const std::files
 
 		auto outputPath = baseOutputPath / relativeInputPath;
 		outputPath += ".data";
+		const auto& outputDirectory = outputPath.parent_path();
+		if (!std::filesystem::exists(outputDirectory))
+		{
+			std::filesystem::create_directories(outputDirectory);
+		}
 		std::ofstream outFile{ outputPath, std::ios::binary };
 		outFile.write(reinterpret_cast<char*>(&fileInfo), sizeof(FileInfo));
 		outFile.write(data.get(), fileInfo.info.dataSize);

@@ -1084,9 +1084,7 @@ bool importResource(const std::filesystem::path& baseInputPath, const std::files
 		file.read(data.get(), dataLength);
 		file.close();
 
-		auto outputPath = baseOutputPath / relativeInputPath;
-		outputPath += ".data";
-		std::ofstream outFile(outputPath, std::ios::binary);
+
 		DdsHeaderDx12 header;
 		header.arraySize = textureInfo.isCubeMap ? textureInfo.arraySize / 6u : textureInfo.arraySize;
 		header.caps3 = 0u;
@@ -1127,6 +1125,15 @@ bool importResource(const std::filesystem::path& baseInputPath, const std::files
 		header.flags = flags;
 		header.miscFlags2 = DDS_ALPHA_MODE_UNKNOWN;
 		header.pitchOrLinearSize = 0u;
+
+		auto outputPath = baseOutputPath / relativeInputPath;
+		outputPath += ".data";
+		const auto& outputDirectory = outputPath.parent_path();
+		if (!std::filesystem::exists(outputDirectory))
+		{
+			std::filesystem::create_directories(outputDirectory);
+		}
+		std::ofstream outFile(outputPath, std::ios::binary);
 
 		outFile.write(reinterpret_cast<const char*>(&header), sizeof(header));
 		outFile.write(data.get(), (uint32_t)dataLength);

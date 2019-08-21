@@ -90,16 +90,15 @@ static bool processDirectory(const std::filesystem::path& baseInputPath, const s
 		}
 		else if (entry.is_regular_file())
 		{
-			auto inputFileName = inputPath / fileName;
-			auto relativeOutputFileName = relativeInputPath / fileName;
-			relativeOutputFileName += ".data";
-			auto outputFileName = baseOutputPath / relativeOutputFileName;
-			bool succeeded = importResource(importResourceContext, baseInputPath, baseOutputPath, inputFileName);
+			auto relativeInputFileName = relativeInputPath / fileName;
+			bool succeeded = importResource(importResourceContext, baseInputPath, baseOutputPath, relativeInputFileName);
 			if (!succeeded)
 			{
 				return false;
 			}
-			headerFile << indent << "static constexpr " << fileName.stem().string() << " = L\"" << relativeOutputFileName.string() << "\";\n";
+			auto relativeOutputFileName = relativeInputFileName;
+			relativeOutputFileName += ".data";
+			headerFile << indent << "static constexpr auto " << fileName.stem().string() << " = L\"" << relativeOutputFileName.string() << "\";\n";
 		}
 		else
 		{
@@ -130,7 +129,7 @@ static std::unordered_map<std::string, Importer> getFileImporters(const std::fil
 		const auto& fileName = entry.path().filename().string();
 		if (entry.is_regular_file() && endsWith(fileName, "ResourceImporter.dll"))
 		{
-			fileImporters.emplace(fileName.substr(0u, fileName.size() - 21u), entry.path());
+			fileImporters.emplace("." + fileName.substr(0u, fileName.size() - 20u), entry.path());
 		}
 	}
 	return fileImporters;
@@ -139,10 +138,11 @@ static std::unordered_map<std::string, Importer> getFileImporters(const std::fil
 static bool importResource(void* context, const std::filesystem::path& baseInputPath, const std::filesystem::path& baseOutputPath, const std::filesystem::path& relativeInputPath)
 {
 	auto& fileImporters = *static_cast<std::unordered_map<std::string, Importer>*>(context);
-	auto fileImporter = fileImporters.find(relativeInputPath.extension().string());
+	const auto& extension = relativeInputPath.extension().string();
+	auto fileImporter = fileImporters.find(extension);
 	if (fileImporter == fileImporters.end())
 	{
-		std::cerr << "No importer for " << relativeInputPath.extension().string() << " files\n";
+		std::cerr << "No importer for " << extension << " files\n";
 		return false;
 	}
 	return fileImporter->second.importResource(baseInputPath, baseOutputPath, relativeInputPath, &fileImporters, importResource);

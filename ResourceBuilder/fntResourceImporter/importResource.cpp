@@ -82,7 +82,7 @@ namespace
 
 	static bool passLine(std::string_view line, unsigned long lineNumber, FontDescriptor& font, const std::filesystem::path& currentDirectory)
 	{
-		auto trimmedLine = trim(line);
+		auto trimmedLine = trim(line, " \t\r");
 		if (trimmedLine.empty()) { return true; }
 		auto tokens = splitByCharIngoringDuplicateSeparators(trimmedLine, ' ');
 		if (tokens[0] == "common")
@@ -511,6 +511,11 @@ bool importResource(const std::filesystem::path& baseInputPath, const std::files
 
 		auto outputPath = baseOutputPath / relativeInputPath;
 		outputPath += ".data";
+		const auto& outputDirectory = outputPath.parent_path();
+		if (!std::filesystem::exists(outputDirectory))
+		{
+			std::filesystem::create_directories(outputDirectory);
+		}
 		std::ofstream outFile{ outputPath, std::ios::binary };
 		writeToFontFile(outFile, font);
 		outFile.close();

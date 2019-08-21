@@ -3,21 +3,21 @@
 #include <IOCompletionQueue.h>
 #include <makeArray.h>
 
-#include "Resources/PipelineStateObjects/Generated/BasicPso.h"
-#include "Resources/PipelineStateObjects/Generated/CopyPso.h"
-#include "Resources/PipelineStateObjects/Generated/DirectionalLightPso.h"
-#include "Resources/PipelineStateObjects/Generated/DirectionalLightVtPso.h"
-#include "Resources/PipelineStateObjects/Generated/DirectionalLightVtTwoSidedPso.h"
-#include "Resources/PipelineStateObjects/Generated/FirePso.h"
-#include "Resources/PipelineStateObjects/Generated/GlassPso.h"
-#include "Resources/PipelineStateObjects/Generated/PointLightPso.h"
-#include "Resources/PipelineStateObjects/Generated/TextPso.h"
-#include "Resources/PipelineStateObjects/Generated/VtDebugDrawPso.h"
-#include "Resources/PipelineStateObjects/Generated/VtFeedbackPso.h"
-#include "Resources/PipelineStateObjects/Generated/VtFeedbackWithNormalsPso.h"
-#include "Resources/PipelineStateObjects/Generated/VtFeedbackWithNormalsTwoSidedPso.h"
-#include "Resources/PipelineStateObjects/Generated/WaterNoReflectionTexturePso.h"
-#include "Resources/PipelineStateObjects/Generated/WaterWithReflectionTexturePso.h"
+#include "Generated/Resources/PipelineStateObjects/BasicPso.h"
+#include "Generated/Resources/PipelineStateObjects/CopyPso.h"
+#include "Generated/Resources/PipelineStateObjects/DirectionalLightPso.h"
+#include "Generated/Resources/PipelineStateObjects/DirectionalLightVtPso.h"
+#include "Generated/Resources/PipelineStateObjects/DirectionalLightVtTwoSidedPso.h"
+#include "Generated/Resources/PipelineStateObjects/FirePso.h"
+#include "Generated/Resources/PipelineStateObjects/GlassPso.h"
+#include "Generated/Resources/PipelineStateObjects/PointLightPso.h"
+#include "Generated/Resources/PipelineStateObjects/TextPso.h"
+#include "Generated/Resources/PipelineStateObjects/VtDebugDrawPso.h"
+#include "Generated/Resources/PipelineStateObjects/VtFeedbackPso.h"
+#include "Generated/Resources/PipelineStateObjects/VtFeedbackWithNormalsPso.h"
+#include "Generated/Resources/PipelineStateObjects/VtFeedbackWithNormalsTwoSidedPso.h"
+#include "Generated/Resources/PipelineStateObjects/WaterNoReflectionTexturePso.h"
+#include "Generated/Resources/PipelineStateObjects/WaterWithReflectionTexturePso.h"
 
 
 PipelineStateObjects::PipelineStateObjects(AsynchronousFileManager& asynchronousFileManager, ID3D12Device& grphicsDevice, RootSignatures& rootSignatures, PipelineLoader& pipelineLoader
@@ -27,9 +27,9 @@ PipelineStateObjects::PipelineStateObjects(AsynchronousFileManager& asynchronous
 )
 {
 	new(&pipelineLoader.impl) PipelineLoaderImpl(
-		{ &PipelineStateObjectDescs::Text::desc, &PipelineStateObjectDescs::DirectionalLight::desc, &PipelineStateObjectDescs::DirectionalLightVt::desc, &PipelineStateObjectDescs::DirectionalLightVtTwoSided::desc, &PipelineStateObjectDescs::PointLight::desc,
-		&PipelineStateObjectDescs::WaterWithReflectionTexture::desc, &PipelineStateObjectDescs::WaterNoReflectionTexture::desc, &PipelineStateObjectDescs::Glass::desc, &PipelineStateObjectDescs::Basic::desc, &PipelineStateObjectDescs::Fire::desc,
-		&PipelineStateObjectDescs::Copy::desc, &PipelineStateObjectDescs::VtFeedback::desc, &PipelineStateObjectDescs::VtFeedbackWithNormals::desc, &PipelineStateObjectDescs::VtFeedbackWithNormalsTwoSided::desc, &PipelineStateObjectDescs::VtDebugDraw::desc },
+		{ &PipelineStateObjectDescs::TextPso::desc, &PipelineStateObjectDescs::DirectionalLightPso::desc, &PipelineStateObjectDescs::DirectionalLightVtPso::desc, &PipelineStateObjectDescs::DirectionalLightVtTwoSidedPso::desc, &PipelineStateObjectDescs::PointLightPso::desc,
+		&PipelineStateObjectDescs::WaterWithReflectionTexturePso::desc, &PipelineStateObjectDescs::WaterNoReflectionTexturePso::desc, &PipelineStateObjectDescs::GlassPso::desc, &PipelineStateObjectDescs::BasicPso::desc, &PipelineStateObjectDescs::FirePso::desc,
+		&PipelineStateObjectDescs::CopyPso::desc, &PipelineStateObjectDescs::VtFeedbackPso::desc, &PipelineStateObjectDescs::VtFeedbackWithNormalsPso::desc, &PipelineStateObjectDescs::VtFeedbackWithNormalsTwoSidedPso::desc, &PipelineStateObjectDescs::VtDebugDrawPso::desc },
 		{ &text, &directionalLight, &directionalLightVt, &directionalLightVtTwoSided, &pointLight, &waterWithReflectionTexture, &waterNoReflectionTexture, &glass, &basic, &fire, &copy, &vtFeedback, &vtFeedbackWithNormals, &vtFeedbackWithNormalsTwoSided, &vtDebugDraw },
 		asynchronousFileManager, grphicsDevice, pipelineLoader, *rootSignatures.rootSignature
 #ifndef NDEBUG

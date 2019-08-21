@@ -9,7 +9,8 @@
 #include <utility> //std::make_pair
 #include <cstring> //std::memcopy
 #include <string> //std::stof
-#include <type_traits> //std::is_trivially_copyable_v, std::enable_if_t 
+#include <type_traits> //std::is_trivially_copyable_v, std::enable_if_t
+#include <optional>
 
 namespace
 {
@@ -157,9 +158,9 @@ namespace
 				}
 				++i;
 			}
-			if (i != 3u)
+			for (; i != 3u; ++i)
 			{
-				return false;
+				result[i] = 0u;
 			}
 		}
 		catch (...)
@@ -172,6 +173,10 @@ namespace
 	static bool passLine(std::string_view line, unsigned long long lineNumber, Mesh& mesh)
 	{
 		std::string_view trimmedLine = trim(line);
+		if (line.empty())
+		{
+			return true;
+		}
 		if (line[0] == '#')
 		{
 			return true;
@@ -252,6 +257,7 @@ namespace
 					std::cout << "invalid set of three indices on line " << lineNumber << "\n";
 					return false;
 				}
+				++index;
 			}
 			mesh.faces.push_back(std::move(face));
 		}
@@ -384,8 +390,9 @@ namespace
 		using Hash = ArrayHash<unsigned long, 3>;
 		std::unordered_map<std::array<unsigned long, 3>, unsigned long, Hash> indexMap;
 		const unsigned long faceCount = static_cast<unsigned long>(mesh.faces.size());
+		const unsigned long indexCount = faceCount * 3u;
 		std::unique_ptr<char[]> indices{
-			new char[faceCount <= 65535u ? faceCount * 2u : faceCount * 4u] };
+			new char[indexCount <= 65535u ? indexCount * 2u : indexCount * 4u] };
 		for (unsigned long i = 0u; i != faceCount; ++i)
 		{
 			const auto& face = mesh.faces[i];
@@ -438,7 +445,7 @@ namespace
 				{
 					newIndex = result.first->second;
 				}
-				if (faceCount <= 65535u)
+				if (indexCount <= 65535u)
 				{
 					unsigned long indexInIndices = (i * 3 + j) * 2u;
 					auto bytes = toBytes(static_cast<uint16_t>(newIndex));
@@ -471,6 +478,25 @@ namespace
 		outFile.write(reinterpret_cast<const char*>(mesh.vertices.get()), mesh.verticesSizeInBytes);
 		outFile.write(reinterpret_cast<const char*>(mesh.indices.get()), mesh.indicesSizeInBytes);
 	}
+
+	static std::optional<ConvertedMesh> readAndConvertMesh(std::ifstream& inFile)
+	{
+		Mesh mesh{};
+		std::string line;
+		unsigned long long lineNumber = 1u;
+		while (std::getline(inFile, line))
+		{
+			bool succeeded = passLine(line, lineNumber, mesh);
+			if (!succeeded)
+			{
+				return std::nullopt;
+			}
+			++lineNumber;
+		}
+		inFile.close();
+
+		return convert(mesh);
+	}
 }
 
 extern "C"
@@ -483,27 +509,26 @@ bool importResource(const std::filesystem::path& baseInputPath, const std::files
 	try
 	{
 		std::ifstream inFile{ baseInputPath / relativeInputPath };
-
-		Mesh mesh{};
-		std::string line;
-		unsigned long long lineNumber = 1u;
-		while (std::getline(inFile, line))
+		auto convertedMesh = readAndConvertMesh(inFile);
+		if (!convertedMesh)
 		{
-			bool succeeded = passLine(line, lineNumber, mesh);
-			if (!succeeded)
-			{
-				return 1;
-			}
-			++lineNumber;
+			return 1;
 		}
-		inFile.close();
-
-		auto convertedMesh = convert(mesh);
 
 		auto outputPath = baseOutputPath / relativeInputPath;
 		outputPath += ".data";
+		const auto& outputDirectory = outputPath.parent_path();
+		if (!std::filesystem::exists(outputDirectory))
+		{
+			std::filesystem::create_directories(outputDirectory);
+		}
 		std::ofstream outFile{ outputPath, std::ios::binary };
-		writeOutputFile(outFile, convertedMesh);
+		if (!outFile)
+		{
+			std::cout << "failed to create output file\n";
+			return false;
+		}
+		writeOutputFile(outFile, *convertedMesh);
 		outFile.close();
 
 		std::cout << "done\n";
