@@ -4,13 +4,21 @@
 #include <Frustum.h>
 #include <d3d12.h>
 #include <Light.h>
-#include "../Shaders/DirectionalLightMaterialPS.h"
+#include <cstdint>
+#include <Vector3.h>
 
 class BathModel2
 {
 	struct VSPerObjectConstantBuffer
 	{
 		DirectX::XMMATRIX worldMatrix;
+	};
+
+	struct DirectionalLightMaterialPS
+	{
+		Vector3 specularColor;
+		float specularPower;
+		uint32_t baseColorTexture;
 	};
 
 	constexpr static float positionX = 64.0f, positionY = 2.0f, positionZ = 64.0f;
@@ -48,7 +56,7 @@ public:
 													0.f, 0.f, 1.f, 0.f,
 													positionX, positionY, positionZ, 1.f };
 
-		psPerObjectCBVCpuAddress->specularColor = DirectX::XMFLOAT3{ 0.1f, 0.1f, 0.1f };
+		psPerObjectCBVCpuAddress->specularColor = { 0.1f, 0.1f, 0.1f };
 		psPerObjectCBVCpuAddress->specularPower = 4.0f;
 	}
 

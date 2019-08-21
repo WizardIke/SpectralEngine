@@ -220,13 +220,11 @@
     <ClCompile Include="GlobalResources.cpp" />
     <ClCompile Include="InputHandler.cpp" />
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="MeshNames.cpp" />
     <ClCompile Include="Models\CaveModelPart1.cpp" />
     <ClCompile Include="Models\WaterModel2.cpp" />
     <ClCompile Include="PipelineStateObjects.cpp" />
     <ClCompile Include="RenderPass1.cpp" />
     <ClCompile Include="RootSignatures.cpp" />
-    <ClCompile Include="TextureNames.cpp" />
     <ClCompile Include="ThreadResources.cpp" />
     <ClCompile Include="UserInterface\Sentences\CPUUsageSentence.cpp" />
     <ClCompile Include="UserInterface\Sentences\FPSSentence.cpp" />
@@ -240,7 +238,6 @@
     <ClInclude Include="GlobalResources.h" />
     <ClInclude Include="HighResPlane.h" />
     <ClInclude Include="InputHander.h" />
-    <ClInclude Include="MeshNames.h" />
     <ClInclude Include="Models\BathModel2.h" />
     <ClInclude Include="Models\CaveModelPart1.h" />
     <ClInclude Include="Models\FireModel.h" />
@@ -250,14 +247,9 @@
     <ClInclude Include="Models\WaterModel2.h" />
     <ClInclude Include="PipelineStateObjects.h" />
     <ClInclude Include="RenderPass1.h" />
-    <ClInclude Include="Resources\Shaders\BasicMaterialPS.h" />
-    <ClInclude Include="Resources\Shaders\DirectionalLightMaterialPS.h" />
-    <ClInclude Include="Resources\Shaders\TexturedQuadMaterialVS.h" />
-    <ClInclude Include="Resources\Shaders\VtFeedbackMaterialPS.h" />
     <ClInclude Include="RootSignatures.h" />
     <ClInclude Include="StreamingRequests.h" />
     <ClInclude Include="TestZone.h" />
-    <ClInclude Include="TextureNames.h" />
     <ClInclude Include="ThreadResources.h" />
     <ClInclude Include="UserInterface\Sentences\CPUUsageSentence.h" />
     <ClInclude Include="UserInterface\Sentences\FPSSentence.h" />
@@ -438,14 +430,14 @@
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
-  <ItemDefinitionGroup>  
-    <CustomBuildStep>  
-      <Command>"$(OutDir)ResourceBuilder.exe" "$(ProjectDir)" "$(OutDir)" "$(OutDir)"</Command>  
-      <Outputs>$(OutDir)Resources\;$(ProjectDir)Resources.h</Outputs>  
-      <Inputs>$(ProjectDir)Resources\</Inputs>  
-    </CustomBuildStep>  
-  </ItemDefinitionGroup>   
-  <PropertyGroup>   
-    <CustomBuildBeforeTargets>ClCompile</CustomBuildBeforeTargets>  
-  </PropertyGroup>   
+  <ItemDefinitionGroup>
+    <CustomBuildStep>
+      <Command>"$(OutDir)ResourceBuilder.exe" "$(ProjectDir)\" "$(OutDir)\" "$(OutDir)\"</Command>
+      <Outputs>$(OutDir)Resources\;$(ProjectDir)Resources.h</Outputs>
+      <Inputs>$(ProjectDir)Resources\</Inputs>
+    </CustomBuildStep>
+  </ItemDefinitionGroup>
+  <PropertyGroup>
+    <CustomBuildBeforeTargets>ClCompile</CustomBuildBeforeTargets>
+  </PropertyGroup>
 </Project>

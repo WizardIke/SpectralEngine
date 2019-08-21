@@ -4,16 +4,13 @@
 #include "GlobalResources.h"
 #include "HighResPlane.h"
 #include <Light.h>
-#include "TextureNames.h"
-#include "MeshNames.h"
+#include "Resources.h"
 #include "PipelineStateObjects.h"
 #include <ID3D12ResourceMapFailedException.h>
 #include <TextureManager.h>
 #include <VirtualTextureManager.h>
 #include <MeshManager.h>
 #include "StreamingRequests.h"
-
-#include "Resources/Shaders/VtFeedbackMaterialPS.h"
 
 template<unsigned int x, unsigned int z>
 class TestZoneFunctions
@@ -29,6 +26,18 @@ class TestZoneFunctions
 			auto& globalResources = *static_cast<GlobalResources*>(zone.context);
 			zone.componentUploaded(globalResources.taskShedular, numComponents);
 		}
+
+		struct VtFeedbackMaterialPS
+		{
+			float virtualTextureID1;
+			float virtualTextureID2And3;
+			float textureWidthInPages;
+			float textureHeightInPages;
+			float usefulTextureWidth; //width of virtual texture not counting padding
+			float usefulTextureHeight;
+		};
+
+		static constexpr std::size_t vtFeedbackMaterialPsSize = (sizeof(VtFeedbackMaterialPS) + D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull) & ~(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull);
 
 		D3D12Resource perObjectConstantBuffers;
 		unsigned char* perObjectConstantBuffersCpuAddress;
@@ -100,7 +109,7 @@ class TestZoneFunctions
 
 				delete static_cast<VirtualTextureRequest*>(&request);
 				componentUploaded(zone);
-			}, TextureNames::stone04, zone);
+			}, Resources::Textures::stone04Tiled, zone);
 			virtualTextureManager.load(stone04Request, threadResources);
 
 			MeshManager& meshManager = globalResources.meshManager;
@@ -112,7 +121,7 @@ class TestZoneFunctions
 
 				delete static_cast<MeshRequest*>(&request);
 				componentUploaded(zone);
-			}, MeshNames::HighResMesh1, zone);
+			}, Resources::Meshes::HighResMesh1, zone);
 			meshManager.load(HighResMesh1Request, threadResources);
 
 			constexpr uint64_t pointLightConstantBufferAlignedSize = (sizeof(LightConstantBuffer) + (uint64_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (uint64_t)1u) & ~((uint64_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (uint64_t)1u);
@@ -205,11 +214,11 @@ class TestZoneFunctions
 			}
 
 			HdUnloader(Zone<ThreadResources>& zone1) :
-				VirtualTextureManager::UnloadRequest(TextureNames::stone04, [](AsynchronousFileManager::ReadRequest& unloader, void* tr)
+				VirtualTextureManager::UnloadRequest(Resources::Textures::stone04, [](AsynchronousFileManager::ReadRequest& unloader, void* tr)
 					{
 						static_cast<HdUnloader&>(static_cast<VirtualTextureManager::UnloadRequest&>(unloader)).componentUnloaded(tr);
 					}),
-				MeshManager::UnloadRequest(MeshNames::HighResMesh1, [](AsynchronousFileManager::ReadRequest& unloader, void* tr)
+				MeshManager::UnloadRequest(Resources::Meshes::HighResMesh1, [](AsynchronousFileManager::ReadRequest& unloader, void* tr)
 					{
 						static_cast<HdUnloader&>(static_cast<MeshManager::UnloadRequest&>(unloader)).componentUnloaded(tr);
 					}),

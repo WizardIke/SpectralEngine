@@ -70,9 +70,6 @@
       <Filter>PipelineStateObjects</Filter>
     </ClCompile>
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="TextureNames.cpp">
-      <Filter>Textures</Filter>
-    </ClCompile>
     <ClCompile Include="UserInterface\UserInterface.cpp">
       <Filter>UserInterface</Filter>
     </ClCompile>
@@ -82,9 +79,6 @@
     <ClCompile Include="AmbientMusic.cpp" />
     <ClCompile Include="AmbientMusic.cpp">
       <Filter>AmbientMusic</Filter>
-    </ClCompile>
-    <ClCompile Include="MeshNames.cpp">
-      <Filter>Meshes</Filter>
     </ClCompile>
     <ClCompile Include="InputHandler.cpp" />
     <ClCompile Include="ThreadResources.cpp">
@@ -138,9 +132,6 @@
     <ClInclude Include="PipelineStateObjects.h">
       <Filter>PipelineStateObjects</Filter>
     </ClInclude>
-    <ClInclude Include="TextureNames.h">
-      <Filter>Textures</Filter>
-    </ClInclude>
     <ClInclude Include="UserInterface\UserInterface.h">
       <Filter>UserInterface</Filter>
     </ClInclude>
@@ -150,9 +141,6 @@
     <ClInclude Include="AmbientMusic.h" />
     <ClInclude Include="AmbientMusic.h">
       <Filter>AmbientMusic</Filter>
-    </ClInclude>
-    <ClInclude Include="MeshNames.h">
-      <Filter>Meshes</Filter>
     </ClInclude>
     <ClInclude Include="RenderPass1.h" />
     <ClInclude Include="Models\FireModel.h">
@@ -186,18 +174,6 @@
     </ClInclude>
     <ClInclude Include="Models\CaveModelPart1.h">
       <Filter>Models</Filter>
-    </ClInclude>
-    <ClInclude Include="Resources\Shaders\BasicMaterialPS.h">
-      <Filter>Shaders\Pixel</Filter>
-    </ClInclude>
-    <ClInclude Include="Resources\Shaders\DirectionalLightMaterialPS.h">
-      <Filter>Shaders\Pixel</Filter>
-    </ClInclude>
-    <ClInclude Include="Resources\Shaders\VtFeedbackMaterialPS.h">
-      <Filter>Shaders\Pixel</Filter>
-    </ClInclude>
-    <ClInclude Include="Resources\Shaders\TexturedQuadMaterialVS.h">
-      <Filter>Shaders\Vertex</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

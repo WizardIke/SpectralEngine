@@ -2,7 +2,8 @@
 #include <DirectXMath.h>
 #include <Frustum.h>
 #include <d3d12.h>
-#include "Resources/Shaders/DirectionalLightMaterialPS.h"
+#include <Vector3.h>
+#include <cstdint>
 
 template<unsigned int x, unsigned int z>
 class HighResPlane
@@ -10,6 +11,13 @@ class HighResPlane
 	struct VSPerObjectConstantBuffer
 	{
 		DirectX::XMMATRIX worldMatrix;
+	};
+
+	struct DirectionalLightMaterialPS
+	{
+		Vector3 specularColor;
+		float specularPower;
+		uint32_t baseColorTexture;
 	};
 
 	constexpr static size_t vsBufferSize = (sizeof(VSPerObjectConstantBuffer) + D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT) & ~(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1ull);

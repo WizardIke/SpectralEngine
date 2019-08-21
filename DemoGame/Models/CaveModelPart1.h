@@ -1,7 +1,8 @@
 #pragma once
 #include <d3d12.h>
 #include <DirectXMath.h>
-#include "../Resources/Shaders/DirectionalLightMaterialPS.h"
+#include <Vector3.h>
+#include <cstdint>
 class Frustum;
 class Mesh;
 
@@ -11,6 +12,13 @@ class CaveModelPart1
 	struct VSPerObjectConstantBuffer
 	{
 		DirectX::XMMATRIX worldMatrix;
+	};
+
+	struct DirectionalLightMaterialPS
+	{
+		Vector3 specularColor;
+		float specularPower;
+		uint32_t baseColorTexture;
 	};
 
 	constexpr static size_t vSPerObjectConstantBufferAlignedSize = (sizeof(VSPerObjectConstantBuffer) + (size_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (size_t)1u) & ~((size_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (size_t)1u);

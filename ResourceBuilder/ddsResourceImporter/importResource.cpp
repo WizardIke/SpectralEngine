@@ -10,7 +10,7 @@ namespace
 {
 	constexpr std::array<uint8_t, 4u> makeFourCC(uint8_t ch0, uint8_t ch1, uint8_t ch2, uint8_t ch3)
 	{
-		return { ch3, ch2, ch1, ch0 };
+		return { ch0, ch1, ch2, ch3 };
 	}
 
 	enum DXGI_FORMAT
@@ -925,7 +925,7 @@ namespace
 
 		DDS_HEADER ddsHeader;
 		textureFile.read(reinterpret_cast<char*>(&ddsHeader), sizeof(ddsHeader));
-		if (textureFile.eofbit)
+		if (!textureFile)
 		{
 			throw std::runtime_error("file size too small for header");
 		}
@@ -945,7 +945,7 @@ namespace
 		{
 			DDS_HEADER_DXT10 d3d10ext;
 			textureFile.read(reinterpret_cast<char*>(&d3d10ext), sizeof(DDS_HEADER_DXT10));
-			if (textureFile.eofbit)
+			if (!textureFile)
 			{
 				throw std::runtime_error("file size too small for expended header");
 			}
@@ -1072,6 +1072,11 @@ bool importResource(const std::filesystem::path& baseInputPath, const std::files
 	try
 	{
 		std::ifstream file(baseInputPath / relativeInputPath, std::ios::binary);
+		if (!file)
+		{
+			std::cout << "failed to open input file\n";
+			return false;
+		}
 		auto textureInfo = getDDSTextureInfoFromFile(file);
 
 		auto currentPos = file.tellg();
@@ -1139,7 +1144,7 @@ bool importResource(const std::filesystem::path& baseInputPath, const std::files
 		outFile.write(data.get(), (uint32_t)dataLength);
 		outFile.close();
 
-		std::cout << "Finished\n";
+		std::cout << "done\n";
 	}
 	catch (const std::exception& e)
 	{

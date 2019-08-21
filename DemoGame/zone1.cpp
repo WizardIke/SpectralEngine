@@ -147,7 +147,7 @@ namespace
 			textureRequests->load(
 				{
 					{
-						TextureNames::ground01,
+						Resources::Textures::ground01,
 						[](TextureManager::TextureStreamingRequest& request, void*, unsigned int textureDescriptor)
 						{
 							auto resources = static_cast<HDResources*>(static_cast<TextureRequest&>(request).zone.newData);
@@ -155,7 +155,7 @@ namespace
 						}
 					},
 					{
-						TextureNames::wall01,
+						Resources::Textures::wall01,
 						[](TextureManager::TextureStreamingRequest& request, void*, unsigned int textureDescriptor)
 						{
 							auto resources = static_cast<HDResources*>(static_cast<TextureRequest&>(request).zone.newData);
@@ -163,7 +163,7 @@ namespace
 						}
 					},
 					{
-						TextureNames::marble01,
+						Resources::Textures::marble01,
 						[](TextureManager::TextureStreamingRequest& request, void*, unsigned int textureDescriptor)
 						{
 							auto resources = static_cast<HDResources*>(static_cast<TextureRequest&>(request).zone.newData);
@@ -171,7 +171,7 @@ namespace
 						}
 					},
 					{
-						TextureNames::water01,
+						Resources::Textures::water01,
 						[](TextureManager::TextureStreamingRequest& request, void*, unsigned int textureDescriptor)
 						{
 							auto resources = static_cast<HDResources*>(static_cast<TextureRequest&>(request).zone.newData);
@@ -179,7 +179,7 @@ namespace
 						}
 					},
 					{
-						TextureNames::ice01,
+						Resources::Textures::ice01,
 						[](TextureManager::TextureStreamingRequest& request, void*, unsigned int textureDescriptor)
 						{
 							auto resources = static_cast<HDResources*>(static_cast<TextureRequest&>(request).zone.newData);
@@ -187,7 +187,7 @@ namespace
 						}
 					},
 					{
-						TextureNames::icebump01,
+						Resources::Textures::icebump01,
 						[](TextureManager::TextureStreamingRequest& request, void*, unsigned int textureDescriptor)
 						{
 							auto resources = static_cast<HDResources*>(static_cast<TextureRequest&>(request).zone.newData);
@@ -195,7 +195,7 @@ namespace
 						}
 					},
 					{
-						TextureNames::firenoise01,
+						Resources::Textures::firenoise01,
 						[](TextureManager::TextureStreamingRequest& request, void*, unsigned int textureDescriptor)
 						{
 							auto resources = static_cast<HDResources*>(static_cast<TextureRequest&>(request).zone.newData);
@@ -204,7 +204,7 @@ namespace
 						}
 					},
 					{
-						TextureNames::fire01,
+						Resources::Textures::fire01,
 						[](TextureManager::TextureStreamingRequest& request, void*, unsigned int textureDescriptor)
 						{
 							auto resources = static_cast<HDResources*>(static_cast<TextureRequest&>(request).zone.newData);
@@ -213,7 +213,7 @@ namespace
 						}
 					},
 					{
-						TextureNames::firealpha01,
+						Resources::Textures::firealpha01,
 						[](TextureManager::TextureStreamingRequest& request, void*, unsigned int textureDescriptor)
 						{
 							auto resources = static_cast<HDResources*>(static_cast<TextureRequest&>(request).zone.newData);
@@ -232,7 +232,7 @@ namespace
 			meshRequests->load(
 				{
 					{
-						MeshNames::bath,
+						Resources::Meshes::bath,
 						[](MeshManager::MeshStreamingRequest& request, void*, Mesh& mesh)
 						{
 							auto resources = static_cast<HDResources*>(static_cast<MeshRequest&>(request).zone.newData);
@@ -240,7 +240,7 @@ namespace
 						}
 					},
 					{
-						MeshNames::plane1,
+						Resources::Meshes::plane1,
 						[](MeshManager::MeshStreamingRequest& request, void*, Mesh& mesh)
 						{
 							auto resources = static_cast<HDResources*>(static_cast<MeshRequest&>(request).zone.newData);
@@ -248,7 +248,7 @@ namespace
 						}
 					},
 					{
-						MeshNames::wall,
+						Resources::Meshes::wall,
 						[](MeshManager::MeshStreamingRequest& request, void*, Mesh& mesh)
 						{
 							auto resources = static_cast<HDResources*>(static_cast<MeshRequest&>(request).zone.newData);
@@ -256,7 +256,7 @@ namespace
 						}
 					},
 					{
-						MeshNames::water,
+						Resources::Meshes::water,
 						[](MeshManager::MeshStreamingRequest& request, void*, Mesh& mesh)
 						{
 							auto resources = static_cast<HDResources*>(static_cast<MeshRequest&>(request).zone.newData);
@@ -264,7 +264,7 @@ namespace
 						}
 					},
 					{
-						MeshNames::cube,
+						Resources::Meshes::cube,
 						[](MeshManager::MeshStreamingRequest& request, void*, Mesh& mesh)
 						{
 							auto resources = static_cast<HDResources*>(static_cast<MeshRequest&>(request).zone.newData);
@@ -272,7 +272,7 @@ namespace
 						}
 					},
 					{
-						MeshNames::square,
+						Resources::Meshes::square,
 						[](MeshManager::MeshStreamingRequest& request, void*, Mesh& mesh)
 						{
 							auto resources = static_cast<HDResources*>(static_cast<MeshRequest&>(request).zone.newData);
@@ -281,7 +281,7 @@ namespace
 						}
 					},
 					{
-						MeshNames::aabb,
+						Resources::Meshes::aabb,
 						[](MeshManager::MeshStreamingRequest& request, void*, Mesh& mesh)
 						{
 							auto resources = static_cast<HDResources*>(static_cast<MeshRequest&>(request).zone.newData);
@@ -289,7 +289,7 @@ namespace
 						}
 					},
 					{
-						MeshNames::squareWithPos,
+						Resources::Meshes::squareWithPositions,
 						[](MeshManager::MeshStreamingRequest& request, void*, Mesh& mesh)
 						{
 							auto resources = static_cast<HDResources*>(static_cast<MeshRequest&>(request).zone.newData);
@@ -638,27 +638,27 @@ namespace
 			auto hdUnloader = HdUnloader::create(zone);
 			hdUnloader->unloadTextures(
 				{
-					TextureNames::ground01,
-					TextureNames::wall01,
-					TextureNames::marble01,
-					TextureNames::water01,
-					TextureNames::ice01,
-					TextureNames::icebump01,
-					TextureNames::firenoise01,
-					TextureNames::fire01,
-					TextureNames::firealpha01,
+					Resources::Textures::ground01,
+					Resources::Textures::wall01,
+					Resources::Textures::marble01,
+					Resources::Textures::water01,
+					Resources::Textures::ice01,
+					Resources::Textures::icebump01,
+					Resources::Textures::firenoise01,
+					Resources::Textures::fire01,
+					Resources::Textures::firealpha01,
 				}, threadResources, globalResources.textureManager);
 
 			hdUnloader->unloadMeshes(
 				{
-					MeshNames::bath,
-					MeshNames::plane1,
-					MeshNames::wall,
-					MeshNames::water,
-					MeshNames::cube,
-					MeshNames::square,
-					MeshNames::aabb,
-					MeshNames::squareWithPos,
+					Resources::Meshes::bath,
+					Resources::Meshes::plane1,
+					Resources::Meshes::wall,
+					Resources::Meshes::water,
+					Resources::Meshes::cube,
+					Resources::Meshes::square,
+					Resources::Meshes::aabb,
+					Resources::Meshes::squareWithPositions,
 				}, threadResources, globalResources.meshManager);
 		}
 	};
@@ -730,7 +730,7 @@ namespace
 
 				delete static_cast<TextureRequest*>(&request);
 				callback(zone);
-			}, TextureNames::marble01, zone);
+			}, Resources::Textures::marble01, zone);
 			textureManager.load(*marble01Request, threadResources);
 
 			MeshManager& meshManager = globalResources.meshManager;
@@ -742,7 +742,7 @@ namespace
 
 				delete static_cast<MeshRequest*>(&request);
 				callback(zone);
-			}, MeshNames::bath, zone);
+			}, Resources::Meshes::bath, zone);
 			meshManager.load(bathRequest, threadResources);
 
 			constexpr uint64_t pointLightConstantBufferAlignedSize = (sizeof(LightConstantBuffer) + (uint64_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (uint64_t)1u) &
@@ -775,11 +775,11 @@ namespace
 			}
 
 			MdUnloader(Zone<ThreadResources>& zone1) :
-				TextureManager::UnloadRequest(TextureNames::marble01, [](AsynchronousFileManager::ReadRequest& unloader, void* tr)
+				TextureManager::UnloadRequest(Resources::Textures::marble01, [](AsynchronousFileManager::ReadRequest& unloader, void* tr)
 					{
 						static_cast<MdUnloader&>(static_cast<TextureManager::UnloadRequest&>(unloader)).componentUnloaded(tr);
 					}),
-				MeshManager::UnloadRequest(MeshNames::bath, [](AsynchronousFileManager::ReadRequest& unloader, void* tr)
+				MeshManager::UnloadRequest(Resources::Meshes::bath, [](AsynchronousFileManager::ReadRequest& unloader, void* tr)
 					{
 						static_cast<MdUnloader&>(static_cast<MeshManager::UnloadRequest&>(unloader)).componentUnloaded(tr);
 					}),

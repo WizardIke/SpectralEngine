@@ -2,8 +2,7 @@
 
 #include "Sentences/CPUUsageSentence.h"
 #include "Sentences/FPSSentence.h"
-#include "../Resources/Shaders/BasicMaterialPS.h"
-#include "../Resources/Shaders/TexturedQuadMaterialVS.h"
+#include <cstdint>
 #include <D3D12Resource.h>
 class ThreadResources;
 class GlobalResources;
@@ -18,6 +17,17 @@ public:
 		void(*callback)(StopRequest& stopRequest, void* tr);
 	public:
 		StopRequest(void(*callback1)(StopRequest& stopRequest, void* tr)) : callback(callback1) {}
+	};
+
+	struct BasicMaterialPS
+	{
+		uint32_t baseColorTexture;
+	};
+
+	struct TexturedQuadMaterialVS
+	{
+		float pos[4u]; //stores position x, position y, width, and height
+		float texCoords[4u];
 	};
 private:
 	StopRequest* mStopRequest = nullptr;
