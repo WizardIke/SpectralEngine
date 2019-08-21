@@ -1,0 +1,31 @@
+VertexShader = ../Shaders/PositionOnlyVS.hlsl
+PixelShader = ../Shaders/CopyPS.hlsl
+StreamOutput.SODeclaration = {}
+StreamOutput.BufferStrides = {}
+StreamOutput.RasterizedStream = 0
+BlendState.AlphaToCoverageEnable = false
+BlendState.RenderTargets = {}
+SampleMask = 0xffffffff
+RasterizerState.FillMode = solid
+RasterizerState.CullMode = back
+RasterizerState.FrontCounterClockwise = false
+RasterizerState.DepthBias = 0
+RasterizerState.DepthBiasClamp = 0.0
+RasterizerState.SlopeScaledDepthBias = 0.0
+RasterizerState.DepthClipEnable = true
+RasterizerState.LineAntialiasingMode = aliased
+RasterizerState.ForcedSampleCount = 0
+RasterizerState.ConservativeRaster = false
+DepthStencilState.DepthEnable = false
+DepthStencilState.DepthWriteMask = zero
+DepthStencilState.DepthFunc = always
+DepthStencilState.StencilEnable = false
+InputLayout.InputElementDescs = {
+	{ POSITION, 0, R32G32B32_FLOAT, 0, 0, perVertex, 0 }
+}
+IBStripCutValue = disabled
+PrimitiveTopologyType = triangle
+RTVFormats = {R8G8B8A8_UNORM}
+DSVFormat = D32_FLOAT
+SampleDesc.Count = 1
+SampleDesc.Quality = 0

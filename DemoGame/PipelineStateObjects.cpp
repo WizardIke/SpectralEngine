@@ -3,21 +3,21 @@
 #include <IOCompletionQueue.h>
 #include <makeArray.h>
 
-#include "PipelineStateObjectDescs/BasicPso.h"
-#include "PipelineStateObjectDescs/CopyPso.h"
-#include "PipelineStateObjectDescs/DirectionalLightPso.h"
-#include "PipelineStateObjectDescs/DirectionalLightVtPso.h"
-#include "PipelineStateObjectDescs/DirectionalLightVtTwoSidedPso.h"
-#include "PipelineStateObjectDescs/FirePso.h"
-#include "PipelineStateObjectDescs/GlassPso.h"
-#include "PipelineStateObjectDescs/PointLightPso.h"
-#include "PipelineStateObjectDescs/TextPso.h"
-#include "PipelineStateObjectDescs/VtDebugDrawPso.h"
-#include "PipelineStateObjectDescs/VtFeedbackPso.h"
-#include "PipelineStateObjectDescs/VtFeedbackWithNormalsPso.h"
-#include "PipelineStateObjectDescs/VtFeedbackWithNormalsTwoSidedPso.h"
-#include "PipelineStateObjectDescs/WaterNoReflectionTexturePso.h"
-#include "PipelineStateObjectDescs/WaterWithReflectionTexturePso.h"
+#include "Resources/PipelineStateObjects/Generated/BasicPso.h"
+#include "Resources/PipelineStateObjects/Generated/CopyPso.h"
+#include "Resources/PipelineStateObjects/Generated/DirectionalLightPso.h"
+#include "Resources/PipelineStateObjects/Generated/DirectionalLightVtPso.h"
+#include "Resources/PipelineStateObjects/Generated/DirectionalLightVtTwoSidedPso.h"
+#include "Resources/PipelineStateObjects/Generated/FirePso.h"
+#include "Resources/PipelineStateObjects/Generated/GlassPso.h"
+#include "Resources/PipelineStateObjects/Generated/PointLightPso.h"
+#include "Resources/PipelineStateObjects/Generated/TextPso.h"
+#include "Resources/PipelineStateObjects/Generated/VtDebugDrawPso.h"
+#include "Resources/PipelineStateObjects/Generated/VtFeedbackPso.h"
+#include "Resources/PipelineStateObjects/Generated/VtFeedbackWithNormalsPso.h"
+#include "Resources/PipelineStateObjects/Generated/VtFeedbackWithNormalsTwoSidedPso.h"
+#include "Resources/PipelineStateObjects/Generated/WaterNoReflectionTexturePso.h"
+#include "Resources/PipelineStateObjects/Generated/WaterWithReflectionTexturePso.h"
 
 
 PipelineStateObjects::PipelineStateObjects(AsynchronousFileManager& asynchronousFileManager, ID3D12Device& grphicsDevice, RootSignatures& rootSignatures, PipelineLoader& pipelineLoader

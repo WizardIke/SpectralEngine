@@ -94,20 +94,20 @@
       <Filter>GlobalResources</Filter>
     </ClCompile>
     <ClCompile Include="RenderPass1.cpp" />
-    <ClCompile Include="Outside\zone1.cpp">
-      <Filter>Areas\Zones</Filter>
-    </ClCompile>
-    <ClCompile Include="Cave\CaveZone1.cpp">
-      <Filter>Areas\Zones</Filter>
-    </ClCompile>
-    <ClCompile Include="Cave\CaveModelPart1.cpp">
-      <Filter>Models</Filter>
-    </ClCompile>
     <ClCompile Include="UserInterface\Sentences\CPUUsageSentence.cpp">
       <Filter>UserInterface</Filter>
     </ClCompile>
     <ClCompile Include="UserInterface\Sentences\FPSSentence.cpp">
       <Filter>UserInterface</Filter>
+    </ClCompile>
+    <ClCompile Include="CaveZone1.cpp">
+      <Filter>Areas\Zones</Filter>
+    </ClCompile>
+    <ClCompile Include="zone1.cpp">
+      <Filter>Areas\Zones</Filter>
+    </ClCompile>
+    <ClCompile Include="Models\CaveModelPart1.cpp">
+      <Filter>Models</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -159,18 +159,6 @@
       <Filter>Models</Filter>
     </ClInclude>
     <ClInclude Include="InputHander.h" />
-    <ClInclude Include="Shaders\BasicMaterialPS.h">
-      <Filter>Shaders\Pixel</Filter>
-    </ClInclude>
-    <ClInclude Include="Shaders\TexturedQuadMaterialVS.h">
-      <Filter>Shaders\Vertex</Filter>
-    </ClInclude>
-    <ClInclude Include="Shaders\DirectionalLightMaterialPS.h">
-      <Filter>Shaders\Pixel</Filter>
-    </ClInclude>
-    <ClInclude Include="Shaders\VtFeedbackMaterialPS.h">
-      <Filter>Shaders\Pixel</Filter>
-    </ClInclude>
     <ClInclude Include="ThreadResources.h">
       <Filter>ThreadResources</Filter>
     </ClInclude>
@@ -178,19 +166,10 @@
       <Filter>GlobalResources</Filter>
     </ClInclude>
     <ClInclude Include="StreamingRequests.h" />
-    <ClInclude Include="Outside\zone1.h">
-      <Filter>Areas\Zones</Filter>
-    </ClInclude>
     <ClInclude Include="TestZone.h">
       <Filter>Areas\Zones</Filter>
     </ClInclude>
-    <ClInclude Include="Cave\CaveZone1.h">
-      <Filter>Areas\Zones</Filter>
-    </ClInclude>
     <ClInclude Include="HighResPlane.h">
-      <Filter>Models</Filter>
-    </ClInclude>
-    <ClInclude Include="Cave\CaveModelPart1.h">
       <Filter>Models</Filter>
     </ClInclude>
     <ClInclude Include="UserInterface\Sentences\CPUUsageSentence.h">
@@ -198,6 +177,27 @@
     </ClInclude>
     <ClInclude Include="UserInterface\Sentences\FPSSentence.h">
       <Filter>UserInterface</Filter>
+    </ClInclude>
+    <ClInclude Include="CaveZone1.h">
+      <Filter>Areas\Zones</Filter>
+    </ClInclude>
+    <ClInclude Include="zone1.h">
+      <Filter>Areas\Zones</Filter>
+    </ClInclude>
+    <ClInclude Include="Models\CaveModelPart1.h">
+      <Filter>Models</Filter>
+    </ClInclude>
+    <ClInclude Include="Resources\Shaders\BasicMaterialPS.h">
+      <Filter>Shaders\Pixel</Filter>
+    </ClInclude>
+    <ClInclude Include="Resources\Shaders\DirectionalLightMaterialPS.h">
+      <Filter>Shaders\Pixel</Filter>
+    </ClInclude>
+    <ClInclude Include="Resources\Shaders\VtFeedbackMaterialPS.h">
+      <Filter>Shaders\Pixel</Filter>
+    </ClInclude>
+    <ClInclude Include="Resources\Shaders\TexturedQuadMaterialVS.h">
+      <Filter>Shaders\Vertex</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -321,65 +321,65 @@
     </Media>
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="Shaders\WaterWithReflectionTexturePS.hlsl">
+    <FxCompile Include="Resources\Shaders\BasicPS.hlsl">
       <Filter>Shaders\Pixel</Filter>
     </FxCompile>
-    <FxCompile Include="Shaders\WaterNoReflectionTexturePS.hlsl">
+    <FxCompile Include="Resources\Shaders\CopyPS.hlsl">
       <Filter>Shaders\Pixel</Filter>
     </FxCompile>
-    <FxCompile Include="Shaders\DirectionalLightPS.hlsl">
+    <FxCompile Include="Resources\Shaders\DirectionalLightPS.hlsl">
       <Filter>Shaders\Pixel</Filter>
     </FxCompile>
-    <FxCompile Include="Shaders\FirePS.hlsl">
+    <FxCompile Include="Resources\Shaders\DirectionalLightVtPS.hlsl">
       <Filter>Shaders\Pixel</Filter>
     </FxCompile>
-    <FxCompile Include="Shaders\FireVS.hlsl">
+    <FxCompile Include="Resources\Shaders\FirePS.hlsl">
+      <Filter>Shaders\Pixel</Filter>
+    </FxCompile>
+    <FxCompile Include="Resources\Shaders\GlassPs.hlsl">
+      <Filter>Shaders\Pixel</Filter>
+    </FxCompile>
+    <FxCompile Include="Resources\Shaders\PointLightPS.hlsl">
+      <Filter>Shaders\Pixel</Filter>
+    </FxCompile>
+    <FxCompile Include="Resources\Shaders\TextPS.hlsl">
+      <Filter>Shaders\Pixel</Filter>
+    </FxCompile>
+    <FxCompile Include="Resources\Shaders\VtDebugDrawPs.hlsl">
+      <Filter>Shaders\Pixel</Filter>
+    </FxCompile>
+    <FxCompile Include="Resources\Shaders\VtFeedbackPS.hlsl">
+      <Filter>Shaders\Pixel</Filter>
+    </FxCompile>
+    <FxCompile Include="Resources\Shaders\WaterNoReflectionTexturePS.hlsl">
+      <Filter>Shaders\Pixel</Filter>
+    </FxCompile>
+    <FxCompile Include="Resources\Shaders\WaterWithReflectionTexturePS.hlsl">
+      <Filter>Shaders\Pixel</Filter>
+    </FxCompile>
+    <FxCompile Include="Resources\Shaders\BasicVS.hlsl">
       <Filter>Shaders\Vertex</Filter>
     </FxCompile>
-    <FxCompile Include="Shaders\GlassPs.hlsl">
-      <Filter>Shaders\Pixel</Filter>
-    </FxCompile>
-    <FxCompile Include="Shaders\LightVS.hlsl">
+    <FxCompile Include="Resources\Shaders\FireVS.hlsl">
       <Filter>Shaders\Vertex</Filter>
     </FxCompile>
-    <FxCompile Include="Shaders\TextPS.hlsl">
-      <Filter>Shaders\Pixel</Filter>
-    </FxCompile>
-    <FxCompile Include="Shaders\TextVS.hlsl">
+    <FxCompile Include="Resources\Shaders\GlassVS.hlsl">
       <Filter>Shaders\Vertex</Filter>
     </FxCompile>
-    <FxCompile Include="Shaders\WaterVS.hlsl">
+    <FxCompile Include="Resources\Shaders\LightVS.hlsl">
       <Filter>Shaders\Vertex</Filter>
     </FxCompile>
-    <FxCompile Include="Shaders\BasicVS.hlsl">
+    <FxCompile Include="Resources\Shaders\PositionOnlyVS.hlsl">
       <Filter>Shaders\Vertex</Filter>
     </FxCompile>
-    <FxCompile Include="Shaders\BasicPS.hlsl">
-      <Filter>Shaders\Pixel</Filter>
-    </FxCompile>
-    <FxCompile Include="Shaders\CopyPS.hlsl">
-      <Filter>Shaders\Pixel</Filter>
-    </FxCompile>
-    <FxCompile Include="Shaders\PointLightPS.hlsl">
-      <Filter>Shaders\Pixel</Filter>
-    </FxCompile>
-    <FxCompile Include="GlassVS.hlsl">
+    <FxCompile Include="Resources\Shaders\TexturedQuadVS.hlsl">
       <Filter>Shaders\Vertex</Filter>
     </FxCompile>
-    <FxCompile Include="Shaders\PositionOnlyVS.hlsl">
+    <FxCompile Include="Resources\Shaders\TextVS.hlsl">
       <Filter>Shaders\Vertex</Filter>
     </FxCompile>
-    <FxCompile Include="Shaders\TexturedQuadVS.hlsl">
+    <FxCompile Include="Resources\Shaders\WaterVS.hlsl">
       <Filter>Shaders\Vertex</Filter>
-    </FxCompile>
-    <FxCompile Include="DirectionalLightVtPS.hlsl">
-      <Filter>Shaders\Pixel</Filter>
-    </FxCompile>
-    <FxCompile Include="VtDebugDrawPs.hlsl">
-      <Filter>Shaders\Pixel</Filter>
-    </FxCompile>
-    <FxCompile Include="Shaders\VtFeedbackPS.hlsl">
-      <Filter>Shaders\Pixel</Filter>
     </FxCompile>
   </ItemGroup>
 </Project>

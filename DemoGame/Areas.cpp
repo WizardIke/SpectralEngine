@@ -1,8 +1,8 @@
 #include "Areas.h"
 #include "ThreadResources.h"
-#include "Outside/zone1.h"
+#include "zone1.h"
 #include "TestZone.h"
-#include "Cave/CaveZone1.h"
+#include "CaveZone1.h"
 
 Areas::Areas(void* context) :
 	zones

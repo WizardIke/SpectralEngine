@@ -2,8 +2,8 @@
 
 #include "Sentences/CPUUsageSentence.h"
 #include "Sentences/FPSSentence.h"
-#include "../Shaders/BasicMaterialPS.h"
-#include "../Shaders/TexturedQuadMaterialVS.h"
+#include "../Resources/Shaders/BasicMaterialPS.h"
+#include "../Resources/Shaders/TexturedQuadMaterialVS.h"
 #include <D3D12Resource.h>
 class ThreadResources;
 class GlobalResources;
