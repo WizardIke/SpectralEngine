@@ -7,29 +7,28 @@
 #include <D3D12Resource.h>
 #include <d3d12.h>
 #include <Mesh.h>
-#include "../ThreadResources.h"
-#include "../GlobalResources.h"
-#include "../PipelineStateObjects.h"
-#include "../TextureNames.h"
-#include "../MeshNames.h"
+#include "ThreadResources.h"
+#include "GlobalResources.h"
+#include "PipelineStateObjects.h"
+#include "Resources.h"
 #include <TemplateFloat.h>
 #include <D3D12DescriptorHeap.h>
 #include <Vector4.h>
 #include <ReflectionCamera.h>
 #include <Range.h>
-#include "../StreamingRequests.h"
+#include "StreamingRequests.h"
 #include <new>
 #include <atomic>
 
 #include <Light.h>
 #include <PointLight.h>
 
-#include "../Models/BathModel2.h"
-#include "../Models/GroundModel2.h"
-#include "../Models/WallModel2.h"
-#include "../Models/WaterModel2.h"
-#include "../Models/IceModel2.h"
-#include "../Models/FireModel.h"
+#include "Models/BathModel2.h"
+#include "Models/GroundModel2.h"
+#include "Models/WallModel2.h"
+#include "Models/WaterModel2.h"
+#include "Models/IceModel2.h"
+#include "Models/FireModel.h"
 
 namespace
 {
