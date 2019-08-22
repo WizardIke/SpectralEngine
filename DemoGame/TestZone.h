@@ -121,7 +121,7 @@ class TestZoneFunctions
 
 				delete static_cast<MeshRequest*>(&request);
 				componentUploaded(zone);
-			}, Resources::Meshes::HighResMesh1, zone);
+			}, Resources::Meshes::highResMesh1, zone);
 			meshManager.load(HighResMesh1Request, threadResources);
 
 			constexpr uint64_t pointLightConstantBufferAlignedSize = (sizeof(LightConstantBuffer) + (uint64_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (uint64_t)1u) & ~((uint64_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (uint64_t)1u);
@@ -218,7 +218,7 @@ class TestZoneFunctions
 					{
 						static_cast<HdUnloader&>(static_cast<VirtualTextureManager::UnloadRequest&>(unloader)).componentUnloaded(tr);
 					}),
-				MeshManager::UnloadRequest(Resources::Meshes::HighResMesh1, [](AsynchronousFileManager::ReadRequest& unloader, void* tr)
+				MeshManager::UnloadRequest(Resources::Meshes::highResMesh1, [](AsynchronousFileManager::ReadRequest& unloader, void* tr)
 					{
 						static_cast<HdUnloader&>(static_cast<MeshManager::UnloadRequest&>(unloader)).componentUnloaded(tr);
 					}),

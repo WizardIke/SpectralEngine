@@ -1,5 +1,5 @@
 #include "GlobalResources.h"
-#include "TextureNames.h"
+#include "Resources.h"
 #include <thread>
 
 #if defined(_WIN32_WINNT) && !defined(NDEBUG)
@@ -197,7 +197,7 @@ public:
 			auto& unloader = *static_cast<UserInterfaceStopRequest&>(stopRequest).unloader;
 			unloader.globalResources.arial.destruct(unloader.fontStopRequest, unloader.globalResources.asynchronousFileManager, unloader.globalResources.textureManager, *static_cast<ThreadResources*>(tr));
 		}),
-		fontStopRequest(this, L"../DemoGame/Fonts/Arial.font", [](Font::UnloadRequest& stopRequest, void* tr)
+		fontStopRequest(this, Resources::Fonts::Arial, [](Font::UnloadRequest& stopRequest, void* tr)
 		{
 			static_cast<FontStopRequest&>(stopRequest).unloader->componentUnloaded1(tr);
 		}),
@@ -317,13 +317,13 @@ void GlobalResources::onResize(unsigned int width, unsigned int height)
 
 static const wchar_t* const musicFiles[] = 
 {
-	L"../DemoGame/Music/Heroic_Demise_New.sound",
-	L"../DemoGame/Music/Tropic_Strike.sound"
+	Resources::Music::Heroic_Demise_New,
+	Resources::Music::Tropic_Strike
 };
 
 GlobalResources::GlobalResources() : GlobalResources(std::thread::hardware_concurrency(),
 	Window::State::normal, GetSystemMetrics(SM_CXVIRTUALSCREEN), GetSystemMetrics(SM_CYVIRTUALSCREEN), GetSystemMetrics(SM_XVIRTUALSCREEN), GetSystemMetrics(SM_YVIRTUALSCREEN),
-	false, false, new InitialResourceLoader(*this, L"../DemoGame/Fonts/Arial.font")) {}
+	false, false, new InitialResourceLoader(*this, Resources::Fonts::Arial)) {}
 
 GlobalResources::GlobalResources(const unsigned int numberOfThreads, Window::State windowState, int screenWidth, int screenHeight, int screenPositionX, int screenPositionY,
 	bool vSync, bool enableGpuDebugging, void* initialResourceLoader

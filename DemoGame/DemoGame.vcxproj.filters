@@ -49,9 +49,6 @@
     <Filter Include="Areas\Zones">
       <UniqueIdentifier>{909ef4df-7027-41c2-8d60-3e8bfb306b0c}</UniqueIdentifier>
     </Filter>
-    <Filter Include="PipelineStateObjectDescs">
-      <UniqueIdentifier>{5b80b351-209b-4e6d-85ee-b872c6d8a640}</UniqueIdentifier>
-    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Models\WaterModel2.cpp">
