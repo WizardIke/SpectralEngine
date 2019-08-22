@@ -46,7 +46,7 @@ public:
 		VSPerObjectConstantBuffer* vsPerObjectCBVCpuAddress = reinterpret_cast<VSPerObjectConstantBuffer*>(constantBufferCpuAddress);
 		constantBufferCpuAddress += vsBufferSize + psBufferSize;
 
-		vsPerObjectCBVCpuAddress->worldMatrix = DirectX::XMMATRIX{ 4.f, 0.f, 0.f, 0.f,  0.f, 4.f, 0.f, 0.f,  0.f, 0.f, 4.f, 0.f,  positionX, positionY, positionZ, 1.f };
+		vsPerObjectCBVCpuAddress->worldMatrix = DirectX::XMMATRIX{ 20.f, 0.f, 0.f, 0.f,  0.f, 20.f, 0.f, 0.f,  0.f, 0.f, 20.f, 0.f,  positionX, positionY, positionZ, 1.f };
 	}
 
 	~GroundModel2() = default;

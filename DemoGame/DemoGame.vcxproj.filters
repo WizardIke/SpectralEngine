@@ -4,9 +4,6 @@
     <Filter Include="Areas">
       <UniqueIdentifier>{a861972b-407e-4867-a0aa-cdb7b66d0013}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Meshes">
-      <UniqueIdentifier>{ac795ac9-e9e2-4ade-aab0-e330efc4c12a}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Models">
       <UniqueIdentifier>{9fc6930c-5721-4c05-8c87-4e7058fada96}</UniqueIdentifier>
     </Filter>
@@ -174,33 +171,6 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="Meshes\bath.mesh">
-      <Filter>Meshes</Filter>
-    </None>
-    <None Include="Meshes\cube.mesh">
-      <Filter>Meshes</Filter>
-    </None>
-    <None Include="Meshes\highResMesh1.mesh">
-      <Filter>Meshes</Filter>
-    </None>
-    <None Include="Meshes\plane1.mesh">
-      <Filter>Meshes</Filter>
-    </None>
-    <None Include="Meshes\sphere.mesh">
-      <Filter>Meshes</Filter>
-    </None>
-    <None Include="Meshes\square.mesh">
-      <Filter>Meshes</Filter>
-    </None>
-    <None Include="Meshes\squareWithNormals.mesh">
-      <Filter>Meshes</Filter>
-    </None>
-    <None Include="Meshes\wall.mesh">
-      <Filter>Meshes</Filter>
-    </None>
-    <None Include="Meshes\water.mesh">
-      <Filter>Meshes</Filter>
-    </None>
     <None Include="Arial.fnt">
       <Filter>Fonts</Filter>
     </None>

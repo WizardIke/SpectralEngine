@@ -258,15 +258,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Arial.fnt" />
-    <None Include="Meshes\bath.mesh" />
-    <None Include="Meshes\cube.mesh" />
-    <None Include="Meshes\highResMesh1.mesh" />
-    <None Include="Meshes\plane1.mesh" />
-    <None Include="Meshes\sphere.mesh" />
-    <None Include="Meshes\square.mesh" />
-    <None Include="Meshes\squareWithNormals.mesh" />
-    <None Include="Meshes\wall.mesh" />
-    <None Include="Meshes\water.mesh" />
     <None Include="Textures\stone04.tile" />
   </ItemGroup>
   <ItemGroup>
@@ -433,7 +424,7 @@
   <ItemDefinitionGroup>
     <CustomBuildStep>
       <Command>"$(OutDir)ResourceBuilder.exe" "$(ProjectDir)\" "$(OutDir)\" "$(OutDir)\"</Command>
-      <Outputs>$(OutDir)Resources\;$(ProjectDir)Resources.h</Outputs>
+      <Outputs>$(OutDir)Resources\;$(ProjectDir)Generated\;$(ProjectDir)Resources.h</Outputs>
       <Inputs>$(ProjectDir)Resources\</Inputs>
     </CustomBuildStep>
   </ItemDefinitionGroup>

@@ -240,7 +240,7 @@ namespace
 						}
 					},
 					{
-						Resources::Meshes::plane1,
+						Resources::Meshes::plane,
 						[](MeshManager::MeshStreamingRequest& request, void*, Mesh& mesh)
 						{
 							auto resources = static_cast<HDResources*>(static_cast<MeshRequest&>(request).zone.newData);
@@ -652,7 +652,7 @@ namespace
 			hdUnloader->unloadMeshes(
 				{
 					Resources::Meshes::bath,
-					Resources::Meshes::plane1,
+					Resources::Meshes::plane,
 					Resources::Meshes::wall,
 					Resources::Meshes::water,
 					Resources::Meshes::cube,
