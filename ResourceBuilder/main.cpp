@@ -98,7 +98,7 @@ static bool processDirectory(const std::filesystem::path& baseInputPath, const s
 			}
 			auto relativeOutputFileName = relativeInputFileName;
 			relativeOutputFileName += ".data";
-			headerFile << indent << "static constexpr auto " << fileName.stem().string() << " = L\"" << relativeOutputFileName.string() << "\";\n";
+			headerFile << indent << "static constexpr auto " << fileName.stem().string() << " = LR\"/:*?<>|(" << relativeOutputFileName.string() << ")/:*?<>|\";\n";
 		}
 		else
 		{
