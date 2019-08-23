@@ -98,16 +98,17 @@ namespace Cave
 
 				//stone4FeedbackBufferPs = create virtual feedback materialPS
 				auto stone4FeedbackBufferPsCpu = reinterpret_cast<VtFeedbackMaterialPS*>(cpuStartAddress + (resources->stone4FeedbackBufferPs - gpuStartAddress));
-				stone4FeedbackBufferPsCpu->virtualTextureID1 = (float)(texture.textureID << 8u);
+				auto& textureInfo = *texture.info;
+				stone4FeedbackBufferPsCpu->virtualTextureID1 = (float)(textureInfo.textureID << 8u);
 				stone4FeedbackBufferPsCpu->virtualTextureID2And3 = (float)0xffff;
-				stone4FeedbackBufferPsCpu->textureHeightInPages = (float)texture.heightInPages;
-				stone4FeedbackBufferPsCpu->textureWidthInPages = (float)texture.widthInPages;
-				stone4FeedbackBufferPsCpu->usefulTextureHeight = (float)(texture.height);
-				stone4FeedbackBufferPsCpu->usefulTextureWidth = (float)(texture.width);
+				stone4FeedbackBufferPsCpu->textureHeightInPages = (float)textureInfo.heightInPages;
+				stone4FeedbackBufferPsCpu->textureWidthInPages = (float)textureInfo.widthInPages;
+				stone4FeedbackBufferPsCpu->usefulTextureHeight = (float)(textureInfo.height);
+				stone4FeedbackBufferPsCpu->usefulTextureWidth = (float)(textureInfo.width);
 
 				delete static_cast<VirtualTextureRequest*>(&request);
 				componentUploaded(zone);
-			}, Resources::Textures::stone04, zone);
+			}, Resources::Textures::stone04Tiled, zone);
 			virtualTextureManager.load(stone04Request, threadResources);
 
 			MeshManager& meshManager = globalResources.meshManager;
@@ -203,7 +204,7 @@ namespace Cave
 			}
 
 			HdUnloader(Zone<ThreadResources>& zone1) :
-				VirtualTextureManager::UnloadRequest(Resources::Textures::stone04, [](AsynchronousFileManager::ReadRequest& unloader, void* tr)
+				VirtualTextureManager::UnloadRequest(Resources::Textures::stone04Tiled, [](AsynchronousFileManager::ReadRequest& unloader, void* tr)
 					{
 						static_cast<HdUnloader&>(static_cast<VirtualTextureManager::UnloadRequest&>(unloader)).componentUnloaded(tr);
 					}),
