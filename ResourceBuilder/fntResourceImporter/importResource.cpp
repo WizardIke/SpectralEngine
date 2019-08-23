@@ -80,7 +80,7 @@ namespace
 		return std::stol(std::string(str));
 	}
 
-	static bool passLine(std::string_view line, unsigned long lineNumber, FontDescriptor& font, const std::filesystem::path& currentDirectory)
+	static bool passLine(std::string_view line, unsigned long lineNumber, FontDescriptor& font, const std::filesystem::path& baseInputDirectory, const std::filesystem::path& currentDirectory)
 	{
 		auto trimmedLine = trim(line, " \t\r");
 		if (trimmedLine.empty()) { return true; }
@@ -96,12 +96,12 @@ namespace
 				auto indexOfNameEnd = info.find_first_of("=");
 				if (indexOfNameEnd == std::string_view::npos || indexOfNameEnd == 0)
 				{
-					std::cout << "error on line: " << lineNumber << std::endl;
+					std::cerr << "error on line: " << lineNumber << std::endl;
 					return false;
 				}
 				if (indexOfNameEnd == info.size())
 				{
-					std::cout << "error on line: " << lineNumber << std::endl;
+					std::cerr << "error on line: " << lineNumber << std::endl;
 					return false;
 				}
 				std::string_view name = info.substr(0, indexOfNameEnd);
@@ -116,7 +116,7 @@ namespace
 					}
 					catch (...)
 					{
-						std::cout << "invalid lineHeight of " << data << " on line " << lineNumber << std::endl;
+						std::cerr << "invalid lineHeight of " << data << " on line " << lineNumber << std::endl;
 						return false;
 					}
 				}
@@ -128,7 +128,7 @@ namespace
 					}
 					catch (...)
 					{
-						std::cout << "invalid scaleW of " << data << " on line " << lineNumber << std::endl;
+						std::cerr << "invalid scaleW of " << data << " on line " << lineNumber << std::endl;
 						return false;
 					}
 				}
@@ -140,7 +140,7 @@ namespace
 					}
 					catch (...)
 					{
-						std::cout << "invalid scaleH of " << data << " on line " << lineNumber << std::endl;
+						std::cerr << "invalid scaleH of " << data << " on line " << lineNumber << std::endl;
 						return false;
 					}
 				}
@@ -148,7 +148,7 @@ namespace
 				{
 					if (data != "1")
 					{
-						std::cout << "error on line " << lineNumber << " fonts that use more than one texture aren't supported" << std::endl;
+						std::cerr << "error on line " << lineNumber << " fonts that use more than one texture aren't supported" << std::endl;
 						return false;
 					}
 				}
@@ -165,12 +165,12 @@ namespace
 				auto indexOfNameEnd = info.find_first_of("=");
 				if (indexOfNameEnd == std::string_view::npos || indexOfNameEnd == 0)
 				{
-					std::cout << "error on line: " << lineNumber << std::endl;
+					std::cerr << "error on line: " << lineNumber << std::endl;
 					return false;
 				}
 				if (indexOfNameEnd == info.size())
 				{
-					std::cout << "error on line: " << lineNumber << std::endl;
+					std::cerr << "error on line: " << lineNumber << std::endl;
 					return false;
 				}
 				std::string_view name = info.substr(0, indexOfNameEnd);
@@ -179,12 +179,12 @@ namespace
 				if (name == "file")
 				{
 					std::filesystem::path path{ trim(data, "\"") };
-					if (path.is_absolute())
+					if (!path.is_absolute())
 					{
-						path = path.lexically_relative(currentDirectory);
+						path = currentDirectory / path;
 					}
 					path += ".data";
-					font.textureFileName = path;
+					font.textureFileName = path.lexically_relative(baseInputDirectory);
 				}
 			}
 		}
@@ -199,12 +199,12 @@ namespace
 				auto indexOfNameEnd = info.find_first_of("=");
 				if (indexOfNameEnd == std::string_view::npos || indexOfNameEnd == 0)
 				{
-					std::cout << "error on line: " << lineNumber << std::endl;
+					std::cerr << "error on line: " << lineNumber << std::endl;
 					return false;
 				}
 				if (indexOfNameEnd == info.size())
 				{
-					std::cout << "error on line: " << lineNumber << std::endl;
+					std::cerr << "error on line: " << lineNumber << std::endl;
 					return false;
 				}
 				std::string_view name = info.substr(0, indexOfNameEnd);
@@ -228,7 +228,7 @@ namespace
 				auto indexOfNameEnd = info.find_first_of("=");
 				if (indexOfNameEnd == std::string_view::npos || indexOfNameEnd == 0)
 				{
-					std::cout << info << " is not given a value on line " << lineNumber << std::endl;
+					std::cerr << info << " is not given a value on line " << lineNumber << std::endl;
 					return false;
 				}
 				std::string_view name = info.substr(0, indexOfNameEnd);
@@ -242,7 +242,7 @@ namespace
 					}
 					catch (...)
 					{
-						std::cout << "invalid id of " << data << " on line " << lineNumber << std::endl;
+						std::cerr << "invalid id of " << data << " on line " << lineNumber << std::endl;
 						return false;
 					}
 				}
@@ -254,7 +254,7 @@ namespace
 					}
 					catch (...)
 					{
-						std::cout << "invalid x of " << data << " on line " << lineNumber << std::endl;
+						std::cerr << "invalid x of " << data << " on line " << lineNumber << std::endl;
 						return false;
 					}
 				}
@@ -266,7 +266,7 @@ namespace
 					}
 					catch (...)
 					{
-						std::cout << "invalid y of " << data << " on line " << lineNumber << std::endl;
+						std::cerr << "invalid y of " << data << " on line " << lineNumber << std::endl;
 						return false;
 					}
 				}
@@ -278,7 +278,7 @@ namespace
 					}
 					catch (...)
 					{
-						std::cout << "invalid width of " << data << " on line " << lineNumber << std::endl;
+						std::cerr << "invalid width of " << data << " on line " << lineNumber << std::endl;
 						return false;
 					}
 				}
@@ -290,7 +290,7 @@ namespace
 					}
 					catch (...)
 					{
-						std::cout << "invalid height of " << data << " on line " << lineNumber << std::endl;
+						std::cerr << "invalid height of " << data << " on line " << lineNumber << std::endl;
 						return false;
 					}
 				}
@@ -302,7 +302,7 @@ namespace
 					}
 					catch (...)
 					{
-						std::cout << "invalid xoffset of " << data << " on line " << lineNumber << std::endl;
+						std::cerr << "invalid xoffset of " << data << " on line " << lineNumber << std::endl;
 						return false;
 					}
 				}
@@ -314,7 +314,7 @@ namespace
 					}
 					catch (...)
 					{
-						std::cout << "invalid yoffset of " << data << " on line " << lineNumber << std::endl;
+						std::cerr << "invalid yoffset of " << data << " on line " << lineNumber << std::endl;
 						return false;
 					}
 				}
@@ -326,7 +326,7 @@ namespace
 					}
 					catch (...)
 					{
-						std::cout << "invalid xadvance of " << data << " on line " << lineNumber << std::endl;
+						std::cerr << "invalid xadvance of " << data << " on line " << lineNumber << std::endl;
 						return false;
 					}
 				}
@@ -345,12 +345,12 @@ namespace
 				auto indexOfNameEnd = info.find_first_of("=");
 				if (indexOfNameEnd == std::string_view::npos || indexOfNameEnd == 0)
 				{
-					std::cout << "error on line: " << lineNumber << std::endl;
+					std::cerr << "error on line: " << lineNumber << std::endl;
 					return false;
 				}
 				if (indexOfNameEnd == info.size())
 				{
-					std::cout << "error on line: " << lineNumber << std::endl;
+					std::cerr << "error on line: " << lineNumber << std::endl;
 					return false;
 				}
 				std::string_view name = info.substr(0, indexOfNameEnd);
@@ -374,12 +374,12 @@ namespace
 				auto indexOfNameEnd = info.find_first_of("=");
 				if (indexOfNameEnd == std::string_view::npos || indexOfNameEnd == 0)
 				{
-					std::cout << "error on line: " << lineNumber << std::endl;
+					std::cerr << "error on line: " << lineNumber << std::endl;
 					return false;
 				}
 				if (indexOfNameEnd == info.size())
 				{
-					std::cout << "error on line: " << lineNumber << std::endl;
+					std::cerr << "error on line: " << lineNumber << std::endl;
 					return false;
 				}
 				std::string_view name = info.substr(0, indexOfNameEnd);
@@ -489,6 +489,7 @@ bool importResource(const std::filesystem::path& baseInputPath, const std::files
 	try
 	{
 		auto inPath = baseInputPath / relativeInputPath;
+		std::cout << "importing " << inPath << "\n";
 		auto inDirectory = inPath.parent_path();
 		std::ifstream inFile{ inPath, std::ios::binary };
 
@@ -497,7 +498,7 @@ bool importResource(const std::filesystem::path& baseInputPath, const std::files
 		unsigned long lineNumber = 1u;
 		while (std::getline(inFile, line))
 		{
-			bool succeeded = passLine(line, lineNumber, font, inDirectory);
+			bool succeeded = passLine(line, lineNumber, font, baseInputPath, inDirectory);
 			if (!succeeded)
 			{
 				return 1;
@@ -519,17 +520,15 @@ bool importResource(const std::filesystem::path& baseInputPath, const std::files
 		std::ofstream outFile{ outputPath, std::ios::binary };
 		writeToFontFile(outFile, font);
 		outFile.close();
-
-		std::cout << "done\n";
 	}
 	catch (std::exception& e)
 	{
-		std::cout << "failed: " << e.what() << "\n";
+		std::cerr << "failed: " << e.what() << "\n";
 		return false;
 	}
 	catch (...)
 	{
-		std::cout << "failed\n";
+		std::cerr << "failed\n";
 		return false;
 	}
 	return true;

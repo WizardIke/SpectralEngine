@@ -118,7 +118,9 @@ bool importResource(const std::filesystem::path& baseInputPath, const std::files
 {
 	try
 	{
-		std::ifstream file{ baseInputPath / relativeInputPath, std::ios::binary };
+		auto inputPath = baseInputPath / relativeInputPath;
+		std::cout << "importing " << inputPath << "\n";
+		std::ifstream file{ inputPath, std::ios::binary };
 		FileInfo fileInfo = {};
 		fileInfo.info = SoundDecoder::getWaveFileInfo(file);
 		std::unique_ptr<char[]> data(new char[fileInfo.info.dataSize]);
@@ -135,10 +137,10 @@ bool importResource(const std::filesystem::path& baseInputPath, const std::files
 		std::ofstream outFile{ outputPath, std::ios::binary };
 		outFile.write(reinterpret_cast<char*>(&fileInfo), sizeof(FileInfo));
 		outFile.write(data.get(), fileInfo.info.dataSize);
-		std::cout << "done\n";
 	}
 	catch (...)
 	{
+		std::cerr << "failed\n";
 		return false;
 	}
 

@@ -465,11 +465,11 @@ namespace
 		}
 
 		uint32_t format = getFormat(hasPositions, hasTextureCoordinates, hasNormals);
-		unsigned long sizeOfIndex = faceCount <= 65535u ? sizeof(uint16_t) : sizeof(uint32_t);
+		unsigned long sizeOfIndex = indexCount <= 65535u ? sizeof(uint16_t) : sizeof(uint32_t);
 		return ConvertedMesh{ format, format,
-			vertexCount, faceCount,
+			vertexCount, indexCount,
 			static_cast<unsigned long>(vertexCount * vertexFloatCount * sizeof(float)), std::move(vertices),
-			faceCount * sizeOfIndex, std::move(indices) };
+			indexCount * sizeOfIndex, std::move(indices) };
 	}
 
 	static void writeOutputFile(std::ofstream& outFile, const ConvertedMesh& mesh)
@@ -508,11 +508,13 @@ bool importResource(const std::filesystem::path& baseInputPath, const std::files
 {
 	try
 	{
-		std::ifstream inFile{ baseInputPath / relativeInputPath };
+		auto inputPath = baseInputPath / relativeInputPath;
+		std::cout << "importing " << inputPath << "\n";
+		std::ifstream inFile{ inputPath };
 		auto convertedMesh = readAndConvertMesh(inFile);
 		if (!convertedMesh)
 		{
-			return 1;
+			return false;
 		}
 
 		auto outputPath = baseOutputPath / relativeInputPath;
@@ -525,22 +527,20 @@ bool importResource(const std::filesystem::path& baseInputPath, const std::files
 		std::ofstream outFile{ outputPath, std::ios::binary };
 		if (!outFile)
 		{
-			std::cout << "failed to create output file\n";
+			std::cerr << "failed to create output file\n";
 			return false;
 		}
 		writeOutputFile(outFile, *convertedMesh);
 		outFile.close();
-
-		std::cout << "done\n";
 	}
 	catch (std::exception& e)
 	{
-		std::cout << "failed: " << e.what() << "\n";
+		std::cerr << "failed: " << e.what() << "\n";
 		return false;
 	}
 	catch (...)
 	{
-		std::cout << "failed\n";
+		std::cerr << "failed\n";
 		return false;
 	}
 	return true;

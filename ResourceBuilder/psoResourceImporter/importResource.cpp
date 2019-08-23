@@ -405,7 +405,7 @@ static bool getBracedValue(std::ifstream& infile, std::string_view data, int& li
 	auto indexOfFirstBrace = data.find_first_of("{");
 	if (indexOfFirstBrace == std::string::npos)
 	{
-		std::cout << "error on line: " << lineNumber << std::endl;
+		std::cerr << "error on line: " << lineNumber << std::endl;
 		return false;
 	}
 	auto indexOfNewDataStart = data.find_first_not_of(" \t", indexOfFirstBrace + 1u);
@@ -422,7 +422,7 @@ static bool getBracedValue(std::ifstream& infile, std::string_view data, int& li
 		++lineNumber;
 		if (!succeeded)
 		{
-			std::cout << "error on line: " << lineNumber << std::endl;
+			std::cerr << "error on line: " << lineNumber << std::endl;
 			return false;
 		}
 		updateOpenBraces(line, numberOfOpenBraces);
@@ -807,7 +807,7 @@ static GraphicsPipelineStateDesc readFromTextFile(std::ifstream& inFile, const s
 		auto indexOfNameEnd = trimmedLine.find_first_of(" \t=");
 		if (indexOfNameEnd == std::string_view::npos || indexOfNameEnd == 0)
 		{
-			std::cout << "error on line: " << lineNumber << std::endl;
+			std::cerr << "error on line: " << lineNumber << std::endl;
 			return psoDesc;
 		}
 		std::string_view name = trimmedLine.substr(0, indexOfNameEnd);
@@ -815,7 +815,7 @@ static GraphicsPipelineStateDesc readFromTextFile(std::ifstream& inFile, const s
 		indexOfDataStart = trimmedLine.find_first_not_of(" \t", indexOfDataStart + 1);
 		if (indexOfDataStart == std::string_view::npos)
 		{
-			std::cout << "error on line: " << lineNumber << std::endl;
+			std::cerr << "error on line: " << lineNumber << std::endl;
 			return psoDesc;
 		}
 		std::string_view data = trimmedLine.substr(indexOfDataStart, std::string_view::npos);
@@ -840,7 +840,7 @@ static GraphicsPipelineStateDesc readFromTextFile(std::ifstream& inFile, const s
 			newData = trim(newData);
 			if (newData != "")
 			{
-				std::cout << "not yet implemented on line: " << lineNumber << std::endl;
+				std::cerr << "not yet implemented on line: " << lineNumber << std::endl;
 				return psoDesc;
 			}
 		}
@@ -855,7 +855,7 @@ static GraphicsPipelineStateDesc readFromTextFile(std::ifstream& inFile, const s
 			newData = trim(newData);
 			if (newData != "")
 			{
-				std::cout << "not yet implemented on line: " << lineNumber << std::endl;
+				std::cerr << "not yet implemented on line: " << lineNumber << std::endl;
 				return psoDesc;
 			}
 		}
@@ -875,7 +875,7 @@ static GraphicsPipelineStateDesc readFromTextFile(std::ifstream& inFile, const s
 			}
 			else
 			{
-				std::cout << "error on line: " << lineNumber << std::endl;
+				std::cerr << "error on line: " << lineNumber << std::endl;
 				return psoDesc;
 			}
 		}
@@ -896,13 +896,13 @@ static GraphicsPipelineStateDesc readFromTextFile(std::ifstream& inFile, const s
 				{
 					if (i == 8u)
 					{
-						std::cout << "more than 8 render target blend states on line " << lineNumber << std::endl;
+						std::cerr << "more than 8 render target blend states on line " << lineNumber << std::endl;
 						return psoDesc;
 					}
 					auto values = splitByCommaIgnoringTrailingComma(trim(renderTargetStr, " \t{}"));
 					if (values.size() != 10)
 					{
-						std::cout << "incorrect number of arguments for a render target blend state on line " << lineNumber << std::endl;
+						std::cerr << "incorrect number of arguments for a render target blend state on line " << lineNumber << std::endl;
 						return psoDesc;
 					}
 					auto blendEnableStr = trim(values[0]);
@@ -917,7 +917,7 @@ static GraphicsPipelineStateDesc readFromTextFile(std::ifstream& inFile, const s
 					}
 					else
 					{
-						std::cout << "blend enabled wasn't true or false on line " << lineNumber << std::endl;
+						std::cerr << "blend enabled wasn't true or false on line " << lineNumber << std::endl;
 						return psoDesc;
 					}
 
@@ -933,7 +933,7 @@ static GraphicsPipelineStateDesc readFromTextFile(std::ifstream& inFile, const s
 					}
 					else
 					{
-						std::cout << "logic op enabled wasn't true or false on line " << lineNumber << std::endl;
+						std::cerr << "logic op enabled wasn't true or false on line " << lineNumber << std::endl;
 						return psoDesc;
 					}
 
@@ -941,49 +941,49 @@ static GraphicsPipelineStateDesc readFromTextFile(std::ifstream& inFile, const s
 					Blend srcBlend = stringToBlend(trim(values[2]), succeeded);
 					if (!succeeded)
 					{
-						std::cout << "unknown src blend \"" << trim(values[2]) << "\" on line " << lineNumber << std::endl;
+						std::cerr << "unknown src blend \"" << trim(values[2]) << "\" on line " << lineNumber << std::endl;
 						return psoDesc;
 					}
 
 					Blend destBlend = stringToBlend(trim(values[3]), succeeded);
 					if (!succeeded)
 					{
-						std::cout << "unknown dest blend \"" << trim(values[3]) << "\" on line " << lineNumber << std::endl;
+						std::cerr << "unknown dest blend \"" << trim(values[3]) << "\" on line " << lineNumber << std::endl;
 						return psoDesc;
 					}
 
 					BlendOp blendOp = stringToBlendOp(trim(values[4]), succeeded);
 					if (!succeeded)
 					{
-						std::cout << "unknown blend op \"" << trim(values[4]) << "\" on line " << lineNumber << std::endl;
+						std::cerr << "unknown blend op \"" << trim(values[4]) << "\" on line " << lineNumber << std::endl;
 						return psoDesc;
 					}
 
 					Blend srcAlphaBlend = stringToBlend(trim(values[5]), succeeded);
 					if (!succeeded)
 					{
-						std::cout << "unknown src blend alpha \"" << trim(values[5]) << "\" on line " << lineNumber << std::endl;
+						std::cerr << "unknown src blend alpha \"" << trim(values[5]) << "\" on line " << lineNumber << std::endl;
 						return psoDesc;
 					}
 
 					Blend destAlphaBlend = stringToBlend(trim(values[6]), succeeded);
 					if (!succeeded)
 					{
-						std::cout << "unknown dest blend alpha \"" << trim(values[6]) << "\" on line " << lineNumber << std::endl;
+						std::cerr << "unknown dest blend alpha \"" << trim(values[6]) << "\" on line " << lineNumber << std::endl;
 						return psoDesc;
 					}
 
 					BlendOp blendOpAlpha = stringToBlendOp(trim(values[7]), succeeded);
 					if (!succeeded)
 					{
-						std::cout << "unknown blend op alpha \"" << trim(values[7]) << "\" on line " << lineNumber << std::endl;
+						std::cerr << "unknown blend op alpha \"" << trim(values[7]) << "\" on line " << lineNumber << std::endl;
 						return psoDesc;
 					}
 
 					LogicOp logicOp = stringToLogicOp(trim(values[8]), succeeded);
 					if (!succeeded)
 					{
-						std::cout << "unknown logic op \"" << trim(values[8]) << "\" on line " << lineNumber << std::endl;
+						std::cerr << "unknown logic op \"" << trim(values[8]) << "\" on line " << lineNumber << std::endl;
 						return psoDesc;
 					}
 
@@ -1011,7 +1011,7 @@ static GraphicsPipelineStateDesc readFromTextFile(std::ifstream& inFile, const s
 					}
 					else
 					{
-						std::cout << "unknown render target write mask \"" << renderTargetWriteMaskStr << "\" on line " << lineNumber << std::endl;
+						std::cerr << "unknown render target write mask \"" << renderTargetWriteMaskStr << "\" on line " << lineNumber << std::endl;
 						return psoDesc;
 					}
 
@@ -1048,7 +1048,7 @@ static GraphicsPipelineStateDesc readFromTextFile(std::ifstream& inFile, const s
 			}
 			else
 			{
-				std::cout << "error on line: " << lineNumber << std::endl;
+				std::cerr << "error on line: " << lineNumber << std::endl;
 				return psoDesc;
 			}
 		}
@@ -1068,7 +1068,7 @@ static GraphicsPipelineStateDesc readFromTextFile(std::ifstream& inFile, const s
 			}
 			else
 			{
-				std::cout << "error on line: " << lineNumber << std::endl;
+				std::cerr << "error on line: " << lineNumber << std::endl;
 				return psoDesc;
 			}
 		}
@@ -1084,7 +1084,7 @@ static GraphicsPipelineStateDesc readFromTextFile(std::ifstream& inFile, const s
 			}
 			else
 			{
-				std::cout << "error on line: " << lineNumber << std::endl;
+				std::cerr << "error on line: " << lineNumber << std::endl;
 				return psoDesc;
 			}
 		}
@@ -1112,7 +1112,7 @@ static GraphicsPipelineStateDesc readFromTextFile(std::ifstream& inFile, const s
 			}
 			else
 			{
-				std::cout << "error on line: " << lineNumber << std::endl;
+				std::cerr << "error on line: " << lineNumber << std::endl;
 				return psoDesc;
 			}
 		}
@@ -1135,7 +1135,7 @@ static GraphicsPipelineStateDesc readFromTextFile(std::ifstream& inFile, const s
 			}
 			else
 			{
-				std::cout << "error on line: " << lineNumber << std::endl;
+				std::cerr << "error on line: " << lineNumber << std::endl;
 				return psoDesc;
 			}
 		}
@@ -1155,7 +1155,7 @@ static GraphicsPipelineStateDesc readFromTextFile(std::ifstream& inFile, const s
 			}
 			else
 			{
-				std::cout << "error on line: " << lineNumber << std::endl;
+				std::cerr << "error on line: " << lineNumber << std::endl;
 				return psoDesc;
 			}
 		}
@@ -1171,7 +1171,7 @@ static GraphicsPipelineStateDesc readFromTextFile(std::ifstream& inFile, const s
 			}
 			else
 			{
-				std::cout << "error on line: " << lineNumber << std::endl;
+				std::cerr << "error on line: " << lineNumber << std::endl;
 				return psoDesc;
 			}
 		}
@@ -1187,7 +1187,7 @@ static GraphicsPipelineStateDesc readFromTextFile(std::ifstream& inFile, const s
 			}
 			else
 			{
-				std::cout << "error on line: " << lineNumber << std::endl;
+				std::cerr << "error on line: " << lineNumber << std::endl;
 				return psoDesc;
 			}
 		}
@@ -1197,7 +1197,7 @@ static GraphicsPipelineStateDesc readFromTextFile(std::ifstream& inFile, const s
 			psoDesc.depthStencilState.depthFunc = stringToComparisonFunc(data, succeeded1);
 			if (!succeeded1)
 			{
-				std::cout << "error on line: " << lineNumber << std::endl;
+				std::cerr << "error on line: " << lineNumber << std::endl;
 				return psoDesc;
 			}
 		}
@@ -1213,7 +1213,7 @@ static GraphicsPipelineStateDesc readFromTextFile(std::ifstream& inFile, const s
 			}
 			else
 			{
-				std::cout << "error on line: " << lineNumber << std::endl;
+				std::cerr << "error on line: " << lineNumber << std::endl;
 				return psoDesc;
 			}
 		}
@@ -1222,7 +1222,7 @@ static GraphicsPipelineStateDesc readFromTextFile(std::ifstream& inFile, const s
 			auto stencilReadMask = stringToUnsignedLong(data);
 			if (stencilReadMask > 255u)
 			{
-				std::cout << "error on line: " << lineNumber << std::endl;
+				std::cerr << "error on line: " << lineNumber << std::endl;
 				return psoDesc;
 			}
 			psoDesc.depthStencilState.stencilReadMask = (unsigned short)stencilReadMask;
@@ -1232,7 +1232,7 @@ static GraphicsPipelineStateDesc readFromTextFile(std::ifstream& inFile, const s
 			auto stencilWriteMask = stringToUnsignedLong(data);
 			if (stencilWriteMask > 255u)
 			{
-				std::cout << "error on line: " << lineNumber << std::endl;
+				std::cerr << "error on line: " << lineNumber << std::endl;
 				return psoDesc;
 			}
 			psoDesc.depthStencilState.stencilWriteMask = (unsigned short)stencilWriteMask;
@@ -1243,7 +1243,7 @@ static GraphicsPipelineStateDesc readFromTextFile(std::ifstream& inFile, const s
 			psoDesc.depthStencilState.frontFace.stencilFailOp = stringToStencilOp(data, succeeded1);
 			if (!succeeded1)
 			{
-				std::cout << "error on line: " << lineNumber << std::endl;
+				std::cerr << "error on line: " << lineNumber << std::endl;
 				return psoDesc;
 			}
 		}
@@ -1253,7 +1253,7 @@ static GraphicsPipelineStateDesc readFromTextFile(std::ifstream& inFile, const s
 			psoDesc.depthStencilState.frontFace.stencilDepthFailOp = stringToStencilOp(data, succeeded1);
 			if (!succeeded1)
 			{
-				std::cout << "error on line: " << lineNumber << std::endl;
+				std::cerr << "error on line: " << lineNumber << std::endl;
 				return psoDesc;
 			}
 		}
@@ -1263,7 +1263,7 @@ static GraphicsPipelineStateDesc readFromTextFile(std::ifstream& inFile, const s
 			psoDesc.depthStencilState.frontFace.stencilPassOp = stringToStencilOp(data, succeeded1);
 			if (!succeeded1)
 			{
-				std::cout << "error on line: " << lineNumber << std::endl;
+				std::cerr << "error on line: " << lineNumber << std::endl;
 				return psoDesc;
 			}
 		}
@@ -1273,7 +1273,7 @@ static GraphicsPipelineStateDesc readFromTextFile(std::ifstream& inFile, const s
 			psoDesc.depthStencilState.frontFace.stencilFunc = stringToComparisonFunc(data, succeeded1);
 			if (!succeeded1)
 			{
-				std::cout << "error on line: " << lineNumber << std::endl;
+				std::cerr << "error on line: " << lineNumber << std::endl;
 				return psoDesc;
 			}
 		}
@@ -1283,7 +1283,7 @@ static GraphicsPipelineStateDesc readFromTextFile(std::ifstream& inFile, const s
 			psoDesc.depthStencilState.backFace.stencilFailOp = stringToStencilOp(data, succeeded1);
 			if (!succeeded1)
 			{
-				std::cout << "error on line: " << lineNumber << std::endl;
+				std::cerr << "error on line: " << lineNumber << std::endl;
 				return psoDesc;
 			}
 		}
@@ -1293,7 +1293,7 @@ static GraphicsPipelineStateDesc readFromTextFile(std::ifstream& inFile, const s
 			psoDesc.depthStencilState.backFace.stencilDepthFailOp = stringToStencilOp(data, succeeded1);
 			if (!succeeded1)
 			{
-				std::cout << "error on line: " << lineNumber << std::endl;
+				std::cerr << "error on line: " << lineNumber << std::endl;
 				return psoDesc;
 			}
 		}
@@ -1303,7 +1303,7 @@ static GraphicsPipelineStateDesc readFromTextFile(std::ifstream& inFile, const s
 			psoDesc.depthStencilState.backFace.stencilPassOp = stringToStencilOp(data, succeeded1);
 			if (!succeeded1)
 			{
-				std::cout << "error on line: " << lineNumber << std::endl;
+				std::cerr << "error on line: " << lineNumber << std::endl;
 				return psoDesc;
 			}
 		}
@@ -1313,7 +1313,7 @@ static GraphicsPipelineStateDesc readFromTextFile(std::ifstream& inFile, const s
 			psoDesc.depthStencilState.backFace.stencilFunc = stringToComparisonFunc(data, succeeded1);
 			if (!succeeded1)
 			{
-				std::cout << "error on line: " << lineNumber << std::endl;
+				std::cerr << "error on line: " << lineNumber << std::endl;
 				return psoDesc;
 			}
 		}
@@ -1324,7 +1324,7 @@ static GraphicsPipelineStateDesc readFromTextFile(std::ifstream& inFile, const s
 			bool succeeded1 = getBracedValue(inFile, data, lineNumber, newData);
 			if (!succeeded1)
 			{
-				std::cout << "error { on line " << oldLineNumber << " doesn't have a closing } by line " << lineNumber << std::endl;
+				std::cerr << "error { on line " << oldLineNumber << " doesn't have a closing } by line " << lineNumber << std::endl;
 				return psoDesc;
 			}
 			if (newData != "")
@@ -1336,7 +1336,7 @@ static GraphicsPipelineStateDesc readFromTextFile(std::ifstream& inFile, const s
 					auto values = splitByCommaIgnoringTrailingComma(trim(elementString, " \t{}"));
 					if (values.size() != 7)
 					{
-						std::cout << "incorrect number of arguments for a input element on line: " << lineNumber << std::endl;
+						std::cerr << "incorrect number of arguments for a input element on line: " << lineNumber << std::endl;
 						return psoDesc;
 					}
 
@@ -1388,7 +1388,7 @@ static GraphicsPipelineStateDesc readFromTextFile(std::ifstream& inFile, const s
 					}
 					else
 					{
-						std::cout << "unknown sematic name on line " << lineNumber << std::endl;
+						std::cerr << "unknown sematic name on line " << lineNumber << std::endl;
 						return psoDesc;
 					}
 
@@ -1410,7 +1410,7 @@ static GraphicsPipelineStateDesc readFromTextFile(std::ifstream& inFile, const s
 					}
 					else
 					{
-						std::cout << "Unknown format on line " << lineNumber << std::endl;
+						std::cerr << "Unknown format on line " << lineNumber << std::endl;
 						return psoDesc;
 					}
 
@@ -1439,7 +1439,7 @@ static GraphicsPipelineStateDesc readFromTextFile(std::ifstream& inFile, const s
 					}
 					else
 					{
-						std::cout << "unknown input slot class on line " << lineNumber << std::endl;
+						std::cerr << "unknown input slot class on line " << lineNumber << std::endl;
 						return psoDesc;
 					}
 
@@ -1468,7 +1468,7 @@ static GraphicsPipelineStateDesc readFromTextFile(std::ifstream& inFile, const s
 			}
 			else
 			{
-				std::cout << "error on line: " << lineNumber << std::endl;
+				std::cerr << "error on line: " << lineNumber << std::endl;
 				return psoDesc;
 			}
 		}
@@ -1496,7 +1496,7 @@ static GraphicsPipelineStateDesc readFromTextFile(std::ifstream& inFile, const s
 			}
 			else
 			{
-				std::cout << "error on line: " << lineNumber << std::endl;
+				std::cerr << "error on line: " << lineNumber << std::endl;
 				return psoDesc;
 			}
 		}
@@ -1506,7 +1506,7 @@ static GraphicsPipelineStateDesc readFromTextFile(std::ifstream& inFile, const s
 			bool succeeded1 = getBracedValue(inFile, data, lineNumber, newData);
 			if (!succeeded1)
 			{
-				std::cout << "error on line: " << lineNumber << std::endl;
+				std::cerr << "error on line: " << lineNumber << std::endl;
 				return psoDesc;
 			}
 			if (newData != "")
@@ -1534,14 +1534,14 @@ static GraphicsPipelineStateDesc readFromTextFile(std::ifstream& inFile, const s
 					}
 					else
 					{
-						std::cout << "error on line: " << lineNumber << std::endl;
+						std::cerr << "error on line: " << lineNumber << std::endl;
 						return psoDesc;
 					}
 
 					++i;
 					if (i == 8)
 					{
-						std::cout << "error on line: " << lineNumber << std::endl;
+						std::cerr << "error on line: " << lineNumber << std::endl;
 						return psoDesc;
 					}
 				}
@@ -1568,7 +1568,7 @@ static GraphicsPipelineStateDesc readFromTextFile(std::ifstream& inFile, const s
 			}
 			else
 			{
-				std::cout << "error on line: " << lineNumber << std::endl;
+				std::cerr << "error on line: " << lineNumber << std::endl;
 				return psoDesc;
 			}
 		}
@@ -1582,7 +1582,7 @@ static GraphicsPipelineStateDesc readFromTextFile(std::ifstream& inFile, const s
 		}
 		else
 		{
-			std::cout << "error on line: " << lineNumber << std::endl;
+			std::cerr << "error on line: " << lineNumber << std::endl;
 			return psoDesc;
 		}
 
@@ -1835,29 +1835,35 @@ __declspec(dllexport)
 bool importResource(const std::filesystem::path& baseInputPath, const std::filesystem::path& baseOutputPath, const std::filesystem::path& relativeInputPath, void* importResourceContext,
 	bool(*importResource)(void* context, const std::filesystem::path& baseInputPath, const std::filesystem::path& baseOutputPath, const std::filesystem::path& relativeInputPath))
 {
-	std::ios_base::sync_with_stdio(false);
-
-	auto inputPath = baseInputPath / relativeInputPath;
-	std::ifstream infile(inputPath);
-	bool succeeded;
-	GraphicsPipelineStateDesc psoDesc = readFromTextFile(infile, baseInputPath, inputPath, succeeded);
-	infile.close();
-	if (!succeeded)
+	try
 	{
+		std::ios_base::sync_with_stdio(false);
+		auto inputPath = baseInputPath / relativeInputPath;
+		std::cout << "importing " << inputPath << "\n";
+		std::ifstream infile(inputPath);
+		bool succeeded;
+		GraphicsPipelineStateDesc psoDesc = readFromTextFile(infile, baseInputPath, inputPath, succeeded);
+		infile.close();
+		if (!succeeded)
+		{
+			return false;
+		}
+
+		auto outputDirectory = baseInputPath / "Generated" / relativeInputPath.parent_path();
+		auto outputPath = outputDirectory / relativeInputPath.stem();
+		outputPath += ".h";
+		if (!std::filesystem::exists(outputDirectory))
+		{
+			std::filesystem::create_directories(outputDirectory);
+		}
+		std::ofstream outFile(outputPath);
+		writeToCppHeaderFile(psoDesc, outFile, relativeInputPath.stem().string(), baseInputPath.lexically_relative(outputDirectory) / "Resources.h");
+		outFile.close();
+	}
+	catch (...)
+	{
+		std::cerr << "failed\n";
 		return false;
 	}
-
-	auto outputDirectory = baseInputPath / "Generated" / relativeInputPath.parent_path();
-	auto outputPath = outputDirectory / relativeInputPath.stem();
-	outputPath += ".h";
-	if (!std::filesystem::exists(outputDirectory))
-	{
-		std::filesystem::create_directories(outputDirectory);
-	}
-	std::ofstream outFile(outputPath);
-	writeToCppHeaderFile(psoDesc, outFile, relativeInputPath.stem().string(), baseInputPath.lexically_relative(outputDirectory) / "Resources.h");
-	outFile.close();
-
-	std::cout << "done" << std::endl;
 	return true;
 }

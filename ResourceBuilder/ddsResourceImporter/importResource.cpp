@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <fstream>
 #include <array>
+#include <cstddef>
 
 namespace
 {
@@ -1071,10 +1072,12 @@ bool importResource(const std::filesystem::path& baseInputPath, const std::files
 {
 	try
 	{
-		std::ifstream file(baseInputPath / relativeInputPath, std::ios::binary);
+		auto inputPath = baseInputPath / relativeInputPath;
+		std::cout << "importing " << inputPath << "\n";
+		std::ifstream file(inputPath, std::ios::binary);
 		if (!file)
 		{
-			std::cout << "failed to open input file\n";
+			std::cerr << "failed to open " << inputPath << "\n";
 			return false;
 		}
 		auto textureInfo = getDDSTextureInfoFromFile(file);
@@ -1085,7 +1088,7 @@ bool importResource(const std::filesystem::path& baseInputPath, const std::files
 		file.seekg(currentPos, file.beg);
 
 		auto dataLength = length - currentPos;
-		std::unique_ptr<char[]> data(new char[dataLength]);
+		std::unique_ptr<char[]> data(new char[static_cast<std::size_t>(dataLength)]);
 		file.read(data.get(), dataLength);
 		file.close();
 
@@ -1143,17 +1146,15 @@ bool importResource(const std::filesystem::path& baseInputPath, const std::files
 		outFile.write(reinterpret_cast<const char*>(&header), sizeof(header));
 		outFile.write(data.get(), (uint32_t)dataLength);
 		outFile.close();
-
-		std::cout << "done\n";
 	}
 	catch (const std::exception& e)
 	{
-		std::cout << "failed " << e.what() << "\n";
+		std::cerr << "failed " << e.what() << "\n";
 		return false;
 	}
 	catch (...)
 	{
-		std::cout << "failed\n";
+		std::cerr << "failed\n";
 		return false;
 	}
 	return true;
