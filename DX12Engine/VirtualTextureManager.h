@@ -28,12 +28,13 @@ class VirtualTextureManager
 public:
 	class TextureStreamingRequest;
 
-	struct Texture : public VirtualTextureInfo
+	struct Texture
 	{
 		Texture() : numUsers(0u), lastRequest(nullptr) {}
 		unsigned int descriptorIndex;
 		unsigned int numUsers;
 		TextureStreamingRequest* lastRequest;
+		VirtualTextureInfo* info;
 	};
 
 	class Message : public AsynchronousFileManager::ReadRequest
@@ -54,6 +55,7 @@ public:
 	public:
 		Texture* texture;
 		D3D12_RESOURCE_DIMENSION dimension;
+		const DDSFileLoader::DdsHeaderDx12* header;
 		VirtualTextureManager* virtualTextureManager;
 		
 		TextureStreamingRequest* nextTextureRequest;
@@ -68,26 +70,39 @@ public:
 		}
 	};
 
+	struct Hash
+	{
+		std::size_t operator()(const wchar_t* str) const noexcept
+		{
+			std::size_t result = 0u;
+			while (*str != L'\0')
+			{
+				result = (result ^ std::size_t{ *str }) * static_cast<std::size_t>(16777619ul);
+				++str;
+			}
+			return result;
+		}
+	};
+private:
+	ActorQueue messageQueue;
+	std::unordered_map<const wchar_t *, Texture, Hash> textures;
+	PageProvider& pageProvider;
+	StreamingManager& streamingManager;
+	GraphicsEngine& graphicsEngine;
+	AsynchronousFileManager& asynchronousFileManager;
+public:
 	class UnloadRequest : public Message, public PageProvider::UnloadRequest
 	{
 		friend class VirtualTextureManager;
-		std::unordered_map<const wchar_t * const, Texture, std::hash<const wchar_t *>>* textures;
 	public:
 		UnloadRequest(const wchar_t* filename, void(*deleteRequest)(ReadRequest& request, void* tr)) :
 			Message(filename, deleteRequest)
 		{}
 	};
 private:
-	ActorQueue messageQueue;
-	std::unordered_map<const wchar_t * const, Texture, std::hash<const wchar_t *>> textures;
-	PageProvider& pageProvider;
-	StreamingManager& streamingManager;
-	GraphicsEngine& graphicsEngine;
-	AsynchronousFileManager& asynchronousFileManager;
-private:
 	void loadTextureUncachedHelper(TextureStreamingRequest& uploadRequest,
 		void(*useSubresource)(StreamingManager::StreamingRequest* request, void* tr),
-		void callback(PageProvider::AllocateTextureRequest& request, void* tr),
+		void(*callback)(PageProvider::AllocateTextureRequest& request, void* tr, VirtualTextureInfo& textureInfo),
 		const DDSFileLoader::DdsHeaderDx12& header);
 
 	void notifyTextureReady(TextureStreamingRequest* request, void* tr);
@@ -141,6 +156,8 @@ private:
 		} });
 	}
 
+	static void textureCreatedHealper(TextureStreamingRequest& uploadRequest, VirtualTextureInfo& textureInfo);
+
 	template<class ThreadResources>
 	void loadTextureUncached(TextureStreamingRequest& uploadRequest)
 	{
@@ -153,9 +170,10 @@ private:
 			TextureStreamingRequest& uploadRequest = static_cast<TextureStreamingRequest&>(request);
 			VirtualTextureManager& virtualTextureManager = *uploadRequest.virtualTextureManager;
 			virtualTextureManager.loadTextureUncachedHelper(uploadRequest, textureUseResource<ThreadResources>,
-			[](PageProvider::AllocateTextureRequest& request, void*)
+			[](PageProvider::AllocateTextureRequest& request, void*, VirtualTextureInfo& textureInfo)
 			{
 				TextureStreamingRequest& uploadRequest = static_cast<TextureStreamingRequest&>(request);
+				textureCreatedHealper(uploadRequest, textureInfo);
 				uploadRequest.virtualTextureManager->asynchronousFileManager.discard(uploadRequest);
 			}, *reinterpret_cast<const DDSFileLoader::DdsHeaderDx12*>(buffer));
 		};
@@ -169,10 +187,8 @@ private:
 		asynchronousFileManager.readFile(uploadRequest);
 	}
 
-	static D3D12Resource createResource(ID3D12Device& graphicsDevice, const TextureStreamingRequest& request);
-	static unsigned int createTextureDescriptor(GraphicsEngine& graphicsEngine, ID3D12Resource* texture, const TextureStreamingRequest& request);
-	void createVirtualTexture(ID3D12CommandQueue& commandQueue,
-		void callback(PageProvider::AllocateTextureRequest& request, void* tr), TextureStreamingRequest& vramRequest);
+	static void createVirtualTexture(GraphicsEngine& graphicsEngine, PageProvider& pageProvider, void(*callback)(PageProvider::AllocateTextureRequest& request, void* tr, VirtualTextureInfo& textureInfo),
+		const DDSFileLoader::DdsHeaderDx12& header, TextureStreamingRequest& uploadRequest);
 
 	template<class ThreadResources>
 	void loadTexture(ThreadResources& executor, TextureStreamingRequest* request)
@@ -259,7 +275,6 @@ public:
 	void unload(UnloadRequest* request, ThreadResources& threadResources)
 	{
 		request->textureAction = Action::unload;
-		request->textures = &textures;
 		addMessage(request, threadResources);
 	}
 };
