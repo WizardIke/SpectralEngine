@@ -1,5 +1,6 @@
 #include "AsynchronousFileManager.h"
 #include <Windows.h>
+#include <limits.h>
 
 AsynchronousFileManager::AsynchronousFileManager(IOCompletionQueue& ioCompletionQueue1) :
 	ioCompletionQueue(ioCompletionQueue1)
@@ -17,9 +18,9 @@ bool AsynchronousFileManager::readFileHelper(void* tr, DWORD, LPOVERLAPPED overl
 	const auto pageSize = request.asynchronousFileManager->pageSize;
 	auto& files = request.asynchronousFileManager->files;
 
-	std::size_t memoryStart = request.start & ~(pageSize - 1u);
-	std::size_t memoryEnd = (request.end + pageSize - 1u) & ~(pageSize - 1u);
-	std::size_t memoryNeeded = memoryEnd - memoryStart;
+	const auto memoryStart = request.start & ~(pageSize - 1ull);
+	const auto memoryEnd = (request.end + pageSize - 1ull) & ~(pageSize - 1ull);
+	const auto memoryNeeded = memoryEnd - memoryStart;
 
 	unsigned char* allocation;
 	auto dataPtr = files.find(request);
@@ -31,7 +32,7 @@ bool AsynchronousFileManager::readFileHelper(void* tr, DWORD, LPOVERLAPPED overl
 
 		if(dataDescriptor.userCount == 1u)
 		{
-			auto result = ReclaimVirtualMemory(allocation, memoryNeeded);
+			auto result = ReclaimVirtualMemory(allocation, static_cast<SIZE_T>(memoryNeeded));
 			if(result == ERROR_SUCCESS)
 			{
 				//We successfully reclaimed the data, so we can complete the request to load it.
@@ -66,7 +67,7 @@ bool AsynchronousFileManager::readFileHelper(void* tr, DWORD, LPOVERLAPPED overl
 	}
 	else
 	{
-		allocation = (unsigned char*)VirtualAlloc(nullptr, memoryNeeded, MEM_COMMIT, PAGE_READWRITE);
+		allocation = (unsigned char*)VirtualAlloc(nullptr, static_cast<SIZE_T>(memoryNeeded), MEM_COMMIT, PAGE_READWRITE);
 		request.next = nullptr;
 		files.insert(std::pair<const ResourceId, FileData>(request, FileData{allocation, 1u, &request}));
 	}
@@ -74,11 +75,13 @@ bool AsynchronousFileManager::readFileHelper(void* tr, DWORD, LPOVERLAPPED overl
 	request.buffer = allocation;
 	request.accumulatedSize = 0u;
 	request.hEvent = nullptr;
-	request.Offset = memoryStart & (std::numeric_limits<DWORD>::max() - 1u);
-	request.OffsetHigh = (DWORD)((memoryStart & ~(std::size_t)(std::numeric_limits<DWORD>::max() - 1u)) >> 32u);
+	request.Offset = static_cast<DWORD>(memoryStart);
+	request.OffsetHigh = static_cast<DWORD>(memoryStart >> (sizeof(DWORD) * CHAR_BIT));
 
 	DWORD bytesRead = 0u;
-	BOOL finished = ReadFile(request.file.native_handle(), request.buffer, (DWORD)memoryNeeded, &bytesRead, &request);
+	const DWORD maxReadableAmount = std::numeric_limits<DWORD>::max() & ~static_cast<DWORD>(pageSize - 1u);
+	BOOL finished = ReadFile(request.file.native_handle(), request.buffer,
+		memoryNeeded > maxReadableAmount ? maxReadableAmount : static_cast<DWORD>(memoryNeeded), &bytesRead, &request);
 	if (finished == FALSE && GetLastError() != ERROR_IO_PENDING)
 	{
 		return false;
@@ -92,15 +95,15 @@ bool AsynchronousFileManager::discardHelper(void* tr, DWORD, LPOVERLAPPED overla
 	const auto pageSize = request.asynchronousFileManager->pageSize;
 	auto& files = request.asynchronousFileManager->files;
 
-	std::size_t memoryStart = request.start & ~(pageSize - 1u);
-	std::size_t memoryEnd = (request.end + pageSize - 1u) & ~(pageSize - 1u);
-	std::size_t memoryNeeded = memoryEnd - memoryStart;
+	const auto memoryStart = request.start & ~(pageSize - 1ull);
+	const auto memoryEnd = (request.end + pageSize - 1ull) & ~(pageSize - 1ull);
+	const auto memoryNeeded = memoryEnd - memoryStart;
 	FileData& dataDescriptor = files.find(request)->second;
 	--dataDescriptor.userCount;
 	if (dataDescriptor.userCount == 0u)
 	{
 		//The resource is no longer needed in memory.
-		OfferVirtualMemory(dataDescriptor.allocation, memoryNeeded, OFFER_PRIORITY::VmOfferPriorityLow);
+		OfferVirtualMemory(dataDescriptor.allocation, static_cast<SIZE_T>(memoryNeeded), OFFER_PRIORITY::VmOfferPriorityLow);
 	}
 
 	request.deleteReadRequest(request, tr);
@@ -113,25 +116,28 @@ bool AsynchronousFileManager::discardHelper(void* tr, DWORD, LPOVERLAPPED overla
 	 AsynchronousFileManager& fileManager = *request->asynchronousFileManager;
 
 	 request->accumulatedSize += numberOfBytes;
-	 const std::size_t sectorSize = fileManager.pageSize;
-	 const std::size_t memoryStart = request->start & ~(sectorSize - 1u);
-	 const std::size_t memoryEnd = (request->end + sectorSize - 1u) & ~(sectorSize - 1u);
-	 const std::size_t sizeToRead = memoryEnd - memoryStart;
+	 const auto sectorSize = fileManager.pageSize;
+	 const auto memoryStart = request->start & ~(sectorSize - 1u);
+	 const auto memoryEnd = (request->end + sectorSize - 1u) & ~(sectorSize - 1u);
+	 const auto sizeToRead = memoryEnd - memoryStart;
 	 if ((request->accumulatedSize < (request->end - memoryStart)) && request->accumulatedSize != sizeToRead)
 	 {
 		 request->accumulatedSize = request->accumulatedSize & ~(sectorSize - 1u);
-		 const std::size_t currentPosition = memoryStart + request->accumulatedSize;
-		 request->Offset = currentPosition & (std::numeric_limits<DWORD>::max() - 1u);
-		 request->OffsetHigh = (DWORD)((currentPosition & ~(std::size_t)(std::numeric_limits<DWORD>::max() - 1u)) >> 32u);
+		 const auto currentPosition = memoryStart + request->accumulatedSize;
+		 request->Offset = static_cast<DWORD>(currentPosition);
+		 request->OffsetHigh = static_cast<DWORD>(currentPosition >> (sizeof(DWORD) * CHAR_BIT));
 		 DWORD bytesRead = 0u;
-		 BOOL finished = ReadFile(request->file.native_handle(), request->buffer + request->accumulatedSize, (DWORD)(sizeToRead - request->accumulatedSize), &bytesRead, request);
+		 const auto remainingAmountToRead = sizeToRead - request->accumulatedSize;
+		 const DWORD maxReadableAmount = std::numeric_limits<DWORD>::max() & ~static_cast<DWORD>(sectorSize - 1u);
+		 BOOL finished = ReadFile(request->file.native_handle(), request->buffer + request->accumulatedSize,
+			 remainingAmountToRead > maxReadableAmount ? maxReadableAmount : static_cast<DWORD>(remainingAmountToRead), &bytesRead, request);
 		 if (finished == FALSE && GetLastError() != ERROR_IO_PENDING)
 		 {
 			 return false;
 		 }
 		 return true;
 	 }
-	 auto data = request->buffer + (request->start & (fileManager.pageSize - 1u));
+	 auto data = request->buffer + (request->start & (sectorSize - 1u));
 
 	 FileData& dataDescriptor = fileManager.files.find(*request)->second;
 	 ReadRequest* requests = dataDescriptor.requests;

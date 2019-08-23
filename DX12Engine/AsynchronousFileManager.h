@@ -11,8 +11,8 @@ private:
 	struct ResourceId
 	{
 		const wchar_t* filename;
-		std::size_t start;
-		std::size_t end;
+		unsigned long long start;
+		unsigned long long end;
 
 		bool operator==(const ResourceId& other) const
 		{
@@ -26,25 +26,27 @@ private:
 		{
 			if constexpr (sizeof(std::size_t) <= 4u)
 			{
-				std::size_t result = 2166136261u;
+				unsigned long result = 2166136261ul;
 				for (auto current = key.filename; *current != '\0'; ++current)
 				{
-					result = (result ^ std::size_t{ *current }) * 16777619u;
+					result = (result ^ unsigned long{ *current }) * 16777619ul;
 				}
-				result = result * 31u + key.start;
-				result = result * 31u + key.end;
-				return result;
+				result = result * 31ul + static_cast<unsigned long>(key.start);
+				result = result * 31ul + static_cast<unsigned long>(key.start >> 32ull);
+				result = result * 31ul + static_cast<unsigned long>(key.end);
+				result = result * 31ul + static_cast<unsigned long>(key.end >> 32ull);
+				return static_cast<std::size_t>(result);
 			}
 			else
 			{
-				std::size_t result = 14695981039346656037u;
+				unsigned long long result = 14695981039346656037ull;
 				for (auto current = key.filename; *current != '\0'; ++current)
 				{
-					result = (result ^ std::size_t{ *current }) * 1099511628211u;
+					result = (result ^ unsigned long long{ *current }) * 1099511628211ull;
 				}
-				result = result * 31u + key.start;
-				result = result * 31u + key.end;
-				return result;
+				result = result * 31ull + key.start;
+				result = result * 31ull + key.end;
+				return static_cast<std::size_t>(result);
 			}
 		}
 	};
@@ -58,13 +60,13 @@ public:
 		//location to put the result
 		unsigned char* buffer;
 		//amount read
-		std::size_t accumulatedSize;
+		unsigned long long accumulatedSize;
 		//what to do with the result
 		void(*fileLoadedCallback)(ReadRequest& request, AsynchronousFileManager& asynchronousFileManager, void* tr, const unsigned char* data);
 		void(*deleteReadRequest)(ReadRequest& request, void* tr);
 
 		ReadRequest() {}
-		ReadRequest(const wchar_t* filename, File file, std::size_t start, std::size_t end,
+		ReadRequest(const wchar_t* filename, File file, unsigned long long start, unsigned long long end,
 			void(*fileLoadedCallback)(ReadRequest& request, AsynchronousFileManager& asynchronousFileManager, void* tr, const unsigned char* data),
 			void(*deleteRequest)(ReadRequest& request, void* tr)) :
 			file(file),
@@ -76,7 +78,7 @@ public:
 			this->end = end;
 		}
 
-		ReadRequest(const wchar_t* filename, File file, std::size_t start, std::size_t end,
+		ReadRequest(const wchar_t* filename, File file, unsigned long long start, unsigned long long end,
 			void(*fileLoadedCallback)(ReadRequest& request, AsynchronousFileManager& asynchronousFileManager, void* tr, const unsigned char* data)) :
 			file(file),
 			fileLoadedCallback(fileLoadedCallback)
@@ -96,7 +98,7 @@ private:
 
 	std::unordered_map<ResourceId, FileData, Hasher> files;
 	IOCompletionQueue& ioCompletionQueue;
-	std::size_t pageSize;
+	unsigned long long pageSize;
 
 	static bool processIOCompletion(void* tr, DWORD numberOfBytes, LPOVERLAPPED overlapped);
 	static bool readFileHelper(void* tr, DWORD, LPOVERLAPPED overlapped);
