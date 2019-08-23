@@ -64,19 +64,14 @@ public:
 		friend class PageProvider;
 		PageProvider* pageProvider;
 	public:
-		VirtualTextureInfo* textureInfo;
-		ID3D12CommandQueue* commandQueue;
-		ID3D12Device* graphicsDevice;
-		void(*callback)(AllocateTextureRequest& unloadRequest, void* tr);
+		void(*callback)(AllocateTextureRequest& unloadRequest, void* tr, VirtualTextureInfo& textureInfo);
+		D3D12Resource resource;
+		unsigned long pinnedPageCount;
+		unsigned int widthInPages;
+		unsigned int heightInPages;
+		unsigned int lowestPinnedMip;
 
 		AllocateTextureRequest() {}
-		AllocateTextureRequest(VirtualTextureInfo& textureInfo1, ID3D12CommandQueue& commandQueue1, ID3D12Device& graphicsDevice1,
-			void(&callback1)(AllocateTextureRequest& unloadRequest, void* tr)) :
-			textureInfo(&textureInfo1),
-			commandQueue(&commandQueue1),
-			graphicsDevice(&graphicsDevice1),
-			callback(callback1)
-		{}
 	};
 private:
 	PageCache pageCache;

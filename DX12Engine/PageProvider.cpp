@@ -468,6 +468,7 @@ void PageProvider::increaseMipBias(decltype(uniqueRequests)& pageRequests)
 void PageProvider::deleteTextureHelper(UnloadRequest& unloadRequest, void* tr)
 {
 	VirtualTextureInfo& textureInfo = *unloadRequest.textureInfo;
+	textureInfo.file.close();
 	std::size_t numberOfNewUnneededLoadingPages = 0u;
 	textureInfo.pageCacheData.pageLookUp.consume([&pageCache = pageCache, &pageAllocator = pageAllocator, &numberOfNewUnneededLoadingPages](auto&& page)
 	{
@@ -497,9 +498,14 @@ void PageProvider::deleteTextureHelper(UnloadRequest& unloadRequest, void* tr)
 
 void PageProvider::allocateTexturePinnedHelper(AllocateTextureRequest& allocateRequest, void* tr)
 {
-	VirtualTextureInfo& textureInfo = *allocateRequest.textureInfo;
-	ID3D12CommandQueue& commandQueue = *allocateRequest.commandQueue;
-	ID3D12Device& graphicsDevice = *allocateRequest.graphicsDevice;
+	auto& textureInfo = texturesByID.allocate();
+	textureInfo.resource = std::move(allocateRequest.resource);
+	textureInfo.widthInPages = allocateRequest.widthInPages;
+	textureInfo.heightInPages = allocateRequest.heightInPages;
+	textureInfo.lowestPinnedMip = allocateRequest.lowestPinnedMip;
+
+	ID3D12CommandQueue& commandQueue = allocateRequest.pageProvider->streamingManager.commandQueue();
+	ID3D12Device& graphicsDevice = *allocateRequest.pageProvider->graphicsEngine.graphicsDevice;
 
 	D3D12_TILED_RESOURCE_COORDINATE resourceTileCoords[64];
 	constexpr size_t resourceTileCoordsMax = sizeof(resourceTileCoords) / sizeof(resourceTileCoords[0u]);
@@ -509,6 +515,7 @@ void PageProvider::allocateTexturePinnedHelper(AllocateTextureRequest& allocateR
 	if (widthInPages == 0u) widthInPages = 1u;
 	auto heightInPages = textureInfo.heightInPages >> textureInfo.lowestPinnedMip;
 	if (heightInPages == 0u) heightInPages = 1u;
+	textureInfo.pinnedPageCount = widthInPages * heightInPages;
 	textureInfo.pinnedHeapLocations.reset(new GpuHeapLocation[textureInfo.pinnedPageCount]);
 	GpuHeapLocation* pinnedHeapLocations = textureInfo.pinnedHeapLocations.get();
 	for (auto y = 0u; y != heightInPages; ++y)
@@ -529,26 +536,25 @@ void PageProvider::allocateTexturePinnedHelper(AllocateTextureRequest& allocateR
 		}
 	}
 	pageAllocator.addPinnedPages(resourceTileCoords, resourceTileCoordsIndex, textureInfo.resource, pinnedHeapLocations, &commandQueue, &graphicsDevice);
-
-	unsigned int textureID = texturesByID.allocate(textureInfo);
-	textureInfo.textureID = textureID;
-
-	allocateRequest.callback(allocateRequest, tr);
+	allocateRequest.callback(allocateRequest, tr, textureInfo);
 }
 
 void PageProvider::allocateTexturePackedHelper(AllocateTextureRequest& allocateRequest, void* tr)
 {
-	VirtualTextureInfo& textureInfo = *allocateRequest.textureInfo;
-	ID3D12CommandQueue& commandQueue = *allocateRequest.commandQueue;
-	ID3D12Device& graphicsDevice = *allocateRequest.graphicsDevice;
+	auto& textureInfo = texturesByID.allocate();
+	textureInfo.resource = std::move(allocateRequest.resource);
+	textureInfo.widthInPages = allocateRequest.widthInPages;
+	textureInfo.heightInPages = allocateRequest.heightInPages;
+	textureInfo.pinnedPageCount = allocateRequest.pinnedPageCount;
+	textureInfo.lowestPinnedMip = allocateRequest.lowestPinnedMip;
+
+	ID3D12CommandQueue& commandQueue = allocateRequest.pageProvider->streamingManager.commandQueue();
+	ID3D12Device& graphicsDevice = *allocateRequest.pageProvider->graphicsEngine.graphicsDevice;
 
 	textureInfo.pinnedHeapLocations.reset(new GpuHeapLocation[textureInfo.pinnedPageCount]);
 	pageAllocator.addPinnedPages(textureInfo.resource, textureInfo.pinnedHeapLocations.get(), textureInfo.lowestPinnedMip, textureInfo.pinnedPageCount, &commandQueue, &graphicsDevice);
 
-	unsigned int textureID = texturesByID.allocate(textureInfo);
-	textureInfo.textureID = textureID;
-
-	allocateRequest.callback(allocateRequest, tr);
+	allocateRequest.callback(allocateRequest, tr, textureInfo);
 }
 
 void PageProvider::deleteTexture(UnloadRequest& unloadRequest)
