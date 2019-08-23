@@ -67,9 +67,8 @@ namespace
 	};
 }
 
-static bool processDirectory(const std::filesystem::path& baseInputPath, const std::filesystem::path& baseOutputPath, const std::filesystem::path& relativeInputPath, void* importResourceContext,
-	bool(*importResource)(void* context, const std::filesystem::path& baseInputPath, const std::filesystem::path& baseOutputPath, const std::filesystem::path& relativeInputPath),
-	std::ofstream& headerFile, Indent indent)
+static bool importDirectory(const std::filesystem::path& baseInputPath, const std::filesystem::path& baseOutputPath, const std::filesystem::path& relativeInputPath, void* importResourceContext,
+	bool(*importResource)(void* context, const std::filesystem::path& baseInputPath, const std::filesystem::path& baseOutputPath, const std::filesystem::path& relativeInputPath))
 {
 	namespace fs = std::filesystem;
 
@@ -79,10 +78,7 @@ static bool processDirectory(const std::filesystem::path& baseInputPath, const s
 		const auto fileName = entry.path().filename();
 		if (entry.is_directory())
 		{
-			headerFile << indent << "namespace " << fileName.string() << "\n";
-			headerFile << indent << "{\n";
-			bool succeeded = processDirectory(baseInputPath, baseOutputPath, relativeInputPath / fileName, importResourceContext, importResource, headerFile, indent + 1u);
-			headerFile << indent << "};\n";
+			bool succeeded = importDirectory(baseInputPath, baseOutputPath, relativeInputPath / fileName, importResourceContext, importResource);
 			if (!succeeded)
 			{
 				return false;
@@ -96,9 +92,6 @@ static bool processDirectory(const std::filesystem::path& baseInputPath, const s
 			{
 				return false;
 			}
-			auto relativeOutputFileName = relativeInputFileName;
-			relativeOutputFileName += ".data";
-			headerFile << indent << "static constexpr auto " << fileName.stem().string() << " = LR\"/:*?<>|(" << relativeOutputFileName.string() << ")/:*?<>|\";\n";
 		}
 		else
 		{
@@ -148,6 +141,46 @@ static bool importResource(void* context, const std::filesystem::path& baseInput
 	return fileImporter->second.importResource(baseInputPath, baseOutputPath, relativeInputPath, &fileImporters, importResource);
 }
 
+static std::filesystem::path removeExtensions(const std::filesystem::path& path)
+{
+	auto result = path.stem();
+	while (!result.extension().empty())
+	{
+		result = result.stem();
+	}
+	return result;
+}
+
+static void createResourcesHeaderFile(const std::filesystem::path& baseOutputPath, const std::filesystem::path& relativeOutputFileName, std::ofstream& headerFile, Indent indent)
+{
+	for (const auto& entry : std::filesystem::directory_iterator(baseOutputPath / relativeOutputFileName))
+	{
+		const auto fileName = entry.path().filename();
+		if (entry.is_directory())
+		{
+			headerFile << indent << "namespace " << fileName.string() << "\n";
+			headerFile << indent << "{\n";
+			createResourcesHeaderFile(baseOutputPath, relativeOutputFileName / fileName, headerFile, indent + 1u);
+			headerFile << indent << "};\n";
+		}
+		else if (entry.is_regular_file())
+		{
+			headerFile << indent << "inline constexpr const wchar_t* " << removeExtensions(fileName).string() << " = LR\"/:*?<>|(" << (relativeOutputFileName / fileName).string() << ")/:*?<>|\";\n";
+		}
+	}
+}
+
+static void createResourcesHeaderFile(const std::filesystem::path& outputPath, const std::filesystem::path& headerFilePath)
+{
+	std::ofstream headerFile{ headerFilePath };
+	headerFile << "#pragma once\n";
+	headerFile << "\n";
+	headerFile << "namespace Resources\n";
+	headerFile << "{\n";
+	createResourcesHeaderFile(outputPath, "Resources", headerFile, Indent{ 1u });
+	headerFile << "};\n";
+}
+
 int main(int argc, char** argv)
 {
 	try
@@ -165,18 +198,13 @@ int main(int argc, char** argv)
 		std::unordered_map<std::string, Importer> fileImporters = getFileImporters(importerDir);
 
 		namespace fs = std::filesystem;
-
-		std::ofstream headerFile{ fs::path{ inputDir } / "Resources.h" };
-		headerFile << "#pragma once\n\n";
-
-		headerFile << "namespace Resources\n";
-		headerFile << "{\n";
-		bool succeeded = processDirectory(fs::path{ inputDir }, fs::path{ outputDir }, fs::path{ "Resources" }, &fileImporters, importResource, headerFile, Indent{ 1u });
-		headerFile << "};\n";
+		bool succeeded = importDirectory(fs::path{ inputDir }, fs::path{ outputDir }, fs::path{ "Resources" }, &fileImporters, importResource);
 		if (!succeeded)
 		{
 			return 1;
 		}
+
+		createResourcesHeaderFile(fs::path{ outputDir }, fs::path{ inputDir } / "Resources.h" );
 	}
 	catch (const std::exception& e)
 	{
