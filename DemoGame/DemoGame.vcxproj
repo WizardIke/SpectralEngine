@@ -69,24 +69,36 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <IncludePath>$(SolutionDir)DX12Engine;C:\Program Files %28x86%29\Windows Kits\10\Include\10.0.14393.0\shared;C:\Program Files %28x86%29\Windows Kits\10\Include\10.0.14393.0\um;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir)DX12Engine/3rd_party/pcg-cpp-master/include;$(SolutionDir)DX12Engine;C:\Program Files %28x86%29\Windows Kits\10\Include\10.0.14393.0\shared;C:\Program Files %28x86%29\Windows Kits\10\Include\10.0.14393.0\um;$(IncludePath)</IncludePath>
     <LibraryPath>C:\Program Files %28x86%29\Windows Kits\10\Lib\10.0.14393.0\um\x86;$(LibraryPath)</LibraryPath>
+    <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(Platform)\$(Configuration)\</IntDir>
+    <CustomBuildBeforeTargets>ClCompile</CustomBuildBeforeTargets>
+    <CustomBuildAfterTargets>FxCompile</CustomBuildAfterTargets>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <IncludePath>$(SolutionDir)DX12Engine;C:\Program Files %28x86%29\Windows Kits\10\Include\10.0.14393.0\shared;C:\Program Files %28x86%29\Windows Kits\10\Include\10.0.14393.0\um;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir)DX12Engine/3rd_party/pcg-cpp-master/include;$(SolutionDir)DX12Engine;C:\Program Files %28x86%29\Windows Kits\10\Include\10.0.14393.0\shared;C:\Program Files %28x86%29\Windows Kits\10\Include\10.0.14393.0\um;$(IncludePath)</IncludePath>
     <LibraryPath>C:\Program Files %28x86%29\Windows Kits\10\Lib\10.0.14393.0\um\x86;$(LibraryPath)</LibraryPath>
+    <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(Platform)\$(Configuration)\</IntDir>
+    <CustomBuildBeforeTargets>ClCompile</CustomBuildBeforeTargets>
+    <CustomBuildAfterTargets>FxCompile</CustomBuildAfterTargets>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <IncludePath>$(SolutionDir)DX12Engine/3rd_party/pcg-cpp-master/include;$(SolutionDir)DX12Engine;C:\Program Files %28x86%29\Windows Kits\10\Include\10.0.14393.0\shared;C:\Program Files %28x86%29\Windows Kits\10\Include\10.0.14393.0\um;$(IncludePath)</IncludePath>
     <LibraryPath>$(SolutionDir)/x64\Debug;C:\Program Files %28x86%29\Windows Kits\10\Lib\10.0.14393.0\um\x64;$(LibraryPath)</LibraryPath>
     <SourcePath>$(SourcePath)</SourcePath>
     <ReferencePath>$(ReferencePath)</ReferencePath>
+    <CustomBuildBeforeTargets>ClCompile</CustomBuildBeforeTargets>
+    <CustomBuildAfterTargets>FxCompile</CustomBuildAfterTargets>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <IncludePath>$(SolutionDir)DX12Engine/3rd_party/pcg-cpp-master/include;$(SolutionDir)DX12Engine;C:\Program Files %28x86%29\Windows Kits\10\Include\10.0.14393.0\shared;C:\Program Files %28x86%29\Windows Kits\10\Include\10.0.14393.0\um;$(IncludePath)</IncludePath>
     <LibraryPath>$(SolutionDir)/x64/Release;C:\Program Files %28x86%29\Windows Kits\10\Lib\10.0.14393.0\um\x64;$(LibraryPath)</LibraryPath>
     <SourcePath>$(SourcePath)</SourcePath>
     <ReferencePath>$(ReferencePath)</ReferencePath>
+    <CustomBuildBeforeTargets>ClCompile</CustomBuildBeforeTargets>
+    <CustomBuildAfterTargets>FxCompile</CustomBuildAfterTargets>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -114,9 +126,19 @@
     <FxCompile>
       <ShaderModel>5.1</ShaderModel>
       <EnableUnboundedDescriptorTables>true</EnableUnboundedDescriptorTables>
-      <ObjectFileOutput>$(SolutionDir)DemoGame/CompiledShaders/%(Filename).cso</ObjectFileOutput>
+      <ObjectFileOutput>$(OutDir)%(RelativeDir)%(Filename).cso</ObjectFileOutput>
       <AdditionalIncludeDirectories>$(SolutionDir)DX12Engine;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </FxCompile>
+    <CustomBuildStep>
+      <Command>"$(OutDir)ResourceBuilder.exe" "$(ProjectDir)\" "$(OutDir)\" "$(OutDir)\"</Command>
+    </CustomBuildStep>
+    <CustomBuildStep>
+      <Message>Importing Resources</Message>
+    </CustomBuildStep>
+    <CustomBuildStep>
+      <Outputs>$(OutDir)Resources\;$(ProjectDir)Generated\;$(ProjectDir)Resources.h</Outputs>
+      <Inputs>$(ProjectDir)Resources\;$(OutDir)ResourceBuilder.exe</Inputs>
+    </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -147,6 +169,16 @@
     <Link>
       <AdditionalDependencies>DX12Engine.lib;Xaudio2.lib;D3D12.lib;DXGI.lib;D3DCompiler.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <CustomBuildStep>
+      <Command>"$(OutDir)ResourceBuilder.exe" "$(ProjectDir)\" "$(OutDir)\" "$(OutDir)\"</Command>
+    </CustomBuildStep>
+    <CustomBuildStep>
+      <Message>Importing Resources</Message>
+    </CustomBuildStep>
+    <CustomBuildStep>
+      <Outputs>$(OutDir)Resources\;$(ProjectDir)Generated\;$(ProjectDir)Resources.h</Outputs>
+      <Inputs>$(ProjectDir)Resources\;$(OutDir)ResourceBuilder.exe</Inputs>
+    </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -176,9 +208,19 @@
     <FxCompile>
       <ShaderModel>5.1</ShaderModel>
       <EnableUnboundedDescriptorTables>true</EnableUnboundedDescriptorTables>
-      <ObjectFileOutput>$(SolutionDir)DemoGame/CompiledShaders/%(Filename).cso</ObjectFileOutput>
+      <ObjectFileOutput>$(OutDir)%(RelativeDir)%(Filename).cso</ObjectFileOutput>
       <AdditionalIncludeDirectories>$(SolutionDir)DX12Engine;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </FxCompile>
+    <CustomBuildStep>
+      <Command>"$(OutDir)ResourceBuilder.exe" "$(ProjectDir)\" "$(OutDir)\" "$(OutDir)\"</Command>
+    </CustomBuildStep>
+    <CustomBuildStep>
+      <Message>Importing Resources</Message>
+    </CustomBuildStep>
+    <CustomBuildStep>
+      <Outputs>$(OutDir)Resources\;$(ProjectDir)Generated\;$(ProjectDir)Resources.h</Outputs>
+      <Inputs>$(ProjectDir)Resources\;$(OutDir)ResourceBuilder.exe</Inputs>
+    </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -212,6 +254,16 @@
       <ObjectFileOutput>$(OutDir)%(RelativeDir)%(Filename).cso</ObjectFileOutput>
       <AdditionalIncludeDirectories>$(SolutionDir)DX12Engine;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </FxCompile>
+    <CustomBuildStep>
+      <Command>"$(OutDir)ResourceBuilder.exe" "$(ProjectDir)\" "$(OutDir)\" "$(OutDir)\"</Command>
+    </CustomBuildStep>
+    <CustomBuildStep>
+      <Message>Importing Resources</Message>
+    </CustomBuildStep>
+    <CustomBuildStep>
+      <Outputs>$(OutDir)Resources\;$(ProjectDir)Generated\;$(ProjectDir)Resources.h</Outputs>
+      <Inputs>$(ProjectDir)Resources\;$(OutDir)ResourceBuilder.exe</Inputs>
+    </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="AmbientMusic.cpp" />
@@ -421,14 +473,4 @@
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
-  <ItemDefinitionGroup>
-    <CustomBuildStep>
-      <Command>"$(OutDir)ResourceBuilder.exe" "$(ProjectDir)\" "$(OutDir)\" "$(OutDir)\"</Command>
-      <Outputs>$(OutDir)Resources\;$(ProjectDir)Generated\;$(ProjectDir)Resources.h</Outputs>
-      <Inputs>$(ProjectDir)Resources\</Inputs>
-    </CustomBuildStep>
-  </ItemDefinitionGroup>
-  <PropertyGroup>
-    <CustomBuildBeforeTargets>ClCompile</CustomBuildBeforeTargets>
-  </PropertyGroup>
 </Project>

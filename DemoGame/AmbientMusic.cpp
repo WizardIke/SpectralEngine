@@ -18,7 +18,7 @@ AmbientMusic::AmbientMusic(SoundEngine& soundEngine, AsynchronousFileManager& as
 	return waveFormat;
 }(), 0u, 1.0f, (IXAudio2VoiceCallback*)this),
 	bytesRemaining(0u),
-	previousTrack(std::numeric_limits<unsigned long long>::max()),
+	previousTrack(std::numeric_limits<decltype(previousTrack)>::max()),
 	files(files),
 	fileCount(fileCount),
 	asynchronousFileManager(asynchronousFileManager),
@@ -41,7 +41,7 @@ AmbientMusic::AmbientMusic(SoundEngine& soundEngine, AsynchronousFileManager& as
 
 			if(music.bytesRemaining != 0u)
 			{
-				submitBuffer(music.musicPlayer, &buffer, buffer.data, buffer.end - buffer.start);
+				submitBuffer(music.musicPlayer, &buffer, buffer.data, static_cast<std::size_t>(buffer.end - buffer.start));
 				music.continueRunning(threadResources);
 			}
 			else
@@ -51,7 +51,7 @@ AmbientMusic::AmbientMusic(SoundEngine& soundEngine, AsynchronousFileManager& as
 				music.findNextMusic(threadResources, [](AmbientMusic& music, ThreadResources& threadResources)
 				{
 					auto& buffer = *music.currentBuffer;
-					submitBuffer(music.musicPlayer, &buffer, buffer.data, buffer.end - buffer.start);
+					submitBuffer(music.musicPlayer, &buffer, buffer.data, static_cast<std::size_t>(buffer.end - buffer.start));
 					music.continueRunning(threadResources);
 				});
 			}
@@ -231,7 +231,7 @@ void AmbientMusic::findNextMusic(ThreadResources& threadResources, void(*callbac
 {
 	callback = callbackFunc;
 
-	std::uniform_int_distribution<unsigned long long> distribution(0, fileCount - 1u);
+	std::uniform_int_distribution<std::size_t> distribution(0, fileCount - 1u);
 	std::size_t track = distribution(threadResources.randomNumberGenerator);
 
 	if(track == previousTrack)
