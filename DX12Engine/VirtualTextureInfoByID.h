@@ -6,7 +6,7 @@ class VirtualTextureInfoByID
 {
 	union Element
 	{
-		VirtualTextureInfo* data;
+		VirtualTextureInfo data;
 		Element* next;
 
 		Element() {}
@@ -39,28 +39,30 @@ public:
 #endif
 	}
 
-	unsigned int allocate(VirtualTextureInfo& info)
+	VirtualTextureInfo& allocate()
 	{
 		Element* element = freeList;
 		freeList = freeList->next;
-		element->data = &info;
-		return (unsigned int)(element - mData);
+		new(&element->data) VirtualTextureInfo{};
+		element->data.textureID = (unsigned int)(element - mData);
+		return element->data;
 	}
 
 	void deallocate(unsigned int index)
 	{
 		assert(index != 255u);
+		mData[index].data.~VirtualTextureInfo();
 		mData[index].next = freeList;
 		freeList = &mData[index];
 	}
 
 	VirtualTextureInfo& operator[](unsigned int index)
 	{
-		return *mData[index].data;
+		return mData[index].data;
 	}
 
 	const VirtualTextureInfo& operator[](unsigned int index) const
 	{
-		return *mData[index].data;
+		return mData[index].data;
 	}
 };
