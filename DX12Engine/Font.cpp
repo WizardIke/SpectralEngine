@@ -40,7 +40,7 @@ static constexpr std::size_t alignedLength(std::size_t length, std::size_t align
 void Font::fontFileLoadedHelper(LoadRequest& loadRequest, const unsigned char* data)
 {
 	Font& font = *loadRequest.font;
-	font.dataSize = static_cast<FontFileLoadRequest&>(loadRequest).end;
+	font.dataSize = static_cast<std::size_t>(static_cast<FontFileLoadRequest&>(loadRequest).end);
 	font.data = data;
 	std::size_t currentDataPosition = sizeof(wchar_t);
 	for (auto i = reinterpret_cast<const wchar_t*>(data); *i != L'\0'; ++i)

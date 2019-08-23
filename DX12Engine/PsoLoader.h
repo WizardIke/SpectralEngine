@@ -62,7 +62,7 @@ public:
 				{
 					auto& psoRequest = static_cast<PsoWithVertexAndPixelShaderRequest&>(static_cast<VertexShaderRequest&>(request));
 					psoRequest.graphicsPipelineStateDesc.VS.pShaderBytecode = data;
-					psoRequest.graphicsPipelineStateDesc.VS.BytecodeLength = request.end;
+					psoRequest.graphicsPipelineStateDesc.VS.BytecodeLength = static_cast<SIZE_T>(request.end);
 					psoRequest.componentLoaded(asynchronousFileManager);
 				}, [](AsynchronousFileManager::ReadRequest& request, void* tr)
 				{
@@ -72,7 +72,7 @@ public:
 				{
 					auto& psoRequest = static_cast<PsoWithVertexAndPixelShaderRequest&>(static_cast<PixelShaderRequest&>(request));
 					psoRequest.graphicsPipelineStateDesc.PS.pShaderBytecode = data;
-					psoRequest.graphicsPipelineStateDesc.PS.BytecodeLength = request.end;
+					psoRequest.graphicsPipelineStateDesc.PS.BytecodeLength = static_cast<SIZE_T>(request.end);
 					psoRequest.componentLoaded(asynchronousFileManager);
 				}, [](AsynchronousFileManager::ReadRequest& request, void* tr)
 				{
