@@ -108,8 +108,23 @@ private:
 		MeshStreamingRequest* lastRequest;
 		unsigned int numUsers;
 	};
+
+	struct Hash
+	{
+		std::size_t operator()(const wchar_t* str) const noexcept
+		{
+			std::size_t result = 0u;
+			while (*str != L'\0')
+			{
+				result = (result ^ std::size_t{ *str }) * static_cast<std::size_t>(16777619ul);
+				++str;
+			}
+			return result;
+		}
+	};
+
 	ActorQueue messageQueue;
-	std::unordered_map<const wchar_t* const, MeshInfo, std::hash<const wchar_t*>> meshInfos;
+	std::unordered_map<const wchar_t*, MeshInfo, Hash> meshInfos;
 	AsynchronousFileManager& asynchronousFileManager;
 	StreamingManager& streamingManager;
 	ID3D12Device& graphicsDevice;
@@ -170,69 +185,73 @@ private:
 			{
 				ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
 				auto& uploadRequest = static_cast<MeshStreamingRequest&>(request);
+				uploadRequest.file.close();
 				useResourceHelper(uploadRequest, buffer, &uploadRequest.meshManager->graphicsDevice, threadResources.streamingManager, copyFinished<ThreadResources>);
 			};
 			uploadRequest.meshManager->asynchronousFileManager.readFile(uploadRequest);
 		}});
 	}
 
-	static void meshWithPositionTextureNormalTangentBitangentUseResourceHelper(MeshStreamingRequest& useSubresourceRequest, const unsigned char* buffer, ID3D12Device* graphicsDevice,
+	static void meshWithPositionTextureNormalTangentBitangentUseResourceHelper(MeshStreamingRequest& uploadRequest, const unsigned char* buffer, ID3D12Device* graphicsDevice,
 		StreamingManager::ThreadLocal& streamingManager, void(*copyFinished)(void* requester, void* tr));
-	static void meshWithPositionTextureNormalUseResourceHelper(MeshStreamingRequest& useSubresourceRequest, const unsigned char* buffer, ID3D12Device* graphicsDevice,
+	static void meshNoConvertUseResourceHelper(MeshStreamingRequest& uploadRequest, const unsigned char* buffer, ID3D12Device* graphicsDevice,
 		StreamingManager::ThreadLocal& streamingManager, void(*copyFinished)(void* requester, void* tr));
-	static void meshWithPositionTextureUseResourceHelper(MeshStreamingRequest& useSubresourceRequest, const unsigned char* buffer, ID3D12Device* graphicsDevice,
+
+	static void meshWithPositionTextureNormalTangentBitangentIndexUseResourceHelper(MeshStreamingRequest& uploadRequest, const unsigned char* buffer, ID3D12Device* graphicsDevice,
 		StreamingManager::ThreadLocal& streamingManager, void(*copyFinished)(void* requester, void* tr));
-	static void meshWithPositionUseResourceHelper(MeshStreamingRequest& useSubresourceRequest, const unsigned char* buffer, ID3D12Device* graphicsDevice,
+	static void meshNoConvertIndexUseResourceHelper(MeshStreamingRequest& uploadRequest, const unsigned char* buffer, ID3D12Device* graphicsDevice,
 		StreamingManager::ThreadLocal& streamingManager, void(*copyFinished)(void* requester, void* tr));
 	
 	static void fillUploadRequestHelper(MeshStreamingRequest& uploadRequest, uint32_t vertexCount, uint32_t indexCount, uint32_t vertexStride);
 
+	static uint32_t getVertexStride(uint32_t vertexType) noexcept;
+
 	template<class ThreadResources>
 	static void fillUploadRequest(MeshStreamingRequest& uploadRequest, uint32_t vertexCount, uint32_t indexCount, uint32_t compressedVertexType, uint32_t unpackedVertexType)
 	{
-		switch(unpackedVertexType) 
+		if (unpackedVertexType == compressedVertexType)
 		{
-		case VertexType::position3f_texCoords2f_normal3f_tangent3f_bitangent3f:
-			if(indexCount == 0u)
+			if (indexCount == 0u)
 			{
-				if(compressedVertexType == VertexType::position3f_texCoords2f_normal3f)
-				{
-					uploadRequest.streamResource = useResource<ThreadResources, meshWithPositionTextureNormalTangentBitangentUseResourceHelper>;
-				}
+				uploadRequest.streamResource = useResource<ThreadResources, meshNoConvertUseResourceHelper>;
 			}
-			fillUploadRequestHelper(uploadRequest, vertexCount, indexCount, sizeof(MeshWithPositionTextureNormalTangentBitangent));
-			break;
-		case VertexType::position3f_texCoords2f_normal3f:
-			if(indexCount == 0u)
+			else
 			{
-				if(compressedVertexType == VertexType::position3f_texCoords2f_normal3f)
-				{
-					uploadRequest.streamResource = useResource<ThreadResources, meshWithPositionTextureNormalUseResourceHelper>;
-				}
+				uploadRequest.streamResource = useResource<ThreadResources, meshNoConvertIndexUseResourceHelper>;
 			}
-			fillUploadRequestHelper(uploadRequest, vertexCount, indexCount, sizeof(MeshWithPositionTextureNormal));
-			break;
-		case VertexType::position3f_texCoords2f:
-			if(indexCount == 0u)
-			{
-				if(compressedVertexType == VertexType::position3f_texCoords2f)
-				{
-					uploadRequest.streamResource = useResource<ThreadResources, meshWithPositionTextureUseResourceHelper>;
-				}
-			}
-			fillUploadRequestHelper(uploadRequest, vertexCount, indexCount, sizeof(MeshWithPositionTexture));
-			break;
-		case VertexType::position3f:
-			if(indexCount == 0u)
-			{
-				if(compressedVertexType == VertexType::position3f)
-				{
-					uploadRequest.streamResource = useResource<ThreadResources, meshWithPositionUseResourceHelper>;
-				}
-			}
-			fillUploadRequestHelper(uploadRequest, vertexCount, indexCount, sizeof(MeshWithPosition));
-			break;
 		}
+		else
+		{
+			switch (unpackedVertexType)
+			{
+			case VertexType::position3f_texCoords2f_normal3f_tangent3f_bitangent3f:
+				if (indexCount == 0u)
+				{
+					if (compressedVertexType == VertexType::position3f_texCoords2f_normal3f)
+					{
+						uploadRequest.streamResource = useResource<ThreadResources, meshWithPositionTextureNormalTangentBitangentUseResourceHelper>;
+					}
+					else
+					{
+						assert(false);
+					}
+				}
+				else
+				{
+					if (compressedVertexType == VertexType::position3f_texCoords2f_normal3f)
+					{
+						uploadRequest.streamResource = useResource<ThreadResources, meshWithPositionTextureNormalTangentBitangentIndexUseResourceHelper>;
+					}
+					else
+					{
+						assert(false);
+					}
+				}
+			default:
+				assert(false);
+			}
+		}
+		fillUploadRequestHelper(uploadRequest, vertexCount, indexCount, getVertexStride(unpackedVertexType));
 	}
 
 	template<class ThreadResources>
