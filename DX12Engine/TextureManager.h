@@ -70,8 +70,22 @@ private:
 		TextureStreamingRequest* lastRequest;
 	};
 
+	struct Hash
+	{
+		std::size_t operator()(const wchar_t* str) const noexcept
+		{
+			std::size_t result = 0u;
+			while (*str != L'\0')
+			{
+				result = (result ^ std::size_t{ *str }) * static_cast<std::size_t>(16777619ul);
+				++str;
+			}
+			return result;
+		}
+	};
+
 	ActorQueue messageQueue;
-	std::unordered_map<const wchar_t* const, Texture, std::hash<const wchar_t *>> textures;
+	std::unordered_map<const wchar_t* const, Texture, Hash> textures;
 	AsynchronousFileManager& asynchronousFileManager;
 	StreamingManager& streamingManager;
 	GraphicsEngine& graphicsEngine;
