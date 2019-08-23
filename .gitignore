@@ -5,7 +5,7 @@
 DemoGame/Generated/
 DemoGame/Resources.h
 
-DX12Engine/tools/*.exe
+DX12Engine/Tools/*.exe
 DemoGame/Tools/*.exe
 
 # Compiled shaders
