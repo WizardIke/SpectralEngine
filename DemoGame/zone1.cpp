@@ -232,7 +232,7 @@ namespace
 			meshRequests->load(
 				{
 					{
-						Resources::Meshes::bath,
+						Resources::Meshes::bathWithNormals,
 						[](MeshManager::MeshStreamingRequest& request, void*, Mesh& mesh)
 						{
 							auto resources = static_cast<HDResources*>(static_cast<MeshRequest&>(request).zone.newData);
@@ -651,7 +651,7 @@ namespace
 
 			hdUnloader->unloadMeshes(
 				{
-					Resources::Meshes::bath,
+					Resources::Meshes::bathWithNormals,
 					Resources::Meshes::plane,
 					Resources::Meshes::wall,
 					Resources::Meshes::water,
@@ -742,7 +742,7 @@ namespace
 
 				delete static_cast<MeshRequest*>(&request);
 				callback(zone);
-			}, Resources::Meshes::bath, zone);
+			}, Resources::Meshes::bathWithNormals, zone);
 			meshManager.load(bathRequest, threadResources);
 
 			constexpr uint64_t pointLightConstantBufferAlignedSize = (sizeof(LightConstantBuffer) + (uint64_t)D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - (uint64_t)1u) &
@@ -779,7 +779,7 @@ namespace
 					{
 						static_cast<MdUnloader&>(static_cast<TextureManager::UnloadRequest&>(unloader)).componentUnloaded(tr);
 					}),
-				MeshManager::UnloadRequest(Resources::Meshes::bath, [](AsynchronousFileManager::ReadRequest& unloader, void* tr)
+				MeshManager::UnloadRequest(Resources::Meshes::bathWithNormals, [](AsynchronousFileManager::ReadRequest& unloader, void* tr)
 					{
 						static_cast<MdUnloader&>(static_cast<MeshManager::UnloadRequest&>(unloader)).componentUnloaded(tr);
 					}),
