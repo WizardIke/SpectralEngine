@@ -54,7 +54,7 @@ int main(int argc, char** argv)
 	{
 		for(double z = 0.0;;)
 		{
-			outputFile << "vt " << x / length << " " << 0.0 << " " << z / length << "\n";
+			outputFile << "vt " << x / length  << " " << z / length << "\n";
 			
 			z += vertexLength;
 			if(z == end)
