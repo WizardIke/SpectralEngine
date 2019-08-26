@@ -20,15 +20,21 @@ namespace
 		}
 	};
 
-	std::ostream& operator<<(std::ostream& out, Indent indent)
+	std::string& operator<<(std::string& out, Indent indent)
 	{
 		for (; indent.level != 0u; --indent.level)
 		{
-			out << '\t';
+			out += '\t';
 		}
 		return out;
 	}
 
+	template<class T>
+	std::string& operator<<(std::string& out, const T& value)
+	{
+		out += value;
+		return out;
+	}
 
 	class Importer
 	{
@@ -151,8 +157,10 @@ static std::filesystem::path removeExtensions(const std::filesystem::path& path)
 	return result;
 }
 
-static void createResourcesHeaderFile(const std::filesystem::path& baseOutputPath, const std::filesystem::path& relativeOutputFileName, std::ofstream& headerFile, Indent indent)
+static bool createResourcesHeaderFile(const std::filesystem::path& baseOutputPath, const std::filesystem::path& relativeOutputFileName, std::string& headerFile, Indent indent,
+	std::filesystem::file_time_type headerFileLastModifiedTime)
 {
+	bool hasChanged = false;
 	for (const auto& entry : std::filesystem::directory_iterator(baseOutputPath / relativeOutputFileName))
 	{
 		const auto fileName = entry.path().filename();
@@ -160,25 +168,36 @@ static void createResourcesHeaderFile(const std::filesystem::path& baseOutputPat
 		{
 			headerFile << indent << "namespace " << fileName.string() << "\n";
 			headerFile << indent << "{\n";
-			createResourcesHeaderFile(baseOutputPath, relativeOutputFileName / fileName, headerFile, indent + 1u);
+			hasChanged |= createResourcesHeaderFile(baseOutputPath, relativeOutputFileName / fileName, headerFile, indent + 1u, headerFileLastModifiedTime);
 			headerFile << indent << "};\n";
 		}
 		else if (entry.is_regular_file())
 		{
+			if (entry.last_write_time() >= headerFileLastModifiedTime)
+			{
+				hasChanged = true;
+			}
 			headerFile << indent << "inline constexpr const wchar_t* " << removeExtensions(fileName).string() << " = LR\"/:*?<>|(" << (relativeOutputFileName / fileName).string() << ")/:*?<>|\";\n";
 		}
 	}
+	return hasChanged;
 }
 
 static void createResourcesHeaderFile(const std::filesystem::path& outputPath, const std::filesystem::path& headerFilePath)
 {
-	std::ofstream headerFile{ headerFilePath };
-	headerFile << "#pragma once\n";
-	headerFile << "\n";
-	headerFile << "namespace Resources\n";
-	headerFile << "{\n";
-	createResourcesHeaderFile(outputPath, "Resources", headerFile, Indent{ 1u });
-	headerFile << "};\n";
+	auto headerFileLastModifiedTime = std::filesystem::last_write_time(headerFilePath);
+	std::string header{};
+	header << "#pragma once\n";
+	header << "\n";
+	header << "namespace Resources\n";
+	header << "{\n";
+	bool hasChanged = createResourcesHeaderFile(outputPath, "Resources", header, Indent{ 1u }, headerFileLastModifiedTime);
+	header << "};\n";
+	if (hasChanged)
+	{
+		std::ofstream headerFile{ headerFilePath };
+		headerFile << header;
+	}
 }
 
 int main(int argc, char** argv)
