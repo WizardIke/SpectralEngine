@@ -119,7 +119,15 @@ bool importResource(const std::filesystem::path& baseInputPath, const std::files
 	try
 	{
 		auto inputPath = baseInputPath / relativeInputPath;
-		std::cout << "importing " << inputPath << "\n";
+		auto outputPath = baseOutputPath / relativeInputPath;
+		outputPath += ".data";
+
+		if (std::filesystem::exists(outputPath) && std::filesystem::last_write_time(outputPath) > std::filesystem::last_write_time(inputPath))
+		{
+			return true;
+		}
+
+		std::cout << "importing " << inputPath.string() << "\n";
 		std::ifstream file{ inputPath, std::ios::binary };
 		FileInfo fileInfo = {};
 		fileInfo.info = SoundDecoder::getWaveFileInfo(file);
@@ -127,8 +135,6 @@ bool importResource(const std::filesystem::path& baseInputPath, const std::files
 		SoundDecoder::loadWaveFileChunk(file, data.get(), fileInfo.info.dataSize);
 		file.close();
 
-		auto outputPath = baseOutputPath / relativeInputPath;
-		outputPath += ".data";
 		const auto& outputDirectory = outputPath.parent_path();
 		if (!std::filesystem::exists(outputDirectory))
 		{

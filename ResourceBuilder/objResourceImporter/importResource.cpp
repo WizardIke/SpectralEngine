@@ -509,7 +509,15 @@ bool importResource(const std::filesystem::path& baseInputPath, const std::files
 	try
 	{
 		auto inputPath = baseInputPath / relativeInputPath;
-		std::cout << "importing " << inputPath << "\n";
+		auto outputPath = baseOutputPath / relativeInputPath;
+		outputPath += ".data";
+
+		if (std::filesystem::exists(outputPath) && std::filesystem::last_write_time(outputPath) > std::filesystem::last_write_time(inputPath))
+		{
+			return true;
+		}
+
+		std::cout << "importing " << inputPath.string() << "\n";
 		std::ifstream inFile{ inputPath };
 		auto convertedMesh = readAndConvertMesh(inFile);
 		if (!convertedMesh)
@@ -517,8 +525,6 @@ bool importResource(const std::filesystem::path& baseInputPath, const std::files
 			return false;
 		}
 
-		auto outputPath = baseOutputPath / relativeInputPath;
-		outputPath += ".data";
 		const auto& outputDirectory = outputPath.parent_path();
 		if (!std::filesystem::exists(outputDirectory))
 		{

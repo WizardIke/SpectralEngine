@@ -185,7 +185,8 @@ static bool createResourcesHeaderFile(const std::filesystem::path& baseOutputPat
 
 static void createResourcesHeaderFile(const std::filesystem::path& outputPath, const std::filesystem::path& headerFilePath)
 {
-	auto headerFileLastModifiedTime = std::filesystem::last_write_time(headerFilePath);
+	bool headerFileExists = std::filesystem::exists(headerFilePath);
+	auto headerFileLastModifiedTime = headerFileExists ? std::filesystem::last_write_time(headerFilePath) : std::filesystem::file_time_type{};
 	std::string header{};
 	header << "#pragma once\n";
 	header << "\n";
@@ -193,7 +194,7 @@ static void createResourcesHeaderFile(const std::filesystem::path& outputPath, c
 	header << "{\n";
 	bool hasChanged = createResourcesHeaderFile(outputPath, "Resources", header, Indent{ 1u }, headerFileLastModifiedTime);
 	header << "};\n";
-	if (hasChanged)
+	if (hasChanged || !headerFileExists)
 	{
 		std::ofstream headerFile{ headerFilePath };
 		headerFile << header;

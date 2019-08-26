@@ -488,10 +488,18 @@ bool importResource(const std::filesystem::path& baseInputPath, const std::files
 {
 	try
 	{
-		auto inPath = baseInputPath / relativeInputPath;
-		std::cout << "importing " << inPath << "\n";
-		auto inDirectory = inPath.parent_path();
-		std::ifstream inFile{ inPath, std::ios::binary };
+		auto inputPath = baseInputPath / relativeInputPath;
+		auto outputPath = baseOutputPath / relativeInputPath;
+		outputPath += ".data";
+
+		if (std::filesystem::exists(outputPath) && std::filesystem::last_write_time(outputPath) > std::filesystem::last_write_time(inputPath))
+		{
+			return true;
+		}
+
+		std::cout << "importing " << inputPath.string() << "\n";
+		auto inDirectory = inputPath.parent_path();
+		std::ifstream inFile{ inputPath, std::ios::binary };
 
 		FontDescriptor font{};
 		std::string line;
@@ -510,8 +518,6 @@ bool importResource(const std::filesystem::path& baseInputPath, const std::files
 		normalizeFontScale(font);
 		sortFont(font);
 
-		auto outputPath = baseOutputPath / relativeInputPath;
-		outputPath += ".data";
 		const auto& outputDirectory = outputPath.parent_path();
 		if (!std::filesystem::exists(outputDirectory))
 		{

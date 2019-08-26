@@ -1837,9 +1837,17 @@ bool importResource(const std::filesystem::path& baseInputPath, const std::files
 {
 	try
 	{
-		std::ios_base::sync_with_stdio(false);
 		auto inputPath = baseInputPath / relativeInputPath;
-		std::cout << "importing " << inputPath << "\n";
+		auto outputDirectory = baseInputPath / "Generated" / relativeInputPath.parent_path();
+		auto outputPath = outputDirectory / relativeInputPath.stem();
+		outputPath += ".h";
+
+		if (std::filesystem::exists(outputPath) && std::filesystem::last_write_time(outputPath) > std::filesystem::last_write_time(inputPath))
+		{
+			return true;
+		}
+
+		std::cout << "importing " << inputPath.string() << "\n";
 		std::ifstream infile(inputPath);
 		bool succeeded;
 		GraphicsPipelineStateDesc psoDesc = readFromTextFile(infile, baseInputPath, inputPath, succeeded);
@@ -1849,9 +1857,6 @@ bool importResource(const std::filesystem::path& baseInputPath, const std::files
 			return false;
 		}
 
-		auto outputDirectory = baseInputPath / "Generated" / relativeInputPath.parent_path();
-		auto outputPath = outputDirectory / relativeInputPath.stem();
-		outputPath += ".h";
 		if (!std::filesystem::exists(outputDirectory))
 		{
 			std::filesystem::create_directories(outputDirectory);

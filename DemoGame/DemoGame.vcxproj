@@ -136,8 +136,9 @@
       <Message>Importing Resources</Message>
     </CustomBuildStep>
     <CustomBuildStep>
-      <Outputs>$(OutDir)Resources\;$(ProjectDir)Generated\;$(ProjectDir)Resources.h</Outputs>
-      <Inputs>$(ProjectDir)Resources\;$(OutDir)ResourceBuilder.exe</Inputs>
+      <Outputs>non-existent-file-to-make-build-step-always-run-bcd68fb7-c2a0-4b33-8519-002cef9ae29d</Outputs>
+      <Inputs>
+      </Inputs>
     </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -176,8 +177,9 @@
       <Message>Importing Resources</Message>
     </CustomBuildStep>
     <CustomBuildStep>
-      <Outputs>$(OutDir)Resources\;$(ProjectDir)Generated\;$(ProjectDir)Resources.h</Outputs>
-      <Inputs>$(ProjectDir)Resources\;$(OutDir)ResourceBuilder.exe</Inputs>
+      <Outputs>non-existent-file-to-make-build-step-always-run-bcd68fb7-c2a0-4b33-8519-002cef9ae29d</Outputs>
+      <Inputs>
+      </Inputs>
     </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -218,8 +220,9 @@
       <Message>Importing Resources</Message>
     </CustomBuildStep>
     <CustomBuildStep>
-      <Outputs>$(OutDir)Resources\;$(ProjectDir)Generated\;$(ProjectDir)Resources.h</Outputs>
-      <Inputs>$(ProjectDir)Resources\;$(OutDir)ResourceBuilder.exe</Inputs>
+      <Outputs>non-existent-file-to-make-build-step-always-run-bcd68fb7-c2a0-4b33-8519-002cef9ae29d</Outputs>
+      <Inputs>
+      </Inputs>
     </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -261,8 +264,9 @@
       <Message>Importing Resources</Message>
     </CustomBuildStep>
     <CustomBuildStep>
-      <Outputs>$(OutDir)Resources\;$(ProjectDir)Generated\;$(ProjectDir)Resources.h</Outputs>
-      <Inputs>$(ProjectDir)Resources\;$(OutDir)ResourceBuilder.exe</Inputs>
+      <Outputs>non-existent-file-to-make-build-step-always-run-bcd68fb7-c2a0-4b33-8519-002cef9ae29d</Outputs>
+      <Inputs>
+      </Inputs>
     </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemGroup>
