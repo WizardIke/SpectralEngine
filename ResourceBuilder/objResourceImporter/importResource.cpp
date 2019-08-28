@@ -500,54 +500,58 @@ namespace
 }
 
 extern "C"
-#ifdef _WIN32
-__declspec(dllexport)
-#endif
-bool importResource(const std::filesystem::path& baseInputPath, const std::filesystem::path& baseOutputPath, const std::filesystem::path& relativeInputPath, void* importResourceContext,
-	bool(*importResource)(void* context, const std::filesystem::path& baseInputPath, const std::filesystem::path& baseOutputPath, const std::filesystem::path& relativeInputPath))
 {
-	try
+	typedef bool(*ImportResourceType)(void* context, const std::filesystem::path& baseInputPath, const std::filesystem::path& baseOutputPath, const std::filesystem::path& relativeInputPath);
+
+#ifdef _WIN32
+	__declspec(dllexport)
+#endif
+		bool importResource(const std::filesystem::path& baseInputPath, const std::filesystem::path& baseOutputPath, const std::filesystem::path& relativeInputPath, void* importResourceContext,
+			ImportResourceType importResource, bool forceReImport) noexcept
 	{
-		auto inputPath = baseInputPath / relativeInputPath;
-		auto outputPath = baseOutputPath / relativeInputPath;
-		outputPath += ".data";
-
-		if (std::filesystem::exists(outputPath) && std::filesystem::last_write_time(outputPath) > std::filesystem::last_write_time(inputPath))
+		try
 		{
-			return true;
+			auto inputPath = baseInputPath / relativeInputPath;
+			auto outputPath = baseOutputPath / relativeInputPath;
+			outputPath += ".data";
+
+			if (!forceReImport && std::filesystem::exists(outputPath) && std::filesystem::last_write_time(outputPath) > std::filesystem::last_write_time(inputPath))
+			{
+				return true;
+			}
+
+			std::cout << "importing " << inputPath.string() << "\n";
+			std::ifstream inFile{ inputPath };
+			auto convertedMesh = readAndConvertMesh(inFile);
+			if (!convertedMesh)
+			{
+				return false;
+			}
+
+			const auto& outputDirectory = outputPath.parent_path();
+			if (!std::filesystem::exists(outputDirectory))
+			{
+				std::filesystem::create_directories(outputDirectory);
+			}
+			std::ofstream outFile{ outputPath, std::ios::binary };
+			if (!outFile)
+			{
+				std::cerr << "failed to create output file\n";
+				return false;
+			}
+			writeOutputFile(outFile, *convertedMesh);
+			outFile.close();
 		}
-
-		std::cout << "importing " << inputPath.string() << "\n";
-		std::ifstream inFile{ inputPath };
-		auto convertedMesh = readAndConvertMesh(inFile);
-		if (!convertedMesh)
+		catch (std::exception& e)
 		{
+			std::cerr << "failed: " << e.what() << "\n";
 			return false;
 		}
-
-		const auto& outputDirectory = outputPath.parent_path();
-		if (!std::filesystem::exists(outputDirectory))
+		catch (...)
 		{
-			std::filesystem::create_directories(outputDirectory);
-		}
-		std::ofstream outFile{ outputPath, std::ios::binary };
-		if (!outFile)
-		{
-			std::cerr << "failed to create output file\n";
+			std::cerr << "failed\n";
 			return false;
 		}
-		writeOutputFile(outFile, *convertedMesh);
-		outFile.close();
+		return true;
 	}
-	catch (std::exception& e)
-	{
-		std::cerr << "failed: " << e.what() << "\n";
-		return false;
-	}
-	catch (...)
-	{
-		std::cerr << "failed\n";
-		return false;
-	}
-	return true;
 }

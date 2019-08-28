@@ -1829,46 +1829,50 @@ static void writeToCppHeaderFile(const GraphicsPipelineStateDesc& psoDesc, std::
 }
 
 extern "C"
-#ifdef _WIN32
-__declspec(dllexport)
-#endif
-bool importResource(const std::filesystem::path& baseInputPath, const std::filesystem::path& baseOutputPath, const std::filesystem::path& relativeInputPath, void* importResourceContext,
-	bool(*importResource)(void* context, const std::filesystem::path& baseInputPath, const std::filesystem::path& baseOutputPath, const std::filesystem::path& relativeInputPath))
 {
-	try
+	typedef bool(*ImportResourceType)(void* context, const std::filesystem::path& baseInputPath, const std::filesystem::path& baseOutputPath, const std::filesystem::path& relativeInputPath);
+
+#ifdef _WIN32
+	__declspec(dllexport)
+#endif
+		bool importResource(const std::filesystem::path& baseInputPath, const std::filesystem::path& baseOutputPath, const std::filesystem::path& relativeInputPath, void* importResourceContext,
+			ImportResourceType importResource, bool forceReImport) noexcept
 	{
-		auto inputPath = baseInputPath / relativeInputPath;
-		auto outputDirectory = baseInputPath / "Generated" / relativeInputPath.parent_path();
-		auto outputPath = outputDirectory / relativeInputPath.stem();
-		outputPath += ".h";
-
-		if (std::filesystem::exists(outputPath) && std::filesystem::last_write_time(outputPath) > std::filesystem::last_write_time(inputPath))
+		try
 		{
-			return true;
+			auto inputPath = baseInputPath / relativeInputPath;
+			auto outputDirectory = baseInputPath / "Generated" / relativeInputPath.parent_path();
+			auto outputPath = outputDirectory / relativeInputPath.stem();
+			outputPath += ".h";
+
+			if (!forceReImport && std::filesystem::exists(outputPath) && std::filesystem::last_write_time(outputPath) > std::filesystem::last_write_time(inputPath))
+			{
+				return true;
+			}
+
+			std::cout << "importing " << inputPath.string() << "\n";
+			std::ifstream infile(inputPath);
+			bool succeeded;
+			GraphicsPipelineStateDesc psoDesc = readFromTextFile(infile, baseInputPath, inputPath, succeeded);
+			infile.close();
+			if (!succeeded)
+			{
+				return false;
+			}
+
+			if (!std::filesystem::exists(outputDirectory))
+			{
+				std::filesystem::create_directories(outputDirectory);
+			}
+			std::ofstream outFile(outputPath);
+			writeToCppHeaderFile(psoDesc, outFile, relativeInputPath.stem().string(), baseInputPath.lexically_relative(outputDirectory) / "Resources.h");
+			outFile.close();
 		}
-
-		std::cout << "importing " << inputPath.string() << "\n";
-		std::ifstream infile(inputPath);
-		bool succeeded;
-		GraphicsPipelineStateDesc psoDesc = readFromTextFile(infile, baseInputPath, inputPath, succeeded);
-		infile.close();
-		if (!succeeded)
+		catch (...)
 		{
+			std::cerr << "failed\n";
 			return false;
 		}
-
-		if (!std::filesystem::exists(outputDirectory))
-		{
-			std::filesystem::create_directories(outputDirectory);
-		}
-		std::ofstream outFile(outputPath);
-		writeToCppHeaderFile(psoDesc, outFile, relativeInputPath.stem().string(), baseInputPath.lexically_relative(outputDirectory) / "Resources.h");
-		outFile.close();
+		return true;
 	}
-	catch (...)
-	{
-		std::cerr << "failed\n";
-		return false;
-	}
-	return true;
 }

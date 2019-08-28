@@ -1064,104 +1064,108 @@ namespace
 }
 
 extern "C"
-#ifdef _WIN32
-__declspec(dllexport)
-#endif
-bool importResource(const std::filesystem::path& baseInputPath, const std::filesystem::path& baseOutputPath, const std::filesystem::path& relativeInputPath, void* importResourceContext,
-	bool(*importResource)(void* context, const std::filesystem::path& baseInputPath, const std::filesystem::path& baseOutputPath, const std::filesystem::path& relativeInputPath))
 {
-	try
+	typedef bool(*ImportResourceType)(void* context, const std::filesystem::path& baseInputPath, const std::filesystem::path& baseOutputPath, const std::filesystem::path& relativeInputPath);
+
+#ifdef _WIN32
+	__declspec(dllexport)
+#endif
+		bool importResource(const std::filesystem::path& baseInputPath, const std::filesystem::path& baseOutputPath, const std::filesystem::path& relativeInputPath, void* importResourceContext,
+			ImportResourceType importResource, bool forceReImport) noexcept
 	{
-		auto inputPath = baseInputPath / relativeInputPath;
-		auto outputPath = baseOutputPath / relativeInputPath;
-		outputPath += ".data";
-
-		if (std::filesystem::exists(outputPath) && std::filesystem::last_write_time(outputPath) > std::filesystem::last_write_time(inputPath))
+		try
 		{
-			return true;
+			auto inputPath = baseInputPath / relativeInputPath;
+			auto outputPath = baseOutputPath / relativeInputPath;
+			outputPath += ".data";
+
+			if (!forceReImport && std::filesystem::exists(outputPath) && std::filesystem::last_write_time(outputPath) > std::filesystem::last_write_time(inputPath))
+			{
+				return true;
+			}
+
+			std::cout << "importing " << inputPath.string() << "\n";
+			std::ifstream file(inputPath, std::ios::binary);
+			if (!file)
+			{
+				std::cerr << "failed to open " << inputPath << "\n";
+				return false;
+			}
+			auto textureInfo = getDDSTextureInfoFromFile(file);
+
+			auto currentPos = file.tellg();
+			file.seekg(0, file.end);
+			auto length = file.tellg();
+			file.seekg(currentPos, file.beg);
+
+			auto dataLength = length - currentPos;
+			std::unique_ptr<char[]> data(new char[static_cast<std::size_t>(dataLength)]);
+			file.read(data.get(), dataLength);
+			file.close();
+
+
+			DdsHeaderDx12 header;
+			header.arraySize = textureInfo.isCubeMap ? textureInfo.arraySize / 6u : textureInfo.arraySize;
+			header.caps3 = 0u;
+			header.caps4 = 0u;
+			header.ddsMagicNumber = DDS_MAGIC;
+			header.depth = textureInfo.depth;
+			header.dimension = (uint32_t)textureInfo.dimension;
+			header.dxgiFormat = textureInfo.format;
+			header.height = textureInfo.height;
+			header.mipMapCount = textureInfo.mipLevels;
+			std::fill(std::begin(header.reserved1), std::end(header.reserved1), 0u);
+			header.reserved2 = 0u;
+			header.size = (sizeof(DDS_HEADER) - 4u);
+			header.width = textureInfo.width;
+			header.miscFlag = textureInfo.isCubeMap ? DDS_RESOURCE_MISC_TEXTURECUBE : 0u;
+			header.ddspf.size = sizeof(DDS_PIXELFORMAT);
+			header.ddspf.RBitMask = 0x00000000;
+			header.ddspf.GBitMask = 0x00000000;
+			header.ddspf.BBitMask = 0x00000000;
+			header.ddspf.ABitMask = 0x00000000;
+			header.ddspf.flags = DDS_FOURCC;
+			header.ddspf.fourCC = makeFourCC('D', 'X', '1', '0');
+			header.ddspf.RGBBitCount = 0;
+			constexpr uint32_t DDSCAPS_COMPLEX = 0x8;
+			constexpr uint32_t DDSCAPS_MIPMAP = 0x400000;
+			constexpr uint32_t DDSCAPS_TEXTURE = 0x1000;
+			uint32_t caps = DDSCAPS_TEXTURE;
+			if (textureInfo.mipLevels > 1) caps |= DDSCAPS_MIPMAP;
+			if (textureInfo.mipLevels > 1 || textureInfo.arraySize > 1) caps |= DDSCAPS_COMPLEX;
+			header.caps = caps;
+			uint32_t caps2 = 0u;
+			if (textureInfo.dimension > D3D12_RESOURCE_DIMENSION::D3D12_RESOURCE_DIMENSION_TEXTURE3D) caps2 |= DDSCAPS2_VOLUME;
+			if (textureInfo.isCubeMap) caps2 |= DDS_CUBEMAP_ALLFACES;
+			header.caps2 = caps2;
+			uint32_t flags = DDSD_CAPS | DDSD_HEIGHT | DDSD_WIDTH | DDSD_PIXELFORMAT;
+			if (textureInfo.mipLevels > 1) flags |= DDSD_MIPMAPCOUNT;
+			if (textureInfo.dimension > D3D12_RESOURCE_DIMENSION::D3D12_RESOURCE_DIMENSION_TEXTURE3D) flags |= DDSD_DEPTH;
+			header.flags = flags;
+			header.miscFlags2 = DDS_ALPHA_MODE_UNKNOWN;
+			header.pitchOrLinearSize = 0u;
+
+			const auto& outputDirectory = outputPath.parent_path();
+			if (!std::filesystem::exists(outputDirectory))
+			{
+				std::filesystem::create_directories(outputDirectory);
+			}
+			std::ofstream outFile(outputPath, std::ios::binary);
+
+			outFile.write(reinterpret_cast<const char*>(&header), sizeof(header));
+			outFile.write(data.get(), (uint32_t)dataLength);
+			outFile.close();
 		}
-
-		std::cout << "importing " << inputPath.string() << "\n";
-		std::ifstream file(inputPath, std::ios::binary);
-		if (!file)
+		catch (const std::exception& e)
 		{
-			std::cerr << "failed to open " << inputPath << "\n";
+			std::cerr << "failed " << e.what() << "\n";
 			return false;
 		}
-		auto textureInfo = getDDSTextureInfoFromFile(file);
-
-		auto currentPos = file.tellg();
-		file.seekg(0, file.end);
-		auto length = file.tellg();
-		file.seekg(currentPos, file.beg);
-
-		auto dataLength = length - currentPos;
-		std::unique_ptr<char[]> data(new char[static_cast<std::size_t>(dataLength)]);
-		file.read(data.get(), dataLength);
-		file.close();
-
-
-		DdsHeaderDx12 header;
-		header.arraySize = textureInfo.isCubeMap ? textureInfo.arraySize / 6u : textureInfo.arraySize;
-		header.caps3 = 0u;
-		header.caps4 = 0u;
-		header.ddsMagicNumber = DDS_MAGIC;
-		header.depth = textureInfo.depth;
-		header.dimension = (uint32_t)textureInfo.dimension;
-		header.dxgiFormat = textureInfo.format;
-		header.height = textureInfo.height;
-		header.mipMapCount = textureInfo.mipLevels;
-		std::fill(std::begin(header.reserved1), std::end(header.reserved1), 0u);
-		header.reserved2 = 0u;
-		header.size = (sizeof(DDS_HEADER) - 4u);
-		header.width = textureInfo.width;
-		header.miscFlag = textureInfo.isCubeMap ? DDS_RESOURCE_MISC_TEXTURECUBE : 0u;
-		header.ddspf.size = sizeof(DDS_PIXELFORMAT);
-		header.ddspf.RBitMask = 0x00000000;
-		header.ddspf.GBitMask = 0x00000000;
-		header.ddspf.BBitMask = 0x00000000;
-		header.ddspf.ABitMask = 0x00000000;
-		header.ddspf.flags = DDS_FOURCC;
-		header.ddspf.fourCC = makeFourCC('D', 'X', '1', '0');
-		header.ddspf.RGBBitCount = 0;
-		constexpr uint32_t DDSCAPS_COMPLEX = 0x8;
-		constexpr uint32_t DDSCAPS_MIPMAP = 0x400000;
-		constexpr uint32_t DDSCAPS_TEXTURE = 0x1000;
-		uint32_t caps = DDSCAPS_TEXTURE;
-		if (textureInfo.mipLevels > 1) caps |= DDSCAPS_MIPMAP;
-		if (textureInfo.mipLevels > 1 || textureInfo.arraySize > 1) caps |= DDSCAPS_COMPLEX;
-		header.caps = caps;
-		uint32_t caps2 = 0u;
-		if (textureInfo.dimension > D3D12_RESOURCE_DIMENSION::D3D12_RESOURCE_DIMENSION_TEXTURE3D) caps2 |= DDSCAPS2_VOLUME;
-		if (textureInfo.isCubeMap) caps2 |= DDS_CUBEMAP_ALLFACES;
-		header.caps2 = caps2;
-		uint32_t flags = DDSD_CAPS | DDSD_HEIGHT | DDSD_WIDTH | DDSD_PIXELFORMAT;
-		if (textureInfo.mipLevels > 1) flags |= DDSD_MIPMAPCOUNT;
-		if (textureInfo.dimension > D3D12_RESOURCE_DIMENSION::D3D12_RESOURCE_DIMENSION_TEXTURE3D) flags |= DDSD_DEPTH;
-		header.flags = flags;
-		header.miscFlags2 = DDS_ALPHA_MODE_UNKNOWN;
-		header.pitchOrLinearSize = 0u;
-
-		const auto& outputDirectory = outputPath.parent_path();
-		if (!std::filesystem::exists(outputDirectory))
+		catch (...)
 		{
-			std::filesystem::create_directories(outputDirectory);
+			std::cerr << "failed\n";
+			return false;
 		}
-		std::ofstream outFile(outputPath, std::ios::binary);
-
-		outFile.write(reinterpret_cast<const char*>(&header), sizeof(header));
-		outFile.write(data.get(), (uint32_t)dataLength);
-		outFile.close();
+		return true;
 	}
-	catch (const std::exception& e)
-	{
-		std::cerr << "failed " << e.what() << "\n";
-		return false;
-	}
-	catch (...)
-	{
-		std::cerr << "failed\n";
-		return false;
-	}
-	return true;
 }

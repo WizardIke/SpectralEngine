@@ -36,45 +36,65 @@ namespace
 		return out;
 	}
 
+	extern "C" typedef bool(*ImportResourceType)(void* context, const std::filesystem::path& baseInputPath, const std::filesystem::path& baseOutputPath, const std::filesystem::path& relativeInputPath);
+
+	extern "C" typedef bool(*ImportResourcePtrType)(const std::filesystem::path& baseInputPath, const std::filesystem::path& baseOutputPath, const std::filesystem::path& relativeInputPath, void* importResourceContext,
+		ImportResourceType importResource, bool forceReImport) noexcept;
+
 	class Importer
 	{
 #ifdef _WIN32
 		HMODULE library;
 #endif // _WIN32
-		bool(*importResourcePtr)(const std::filesystem::path& baseInputPath, const std::filesystem::path& baseOutputPath, const std::filesystem::path& relativeInputPath, void* importResourceContext,
-			bool(*importResource)(void* context, const std::filesystem::path& baseInputPath, const std::filesystem::path& baseOutputPath, const std::filesystem::path& relativeInputPath));
+		ImportResourcePtrType importResourcePtr;
+
+		bool forceReImport;
 	public:
 #ifdef _WIN32
-		Importer(const std::filesystem::path& path) : library{ LoadLibrary(path.c_str()) }
+		Importer(const std::filesystem::path& path, bool forceReImport1) : 
+			library{ LoadLibrary(path.c_str()) },
+			forceReImport(forceReImport1)
 		{
 			if (library == NULL)
 			{
 				throw std::runtime_error{"Failed to load resource importer " + path.string() };
 			}
-			importResourcePtr = reinterpret_cast<decltype(importResourcePtr)>(GetProcAddress(library, "importResource"));
+			auto result = GetProcAddress(library, "importResource");
 			if (importResourcePtr == NULL)
 			{
 				FreeLibrary(library);
 				throw std::runtime_error{ "Failed to load the import function from " + path.string() };
 			}
+			importResourcePtr = reinterpret_cast<ImportResourcePtrType>(result);
+		}
+
+		Importer(Importer&& other) :
+			library(other.library),
+			importResourcePtr(other.importResourcePtr),
+			forceReImport(other.forceReImport)
+		{
+			other.library = NULL;
 		}
 
 		~Importer()
 		{
-			FreeLibrary(library);
+			if (library != NULL)
+			{
+				FreeLibrary(library);
+			}
 		}
 #endif // _WIN32
 
 		bool importResource(const std::filesystem::path& baseInputPath, const std::filesystem::path& baseOutputPath, const std::filesystem::path& relativeInputPath, void* importResourceContext,
-			bool(*importResource)(void* context, const std::filesystem::path& baseInputPath, const std::filesystem::path& baseOutputPath, const std::filesystem::path& relativeInputPath))
+			ImportResourceType importResource1)
 		{
-			return importResourcePtr(baseInputPath, baseOutputPath, relativeInputPath, importResourceContext, importResource);
+			return importResourcePtr(baseInputPath, baseOutputPath, relativeInputPath, importResourceContext, importResource1, forceReImport);
 		}
 	};
 }
 
 static bool importDirectory(const std::filesystem::path& baseInputPath, const std::filesystem::path& baseOutputPath, const std::filesystem::path& relativeInputPath, void* importResourceContext,
-	bool(*importResource)(void* context, const std::filesystem::path& baseInputPath, const std::filesystem::path& baseOutputPath, const std::filesystem::path& relativeInputPath))
+	ImportResourceType importResource)
 {
 	namespace fs = std::filesystem;
 
@@ -120,7 +140,7 @@ static bool endsWith(std::string_view fullString, std::string_view ending)
 	}
 }
 
-static std::unordered_map<std::string, Importer> getFileImporters(const std::filesystem::path& importerPath)
+static std::unordered_map<std::string, Importer> getFileImporters(const std::filesystem::path& importerPath, std::filesystem::file_time_type lastRebuildTime)
 {
 	std::unordered_map<std::string, Importer> fileImporters{};
 	for (const auto& entry : std::filesystem::directory_iterator(importerPath))
@@ -128,23 +148,27 @@ static std::unordered_map<std::string, Importer> getFileImporters(const std::fil
 		const auto& fileName = entry.path().filename().string();
 		if (entry.is_regular_file() && endsWith(fileName, "ResourceImporter.dll"))
 		{
-			fileImporters.emplace("." + fileName.substr(0u, fileName.size() - 20u), entry.path());
+			bool forceReImport = entry.last_write_time() >= lastRebuildTime;
+			fileImporters.emplace("." + fileName.substr(0u, fileName.size() - 20u), Importer{ entry.path(), forceReImport });
 		}
 	}
 	return fileImporters;
 }
 
-static bool importResource(void* context, const std::filesystem::path& baseInputPath, const std::filesystem::path& baseOutputPath, const std::filesystem::path& relativeInputPath)
+extern "C"
 {
-	auto& fileImporters = *static_cast<std::unordered_map<std::string, Importer>*>(context);
-	const auto& extension = relativeInputPath.extension().string();
-	auto fileImporter = fileImporters.find(extension);
-	if (fileImporter == fileImporters.end())
+	bool importResource(void* context, const std::filesystem::path& baseInputPath, const std::filesystem::path& baseOutputPath, const std::filesystem::path& relativeInputPath)
 	{
-		std::cerr << "No importer for " << extension << " files\n";
-		return false;
+		auto& fileImporters = *static_cast<std::unordered_map<std::string, Importer>*>(context);
+		const auto& extension = relativeInputPath.extension().string();
+		auto fileImporter = fileImporters.find(extension);
+		if (fileImporter == fileImporters.end())
+		{
+			std::cerr << "No importer for " << extension << " files\n";
+			return false;
+		}
+		return fileImporter->second.importResource(baseInputPath, baseOutputPath, relativeInputPath, &fileImporters, importResource);
 	}
-	return fileImporter->second.importResource(baseInputPath, baseOutputPath, relativeInputPath, &fileImporters, importResource);
 }
 
 static std::filesystem::path removeExtensions(const std::filesystem::path& path)
@@ -214,17 +238,17 @@ int main(int argc, char** argv)
 		const char* outputDir = argv[2];
 		const char* importerDir = argv[3];
 
+		auto resourcesHeaderPath = std::filesystem::path{ inputDir } / "Resources.h";
+		auto lastBuildTime = std::filesystem::exists(resourcesHeaderPath) ? std::filesystem::last_write_time(resourcesHeaderPath) : std::filesystem::file_time_type{};
+		std::unordered_map<std::string, Importer> fileImporters = getFileImporters(importerDir, lastBuildTime);
 
-		std::unordered_map<std::string, Importer> fileImporters = getFileImporters(importerDir);
-
-		namespace fs = std::filesystem;
-		bool succeeded = importDirectory(fs::path{ inputDir }, fs::path{ outputDir }, fs::path{ "Resources" }, &fileImporters, importResource);
+		bool succeeded = importDirectory(std::filesystem::path{ inputDir }, std::filesystem::path{ outputDir }, std::filesystem::path{ "Resources" }, &fileImporters, importResource);
 		if (!succeeded)
 		{
 			return 1;
 		}
 
-		createResourcesHeaderFile(fs::path{ outputDir }, fs::path{ inputDir } / "Resources.h" );
+		createResourcesHeaderFile(std::filesystem::path{ outputDir }, resourcesHeaderPath);
 	}
 	catch (const std::exception& e)
 	{

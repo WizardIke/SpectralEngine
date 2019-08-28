@@ -480,62 +480,66 @@ namespace
 }
 
 extern "C"
-#ifdef _WIN32
-__declspec(dllexport)
-#endif
-bool importResource(const std::filesystem::path& baseInputPath, const std::filesystem::path& baseOutputPath, const std::filesystem::path& relativeInputPath, void* importResourceContext,
-	bool(*importResource)(void* context, const std::filesystem::path& baseInputPath, const std::filesystem::path& baseOutputPath, const std::filesystem::path& relativeInputPath))
 {
-	try
+	typedef bool(*ImportResourceType)(void* context, const std::filesystem::path& baseInputPath, const std::filesystem::path& baseOutputPath, const std::filesystem::path& relativeInputPath);
+
+#ifdef _WIN32
+		__declspec(dllexport)
+#endif
+		bool importResource(const std::filesystem::path& baseInputPath, const std::filesystem::path& baseOutputPath, const std::filesystem::path& relativeInputPath, void* importResourceContext,
+			ImportResourceType importResource, bool forceReImport) noexcept
 	{
-		auto inputPath = baseInputPath / relativeInputPath;
-		auto outputPath = baseOutputPath / relativeInputPath;
-		outputPath += ".data";
-
-		if (std::filesystem::exists(outputPath) && std::filesystem::last_write_time(outputPath) > std::filesystem::last_write_time(inputPath))
+		try
 		{
-			return true;
-		}
+			auto inputPath = baseInputPath / relativeInputPath;
+			auto outputPath = baseOutputPath / relativeInputPath;
+			outputPath += ".data";
 
-		std::cout << "importing " << inputPath.string() << "\n";
-		auto inDirectory = inputPath.parent_path();
-		std::ifstream inFile{ inputPath, std::ios::binary };
-
-		FontDescriptor font{};
-		std::string line;
-		unsigned long lineNumber = 1u;
-		while (std::getline(inFile, line))
-		{
-			bool succeeded = passLine(line, lineNumber, font, baseInputPath, inDirectory);
-			if (!succeeded)
+			if (!forceReImport && std::filesystem::exists(outputPath) && std::filesystem::last_write_time(outputPath) > std::filesystem::last_write_time(inputPath))
 			{
-				return 1;
+				return true;
 			}
-			++lineNumber;
+
+			std::cout << "importing " << inputPath.string() << "\n";
+			auto inDirectory = inputPath.parent_path();
+			std::ifstream inFile{ inputPath, std::ios::binary };
+
+			FontDescriptor font{};
+			std::string line;
+			unsigned long lineNumber = 1u;
+			while (std::getline(inFile, line))
+			{
+				bool succeeded = passLine(line, lineNumber, font, baseInputPath, inDirectory);
+				if (!succeeded)
+				{
+					return 1;
+				}
+				++lineNumber;
+			}
+			inFile.close();
+
+			normalizeFontScale(font);
+			sortFont(font);
+
+			const auto& outputDirectory = outputPath.parent_path();
+			if (!std::filesystem::exists(outputDirectory))
+			{
+				std::filesystem::create_directories(outputDirectory);
+			}
+			std::ofstream outFile{ outputPath, std::ios::binary };
+			writeToFontFile(outFile, font);
+			outFile.close();
 		}
-		inFile.close();
-
-		normalizeFontScale(font);
-		sortFont(font);
-
-		const auto& outputDirectory = outputPath.parent_path();
-		if (!std::filesystem::exists(outputDirectory))
+		catch (std::exception& e)
 		{
-			std::filesystem::create_directories(outputDirectory);
+			std::cerr << "failed: " << e.what() << "\n";
+			return false;
 		}
-		std::ofstream outFile{ outputPath, std::ios::binary };
-		writeToFontFile(outFile, font);
-		outFile.close();
+		catch (...)
+		{
+			std::cerr << "failed\n";
+			return false;
+		}
+		return true;
 	}
-	catch (std::exception& e)
-	{
-		std::cerr << "failed: " << e.what() << "\n";
-		return false;
-	}
-	catch (...)
-	{
-		std::cerr << "failed\n";
-		return false;
-	}
-	return true;
 }

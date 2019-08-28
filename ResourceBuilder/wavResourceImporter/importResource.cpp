@@ -110,45 +110,49 @@ namespace
 }
 
 extern "C"
-#ifdef _WIN32
-__declspec(dllexport)
-#endif
-bool importResource(const std::filesystem::path& baseInputPath, const std::filesystem::path& baseOutputPath, const std::filesystem::path& relativeInputPath, void* importResourceContext,
-	bool(*importResource)(void* context, const std::filesystem::path& baseInputPath, const std::filesystem::path& baseOutputPath, const std::filesystem::path& relativeInputPath))
 {
-	try
-	{
-		auto inputPath = baseInputPath / relativeInputPath;
-		auto outputPath = baseOutputPath / relativeInputPath;
-		outputPath += ".data";
+	typedef bool(*ImportResourceType)(void* context, const std::filesystem::path& baseInputPath, const std::filesystem::path& baseOutputPath, const std::filesystem::path& relativeInputPath);
 
-		if (std::filesystem::exists(outputPath) && std::filesystem::last_write_time(outputPath) > std::filesystem::last_write_time(inputPath))
+#ifdef _WIN32
+	__declspec(dllexport)
+#endif
+		bool importResource(const std::filesystem::path& baseInputPath, const std::filesystem::path& baseOutputPath, const std::filesystem::path& relativeInputPath, void* importResourceContext,
+			ImportResourceType importResource, bool forceReImport) noexcept
+	{
+		try
 		{
-			return true;
+			auto inputPath = baseInputPath / relativeInputPath;
+			auto outputPath = baseOutputPath / relativeInputPath;
+			outputPath += ".data";
+
+			if (!forceReImport && std::filesystem::exists(outputPath) && std::filesystem::last_write_time(outputPath) > std::filesystem::last_write_time(inputPath))
+			{
+				return true;
+			}
+
+			std::cout << "importing " << inputPath.string() << "\n";
+			std::ifstream file{ inputPath, std::ios::binary };
+			FileInfo fileInfo = {};
+			fileInfo.info = SoundDecoder::getWaveFileInfo(file);
+			std::unique_ptr<char[]> data(new char[fileInfo.info.dataSize]);
+			SoundDecoder::loadWaveFileChunk(file, data.get(), fileInfo.info.dataSize);
+			file.close();
+
+			const auto& outputDirectory = outputPath.parent_path();
+			if (!std::filesystem::exists(outputDirectory))
+			{
+				std::filesystem::create_directories(outputDirectory);
+			}
+			std::ofstream outFile{ outputPath, std::ios::binary };
+			outFile.write(reinterpret_cast<char*>(&fileInfo), sizeof(FileInfo));
+			outFile.write(data.get(), fileInfo.info.dataSize);
+		}
+		catch (...)
+		{
+			std::cerr << "failed\n";
+			return false;
 		}
 
-		std::cout << "importing " << inputPath.string() << "\n";
-		std::ifstream file{ inputPath, std::ios::binary };
-		FileInfo fileInfo = {};
-		fileInfo.info = SoundDecoder::getWaveFileInfo(file);
-		std::unique_ptr<char[]> data(new char[fileInfo.info.dataSize]);
-		SoundDecoder::loadWaveFileChunk(file, data.get(), fileInfo.info.dataSize);
-		file.close();
-
-		const auto& outputDirectory = outputPath.parent_path();
-		if (!std::filesystem::exists(outputDirectory))
-		{
-			std::filesystem::create_directories(outputDirectory);
-		}
-		std::ofstream outFile{ outputPath, std::ios::binary };
-		outFile.write(reinterpret_cast<char*>(&fileInfo), sizeof(FileInfo));
-		outFile.write(data.get(), fileInfo.info.dataSize);
+		return true;
 	}
-	catch (...)
-	{
-		std::cerr << "failed\n";
-		return false;
-	}
-
-	return true;
 }
