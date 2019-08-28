@@ -61,7 +61,7 @@ UserInterface::~UserInterface()
 void UserInterface::update1()
 {
 	float frameTime = globalResources.timer.frameTime();
-	CPUUsageSentence.update(frameTime);
+	CPUUsageSentence.update();
 	FPSSentence.update(frameTime);
 }
 

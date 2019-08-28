@@ -1,42 +1,53 @@
 #include "CPUUsageSentence.h"
-#include "../../GlobalResources.h"
+#include <Window.h>
+#include <string>
+
+static unsigned long long fileTimeToInt64(FILETIME ft)
+{
+	ULARGE_INTEGER foo;
+	foo.LowPart = ft.dwLowDateTime;
+	foo.HighPart = ft.dwHighDateTime;
+	return static_cast<unsigned long long>(foo.QuadPart);
+}
 
 CPUUsageSentence::CPUUsageSentence(ID3D12Device* const device, const DirectX::XMFLOAT2 position, const DirectX::XMFLOAT2 size, const DirectX::XMFLOAT4 color) : 
 	DynamicTextRenderer(8u, device, L"Cpu 0%", position, size, color)
 {
-	// Create a query object to poll cpu usage.
-	queryHandle = nullptr;
-	PDH_STATUS status = PdhOpenQueryW(nullptr, 0, &queryHandle);
-	if(status != ERROR_SUCCESS) { throw false; }
-
-	// Set query object to poll all cpus in the system.
-	status = PdhAddEnglishCounterW(queryHandle, L"\\Processor(_Total)\\% processor time", 0u, &counterHandle);
-	if(status != ERROR_SUCCESS)
-	{
-		PdhCloseQuery(queryHandle);
-		throw false;
-	}
+	FILETIME idleTime{}, kernalTime{}, userTime{};
+	GetSystemTimes(&idleTime, &kernalTime, &userTime);
+	oldTotalTime = fileTimeToInt64(kernalTime) + fileTimeToInt64(userTime);
+	oldIdleTime = fileTimeToInt64(idleTime);
 }
 
-CPUUsageSentence::~CPUUsageSentence()
+void CPUUsageSentence::update()
 {
-	if(queryHandle) PdhCloseQuery(queryHandle);
-}
+	FILETIME idleTime{}, kernalTime{}, userTime{};
+	GetSystemTimes(&idleTime, &kernalTime, &userTime);
 
-void CPUUsageSentence::update(float frameTime)
-{
-	timeSinceLastUpdate += frameTime;
-	if (timeSinceLastUpdate > 1.0f)
+	auto newTotalTime = fileTimeToInt64(kernalTime) + fileTimeToInt64(userTime);
+	auto newIdleTime = fileTimeToInt64(idleTime);
+	auto totalTimePassed = newTotalTime - oldTotalTime;
+	auto idleTimePassed = newIdleTime - oldIdleTime;
+
+	auto getCpuPercentage = [](ULONGLONG totalTime, ULONGLONG idleTime)
 	{
-		timeSinceLastUpdate = 0.0f;
+		if (totalTime == 0u)
+		{
+			return 0.0;
+		}
+		auto percentage = static_cast<double>(idleTime) / static_cast<double>(totalTime) * 100.0;
+		if (percentage > 100.0)
+		{
+			percentage = 100.0;
+		}
+		return 100.0 - percentage;
+	};
+	auto percentage = getCpuPercentage(totalTimePassed, idleTimePassed);
 
-		PdhCollectQueryData(queryHandle);
+	oldTotalTime += totalTimePassed / 128u;
+	oldIdleTime += idleTimePassed / 128u;
 
-		PDH_FMT_COUNTERVALUE value;
-		PdhGetFormattedCounterValue(counterHandle, PDH_FMT_LONG, nullptr, &value);
-
-		text = L"Cpu ";
-		text += std::to_wstring(value.longValue);
-		text += L"%";
-	}
+	text = L"Cpu ";
+	text += std::to_wstring(static_cast<unsigned short>(percentage));
+	text += L"%";
 }
