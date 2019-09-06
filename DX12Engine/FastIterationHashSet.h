@@ -11,7 +11,7 @@
 * Iterating a FastIterationHashMap should take similar time as iterating a std::vector of the same length and is random access.
 * SizeType should be an integral type
 */
-template<class Key, class T, class Hasher = std::hash<Key>, class EqualTo = std::equal_to<Key>, class Allocator = std::allocator<Key>, class SizeType = std::size_t>
+template<class Key, class T, class Hasher = std::hash<Key>, class EqualTo = std::equal_to<>, class Allocator = std::allocator<Key>, class SizeType = std::size_t>
 class FastIterationHashMap
 {
 public:
@@ -404,7 +404,7 @@ private:
 	/*
 	returns size if not found
 	*/
-	size_type findIndexInData(const key_type& key)
+	size_type findIndexInData(const key_type& key) const
 	{
 		if(impl.maxBucketCount == (size_type)0u) return (size_type)0u;
 		const size_type mask = impl.maxBucketCount - (size_type)1u;
@@ -607,6 +607,11 @@ public:
 	}
 
 	iterator find(const key_type& key)
+	{
+		return impl.values + findIndexInData(key);
+	}
+
+	const_iterator find(const key_type& key) const
 	{
 		return impl.values + findIndexInData(key);
 	}
