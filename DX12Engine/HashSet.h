@@ -13,7 +13,7 @@
 template<
 	class T, 
 	class Hasher = std::hash<T>, 
-	class EqualTo = std::equal_to<T>, 
+	class EqualTo = std::equal_to<>, 
 	class Allocator = std::allocator<T>,
 	class SizeType = std::size_t
 >
