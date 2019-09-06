@@ -17,8 +17,7 @@ class PageDeleter;
 class PageCache
 {
 	using Node = PageCachePerTextureData::Node;
-	Node mFront;
-	Node mBack;
+	Node mNodes;
 	std::size_t mSize = 0u;
 	std::size_t maxPages = 0u;
 
@@ -29,7 +28,7 @@ class PageCache
 	{
 		friend class PageCache;
 	private:
-		Node*    current;
+		Node* current;
 		IteratorBase(Node* start) :
 			current(start)
 		{}
@@ -126,12 +125,12 @@ public:
 
 	Range<const_iterator, const_iterator> pages() const
 	{
-		return range(const_iterator(mFront.next), const_iterator(const_cast<Node*>(&mBack)));
+		return range(const_iterator(mNodes.next), const_iterator(const_cast<Node*>(&mNodes)));
 	}
 
 	Range<iterator, iterator> pages()
 	{
-		return range(iterator(mFront.next), iterator(&mBack));
+		return range(iterator(mNodes.next), iterator(&mNodes));
 	}
 
 	/* Removes a page without freeing ID3D12Heap space */

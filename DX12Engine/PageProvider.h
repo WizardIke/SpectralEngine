@@ -76,6 +76,7 @@ public:
 private:
 	PageCache pageCache;
 	PageAllocator pageAllocator;
+	std::size_t newPageCacheCapacity;
 	VirtualTextureInfoByID texturesByID;
 	std::unordered_map<PageResourceLocation, PageRequestData, PageResourceLocation::Hash> uniqueRequests;
 	ResizingArray<std::pair<PageResourceLocation, unsigned long long>> posableLoadRequests;
@@ -140,39 +141,38 @@ private:
 	}
 
 	template<class ThreadResources>
-	void startLoadingRequiredPages(ThreadResources& threadResources, VirtualTextureInfoByID& textureInfoById, PageDeleter& pageDeleter)
+	void startLoadingRequiredPages(ThreadResources& threadResources)
 	{
-		if (!posableLoadRequests.empty())
+		for (const auto& requestInfo : posableLoadRequests)
 		{
-			for(const auto& requestInfo : posableLoadRequests)
-			{
-				PageLoadRequest& pageRequest = *freePageLoadRequests;
-				freePageLoadRequests = static_cast<PageLoadRequest*>(static_cast<LinkedTask*>(static_cast<LinkedTask*>(freePageLoadRequests)->next));
-				pageRequest.allocationInfo.textureLocation = requestInfo.first;
-				addPageLoadRequest(pageRequest, threadResources);
-				VirtualTextureInfo& textureInfo = textureInfoById[requestInfo.first.textureId];
-				pageCache.addNonAllocatedPage(requestInfo.first, textureInfo, textureInfoById, pageDeleter);
-			}
-			freePageLoadRequestsCount -= posableLoadRequests.size();
-			posableLoadRequests.clear();
+			PageLoadRequest& pageRequest = *freePageLoadRequests;
+			freePageLoadRequests = static_cast<PageLoadRequest*>(static_cast<LinkedTask*>(static_cast<LinkedTask*>(freePageLoadRequests)->next));
+			pageRequest.allocationInfo.textureLocation = requestInfo.first;
+			addPageLoadRequest(pageRequest, threadResources);
 		}
+		freePageLoadRequestsCount -= posableLoadRequests.size();
 	}
-
+	static void addNewPagesToCache(ResizingArray<std::pair<PageResourceLocation, unsigned long long>>& posableLoadRequests, VirtualTextureInfoByID& textureInfoById, PageCache& pageCache, PageDeleter& pageDeleter);
 	void addNewPagesToResources(ID3D12GraphicsCommandList* commandList, void(*uploadComplete)(LinkedTask& task, void* tr), void* tr);
-
 	static void addPageDataToResource(VirtualTextureInfo& textureInfo, D3D12_TILED_RESOURCE_COORDINATE* newPageCoordinates, PageLoadRequest** pageLoadRequests, std::size_t pageCount,
 		D3D12_TILE_REGION_SIZE& tileSize, PageCache& pageCache, ID3D12GraphicsCommandList* commandList, GraphicsEngine& graphicsEngine,
 		void(*uploadComplete)(PrimaryTaskFromOtherThreadQueue::Task& task, void* tr));
-
 	static void checkCacheForPage(std::pair<const PageResourceLocation, PageRequestData>& request, VirtualTextureInfoByID& texturesByID, PageCache& pageCache,
 		ResizingArray<std::pair<PageResourceLocation, unsigned long long>>& posableLoadRequests);
 	static void checkCacheForPages(decltype(uniqueRequests)& pageRequests, VirtualTextureInfoByID& texturesByID, PageCache& pageCache,
 		ResizingArray<std::pair<PageResourceLocation, unsigned long long>>& posableLoadRequests);
 	void shrinkNumberOfLoadRequestsIfNeeded(std::size_t numTexturePagesThatCanBeRequested);
 	void processMessages(void* tr);
-	bool recalculateCacheSize(float& mipBias, float desiredMipBias, long long maxPages, std::size_t totalPagesNeeded, VirtualTextureInfoByID& texturesById, PageDeleter& pageDeleter);
+
+	struct NewCacheCapacity
+	{
+		bool mipLevelIncreased;
+		std::size_t capacity;
+	};
+	static NewCacheCapacity recalculateCacheSize(float& mipBias, float desiredMipBias, long long maxPages, std::size_t totalPagesNeeded, std::size_t oldCacheCapacity);
+
 	long long calculateMemoryBudgetInPages(IDXGIAdapter3* adapter);
-	void processPageRequestsHelper(IDXGIAdapter3* adapter, float& mipBias, float desiredMipBias, PageDeleter& pageDeleter, void* tr);
+	void processPageRequestsHelper(IDXGIAdapter3* adapter, float& mipBias, float desiredMipBias, void* tr);
 	void increaseMipBias(decltype(uniqueRequests)& pageRequests);
 
 	void deleteTextureHelper(UnloadRequest& unloadRequest, void* tr);
@@ -186,10 +186,8 @@ public:
 	template<class ThreadResources>
 	void processPageRequests(ThreadResources& threadResources, TaskShedular<ThreadResources>& taskShedular, float& mipBias, float desiredMipBias)
 	{
-		PageDeleter pageDeleter(pageAllocator, graphicsEngine.directCommandQueue);
-		processPageRequestsHelper(graphicsEngine.adapter, mipBias, desiredMipBias, pageDeleter, &threadResources);
-		startLoadingRequiredPages(threadResources, texturesByID, pageDeleter);
-		pageDeleter.finish(texturesByID);
+		processPageRequestsHelper(graphicsEngine.adapter, mipBias, desiredMipBias, &threadResources);
+		startLoadingRequiredPages(threadResources);
 
 		execute = [](PrimaryTaskFromOtherThreadQueue::Task& task, void* tr)
 		{
@@ -202,8 +200,34 @@ public:
 
 			threadResources.taskShedular.pushPrimaryTask(1u, {&pageProvider, [](void* requester, ThreadResources& threadResources)
 			{
+				ID3D12GraphicsCommandList* commandList = threadResources.renderPass.virtualTextureFeedbackSubPass().firstCommandList();
 				PageProvider& pageProvider = *static_cast<PageProvider*>(requester);
-				pageProvider.addNewPagesToResources(threadResources.renderPass.virtualTextureFeedbackSubPass().firstCommandList(), [](LinkedTask& task, void* tr)
+
+				if (pageProvider.newPageCacheCapacity < pageProvider.pageCache.capacity())
+				{
+					PageDeleter pageDeleter(pageProvider.pageAllocator, pageProvider.graphicsEngine.directCommandQueue);
+					if (!pageProvider.posableLoadRequests.empty())
+					{
+						addNewPagesToCache(pageProvider.posableLoadRequests, pageProvider.texturesByID, pageProvider.pageCache, pageDeleter);
+					}
+					pageProvider.pageCache.decreaseCapacity(pageProvider.newPageCacheCapacity, pageProvider.texturesByID, pageDeleter);
+					pageDeleter.finish(pageProvider.texturesByID);
+					pageProvider.pageAllocator.decreaseNonPinnedCapacity(pageProvider.newPageCacheCapacity, pageProvider.texturesByID, pageProvider.graphicsEngine, *commandList);
+				}
+				else
+				{
+					if (pageProvider.newPageCacheCapacity > pageProvider.pageCache.capacity())
+					{
+						pageProvider.pageCache.increaseCapacity(pageProvider.newPageCacheCapacity);
+					}
+					if (!pageProvider.posableLoadRequests.empty())
+					{
+						PageDeleter pageDeleter(pageProvider.pageAllocator, pageProvider.graphicsEngine.directCommandQueue);
+						addNewPagesToCache(pageProvider.posableLoadRequests, pageProvider.texturesByID, pageProvider.pageCache, pageDeleter);
+						pageDeleter.finish(pageProvider.texturesByID);
+					}
+				}
+				pageProvider.addNewPagesToResources(commandList, [](LinkedTask& task, void* tr)
 				{
 					PageLoadRequest& request = static_cast<PageLoadRequest&>(task);
 					ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);

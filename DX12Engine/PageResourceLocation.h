@@ -43,7 +43,7 @@ public:
 	public:
 		std::size_t operator()(PageResourceLocation page) const
 		{
-			return static_cast<std::size_t>(mortonEncode(page.x, page.y, page.mipLevel | (page.textureId << 8u)));
+			return static_cast<std::size_t>(mortonEncode(page.x, page.y, unsigned long long{ page.mipLevel } | ((unsigned long long)page.textureId << 8u)));
 		}
 	};
 
@@ -56,8 +56,8 @@ public:
 		}
 	};
 
-	unsigned short textureId;
-	unsigned short mipLevel;
+	unsigned char textureId;
+	unsigned char mipLevel;
 	unsigned short x;
 	unsigned short y;
 

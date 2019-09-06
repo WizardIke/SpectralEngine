@@ -418,6 +418,9 @@
       <Filter>TextRendering</Filter>
     </ClInclude>
     <ClInclude Include="RenderToTexture.h" />
+    <ClInclude Include="FixedSizeFastIterationHashSet.h">
+      <Filter>HashSets</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DDSFileLoader.cpp">

@@ -1,8 +1,13 @@
 #include "PageAllocator.h"
 #include <cassert>
 #include "PageDeleter.h"
+#include <limits>
+#include "GraphicsEngine.h"
+#include <bitset>
+#include "FixedSizeFastIterationHashSet.h"
 
-void PageAllocator::allocateChunk(ResizingArray<Chunk>& chunks, ID3D12Device* graphicsDevice)
+template<UINT64 heapSizeInBytes, class Chunk>
+static void allocateChunk(ResizingArray<Chunk>& chunks, ID3D12Device* graphicsDevice)
 {
 	D3D12_HEAP_DESC heapDesc;
 	heapDesc.Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
@@ -17,79 +22,111 @@ void PageAllocator::allocateChunk(ResizingArray<Chunk>& chunks, ID3D12Device* gr
 	chunks.emplace_back(graphicsDevice, heapDesc);
 }
 
-void PageAllocator::findOrMakeFirstFreeChunk(ResizingArray<Chunk>& chunks, decltype(chunks.begin())& currentChunk, decltype(chunks.end())& chunksEnd, ID3D12Device* graphicsDevice)
+template<class IndexedList, class Chunk>
+static void removeFromList(IndexedList& list, Chunk* chunks, Chunk& chunkToRemove, decltype(chunkToRemove.nextFreeIndex) previousIndex)
 {
-	while (true)
+	const auto nextIndex = chunkToRemove.nextFreeIndex;
+	if (previousIndex == std::numeric_limits<decltype(previousIndex)>::max())
 	{
-		if (currentChunk == chunksEnd)
-		{
-			auto index = currentChunk - chunks.begin();
-			allocateChunk(chunks, graphicsDevice);
-			currentChunk = chunks.begin() + index;
-			chunksEnd = chunks.end();
-			break;
-		}
-		else if (currentChunk->freeList != currentChunk->freeListEnd)
-		{
-			break;
-		}
-		++currentChunk;
+		list.nextFreeIndex = nextIndex;
+	}
+	else
+	{
+		chunks[previousIndex].nextFreeIndex = nextIndex;
 	}
 }
 
-void PageAllocator::allocatePage(decltype(chunks.begin())& currentChunk, decltype(chunks.end())& chunksEnd, ID3D12Device* graphicsDevice, ID3D12CommandQueue* commandQueue, ID3D12Resource* resource,
-	size_t& lastIndex, size_t currentIndex, D3D12_TILED_RESOURCE_COORDINATE* locations, GpuHeapLocation& heapLocation, UINT* heapOffsets, UINT* heapTileCounts)
+template<class IndexedList, class Chunk>
+static void listPopBack(IndexedList& list, Chunk* chunks)
 {
-	auto streakLength = currentIndex - lastIndex;
-	if (currentChunk->freeList == currentChunk->freeListEnd)
+	assert(list.nextFreeIndex != std::numeric_limits<decltype(list.nextFreeIndex)>::max() && "can't pop an empty list");
+	list.nextFreeIndex = chunks[list.nextFreeIndex].nextFreeIndex;
+}
+
+template<class IndexedList, class Chunk>
+static void listPushBack(IndexedList& list, Chunk* chunks, decltype(list.nextFreeIndex) chunkIndex)
+{
+	auto& chunk = chunks[chunkIndex];
+	chunk.nextFreeIndex = list.nextFreeIndex;
+	list.nextFreeIndex = chunkIndex;
+}
+
+template<UINT64 heapSizeInBytes, class IndexedList, class Chunk>
+static unsigned long findOrMakeFirstFreeChunk(unsigned long currentChunkIndex, IndexedList& freeChunks, ResizingArray<Chunk>& chunks, ID3D12Device* graphicsDevice)
+{
+	if (currentChunkIndex == std::numeric_limits<decltype(currentChunkIndex)>::max())
 	{
-		commandQueue->UpdateTileMappings(resource, (UINT)streakLength, locations + lastIndex, nullptr, currentChunk->data, (UINT)streakLength,
+		allocateChunk<heapSizeInBytes>(chunks, graphicsDevice);
+		unsigned long chunkIndex = static_cast<unsigned long>(chunks.size()) - 1u;
+		listPushBack(freeChunks, chunks.data(), chunkIndex);
+		return chunkIndex;
+	}
+	return currentChunkIndex;
+}
+
+template<UINT64 heapSizeInBytes, unsigned short heapSizeInPages, class IndexedList, class Chunk>
+static void allocatePage(IndexedList& freeChunks, ResizingArray<Chunk>& chunks, ID3D12Device* graphicsDevice, ID3D12CommandQueue* commandQueue, ID3D12Resource* resource,
+	unsigned char resourceId, std::size_t& lastIndex, std::size_t currentIndex, D3D12_TILED_RESOURCE_COORDINATE* locations, GpuHeapLocation& heapLocation, UINT* heapOffsets, UINT* heapTileCounts)
+{
+	auto currentChunkIndex = findOrMakeFirstFreeChunk<heapSizeInBytes>(freeChunks.nextFreeIndex, freeChunks, chunks, graphicsDevice);
+	auto streakIndex = currentIndex - lastIndex;
+	auto& currentChunk = chunks[currentChunkIndex];
+	heapOffsets[streakIndex] = currentChunk.freeListIndex;
+	auto& pageInfo = currentChunk.pageInfos[currentChunk.freeListIndex];
+	currentChunk.freeListIndex = pageInfo.nextIndex;
+	pageInfo.textureId = resourceId;
+	pageInfo.mipLevel = static_cast<unsigned char>(locations[currentIndex].Subresource);
+	pageInfo.x = static_cast<unsigned short>(locations[currentIndex].X);
+	pageInfo.y = static_cast<unsigned short>(locations[currentIndex].Y);
+
+	heapLocation.heapIndex = currentChunkIndex;
+	heapLocation.heapOffsetInPages = static_cast<unsigned short>(heapOffsets[streakIndex]);
+
+	if (currentChunk.freeListIndex == heapSizeInPages)
+	{
+		UINT streakLength = static_cast<UINT>(streakIndex + 1u);
+		commandQueue->UpdateTileMappings(resource, streakLength, locations + lastIndex, nullptr, currentChunk.data, streakLength,
 			nullptr, heapOffsets, heapTileCounts, D3D12_TILE_MAPPING_FLAG_NONE);
-		lastIndex = currentIndex;
-		findOrMakeFirstFreeChunk(chunks, currentChunk, chunksEnd, graphicsDevice);
+		lastIndex = currentIndex + 1u;
+		listPopBack(freeChunks, chunks.data());
 	}
-
-	--(currentChunk->freeListEnd);
-	heapOffsets[streakLength] = *currentChunk->freeListEnd;
-
-	heapLocation.heapIndex = static_cast<unsigned int>(currentChunk - chunks.begin());
-	heapLocation.heapOffsetInPages = heapOffsets[streakLength];
 }
 
-void PageAllocator::allocatePinnedPage(decltype(pinnedChunks.begin())& currentChunk, decltype(pinnedChunks.end())& chunksEnd, ID3D12Device* graphicsDevice,
-	ID3D12CommandQueue* commandQueue, ID3D12Resource* resource, GpuHeapLocation* pinnedHeapLocations, size_t& lastIndex, size_t currentIndex, D3D12_TILED_RESOURCE_COORDINATE* locations,
+template<unsigned short heapSizeInPages, class Chunk>
+static bool hasEnoughFreePages(Chunk& chunk, std::size_t pageCount)
+{
+	auto freeListIndex = chunk.freeListIndex;
+	while (pageCount != 0u)
+	{
+		if (freeListIndex == heapSizeInPages)
+		{
+			return false;
+		}
+		freeListIndex = chunk.pageInfos[freeListIndex].nextIndex;
+		--pageCount;
+	}
+	return true;
+}
+
+void PageAllocator::allocatePageHelper(IndexedList& freeChunks, ResizingArray<Chunk>& allocatedChunks, ID3D12Device* graphicsDevice, ID3D12CommandQueue* commandQueue,
+	ID3D12Resource* resource, unsigned char resourceId, std::size_t& lastIndex, std::size_t currentIndex, D3D12_TILED_RESOURCE_COORDINATE* locations, GpuHeapLocation& heapLocation,
 	UINT* heapOffsets, UINT* heapTileCounts)
 {
-	auto streakLength = currentIndex - lastIndex;
-	if (currentChunk->freeList == currentChunk->freeListEnd)
-	{
-		commandQueue->UpdateTileMappings(resource, (UINT)streakLength, locations + lastIndex, nullptr, currentChunk->data, (UINT)streakLength,
-			nullptr, heapOffsets, heapTileCounts, D3D12_TILE_MAPPING_FLAG_NONE);
-		lastIndex = currentIndex;
-		findOrMakeFirstFreeChunk(pinnedChunks, currentChunk, chunksEnd, graphicsDevice);
-	}
-
-	--(currentChunk->freeListEnd);
-	heapOffsets[streakLength] = *currentChunk->freeListEnd;
-
-	auto& heapLocation = pinnedHeapLocations[currentIndex];
-	heapLocation.heapIndex = static_cast<unsigned int>(currentChunk - pinnedChunks.begin());
-	heapLocation.heapOffsetInPages = heapOffsets[streakLength];
+	allocatePage<heapSizeInBytes, heapSizeInPages>(freeChunks, allocatedChunks, graphicsDevice, commandQueue, resource,
+		resourceId, lastIndex, currentIndex, locations, heapLocation, heapOffsets, heapTileCounts);
 }
 
-void PageAllocator::addPinnedPages(ID3D12Resource* resource, GpuHeapLocation* pinnedHeapLocations, unsigned int lowestPinnedMip, std::size_t numPages, ID3D12CommandQueue* commandQueue, ID3D12Device* graphicsDevice)
+void PageAllocator::addPackedPages(ID3D12Resource* resource, GpuHeapLocation* pinnedHeapLocations, unsigned int lowestPinnedMip, std::size_t numPages, ID3D12CommandQueue* commandQueue, ID3D12Device* graphicsDevice)
 {
 	assert(numPages <= heapSizeInPages && "All packed pages of a resource must go in the same heap");
 	UINT heapOffsets[heapSizeInPages];
 	UINT heapTileCounts[heapSizeInPages];
-	mPinnedPageCount += numPages;
-	auto currentChunk = pinnedChunks.begin();
-	auto chunksEnd = pinnedChunks.end();
-	findOrMakeFirstFreeChunk(pinnedChunks, currentChunk, chunksEnd, graphicsDevice);
-	while ((size_t)(currentChunk->freeListEnd - currentChunk->freeList) < numPages)
+	auto previousChunkIndex = std::numeric_limits<decltype(freePackedChunks.nextFreeIndex)>::max();
+	auto currentChunkIndex = findOrMakeFirstFreeChunk<heapSizeInBytes>(freePackedChunks.nextFreeIndex, freePackedChunks, allocatedPackedChunks, graphicsDevice);
+	while (!hasEnoughFreePages<heapSizeInPages>(allocatedPackedChunks[currentChunkIndex], numPages))
 	{
-		++currentChunk;
-		findOrMakeFirstFreeChunk(pinnedChunks, currentChunk, chunksEnd, graphicsDevice);
+		previousChunkIndex = currentChunkIndex;
+		currentChunkIndex = findOrMakeFirstFreeChunk<heapSizeInBytes>(allocatedPackedChunks[currentChunkIndex].nextFreeIndex, freePackedChunks, allocatedPackedChunks, graphicsDevice);
 	}
 
 	D3D12_TILED_RESOURCE_COORDINATE location;
@@ -102,93 +139,317 @@ void PageAllocator::addPinnedPages(ID3D12Resource* resource, GpuHeapLocation* pi
 	tileRegion.NumTiles = (UINT)numPages;
 	tileRegion.UseBox = FALSE;
 	
-	for (auto i = 0u; i < numPages; ++i)
+	auto& currentChunk = allocatedPackedChunks[currentChunkIndex];
+	for (std::size_t i = 0u; i != numPages; ++i)
 	{
 		heapTileCounts[i] = 1u;
-		--(currentChunk->freeListEnd);
-		heapOffsets[i] = *currentChunk->freeListEnd;
+		heapOffsets[i] = currentChunk.freeListIndex;
+		auto& pageInfo = currentChunk.pageInfos[currentChunk.freeListIndex];
+		currentChunk.freeListIndex = pageInfo.nextIndex;
 
 		auto& heapLocation = pinnedHeapLocations[i];
-		heapLocation.heapIndex = (unsigned int)(currentChunk - pinnedChunks.begin());
-		heapLocation.heapOffsetInPages = heapOffsets[i];
+		heapLocation.heapIndex = currentChunkIndex;
+		heapLocation.heapOffsetInPages = static_cast<unsigned short>(heapOffsets[i]);
 	}
-	commandQueue->UpdateTileMappings(resource, (UINT)1u, &location, &tileRegion, currentChunk->data, (UINT)numPages,
+	if (currentChunk.freeListIndex == heapSizeInPages)
+	{
+		//currentChunk has run out of pages, remove it from the list of free chunks
+		removeFromList(freePackedChunks, allocatedPackedChunks.data(), currentChunk, previousChunkIndex);
+	}
+
+	commandQueue->UpdateTileMappings(resource, (UINT)1u, &location, &tileRegion, currentChunk.data, (UINT)numPages,
 		nullptr, heapOffsets, heapTileCounts, D3D12_TILE_MAPPING_FLAG_NONE);
 }
 
-void PageAllocator::addPinnedPages(D3D12_TILED_RESOURCE_COORDINATE* locations, size_t pageCount, ID3D12Resource* resource, GpuHeapLocation* pinnedHeapLocations, ID3D12CommandQueue* commandQueue,
-	ID3D12Device* graphicsDevice)
+void PageAllocator::addPinnedPages(D3D12_TILED_RESOURCE_COORDINATE* locations, std::size_t pageCount, ID3D12Resource* resource, unsigned char resourceId,
+	GpuHeapLocation* pinnedHeapLocations, ID3D12CommandQueue* commandQueue, ID3D12Device* graphicsDevice)
 {
 	UINT heapOffsets[heapSizeInPages];
 	UINT heapTileCounts[heapSizeInPages];
-	mPinnedPageCount += pageCount;
-	auto currentChunk = pinnedChunks.begin();
-	auto chunksEnd = pinnedChunks.end();
-	findOrMakeFirstFreeChunk(pinnedChunks, currentChunk, chunksEnd, graphicsDevice);
+	pinnedPageCount += pageCount;
 
-	size_t lastIndex = 0u;
-	for (size_t i = 0u; i != pageCount; ++i)
+	std::size_t lastIndex = 0u;
+	for (std::size_t i = 0u; i != pageCount; ++i)
 	{
 		heapTileCounts[i] = 1u;
-		allocatePinnedPage(currentChunk, chunksEnd, graphicsDevice, commandQueue, resource, pinnedHeapLocations, lastIndex, i, locations, heapOffsets, heapTileCounts);
+		allocatePage<heapSizeInBytes, heapSizeInPages>(freeChunks, allocatedChunks, graphicsDevice, commandQueue, resource,
+			resourceId, lastIndex, i, locations, pinnedHeapLocations[i], heapOffsets, heapTileCounts);
 	}
 
-	size_t streakLength = pageCount - lastIndex;
-	commandQueue->UpdateTileMappings(resource, (UINT)streakLength, locations + lastIndex, nullptr, currentChunk->data, (UINT)streakLength,
-		nullptr, heapOffsets, heapTileCounts, D3D12_TILE_MAPPING_FLAG_NONE);
+	auto streakLength = static_cast<UINT>(pageCount - lastIndex);
+	if (streakLength != 0u)
+	{
+		auto currentChunkIndex = freeChunks.nextFreeIndex;
+		commandQueue->UpdateTileMappings(resource, streakLength, locations + lastIndex, nullptr, allocatedChunks[currentChunkIndex].data, streakLength,
+			nullptr, heapOffsets, heapTileCounts, D3D12_TILE_MAPPING_FLAG_NONE);
+	}
 }
 
-void PageAllocator::removePages(const GpuHeapLocation* heapLocations, const size_t pageCount)
+void PageAllocator::removePages(const GpuHeapLocation* heapLocations, const std::size_t pageCount)
 {
 	//free unused heap pages
-	for (size_t i = 0u; i != pageCount; ++i)
+	for (std::size_t i = 0u; i != pageCount; ++i)
 	{
-		const GpuHeapLocation& heapLocation = heapLocations[i];
-		*chunks[heapLocation.heapIndex].freeListEnd = heapLocation.heapOffsetInPages;
-		++(chunks[heapLocation.heapIndex].freeListEnd);
+		const auto& heapLocation = heapLocations[i];
+		auto& chunk = allocatedChunks[heapLocation.heapIndex];
+		if (chunk.freeListIndex == heapSizeInPages)
+		{
+			listPushBack(freeChunks, allocatedChunks.data(), heapLocation.heapIndex);
+		}
+		chunk.pageInfos[heapLocation.heapOffsetInPages].nextIndex = chunk.freeListIndex;
+		chunk.freeListIndex = heapLocation.heapOffsetInPages;
 	}
 }
 
 void PageAllocator::removePage(const GpuHeapLocation heapLocation)
 {
-	*chunks[heapLocation.heapIndex].freeListEnd = heapLocation.heapOffsetInPages;
-	++(chunks[heapLocation.heapIndex].freeListEnd);
+	auto& chunk = allocatedChunks[heapLocation.heapIndex];
+	if (chunk.freeListIndex == heapSizeInPages)
+	{
+		listPushBack(freeChunks, allocatedChunks.data(), heapLocation.heapIndex);
+	}
+	chunk.pageInfos[heapLocation.heapOffsetInPages].nextIndex = chunk.freeListIndex;
+	chunk.freeListIndex = heapLocation.heapOffsetInPages;
 }
 
-void PageAllocator::removePinnedPages(const GpuHeapLocation* pinnedHeapLocations, const size_t numPinnedPages)
+void PageAllocator::removePinnedPages(const GpuHeapLocation* pinnedHeapLocations, std::size_t numPinnedPages)
 {
 	//free unused heap pages
-	mPinnedPageCount -= numPinnedPages;
-	for (size_t i = 0u; i != numPinnedPages; ++i)
+	assert(pinnedPageCount >= numPinnedPages);
+	pinnedPageCount -= numPinnedPages;
+	for (std::size_t i = 0u; i != numPinnedPages; ++i)
 	{
 		auto& heapLocation = pinnedHeapLocations[i];
-		*pinnedChunks[heapLocation.heapIndex].freeListEnd = heapLocation.heapOffsetInPages;
-		++(pinnedChunks[heapLocation.heapIndex].freeListEnd);
+		auto& chunk = allocatedChunks[heapLocation.heapIndex];
+		if (chunk.freeListIndex == heapSizeInPages)
+		{
+			listPushBack(freeChunks, allocatedChunks.data(), heapLocation.heapIndex);
+		}
+		chunk.pageInfos[heapLocation.heapOffsetInPages].nextIndex = chunk.freeListIndex;
+		chunk.freeListIndex = heapLocation.heapOffsetInPages;
 	}
 }
 
-void PageAllocator::decreaseNonPinnedSize(size_t newSize, PageCache& pageCache, VirtualTextureInfoByID& texturesById, PageDeleter& pageDeleter)
+void PageAllocator::removePackedPages(const GpuHeapLocation* pinnedHeapLocations, std::size_t numPinnedPages)
 {
-	size_t newNumChunks = (newSize + heapSizeInPages - 1u) / heapSizeInPages;
-	if (chunks.size() <= newNumChunks) return;
-	const size_t heapIdsStart = newNumChunks;
-	const size_t heapIdsEnd = chunks.size() - 1u;
-
-	auto pages = pageCache.pages();
-	const auto end = pages.end();
-	;
-	for (auto pagePtr = pages.begin(); pagePtr != end; ++pagePtr)
+	for (std::size_t i = 0u; i != numPinnedPages; ++i)
 	{
-		auto& page = *pagePtr;
-		if (page.heapLocation.heapIndex >= heapIdsStart && page.heapLocation.heapIndex <= heapIdsEnd)
+		auto& heapLocation = pinnedHeapLocations[i];
+		auto& chunk = allocatedPackedChunks[heapLocation.heapIndex];
+		if (chunk.freeListIndex == heapSizeInPages)
 		{
-			VirtualTextureInfo& textureInfo = texturesById[page.textureLocation.textureId];
-			pageCache.removePage(page.textureLocation, textureInfo, texturesById, pageDeleter); //remove page from cache
+			listPushBack(freePackedChunks, allocatedPackedChunks.data(), heapLocation.heapIndex);
 		}
+		chunk.pageInfos[heapLocation.heapOffsetInPages].nextIndex = chunk.freeListIndex;
+		chunk.freeListIndex = heapLocation.heapOffsetInPages;
+	}
+}
+
+namespace
+{
+	//Delays deleting the heap and resource until they aren't in use anymore
+	struct ChunkDeleteRequest : public GraphicsEngine::Task
+	{
+		D3D12Heap heap;
+		D3D12Resource resource;
+		std::size_t chunkCount;
+	};
+
+	ChunkDeleteRequest* createChunkDeleteRequests(std::size_t chunkCount)
+	{
+		auto* requests = new ChunkDeleteRequest[chunkCount];
+		requests->execute = [](GraphicsEngine::Task& task, void*)
+		{
+			ChunkDeleteRequest& request = static_cast<ChunkDeleteRequest&>(task);
+			delete[] &request;
+		};
+		return requests;
+	}
+}
+
+struct PageAllocator::ResourceDeleteInfo
+{
+	unsigned char id;
+	unsigned short pageInfos = heapSizeInPages;
+
+	ResourceDeleteInfo(unsigned char id1) : id(id1) {}
+
+	struct Hasher
+	{
+		std::size_t operator()(const PageAllocator::ResourceDeleteInfo& info) const noexcept
+		{
+			return std::size_t{ info.id };
+		}
+	};
+
+	bool operator==(const PageAllocator::ResourceDeleteInfo& other) const noexcept
+	{
+		return id == other.id;
+	}
+
+	bool operator!=(const PageAllocator::ResourceDeleteInfo& other) const noexcept
+	{
+		return id != other.id;
+	}
+};
+
+void PageAllocator::decreaseNonPinnedCapacity(std::size_t newSize, VirtualTextureInfoByID& texturesById, GraphicsEngine& graphicsEngine, ID3D12GraphicsCommandList& commandList)
+{
+	std::size_t newNumChunks = (newSize + pinnedPageCount + heapSizeInPages - 1u) / heapSizeInPages;
+	if (allocatedChunks.size() <= newNumChunks) return;
+	const std::size_t numChunksToRemove = allocatedChunks.size() - newNumChunks;
+
+	IndexedList chunksToRemove{ std::numeric_limits<unsigned long>::max() };
+	for (auto i = numChunksToRemove; i != 0u; --i)
+	{
+		auto chunkToRemoveIndex = freeChunks.nextFreeIndex;
+		listPopBack(freeChunks, allocatedChunks.data());
+		listPushBack(chunksToRemove, allocatedChunks.data(), chunkToRemoveIndex);
+	}
+
+	auto* chunkDeleteRequests = createChunkDeleteRequests(numChunksToRemove);
+	for (std::size_t i = 0u; i != numChunksToRemove; ++i)
+	{
+		chunkDeleteRequests[i].heap = std::move(allocatedChunks[newNumChunks + i].data);
+		chunkDeleteRequests[i].resource = D3D12Resource(graphicsEngine.graphicsDevice, chunkDeleteRequests[i].heap, 0u, []()
+			{
+				D3D12_RESOURCE_DESC desc;
+				desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+				desc.Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
+				desc.Width = heapSizeInBytes;
+				desc.Height = 1u;
+				desc.DepthOrArraySize = 1u;
+				desc.MipLevels = 1u;
+				desc.Format = DXGI_FORMAT_UNKNOWN;
+				desc.SampleDesc = { 1u, 0u };
+				desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+				desc.Flags = D3D12_RESOURCE_FLAG_NONE;
+				return desc;
+			}(),
+				D3D12_RESOURCE_STATE_COPY_SOURCE);
+
+		D3D12_RESOURCE_BARRIER barrier;
+		barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_ALIASING;
+		barrier.Aliasing.pResourceBefore = nullptr;
+		barrier.Aliasing.pResourceAfter = chunkDeleteRequests[i].resource;
+		commandList.ResourceBarrier(1u, &barrier);
+	}
+
+	FixedSizeFastIterationHashSet<unsigned char, 255u> uniqueResourcesToRemove;
+	FixedSizeFastIterationHashSet<ResourceDeleteInfo, 255u, ResourceDeleteInfo::Hasher> resourcesToRemove;
+	std::size_t chunkDeleteRequestIndex = 0u;
+	for (auto i = chunksToRemove.nextFreeIndex; i != std::numeric_limits<decltype(chunksToRemove.nextFreeIndex)>::max(); i = allocatedChunks[i].nextFreeIndex)
+	{
+		ID3D12Heap* currentHeap = chunkDeleteRequests[chunkDeleteRequestIndex].heap;
+		ID3D12Resource* resourceForCopyingTiles = chunkDeleteRequests[chunkDeleteRequestIndex].resource;
+		auto& chunkToRemove = allocatedChunks[i];
+		std::bitset<heapSizeInPages> pageIsFree{};
+		auto& pageInfos = chunkToRemove.pageInfos;
+		for (auto freeListIndex = chunkToRemove.freeListIndex; freeListIndex != heapSizeInPages; freeListIndex = pageInfos[freeListIndex].nextIndex)
+		{
+			pageIsFree.set(freeListIndex);
+		}
+		for (unsigned short allocatedListIndex = 0u; allocatedListIndex != heapSizeInPages; ++allocatedListIndex)
+		{
+			if (pageIsFree[allocatedListIndex]) continue;
+			auto& pageInfo = pageInfos[allocatedListIndex];
+			auto& resourceDeleteInfo = resourcesToRemove[pageInfo.textureId];
+			pageInfo.nextIndex = resourceDeleteInfo.pageInfos;
+			resourceDeleteInfo.pageInfos = allocatedListIndex;
+		}
+		{
+			D3D12_RESOURCE_BARRIER barriers[255u];
+			unsigned int barrierCount = 0u;
+			for (const auto& resourceDeleteInfo : resourcesToRemove)
+			{
+				bool inserted = uniqueResourcesToRemove.insertOrReplace(resourceDeleteInfo.id);
+				if (inserted)
+				{
+					barriers[barrierCount].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+					barriers[barrierCount].Transition.pResource = texturesById[resourceDeleteInfo.id].resource;
+					barriers[barrierCount].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+					barriers[barrierCount].Transition.StateBefore = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+					barriers[barrierCount].Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_DEST;
+					++barrierCount;
+				}
+			}
+			if (barrierCount != 0u)
+			{
+				commandList.ResourceBarrier(barrierCount, barriers);
+			}
+		}
+		resourcesToRemove.consume([&](const ResourceDeleteInfo& resourceDeleteInfo)
+			{
+				VirtualTextureInfo& textureInfo = texturesById[resourceDeleteInfo.id];
+
+				D3D12_TILED_RESOURCE_COORDINATE destinationCoordinates[heapSizeInPages];
+				UINT heapOffsets[heapSizeInPages];
+				UINT pageCount = 1u;
+				for (unsigned short currentPageInfoIndex = resourceDeleteInfo.pageInfos; currentPageInfoIndex != heapSizeInPages; currentPageInfoIndex = pageInfos[currentPageInfoIndex].nextIndex)
+				{
+					auto& pageInfo = pageInfos[currentPageInfoIndex];
+
+					destinationCoordinates[pageCount].X = pageInfo.x;
+					destinationCoordinates[pageCount].Y = pageInfo.y;
+					destinationCoordinates[pageCount].Z = 0u;
+					destinationCoordinates[pageCount].Subresource = pageInfo.mipLevel;
+
+					const auto freeChunkIndex = freeChunks.nextFreeIndex;
+					auto& freeChunk = allocatedChunks[freeChunkIndex];
+					heapOffsets[pageCount] = freeChunk.freeListIndex;
+					auto& newPageInfo = freeChunk.pageInfos[freeChunk.freeListIndex];
+					freeChunk.freeListIndex = newPageInfo.nextIndex;
+					newPageInfo.textureId = pageInfo.textureId;
+					newPageInfo.mipLevel = pageInfo.mipLevel;
+					newPageInfo.x = pageInfo.x;
+					newPageInfo.y = pageInfo.y;
+					if (freeChunk.freeListIndex == heapSizeInPages)
+					{
+						listPopBack(freeChunks, allocatedChunks.data());
+					}
+					auto pageLookUpData = textureInfo.pageCacheData.pageLookUp.find(PageResourceLocation{ pageInfo.textureId, pageInfo.mipLevel, pageInfo.x, pageInfo.y });
+					pageLookUpData->data.heapLocation = GpuHeapLocation{ freeChunkIndex, static_cast<unsigned short>(heapOffsets[pageCount]) };
+
+					++pageCount;
+				}
+
+				graphicsEngine.directCommandQueue->UpdateTileMappings(textureInfo.resource, 1u, destinationCoordinates, nullptr, currentHeap, 1u,
+					nullptr, heapOffsets, &pageCount, D3D12_TILE_MAPPING_FLAG_NONE);
+
+				const D3D12_TILE_REGION_SIZE regionSize{ 1u, TRUE, 1u, 1u, 1u };
+				unsigned short currentPageInfoIndex = resourceDeleteInfo.pageInfos;
+				for (UINT j = 0u; j != pageCount; ++j)
+				{
+					UINT64 bufferOffsetInBytes = currentPageInfoIndex * pageSizeInBytes;
+					commandList.CopyTiles(textureInfo.resource, &destinationCoordinates[j], &regionSize, resourceForCopyingTiles, bufferOffsetInBytes, D3D12_TILE_COPY_FLAG_NONE);
+					currentPageInfoIndex = pageInfos[currentPageInfoIndex].nextIndex;
+				}
+			});
+
+		++chunkDeleteRequestIndex;
+	}
+	graphicsEngine.executeWhenGpuFinishesCurrentFrame(*chunkDeleteRequests);
+	{
+		D3D12_RESOURCE_BARRIER barriers[255u];
+		unsigned int barrierCount = 0u;
+		for (auto resourceId : uniqueResourcesToRemove)
+		{
+			barriers[barrierCount].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+			barriers[barrierCount].Transition.pResource = texturesById[resourceId].resource;
+			barriers[barrierCount].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+			barriers[barrierCount].Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
+			barriers[barrierCount].Transition.StateAfter = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+			++barrierCount;
+		}
+		commandList.ResourceBarrier(barrierCount, barriers);
+	}
+	for (std::size_t i = 0u; i != numChunksToRemove; ++i)
+	{
+		allocatedChunks.pop_back();
 	}
 }
 
 std::size_t PageAllocator::nonPinnedMemoryUsageInPages()
 {
-	return chunks.size() * heapSizeInPages;
+	return allocatedChunks.size() * heapSizeInPages - pinnedPageCount;
 }

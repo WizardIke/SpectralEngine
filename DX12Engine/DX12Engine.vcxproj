@@ -241,6 +241,7 @@
     <ClInclude Include="BackgroundQueue.h" />
     <ClInclude Include="EntityGenerator.h" />
     <ClInclude Include="FastIterationHashSet.h" />
+    <ClInclude Include="FixedSizeFastIterationHashSet.h" />
     <ClInclude Include="GpuHeapLocation.h" />
     <ClInclude Include="GraphicsPipelineStateDesc.h" />
     <ClInclude Include="HashSet.h" />

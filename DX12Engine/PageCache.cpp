@@ -10,10 +10,10 @@ void PageCache::moveNodeToFront(Node* node)
 	node->next->previous = node->previous;
 	node->previous->next = node->next;
 
-	node->next = mFront.next;
-	node->previous = &mFront;
-	mFront.next->previous = node;
-	mFront.next = node;
+	node->next = mNodes.next;
+	node->previous = &mNodes;
+	mNodes.next->previous = node;
+	mNodes.next = node;
 }
 
 PageAllocationInfo* PageCache::getPage(PageResourceLocation location, VirtualTextureInfo& textureInfo)
@@ -29,14 +29,14 @@ PageAllocationInfo* PageCache::getPage(PageResourceLocation location, VirtualTex
 
 void PageCache::increaseCapacity(std::size_t newMaxPages)
 {
-	assert(newMaxPages >= maxPages && "increasing size to a smaller size");
+	assert(newMaxPages >= maxPages && "increasing capacity to a smaller capacity");
 	maxPages = newMaxPages;
 }
 
 PageCache::PageCache()
 {
-	mFront.next = &mBack;
-	mBack.previous = &mFront;
+	mNodes.next = &mNodes;
+	mNodes.previous = &mNodes;
 }
 
 void PageCache::addPage(PageAllocationInfo pageInfo, VirtualTextureInfo& textureInfo, VirtualTextureInfoByID& texturesById, PageDeleter& pageDeleter)
@@ -44,11 +44,11 @@ void PageCache::addPage(PageAllocationInfo pageInfo, VirtualTextureInfo& texture
 	assert(maxPages != 0u);
 	if(mSize == maxPages)
 	{
-		Node* backPrev = mBack.previous;
-		mBack.previous = backPrev->previous;
-		mBack.previous->next = &mBack;
+		Node* backPrev = mNodes.previous;
+		mNodes.previous = backPrev->previous;
+		mNodes.previous->next = &mNodes;
 		VirtualTextureInfo& pageToRemoveTextureInfo = texturesById[backPrev->data.textureLocation.textureId];
-		if (backPrev->data.heapLocation.heapOffsetInPages == std::numeric_limits<unsigned int>::max())
+		if (backPrev->data.heapLocation.heapOffsetInPages == std::numeric_limits<decltype(backPrev->data.heapLocation.heapOffsetInPages)>::max())
 		{
 			++pageToRemoveTextureInfo.pageCacheData.numberOfUnneededLoadingPages;
 			pageDeleter.deletePage(backPrev->data.textureLocation, texturesById);
@@ -65,18 +65,19 @@ void PageCache::addPage(PageAllocationInfo pageInfo, VirtualTextureInfo& texture
 	}
 	Node newPage;
 	newPage.data = pageInfo;
-	newPage.next = mFront.next;
-	newPage.previous = &mFront;
-	//both of these are nesesary if no moves happen or the hashmap resizes before moving the newPage
-	mFront.next->previous = &newPage;
-	mFront.next = &newPage;
+	newPage.next = mNodes.next;
+	newPage.previous = &mNodes;
+	//both of these are nesesary if the hashmap resizes before moving the newPage
+	mNodes.next->previous = &newPage;
+	mNodes.next = &newPage;
 
 	textureInfo.pageCacheData.pageLookUp.insert(std::move(newPage));
 }
 
 void PageCache::addNonAllocatedPage(PageResourceLocation location, VirtualTextureInfo& textureInfo, VirtualTextureInfoByID& texturesById, PageDeleter& pageDeleter)
 {
-	addPage({{std::numeric_limits<unsigned int>::max(), std::numeric_limits<unsigned int>::max()}, location}, textureInfo, texturesById, pageDeleter);
+	addPage({{std::numeric_limits<decltype(std::declval<GpuHeapLocation>().heapIndex)>::max(), std::numeric_limits<decltype(std::declval<GpuHeapLocation>().heapOffsetInPages)>::max()}, location},
+		textureInfo, texturesById, pageDeleter);
 }
 
 void PageCache::decreaseCapacity(std::size_t newMaxPages, VirtualTextureInfoByID& texturesById, PageDeleter& pageDeleter)
@@ -88,11 +89,11 @@ void PageCache::decreaseCapacity(std::size_t newMaxPages, VirtualTextureInfoByID
 		mSize = newMaxPages;
 		for (std::size_t i = 0u; i != numPagesToDelete; ++i)
 		{
-			Node* backPrev = mBack.previous;
-			mBack.previous = backPrev->previous;
-			mBack.previous->next = &mBack;
+			Node* backPrev = mNodes.previous;
+			mNodes.previous = backPrev->previous;
+			mNodes.previous->next = &mNodes;
 			VirtualTextureInfo& pageToRemoveTextureInfo = texturesById[backPrev->data.textureLocation.textureId];
-			if(backPrev->data.heapLocation.heapOffsetInPages == std::numeric_limits<unsigned int>::max())
+			if(backPrev->data.heapLocation.heapOffsetInPages == std::numeric_limits<decltype(backPrev->data.heapLocation.heapOffsetInPages)>::max())
 			{
 				++pageToRemoveTextureInfo.pageCacheData.numberOfUnneededLoadingPages;
 				pageDeleter.deletePage(backPrev->data.textureLocation, texturesById);
@@ -135,7 +136,9 @@ bool PageCache::contains(PageResourceLocation location, VirtualTextureInfo& text
 
 void PageCache::setPageAsAllocated(PageResourceLocation location, VirtualTextureInfo& textureInfo, GpuHeapLocation newHeapLocation)
 {
-	textureInfo.pageCacheData.pageLookUp.find(location)->data.heapLocation = newHeapLocation;
+	auto page = textureInfo.pageCacheData.pageLookUp.find(location);
+	assert(page != textureInfo.pageCacheData.pageLookUp.end() && "setting page as allocated that isn't in the texture");
+	page->data.heapLocation = newHeapLocation;
 }
 
 void PageCache::removePage(Node* page)
