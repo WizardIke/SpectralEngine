@@ -21,6 +21,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "wavResourceImporter", "Reso
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "hlslResourceImporter", "ResourceBuilder\hlslResourceImporter\hlslResourceImporter.vcxproj", "{09C22E50-43A8-4918-9272-7AFDD310630A}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TextureTiler", "DX12Engine\Tools\TextureTiler\TextureTiler.vcxproj", "{C6A14629-E946-49D1-97A2-2D2A73711A45}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -101,6 +103,14 @@ Global
 		{09C22E50-43A8-4918-9272-7AFDD310630A}.Release|x64.Build.0 = Release|x64
 		{09C22E50-43A8-4918-9272-7AFDD310630A}.Release|x86.ActiveCfg = Release|Win32
 		{09C22E50-43A8-4918-9272-7AFDD310630A}.Release|x86.Build.0 = Release|Win32
+		{C6A14629-E946-49D1-97A2-2D2A73711A45}.Debug|x64.ActiveCfg = Debug|x64
+		{C6A14629-E946-49D1-97A2-2D2A73711A45}.Debug|x64.Build.0 = Debug|x64
+		{C6A14629-E946-49D1-97A2-2D2A73711A45}.Debug|x86.ActiveCfg = Debug|Win32
+		{C6A14629-E946-49D1-97A2-2D2A73711A45}.Debug|x86.Build.0 = Debug|Win32
+		{C6A14629-E946-49D1-97A2-2D2A73711A45}.Release|x64.ActiveCfg = Release|x64
+		{C6A14629-E946-49D1-97A2-2D2A73711A45}.Release|x64.Build.0 = Release|x64
+		{C6A14629-E946-49D1-97A2-2D2A73711A45}.Release|x86.ActiveCfg = Release|Win32
+		{C6A14629-E946-49D1-97A2-2D2A73711A45}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
