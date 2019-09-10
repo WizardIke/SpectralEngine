@@ -30,7 +30,8 @@ public:
 			IOCompletionPacket task;
 			while (queue.pop(task))
 			{
-				task(&threadResources);
+				bool succeeded = task(&threadResources);
+				assert(succeeded);
 			}
 			queue.start(threadResources);
 		} });

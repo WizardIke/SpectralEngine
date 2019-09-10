@@ -26,7 +26,7 @@ uint4 main(Input input) : SV_TARGET
 	float desiredLod = max(anisoLOD + feedbackBias, 0.0);
 
 	float4 feedback;
-    feedback.xy = input.texcoords * float2(textureWidthInPages, textureHeightInPages);
+    feedback.xy = min(input.texcoords * float2(textureWidthInPages, textureHeightInPages), float2(textureWidthInPages - 1.0, textureHeightInPages - 1.0));
     feedback.z = virtualTextureID1 + desiredLod;
 	feedback.w = virtualTextureID2And3;
 	return feedback;

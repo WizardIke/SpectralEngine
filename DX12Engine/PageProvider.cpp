@@ -64,13 +64,14 @@ void PageProvider::addPageLoadRequestHelper(PageLoadRequest& streamingRequest,
 	}
 	std::size_t numBytes, rowBytes, numRows;
 	DDSFileLoader::surfaceInfo(width, height, resourceInfo.format, numBytes, rowBytes, numRows);
-	constexpr std::size_t pageSize = 64u * 1024u;
 	auto heightInPages = resourceInfo.heightInPages >> mipLevel;
 	if (heightInPages == 0u) heightInPages = 1u;
 	auto widthInPages = resourceInfo.widthInPages >> mipLevel;
 	if (widthInPages == 0u) widthInPages = 1u;
 	auto pageX = streamingRequest.allocationInfo.textureLocation.x;
 	auto pageY = streamingRequest.allocationInfo.textureLocation.y;
+	assert(pageX < widthInPages);
+	assert(pageY < heightInPages);
 
 	uint32_t pageHeightInTexels, pageWidthInTexels, pageWidthInBytes;
 	DDSFileLoader::tileWidthAndHeightAndTileWidthInBytes(resourceInfo.format, pageWidthInTexels, pageHeightInTexels, pageWidthInBytes);
@@ -78,6 +79,7 @@ void PageProvider::addPageLoadRequestHelper(PageLoadRequest& streamingRequest,
 	filePos += pageY * rowBytes * pageHeightInTexels;
 	if (pageY != (heightInPages - 1u))
 	{
+		constexpr std::size_t pageSize = 64u * 1024u;
 		filePos += pageSize * pageX;
 		if (pageX < widthInPages)
 		{
@@ -111,9 +113,9 @@ void PageProvider::addPageLoadRequestHelper(PageLoadRequest& streamingRequest,
 	
 	streamingRequest.pageWidthInBytes = pageWidthInBytes;
 	streamingRequest.file = resourceInfo.file;
-	streamingRequest.resourceSize = streamingRequest.widthInBytes * streamingRequest.heightInTexels;
+	streamingRequest.resourceSize = streamingRequest.pageWidthInBytes * streamingRequest.heightInTexels;
 	streamingRequest.start = filePos;
-	streamingRequest.end = filePos + streamingRequest.resourceSize;
+	streamingRequest.end = filePos + streamingRequest.widthInBytes * streamingRequest.heightInTexels;
 	streamingRequest.deleteStreamingRequest = resourceUploaded;
 	streamingRequest.streamResource = streamResource;
 }
@@ -149,7 +151,7 @@ void PageProvider::addPageDataToResource(VirtualTextureInfo& textureInfo, D3D12_
 	commandList->ResourceBarrier(1u, barriers);
 }
 
-void PageProvider::copyPageToUploadBuffer(StreamingManager::StreamingRequest* request, const unsigned char* data)
+void PageProvider::copyPageToUploadBuffer(StreamingManager::StreamingRequest* request, const unsigned char* data) noexcept
 {
 	PageLoadRequest& streamingRequest = *static_cast<PageLoadRequest*>(request);
 	std::size_t widthInBytes = streamingRequest.widthInBytes;

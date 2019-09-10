@@ -90,7 +90,7 @@ private:
 	GraphicsEngine& graphicsEngine;
 	AsynchronousFileManager& asynchronousFileManager;
 
-	static void copyPageToUploadBuffer(StreamingManager::StreamingRequest* useSubresourceRequest, const unsigned char* data);
+	static void copyPageToUploadBuffer(StreamingManager::StreamingRequest* useSubresourceRequest, const unsigned char* data) noexcept;
 	static void addPageLoadRequestHelper(PageLoadRequest& pageRequest,
 		void(*useSubresource)(StreamingManager::StreamingRequest* request, void* tr),
 		void(*resourceUploaded)(StreamingManager::StreamingRequest* request, void* tr));
