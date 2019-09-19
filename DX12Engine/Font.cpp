@@ -40,14 +40,13 @@ static constexpr std::size_t alignedLength(std::size_t length, std::size_t align
 void Font::fontFileLoadedHelper(LoadRequest& loadRequest, const unsigned char* data)
 {
 	Font& font = *loadRequest.font;
-	font.dataSize = static_cast<std::size_t>(static_cast<FontFileLoadRequest&>(loadRequest).end);
+	font.dataSize = static_cast<std::size_t>(static_cast<FontFileLoadRequest&>(loadRequest).end - static_cast<FontFileLoadRequest&>(loadRequest).start);
 	font.data = data;
-	std::size_t currentDataPosition = sizeof(wchar_t);
-	for (auto i = reinterpret_cast<const wchar_t*>(data); *i != L'\0'; ++i)
-	{
-		currentDataPosition += sizeof(wchar_t);
-	}
-	currentDataPosition = alignedLength(currentDataPosition, alignof(uint32_t));
+	std::size_t currentDataPosition = 0u;
+	unsigned long long textureStart = *reinterpret_cast<const uint64_t*>(data + currentDataPosition);
+	currentDataPosition += sizeof(uint64_t);
+	unsigned long long textureEnd = *reinterpret_cast<const uint64_t*>(data + currentDataPosition);
+	currentDataPosition += sizeof(uint64_t);
 	font.mWidth = *reinterpret_cast<const float*>(data + currentDataPosition);
 	currentDataPosition += sizeof(float);
 	font.mHeight = *reinterpret_cast<const float*>(data + currentDataPosition);
@@ -60,11 +59,11 @@ void Font::fontFileLoadedHelper(LoadRequest& loadRequest, const unsigned char* d
 	currentDataPosition += sizeof(uint32_t);
 	currentDataPosition = alignedLength(currentDataPosition, alignof(Kerning));
 	font.kerningsList = reinterpret_cast<const Kerning*>(data + currentDataPosition);
-	static_cast<FontFileLoadRequest&>(loadRequest).file.close();
 
 	TextureManager::TextureStreamingRequest& textureRequest = static_cast<TextureManager::TextureStreamingRequest&>(loadRequest);
 	textureRequest.textureLoaded = textureLoaded;
-	textureRequest.filename = reinterpret_cast<const wchar_t*>(data);
+	textureRequest.resourceLocation.start = textureStart;
+	textureRequest.resourceLocation.end = textureEnd;
 }
 
 void Font::textureLoaded(TextureManager::TextureStreamingRequest& request, void* tr, unsigned int textureDescriptor)

@@ -9,18 +9,12 @@ class PsoLoader
 	class VertexShaderRequest : public AsynchronousFileManager::ReadRequest 
 	{
 	public:
-		VertexShaderRequest(const wchar_t* filename, File file, std::size_t start, std::size_t end,
-			void(*fileLoadedCallback)(ReadRequest& request, AsynchronousFileManager& asynchronousFileManager, void* tr, const unsigned char* data),
-			void(*deleteRequest)(ReadRequest& request, void* tr)) :
-			AsynchronousFileManager::ReadRequest(filename, file, start, end, fileLoadedCallback, deleteRequest) {}
+		using AsynchronousFileManager::ReadRequest::ReadRequest;
 	};
 	class PixelShaderRequest : public AsynchronousFileManager::ReadRequest 
 	{
 	public:
-		PixelShaderRequest(const wchar_t* filename, File file, std::size_t start, std::size_t end,
-			void(*fileLoadedCallback)(ReadRequest& request, AsynchronousFileManager& asynchronousFileManager, void* tr, const unsigned char* data),
-			void(*deleteRequest)(ReadRequest& request, void* tr)) :
-			AsynchronousFileManager::ReadRequest(filename, file, start, end, fileLoadedCallback, deleteRequest) {}
+		using AsynchronousFileManager::ReadRequest::ReadRequest;
 	};
 public:
 	class PsoWithVertexAndPixelShaderRequest : public VertexShaderRequest, public PixelShaderRequest
@@ -48,55 +42,45 @@ public:
 				numberOfComponentsFinished.store(0u, std::memory_order_relaxed);
 				pso = D3D12PipelineState(&device, graphicsPipelineStateDesc);
 				auto& vertexShaderRequest = *static_cast<VertexShaderRequest*>(this);
-				vertexShaderRequest.file.close();
 				auto& pixelShaderRequest = *static_cast<PixelShaderRequest*>(this);
-				pixelShaderRequest.file.close();
 				asynchronousFileManager.discard(vertexShaderRequest);
 				asynchronousFileManager.discard(pixelShaderRequest);
 			}
 		}
-
-		PsoWithVertexAndPixelShaderRequest(const wchar_t* vertexShaderFileName, File vertexShaderFile, const wchar_t* pixelShaderFileName, File pixelShaderFile, GraphicsPipelineStateDesc& graphicsPipelineStateDesc,
-			ID3D12Device& grphicsDevice, void(*psoLoadedCallback1)(PsoWithVertexAndPixelShaderRequest& request, D3D12PipelineState pso, void* tr)) :
-			VertexShaderRequest(vertexShaderFileName, vertexShaderFile, 0u, vertexShaderFile.size(), [](AsynchronousFileManager::ReadRequest& request, AsynchronousFileManager& asynchronousFileManager, void*, const unsigned char* data)
+	public:
+		PsoWithVertexAndPixelShaderRequest(GraphicsPipelineStateDesc& graphicsPipelineStateDesc, ID3D12Device& grphicsDevice,
+			void(*psoLoadedCallback1)(PsoWithVertexAndPixelShaderRequest& request, D3D12PipelineState pso, void* tr)) :
+			VertexShaderRequest{ graphicsPipelineStateDesc.vertexShaderResource.start, graphicsPipelineStateDesc.vertexShaderResource.end, 
+					[](AsynchronousFileManager::ReadRequest& request, AsynchronousFileManager& asynchronousFileManager, void*, const unsigned char* data)
 				{
 					auto& psoRequest = static_cast<PsoWithVertexAndPixelShaderRequest&>(static_cast<VertexShaderRequest&>(request));
 					psoRequest.graphicsPipelineStateDesc.VS.pShaderBytecode = data;
-					psoRequest.graphicsPipelineStateDesc.VS.BytecodeLength = static_cast<SIZE_T>(request.end);
+					psoRequest.graphicsPipelineStateDesc.VS.BytecodeLength = static_cast<SIZE_T>(request.end - request.start);
 					psoRequest.componentLoaded(asynchronousFileManager);
 				}, [](AsynchronousFileManager::ReadRequest& request, void* tr)
 				{
 					static_cast<PsoWithVertexAndPixelShaderRequest&>(static_cast<VertexShaderRequest&>(request)).deleteComponent(tr);
-				}),
-			PixelShaderRequest(pixelShaderFileName, pixelShaderFile, 0u, pixelShaderFile.size(), [](AsynchronousFileManager::ReadRequest& request, AsynchronousFileManager& asynchronousFileManager, void*, const unsigned char* data)
+				} },
+			PixelShaderRequest{ graphicsPipelineStateDesc.pixelShaderResource.start, graphicsPipelineStateDesc.pixelShaderResource.end, 
+					[](AsynchronousFileManager::ReadRequest& request, AsynchronousFileManager& asynchronousFileManager, void*, const unsigned char* data)
 				{
 					auto& psoRequest = static_cast<PsoWithVertexAndPixelShaderRequest&>(static_cast<PixelShaderRequest&>(request));
 					psoRequest.graphicsPipelineStateDesc.PS.pShaderBytecode = data;
-					psoRequest.graphicsPipelineStateDesc.PS.BytecodeLength = static_cast<SIZE_T>(request.end);
+					psoRequest.graphicsPipelineStateDesc.PS.BytecodeLength = static_cast<SIZE_T>(request.end - request.start);
 					psoRequest.componentLoaded(asynchronousFileManager);
 				}, [](AsynchronousFileManager::ReadRequest& request, void* tr)
 				{
 					static_cast<PsoWithVertexAndPixelShaderRequest&>(static_cast<PixelShaderRequest&>(request)).deleteComponent(tr);
-				}),
+				} },
 			graphicsPipelineStateDesc(graphicsPipelineStateDesc),
 			device(grphicsDevice),
-			psoLoadedCallback(psoLoadedCallback1) {}
-	public:
-		PsoWithVertexAndPixelShaderRequest(GraphicsPipelineStateDesc& graphicsPipelineStateDesc, AsynchronousFileManager& asynchronousFileManager, ID3D12Device& grphicsDevice,
-			void(*psoLoadedCallback1)(PsoWithVertexAndPixelShaderRequest& request, D3D12PipelineState pso, void* tr)) :
-			PsoWithVertexAndPixelShaderRequest(graphicsPipelineStateDesc.vertexShaderFileName,
-				asynchronousFileManager.openFileForReading(graphicsPipelineStateDesc.vertexShaderFileName),
-				graphicsPipelineStateDesc.pixelShaderFileName,
-				asynchronousFileManager.openFileForReading(graphicsPipelineStateDesc.pixelShaderFileName),
-				graphicsPipelineStateDesc,
-				grphicsDevice,
-				psoLoadedCallback1)
+			psoLoadedCallback(psoLoadedCallback1)
 		{}
 
 		void load(AsynchronousFileManager& asynchronousFileManager)
 		{
-			asynchronousFileManager.readFile(*static_cast<VertexShaderRequest*>(this));
-			asynchronousFileManager.readFile(*static_cast<PixelShaderRequest*>(this));
+			asynchronousFileManager.read(*static_cast<VertexShaderRequest*>(this));
+			asynchronousFileManager.read(*static_cast<PixelShaderRequest*>(this));
 		}
 	};
 

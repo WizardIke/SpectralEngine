@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <AsynchronousFileManager.h>
 #include <ActorQueue.h>
+#include <ResourceLocation.h>
 class ThreadResources;
 class SoundEngine;
 
@@ -48,11 +49,10 @@ private:
 	//The size of one of the numberOfBuffers sound buffers
 	constexpr static std::size_t rawSoundDataBufferSize = 64u * 1024u;
 	XAudio2SourceVoice musicPlayer;
-	const wchar_t* const * files;
+	const ResourceLocation* const files;
 	std::size_t fileCount;
-	File file;
 	std::size_t previousTrack;
-	std::size_t filePosition;
+	unsigned long long filePosition;
 	std::size_t bytesRemaining;
 	ActorQueue freeBufferDescriptors;
 	Buffer* currentBuffer;
@@ -79,7 +79,7 @@ private:
 	bool processMessage(SinglyLinked*& temp, ThreadResources& threadResources);
 	void continueRunning(ThreadResources& threadResources);
 public:
-	AmbientMusic(SoundEngine& soundEngine, AsynchronousFileManager& asynchronousFileManager, const wchar_t* const * files, std::size_t fileCount);
+	AmbientMusic(SoundEngine& soundEngine, AsynchronousFileManager& asynchronousFileManager, const ResourceLocation* files, std::size_t fileCount);
 	~AmbientMusic();
 	void start(ThreadResources& threadResources);
 	void stop(StopRequest& stopRequest, ThreadResources& threadResources);

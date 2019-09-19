@@ -255,6 +255,7 @@
     <ClInclude Include="PriorityQueue.h" />
     <ClInclude Include="PsoLoader.h" />
     <ClInclude Include="RenderToTexture.h" />
+    <ClInclude Include="ResourceLocation.h" />
     <ClInclude Include="SinglyLinked.h" />
     <ClInclude Include="RunnableIOCompletionQueue.h" />
     <ClInclude Include="ThreadBarrier.h" />

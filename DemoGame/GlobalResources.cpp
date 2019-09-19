@@ -77,7 +77,7 @@ class GlobalResources::InitialResourceLoader : public Font::LoadRequest, public 
 	std::atomic<unsigned int> numberOfComponentsLoaded = 0u;
 	GlobalResources& globalResources;
 public:
-	InitialResourceLoader(GlobalResources& globalResources, const wchar_t* fontFilename) :
+	InitialResourceLoader(GlobalResources& globalResources, ResourceLocation fontFilename) :
 		Font::LoadRequest(fontFilename, fontsLoadedCallback),
 		PipelineStateObjects::PipelineLoader(pipelineStateObjectsLoadedCallback),
 		globalResources(globalResources)
@@ -109,7 +109,7 @@ class GlobalResources::Unloader : private PrimaryTaskFromOtherThreadQueue::Task
 	public:
 		Unloader* unloader;
 
-		FontStopRequest(Unloader* unloader, const wchar_t* fileName, void(*callback)(Font::UnloadRequest& stopRequest, void* tr)) :
+		FontStopRequest(Unloader* unloader, ResourceLocation fileName, void(*callback)(Font::UnloadRequest& stopRequest, void* tr)) :
 			unloader(unloader), Font::UnloadRequest(fileName, callback) {}
 	};
 
@@ -315,7 +315,7 @@ void GlobalResources::onResize(unsigned int width, unsigned int height)
 	renderPass.resize(width, height, window, graphicsEngine);
 }
 
-static const wchar_t* const musicFiles[] = 
+static const ResourceLocation musicFiles[] = 
 {
 	Resources::Music::Heroic_Demise_New,
 	Resources::Music::Tropic_Strike
@@ -344,7 +344,7 @@ GlobalResources::GlobalResources(const unsigned int numberOfThreads, Window::Sta
 	taskShedular(numberOfThreads > 2u ? numberOfThreads : 2u, ThreadResources::endUpdate1),
 	mainThreadResources(0u, *this, ThreadResources::mainEndUpdate2),
 	ioCompletionQueue(),
-	asynchronousFileManager(ioCompletionQueue),
+	asynchronousFileManager(ioCompletionQueue, L"Resources.data"),
 	textureManager(asynchronousFileManager, streamingManager, graphicsEngine),
 	meshManager(asynchronousFileManager, streamingManager, *graphicsEngine.graphicsDevice),
 	soundEngine(),

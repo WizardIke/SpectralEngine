@@ -4,7 +4,7 @@
 #include <SoundEngine.h>
 #include <random>
 
-AmbientMusic::AmbientMusic(SoundEngine& soundEngine, AsynchronousFileManager& asynchronousFileManager, const wchar_t* const * files, std::size_t fileCount) :
+AmbientMusic::AmbientMusic(SoundEngine& soundEngine, AsynchronousFileManager& asynchronousFileManager, const ResourceLocation* files, std::size_t fileCount) :
 	musicPlayer(soundEngine.audioDevice, []()
 {
 	WAVEFORMATEX waveFormat;
@@ -47,7 +47,6 @@ AmbientMusic::AmbientMusic(SoundEngine& soundEngine, AsynchronousFileManager& as
 			else
 			{
 				music.currentBuffer = &buffer;
-				music.file.close();
 				music.findNextMusic(threadResources, [](AmbientMusic& music, ThreadResources& threadResources)
 				{
 					auto& buffer = *music.currentBuffer;
@@ -82,8 +81,6 @@ AmbientMusic::AmbientMusic(SoundEngine& soundEngine, AsynchronousFileManager& as
 		auto& threadResources = *static_cast<ThreadResources*>(tr);
 		music.callback(music, threadResources);
 	};
-	infoRequest.start = 0u;
-	infoRequest.end = 4 * 1024u;
 }
 
 AmbientMusic::~AmbientMusic() {}
@@ -206,7 +203,6 @@ bool AmbientMusic::processMessage(SinglyLinked*& temp, ThreadResources& threadRe
 			++stopRequest->numberOfComponentsUnloaded;
 			if(stopRequest->numberOfComponentsUnloaded == StopRequest::numberOfComponentsToUnload)
 			{
-				file.close();
 				stopRequest->callback(*stopRequest, &threadResources);
 				freeBufferDescriptors.stop();
 				return true;
@@ -243,24 +239,21 @@ void AmbientMusic::findNextMusic(ThreadResources& threadResources, void(*callbac
 		}
 	}
 	previousTrack = track;
-	filePosition = 4 * 1024u;
+	filePosition = files[track].start + 4u * 1024u;
 
 	auto& request = infoRequest;
-	request.filename = files[track];
-	request.file = asynchronousFileManager.openFileForReading(request.filename);
-	file = request.file;
-	asynchronousFileManager.readFile(request);
+	request.start = files[track].start;
+	request.end = files[track].start + 4u * 1024u;
+	asynchronousFileManager.read(request);
 }
 
 void AmbientMusic::fillAndSubmitBuffer(Buffer& buffer)
 {
 	std::size_t bytesToCopy = std::min(rawSoundDataBufferSize, bytesRemaining);
 	assert(bytesToCopy != 0u);
-	buffer.filename = files[previousTrack];
-	buffer.file = file;
 	buffer.start = filePosition;
 	buffer.end = filePosition + bytesToCopy;
-	asynchronousFileManager.readFile(buffer);
+	asynchronousFileManager.read(buffer);
 }
 
 void AmbientMusic::submitBuffer(IXAudio2SourceVoice* musicPlayer, void* context, const unsigned char* data, std::size_t length)

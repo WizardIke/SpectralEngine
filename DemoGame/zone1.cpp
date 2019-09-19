@@ -618,12 +618,12 @@ namespace
 				return new HdUnloader(zone1);
 			}
 
-			void unloadTextures(const wchar_t* const(&filenames)[numTextures], ThreadResources& threadResources, TextureManager& textureManager)
+			void unloadTextures(const ResourceLocation (&filenames)[numTextures], ThreadResources& threadResources, TextureManager& textureManager)
 			{
 				static_cast<TextureUnloader<numTextures>&>(*this).unload(filenames, threadResources, textureManager);
 			}
 
-			void unloadMeshes(const wchar_t* const(&filenames)[numMeshes], ThreadResources& threadResources, MeshManager& meshManager)
+			void unloadMeshes(const ResourceLocation (&filenames)[numMeshes], ThreadResources& threadResources, MeshManager& meshManager)
 			{
 				static_cast<MeshUnloader<numMeshes>&>(*this).unload(filenames, threadResources, meshManager);
 			}

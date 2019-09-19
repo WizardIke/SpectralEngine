@@ -8,6 +8,7 @@
 #include "AsynchronousFileManager.h"
 #include "IOCompletionQueue.h"
 #include "ActorQueue.h"
+#include "ResourceLocation.h"
 class GraphicsEngine;
 
 class TextureManager
@@ -25,9 +26,10 @@ public:
 		Action textureAction;
 
 		Message() {}
-		Message(const wchar_t* filename, void(*deleteRequest)(ReadRequest& request, void* tr))
+		Message(ResourceLocation filename, void(*deleteRequest)(ReadRequest& request, void* tr))
 		{
-			this->filename = filename;
+			start = filename.start;
+			end = filename.end;
 			this->deleteReadRequest = deleteRequest;
 		}
 	};
@@ -35,6 +37,7 @@ public:
 	class TextureStreamingRequest : public StreamingManager::StreamingRequest, public Message
 	{
 	public:
+		ResourceLocation resourceLocation;
 		uint32_t width;
 		DXGI_FORMAT format;
 		D3D12_RESOURCE_DIMENSION dimension;
@@ -52,10 +55,10 @@ public:
 
 		TextureStreamingRequest() {}
 		TextureStreamingRequest(void(*textureLoaded)(TextureStreamingRequest& request, void* tr, unsigned int textureDescriptor),
-			const wchar_t * filename) :
+			ResourceLocation filename) :
 			textureLoaded(textureLoaded)
 		{
-			this->filename = filename;
+			resourceLocation = filename;
 		}
 	};
 
@@ -72,25 +75,19 @@ private:
 
 	struct Hash
 	{
-		std::size_t operator()(const wchar_t* str) const noexcept
+		std::size_t operator()(ResourceLocation resourceLocation) const noexcept
 		{
-			std::size_t result = 0u;
-			while (*str != L'\0')
-			{
-				result = (result ^ std::size_t{ *str }) * static_cast<std::size_t>(16777619ul);
-				++str;
-			}
-			return result;
+			return static_cast<std::size_t>(resourceLocation.start * 32u + resourceLocation.end);
 		}
 	};
 
 	ActorQueue messageQueue;
-	std::unordered_map<const wchar_t* const, Texture, Hash> textures;
+	std::unordered_map<ResourceLocation, Texture, Hash> textures;
 	AsynchronousFileManager& asynchronousFileManager;
 	StreamingManager& streamingManager;
 	GraphicsEngine& graphicsEngine;
 
-	static ID3D12Resource* createTexture(const TextureStreamingRequest& useSubresourceRequest, GraphicsEngine& graphicsEngine, unsigned int& discriptorIndex, const wchar_t* filename);
+	static ID3D12Resource* createTexture(const TextureStreamingRequest& useSubresourceRequest, GraphicsEngine& graphicsEngine, unsigned int& discriptorIndex);
 
 	void notifyTextureReady(TextureStreamingRequest* request, void* tr);
 
@@ -123,14 +120,14 @@ private:
 			std::size_t resourceSize = DDSFileLoader::resourceSize(uploadRequest.width, uploadRequest.height, uploadRequest.depth, uploadRequest.mipLevels, uploadRequest.arraySize, uploadRequest.format);
 			constexpr std::size_t fileOffset = sizeof(DDSFileLoader::DdsHeaderDx12);
 
-			uploadRequest.start = fileOffset;
-			uploadRequest.end = fileOffset + resourceSize;
+			uploadRequest.start = uploadRequest.resourceLocation.start + fileOffset;
+			uploadRequest.end = uploadRequest.start + resourceSize;
 			uploadRequest.fileLoadedCallback = [](AsynchronousFileManager::ReadRequest& request, AsynchronousFileManager& asynchronousFileManager, void* tr, const unsigned char* buffer)
 			{
 				TextureStreamingRequest& uploadRequest = static_cast<TextureStreamingRequest&>(request);
 				ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
 				StreamingManager::ThreadLocal& streamingManager = threadResources.streamingManager;
-				uploadRequest.resource = createTexture(uploadRequest, uploadRequest.textureManager->graphicsEngine, uploadRequest.discriptorIndex, uploadRequest.filename);
+				uploadRequest.resource = createTexture(uploadRequest, uploadRequest.textureManager->graphicsEngine, uploadRequest.discriptorIndex);
 
 				DDSFileLoader::copyResourceToGpu(uploadRequest.resource, uploadRequest.uploadResource, uploadRequest.uploadResourceOffset, uploadRequest.width, uploadRequest.height,
 					uploadRequest.depth, uploadRequest.mipLevels, uploadRequest.arraySize, uploadRequest.format, uploadRequest.uploadBufferCurrentCpuAddress, buffer, &streamingManager.copyCommandList());
@@ -145,7 +142,7 @@ private:
 				};
 				asynchronousFileManager.discard(uploadRequest);
 			};
-			uploadRequest.textureManager->asynchronousFileManager.readFile(uploadRequest);
+			uploadRequest.textureManager->asynchronousFileManager.read(uploadRequest);
 		} });
 	}
 
@@ -156,9 +153,8 @@ private:
 	void loadTextureUncached(TextureStreamingRequest* request)
 	{
 		request->textureManager = this;
-		request->file = asynchronousFileManager.openFileForReading(request->filename);
-		request->start = 0u;
-		request->end = sizeof(DDSFileLoader::DdsHeaderDx12);
+		request->start = request->resourceLocation.start;
+		request->end = request->start + sizeof(DDSFileLoader::DdsHeaderDx12);
 		request->fileLoadedCallback = [](AsynchronousFileManager::ReadRequest& request, AsynchronousFileManager& asynchronousFileManager, void*, const unsigned char* buffer)
 		{
 			TextureStreamingRequest& uploadRequest = static_cast<TextureStreamingRequest&>(request);
@@ -172,13 +168,13 @@ private:
 			StreamingManager& streamingManager = request.textureManager->streamingManager;
 			streamingManager.addUploadRequest(&request, threadResources);
 		};
-		asynchronousFileManager.readFile(*request);
+		asynchronousFileManager.read(*request);
 	}
 
 	template<class ThreadResources>
 	void loadTexture(ThreadResources& threadResources, TextureStreamingRequest* request)
 	{
-		Texture& texture = textures[request->filename];
+		Texture& texture = textures[request->resourceLocation];
 		texture.numUsers += 1u;
 		if(texture.numUsers == 1u)
 		{

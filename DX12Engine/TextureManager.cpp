@@ -12,7 +12,7 @@ TextureManager::TextureManager(AsynchronousFileManager& asynchronousFileManager1
 
 void TextureManager::unloadTexture(UnloadRequest& unloadRequest, void* tr)
 {
-	auto texurePtr = textures.find(unloadRequest.filename);
+	auto texurePtr = textures.find({ unloadRequest.start, unloadRequest.end });
 	auto& texture = texurePtr->second;
 	texture.numUsers -= 1u;
 	if(texture.numUsers == 0u)
@@ -23,7 +23,7 @@ void TextureManager::unloadTexture(UnloadRequest& unloadRequest, void* tr)
 	unloadRequest.deleteReadRequest(unloadRequest, tr);
 }
 
-ID3D12Resource* TextureManager::createTexture(const TextureStreamingRequest& uploadRequest, GraphicsEngine& graphicsEngine, unsigned int& discriptorIndex, const wchar_t* filename)
+ID3D12Resource* TextureManager::createTexture(const TextureStreamingRequest& uploadRequest, GraphicsEngine& graphicsEngine, unsigned int& discriptorIndex)
 {
 	D3D12_HEAP_PROPERTIES textureHeapProperties;
 	textureHeapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
@@ -47,12 +47,6 @@ ID3D12Resource* TextureManager::createTexture(const TextureStreamingRequest& upl
 
 	D3D12Resource resource(graphicsEngine.graphicsDevice, textureHeapProperties, D3D12_HEAP_FLAGS::D3D12_HEAP_FLAG_NONE, textureDesc,
 		D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_COMMON);
-
-#ifndef NDEBUG
-	std::wstring name = L"texture ";
-	name += filename;
-	resource->SetName(name.c_str());
-#endif // NDEBUG
 
 	discriptorIndex = graphicsEngine.descriptorAllocator.allocate();
 	D3D12_CPU_DESCRIPTOR_HANDLE discriptorHandle = graphicsEngine.mainDescriptorHeap->GetCPUDescriptorHandleForHeapStart() +
@@ -139,7 +133,7 @@ void TextureManager::loadTextureFromMemory(const unsigned char* buffer, TextureS
 
 void TextureManager::notifyTextureReady(TextureStreamingRequest* request, void* tr)
 {
-	auto& texture = textures[request->filename];
+	auto& texture = textures[request->resourceLocation];
 	texture.lastRequest = nullptr;
 	texture.resource.set() = request->resource;
 	const unsigned int discriptorIndex = request->discriptorIndex;

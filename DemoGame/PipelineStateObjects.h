@@ -19,10 +19,10 @@ public:
 			PipelineLoader* pipelineLoader;
 			D3D12PipelineState& piplineStateObject;
 
-			ShaderLoader(GraphicsPipelineStateDesc& graphicsPipelineStateDesc, AsynchronousFileManager& asynchronousFileManager, ID3D12Device& grphicsDevice,
+			ShaderLoader(GraphicsPipelineStateDesc& graphicsPipelineStateDesc, ID3D12Device& graphicsDevice,
 				void(*psoLoadedCallback1)(PsoLoader::PsoWithVertexAndPixelShaderRequest& request, D3D12PipelineState pso, void* tr),
 				PipelineLoader* pipelineLoader1, D3D12PipelineState& piplineStateObject1) :
-				PsoLoader::PsoWithVertexAndPixelShaderRequest(graphicsPipelineStateDesc, asynchronousFileManager, grphicsDevice, psoLoadedCallback1),
+				PsoLoader::PsoWithVertexAndPixelShaderRequest(graphicsPipelineStateDesc, graphicsDevice, psoLoadedCallback1),
 				pipelineLoader(pipelineLoader1),
 				piplineStateObject(piplineStateObject1)
 				{}

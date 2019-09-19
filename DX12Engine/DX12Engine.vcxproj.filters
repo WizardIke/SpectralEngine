@@ -421,6 +421,7 @@
     <ClInclude Include="FixedSizeFastIterationHashSet.h">
       <Filter>HashSets</Filter>
     </ClInclude>
+    <ClInclude Include="ResourceLocation.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DDSFileLoader.cpp">

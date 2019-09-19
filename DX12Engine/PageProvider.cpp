@@ -47,7 +47,6 @@ void PageProvider::addPageLoadRequestHelper(PageLoadRequest& streamingRequest,
 {
 	VirtualTextureInfoByID& texturesByID = streamingRequest.pageProvider->texturesByID;
 	VirtualTextureInfo& resourceInfo = texturesByID[streamingRequest.allocationInfo.textureLocation.textureId];
-	streamingRequest.filename = resourceInfo.filename;
 	unsigned int mipLevel = streamingRequest.allocationInfo.textureLocation.mipLevel;
 	auto width = resourceInfo.width;
 	auto height = resourceInfo.height;
@@ -112,10 +111,9 @@ void PageProvider::addPageLoadRequestHelper(PageLoadRequest& streamingRequest,
 	}
 	
 	streamingRequest.pageWidthInBytes = pageWidthInBytes;
-	streamingRequest.file = resourceInfo.file;
 	streamingRequest.resourceSize = streamingRequest.pageWidthInBytes * streamingRequest.heightInTexels;
-	streamingRequest.start = filePos;
-	streamingRequest.end = filePos + streamingRequest.widthInBytes * streamingRequest.heightInTexels;
+	streamingRequest.start = resourceInfo.resourceStart + filePos;
+	streamingRequest.end = streamingRequest.start + streamingRequest.widthInBytes * streamingRequest.heightInTexels;
 	streamingRequest.deleteStreamingRequest = resourceUploaded;
 	streamingRequest.streamResource = streamResource;
 }
@@ -484,7 +482,6 @@ void PageProvider::addNewPagesToCache(ResizingArray<std::pair<PageResourceLocati
 void PageProvider::deleteTextureHelper(UnloadRequest& unloadRequest, void* tr)
 {
 	VirtualTextureInfo& textureInfo = *unloadRequest.textureInfo;
-	textureInfo.file.close();
 	std::size_t numberOfNewUnneededLoadingPages = 0u;
 	textureInfo.pageCacheData.pageLookUp.consume([&pageCache = pageCache, &pageAllocator = pageAllocator, &numberOfNewUnneededLoadingPages](auto&& page)
 	{

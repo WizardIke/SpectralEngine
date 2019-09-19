@@ -5,6 +5,7 @@
 #include "File.h"
 #include "AsynchronousFileManager.h"
 #include "ActorQueue.h"
+#include "ResourceLocation.h"
 
 class MeshManager
 {
@@ -21,9 +22,10 @@ public:
 		Action meshAction;
 
 		Message() {}
-		Message(const wchar_t* filename, void(*deleteRequest)(ReadRequest& request, void* tr))
+		Message(ResourceLocation filename, void(*deleteRequest)(ReadRequest& request, void* tr))
 		{
-			this->filename = filename;
+			start = filename.start;
+			end = filename.end;
 			this->deleteReadRequest = deleteRequest;
 		}
 	};
@@ -31,6 +33,7 @@ public:
 	class MeshStreamingRequest : public StreamingManager::StreamingRequest, public Message
 	{
 	public:
+		ResourceLocation resourceLocation;
 		uint32_t sizeOnFile;
 		uint32_t verticesSize;
 		uint32_t indicesSize;
@@ -46,10 +49,10 @@ public:
 		void(*meshLoaded)(MeshStreamingRequest& request, void* tr, Mesh& mesh);
 
 		MeshStreamingRequest(void(*meshLoaded)(MeshStreamingRequest& request, void* tr, Mesh& mesh),
-			const wchar_t * filename) :
+			ResourceLocation filename) :
 			meshLoaded(meshLoaded)
 		{
-			this->filename = filename;
+			resourceLocation = filename;
 		}
 	};
 
@@ -111,20 +114,14 @@ private:
 
 	struct Hash
 	{
-		std::size_t operator()(const wchar_t* str) const noexcept
+		std::size_t operator()(ResourceLocation resourceLocation) const noexcept
 		{
-			std::size_t result = 0u;
-			while (*str != L'\0')
-			{
-				result = (result ^ std::size_t{ *str }) * static_cast<std::size_t>(16777619ul);
-				++str;
-			}
-			return result;
+			return static_cast<std::size_t>(resourceLocation.start * 32u + resourceLocation.end);
 		}
 	};
 
 	ActorQueue messageQueue;
-	std::unordered_map<const wchar_t*, MeshInfo, Hash> meshInfos;
+	std::unordered_map<ResourceLocation, MeshInfo, Hash> meshInfos;
 	AsynchronousFileManager& asynchronousFileManager;
 	StreamingManager& streamingManager;
 	ID3D12Device& graphicsDevice;
@@ -179,16 +176,15 @@ private:
 			auto& uploadRequest = *static_cast<MeshStreamingRequest*>(static_cast<StreamingManager::StreamingRequest*>(requester));
 			const auto sizeOnFile = uploadRequest.sizeOnFile;
 
-			uploadRequest.start = sizeof(MeshHeader);
-			uploadRequest.end = sizeof(MeshHeader) + sizeOnFile;
+			uploadRequest.start = uploadRequest.resourceLocation.start + sizeof(MeshHeader);
+			uploadRequest.end = uploadRequest.start + sizeOnFile;
 			uploadRequest.fileLoadedCallback = [](AsynchronousFileManager::ReadRequest& request, AsynchronousFileManager&, void* tr, const unsigned char* buffer)
 			{
 				ThreadResources& threadResources = *static_cast<ThreadResources*>(tr);
 				auto& uploadRequest = static_cast<MeshStreamingRequest&>(request);
-				uploadRequest.file.close();
 				useResourceHelper(uploadRequest, buffer, &uploadRequest.meshManager->graphicsDevice, threadResources.streamingManager, copyFinished<ThreadResources>);
 			};
-			uploadRequest.meshManager->asynchronousFileManager.readFile(uploadRequest);
+			uploadRequest.meshManager->asynchronousFileManager.read(uploadRequest);
 		}});
 	}
 
@@ -258,9 +254,8 @@ private:
 	void loadMeshUncached(MeshStreamingRequest& request)
 	{
 		request.meshManager = this;
-		request.file = asynchronousFileManager.openFileForReading(request.filename);
-		request.start = 0u;
-		request.end = sizeof(MeshHeader);
+		request.start = request.resourceLocation.start;
+		request.end = request.start + sizeof(MeshHeader);
 		request.fileLoadedCallback = [](AsynchronousFileManager::ReadRequest& request, AsynchronousFileManager& asynchronousFileManager, void*, const unsigned char* buffer)
 		{
 			MeshStreamingRequest& uploadRequest = static_cast<MeshStreamingRequest&>(request);
@@ -275,21 +270,17 @@ private:
 			StreamingManager& streamingManager = uploadRequest.meshManager->streamingManager;
 			streamingManager.addUploadRequest(&uploadRequest, threadResources);
 		};
-		asynchronousFileManager.readFile(request);
+		asynchronousFileManager.read(request);
 	}
 
-	static void createMeshResources(ID3D12Resource*& vertices, ID3D12Resource*& indices, ID3D12Heap*& meshBuffer, ID3D12Device* graphicsDevice, uint32_t vertexSizeBytes, uint32_t indexSizeBytes
-#ifndef NDEBUG
-		, const wchar_t* filename
-#endif
-	);
+	static void createMeshResources(ID3D12Resource*& vertices, ID3D12Resource*& indices, ID3D12Heap*& meshBuffer, ID3D12Device* graphicsDevice, uint32_t vertexSizeBytes, uint32_t indexSizeBytes);
 	static void CalculateTangentBitangent(const unsigned char* start, const unsigned char* end, MeshWithPositionTextureNormalTangentBitangent* Mesh);
 	static void fillMesh(Mesh& mesh, MeshStreamingRequest& request);
 
 	template<class ThreadResources>
 	void loadMesh(MeshStreamingRequest* request, ThreadResources& tr)
 	{
-		MeshInfo& meshInfo = meshInfos[request->filename];
+		MeshInfo& meshInfo = meshInfos[request->resourceLocation];
 		meshInfo.numUsers += 1u;
 		if(meshInfo.numUsers == 1u)
 		{

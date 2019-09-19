@@ -1,4 +1,7 @@
 #include "VirtualTextureManager.h"
+#ifndef NDEBUG
+#include <string>
+#endif
 
 VirtualTextureManager::VirtualTextureManager(PageProvider& pageProvider1, StreamingManager& streamingManager1, GraphicsEngine& graphicsEngine1, AsynchronousFileManager& asynchronousFileManager1) :
 	pageProvider(pageProvider1),
@@ -81,7 +84,7 @@ static unsigned int createTextureDescriptor(GraphicsEngine& graphicsEngine, ID3D
 
 void VirtualTextureManager::unloadTexture(UnloadRequest& unloadRequest, void* tr)
 {
-	auto texturePtr = textures.find(unloadRequest.filename);
+	auto texturePtr = textures.find({ unloadRequest.start, unloadRequest.end });
 	auto& texture = texturePtr->second;
 	--texture.numUsers;
 	if (texture.numUsers == 0u)
@@ -112,8 +115,11 @@ void VirtualTextureManager::createVirtualTexture(GraphicsEngine& graphicsEngine,
 	auto resource = createResource(*graphicsEngine.graphicsDevice, static_cast<D3D12_RESOURCE_DIMENSION>(header.dimension), header.dxgiFormat,
 		header.width, header.height, static_cast<UINT16>(header.mipMapCount));
 #ifndef NDEBUG
-	std::wstring name = L"virtual texture ";
-	name += uploadRequest.filename;
+	std::wstring name = L"virtual texture {";
+	name += std::to_wstring(uploadRequest.resourceLocation.start);
+	name += L", ";
+	name += std::to_wstring(uploadRequest.resourceLocation.end);
+	name += L"}";
 	resource->SetName(name.c_str());
 #endif
 
@@ -154,8 +160,7 @@ void VirtualTextureManager::textureCreatedHealper(TextureStreamingRequest& uploa
 	textureInfo.height = header.height;
 	textureInfo.format = header.dxgiFormat;
 	textureInfo.numMipLevels = static_cast<unsigned int>(header.mipMapCount);
-	textureInfo.file = uploadRequest.file;
-	textureInfo.filename = uploadRequest.filename;
+	textureInfo.resourceStart = uploadRequest.resourceLocation.start;
 
 	texture.descriptorIndex = createTextureDescriptor(graphicsEngine, textureInfo.resource, textureInfo.format, uploadRequest.dimension, textureInfo.numMipLevels);
 
@@ -170,7 +175,7 @@ void VirtualTextureManager::textureCreatedHealper(TextureStreamingRequest& uploa
 
 void VirtualTextureManager::notifyTextureReady(TextureStreamingRequest* request, void* tr)
 {
-	auto& texture = textures[request->filename];
+	auto& texture = textures[request->resourceLocation];
 	texture.lastRequest = nullptr;
 	do
 	{
@@ -217,8 +222,8 @@ void VirtualTextureManager::textureUseResourceHelper(TextureStreamingRequest& up
 		if(subresourceHeight == 0u) subresourceHeight = 1u;
 	}
 
-	uploadRequest.start = fileOffset;
-	uploadRequest.end = fileOffset + subresourceSize;
+	uploadRequest.start = uploadRequest.resourceLocation.start + fileOffset;
+	uploadRequest.end = uploadRequest.start + subresourceSize;
 	uploadRequest.fileLoadedCallback = fileLoadedCallback;
 }
 

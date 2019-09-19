@@ -35,8 +35,7 @@ public:
 	unsigned int height;
 	unsigned int textureID;
 	unsigned long pinnedPageCount;
-	File file;
-	const wchar_t* filename;
+	unsigned long long resourceStart;
 	std::unique_ptr<GpuHeapLocation[]> pinnedHeapLocations;
 	PageCachePerTextureData pageCacheData;
 	UnloadRequest* unloadRequest;

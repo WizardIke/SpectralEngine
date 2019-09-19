@@ -29,7 +29,7 @@ namespace
 
 	struct FontDescriptor
 	{
-		std::wstring textureFileName;
+		std::string textureFileName;
 		float width;
 		float height;
 		float scaleW;
@@ -183,8 +183,11 @@ namespace
 					{
 						path = currentDirectory / path;
 					}
-					path += ".data";
-					font.textureFileName = path.lexically_relative(baseInputDirectory);
+					while (path.has_extension())
+					{
+						path.replace_extension();
+					}
+					font.textureFileName = path.lexically_relative(baseInputDirectory).string();
 				}
 			}
 		}
@@ -442,16 +445,17 @@ namespace
 		return (length + (alignment - 1u)) & ~(alignment - 1u);
 	}
 
-	static void writeToFontFile(std::ofstream& outFile, const FontDescriptor& font)
+	static void writeToFontFile(std::ofstream& outFile, std::ofstream& linkFile, const FontDescriptor& font)
 	{
-		auto fileNameLengthBytes = (font.textureFileName.size() + 1u) * sizeof(wchar_t); //include null char
-		outFile.write(reinterpret_cast<const char*>(font.textureFileName.c_str()), fileNameLengthBytes);
-		constexpr char padding = '\0';
-		auto paddedLength = alignedLength(fileNameLengthBytes, alignof(uint32_t));
-		for (auto i = paddedLength - fileNameLengthBytes; i != 0u; --i)
-		{
-			outFile.write(&padding, sizeof(char));
-		}
+		auto fileNameLengthBytes = (font.textureFileName.size() + 1u) * sizeof(char); //include null char
+		linkFile.write(font.textureFileName.c_str(), fileNameLengthBytes);
+		uint64_t textureResourceLocation = 0u;
+		linkFile.write(reinterpret_cast<const char*>(&textureResourceLocation), sizeof(textureResourceLocation));
+
+
+		uint64_t textureResourcePadding = 0u;
+		outFile.write(reinterpret_cast<const char*>(&textureResourcePadding), sizeof(textureResourcePadding));
+		outFile.write(reinterpret_cast<const char*>(&textureResourcePadding), sizeof(textureResourcePadding));
 
 		outFile.write(reinterpret_cast<const char*>(&font.width), sizeof(float));
 		outFile.write(reinterpret_cast<const char*>(&font.height), sizeof(float));
@@ -465,11 +469,12 @@ namespace
 
 		uint32_t kerningCount = static_cast<uint32_t>(font.kernings.size());
 		outFile.write(reinterpret_cast<const char*>(&kerningCount), sizeof(uint32_t));
-		auto lengthWritten = paddedLength + sizeof(float) + sizeof(float) + sizeof(uint32_t)
+		auto lengthWritten = 2u * sizeof(uint64_t) + sizeof(float) + sizeof(float) + sizeof(uint32_t)
 			+ font.charDescriptors.size() * sizeof(CharDescriptor) + sizeof(uint32_t);
-		paddedLength = alignedLength(lengthWritten, alignof(Kerning));
+		auto paddedLength = alignedLength(lengthWritten, alignof(Kerning));
 		for (auto i = paddedLength - lengthWritten; i != 0u; --i)
 		{
+			constexpr char padding = '\0';
 			outFile.write(&padding, sizeof(char));
 		}
 		if (font.kernings.size() != 0u)
@@ -493,9 +498,17 @@ extern "C"
 		{
 			auto inputPath = baseInputPath / relativeInputPath;
 			auto outputPath = baseOutputPath / relativeInputPath;
-			outputPath += ".data";
+			while (outputPath.has_extension())
+			{
+				outputPath.replace_extension();
+			}
+			auto linkingOutputPath = baseOutputPath / "Linking" / relativeInputPath;
+			while (linkingOutputPath.has_extension())
+			{
+				linkingOutputPath.replace_extension();
+			}
 
-			if (!forceReImport && std::filesystem::exists(outputPath) && std::filesystem::last_write_time(outputPath) > std::filesystem::last_write_time(inputPath))
+			if (!forceReImport && std::filesystem::exists(linkingOutputPath) && std::filesystem::exists(outputPath) && std::filesystem::last_write_time(outputPath) > std::filesystem::last_write_time(inputPath))
 			{
 				return true;
 			}
@@ -527,7 +540,13 @@ extern "C"
 				std::filesystem::create_directories(outputDirectory);
 			}
 			std::ofstream outFile{ outputPath, std::ios::binary };
-			writeToFontFile(outFile, font);
+			const auto& linkingOutputDirectory = linkingOutputPath.parent_path();
+			if (!std::filesystem::exists(linkingOutputDirectory))
+			{
+				std::filesystem::create_directories(linkingOutputDirectory);
+			}
+			std::ofstream linkFile{ linkingOutputPath, std::ios::binary };
+			writeToFontFile(outFile, linkFile, font);
 			outFile.close();
 		}
 		catch (std::exception& e)

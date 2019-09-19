@@ -2,29 +2,33 @@
 #include <Windows.h>
 #include <limits.h>
 
-AsynchronousFileManager::AsynchronousFileManager(IOCompletionQueue& ioCompletionQueue1) :
-	ioCompletionQueue(ioCompletionQueue1)
+AsynchronousFileManager::AsynchronousFileManager(IOCompletionQueue& ioCompletionQueue1, const wchar_t* fileName) :
+	ioCompletionQueue(ioCompletionQueue1),
+	file(openFileForReading(fileName, ioCompletionQueue1))
 {
 	SYSTEM_INFO systemInfo;
 	GetSystemInfo(&systemInfo);
 	pageSize = systemInfo.dwPageSize;
 }
 
-AsynchronousFileManager::~AsynchronousFileManager() {}
+AsynchronousFileManager::~AsynchronousFileManager()
+{
+	file.close();
+}
 
 bool AsynchronousFileManager::readFileHelper(void* tr, DWORD, LPOVERLAPPED overlapped)
 {
 	auto& request = *static_cast<ReadRequest*>(overlapped);
 	const auto pageSize = request.asynchronousFileManager->pageSize;
-	auto& files = request.asynchronousFileManager->files;
+	auto& resources = request.asynchronousFileManager->resources;
 
 	const auto memoryStart = request.start & ~(pageSize - 1ull);
 	const auto memoryEnd = (request.end + pageSize - 1ull) & ~(pageSize - 1ull);
 	const auto memoryNeeded = memoryEnd - memoryStart;
 
 	unsigned char* allocation;
-	auto dataPtr = files.find(request);
-	if(dataPtr != files.end())
+	auto dataPtr = resources.find(request);
+	if(dataPtr != resources.end())
 	{
 		auto& dataDescriptor = dataPtr->second;
 		++dataDescriptor.userCount;
@@ -69,7 +73,7 @@ bool AsynchronousFileManager::readFileHelper(void* tr, DWORD, LPOVERLAPPED overl
 	{
 		allocation = (unsigned char*)VirtualAlloc(nullptr, static_cast<SIZE_T>(memoryNeeded), MEM_COMMIT, PAGE_READWRITE);
 		request.next = nullptr;
-		files.insert(std::pair<const ResourceId, FileData>(request, FileData{allocation, 1u, &request}));
+		resources.insert(std::pair<const ResourceId, FileData>(request, FileData{allocation, 1u, &request}));
 	}
 
 	request.buffer = allocation;
@@ -80,7 +84,7 @@ bool AsynchronousFileManager::readFileHelper(void* tr, DWORD, LPOVERLAPPED overl
 
 	DWORD bytesRead = 0u;
 	const DWORD maxReadableAmount = std::numeric_limits<DWORD>::max() & ~static_cast<DWORD>(pageSize - 1u);
-	BOOL finished = ReadFile(request.file.native_handle(), request.buffer,
+	BOOL finished = ReadFile(request.asynchronousFileManager->file.native_handle(), request.buffer,
 		memoryNeeded > maxReadableAmount ? maxReadableAmount : static_cast<DWORD>(memoryNeeded), &bytesRead, &request);
 	if (finished == FALSE && GetLastError() != ERROR_IO_PENDING)
 	{
@@ -93,12 +97,12 @@ bool AsynchronousFileManager::discardHelper(void* tr, DWORD, LPOVERLAPPED overla
 {
 	auto& request = *static_cast<ReadRequest*>(overlapped);
 	const auto pageSize = request.asynchronousFileManager->pageSize;
-	auto& files = request.asynchronousFileManager->files;
+	auto& resources = request.asynchronousFileManager->resources;
 
 	const auto memoryStart = request.start & ~(pageSize - 1ull);
 	const auto memoryEnd = (request.end + pageSize - 1ull) & ~(pageSize - 1ull);
 	const auto memoryNeeded = memoryEnd - memoryStart;
-	FileData& dataDescriptor = files.find(request)->second;
+	FileData& dataDescriptor = resources.find(request)->second;
 	--dataDescriptor.userCount;
 	if (dataDescriptor.userCount == 0u)
 	{
@@ -129,7 +133,7 @@ bool AsynchronousFileManager::discardHelper(void* tr, DWORD, LPOVERLAPPED overla
 		 DWORD bytesRead = 0u;
 		 const auto remainingAmountToRead = sizeToRead - request->accumulatedSize;
 		 const DWORD maxReadableAmount = std::numeric_limits<DWORD>::max() & ~static_cast<DWORD>(sectorSize - 1u);
-		 BOOL finished = ReadFile(request->file.native_handle(), request->buffer + request->accumulatedSize,
+		 BOOL finished = ReadFile(fileManager.file.native_handle(), request->buffer + request->accumulatedSize,
 			 remainingAmountToRead > maxReadableAmount ? maxReadableAmount : static_cast<DWORD>(remainingAmountToRead), &bytesRead, request);
 		 if (finished == FALSE && GetLastError() != ERROR_IO_PENDING)
 		 {
@@ -139,7 +143,7 @@ bool AsynchronousFileManager::discardHelper(void* tr, DWORD, LPOVERLAPPED overla
 	 }
 	 auto data = request->buffer + (request->start & (sectorSize - 1u));
 
-	 FileData& dataDescriptor = fileManager.files.find(*request)->second;
+	 FileData& dataDescriptor = fileManager.resources.find(*request)->second;
 	 ReadRequest* requests = dataDescriptor.requests;
 	 dataDescriptor.requests = nullptr;
 	 do
@@ -151,7 +155,7 @@ bool AsynchronousFileManager::discardHelper(void* tr, DWORD, LPOVERLAPPED overla
 	 return true;
 }
 
- void AsynchronousFileManager::readFile(ReadRequest& request)
+ void AsynchronousFileManager::read(ReadRequest& request)
  {
 	 request.asynchronousFileManager = this;
 	 IOCompletionPacket task;

@@ -10,6 +10,7 @@
 #include "AsynchronousFileManager.h"
 #include "ActorQueue.h"
 #include "VirtualTextureInfo.h"
+#include "ResourceLocation.h"
 #undef min
 #undef max
 #include <atomic>
@@ -43,9 +44,10 @@ public:
 		Action textureAction;
 
 		Message() {}
-		Message(const wchar_t* filename, void(*deleteRequest)(ReadRequest& request, void* tr))
+		Message(ResourceLocation filename, void(*deleteRequest)(ReadRequest& request, void* tr))
 		{
-			this->filename = filename;
+			start = filename.start;
+			end = filename.end;
 			this->deleteReadRequest = deleteRequest;
 		}
 	};
@@ -54,6 +56,7 @@ public:
 	{
 	public:
 		Texture* texture;
+		ResourceLocation resourceLocation;
 		D3D12_RESOURCE_DIMENSION dimension;
 		const DDSFileLoader::DdsHeaderDx12* header;
 		VirtualTextureManager* virtualTextureManager;
@@ -63,29 +66,23 @@ public:
 		void(*textureLoaded)(TextureStreamingRequest& request, void* tr, const Texture& texture);
 
 		TextureStreamingRequest(void(*textureLoaded)(TextureStreamingRequest& request, void* tr, const Texture& texture),
-			const wchar_t * filename) :
+			ResourceLocation filename) :
 			textureLoaded(textureLoaded)
 		{
-			this->filename = filename;
+			resourceLocation = filename;
 		}
 	};
 
 	struct Hash
 	{
-		std::size_t operator()(const wchar_t* str) const noexcept
+		std::size_t operator()(ResourceLocation resourceLocation) const noexcept
 		{
-			std::size_t result = 0u;
-			while (*str != L'\0')
-			{
-				result = (result ^ std::size_t{ *str }) * static_cast<std::size_t>(16777619ul);
-				++str;
-			}
-			return result;
+			return static_cast<std::size_t>(resourceLocation.start * 32u + resourceLocation.end);
 		}
 	};
 private:
 	ActorQueue messageQueue;
-	std::unordered_map<const wchar_t *, Texture, Hash> textures;
+	std::unordered_map<ResourceLocation, Texture, Hash> textures;
 	PageProvider& pageProvider;
 	StreamingManager& streamingManager;
 	GraphicsEngine& graphicsEngine;
@@ -95,7 +92,7 @@ public:
 	{
 		friend class VirtualTextureManager;
 	public:
-		UnloadRequest(const wchar_t* filename, void(*deleteRequest)(ReadRequest& request, void* tr)) :
+		UnloadRequest(ResourceLocation filename, void(*deleteRequest)(ReadRequest& request, void* tr)) :
 			Message(filename, deleteRequest)
 		{}
 	};
@@ -152,7 +149,7 @@ private:
 
 				fileLoadedCallbackHelper(uploadRequest, buffer, streamingManager, copyFinished<ThreadResources>);
 			});
-			uploadRequest.virtualTextureManager->asynchronousFileManager.readFile(uploadRequest);
+			uploadRequest.virtualTextureManager->asynchronousFileManager.read(uploadRequest);
 		} });
 	}
 
@@ -162,9 +159,8 @@ private:
 	void loadTextureUncached(TextureStreamingRequest& uploadRequest)
 	{
 		uploadRequest.virtualTextureManager = this;
-		uploadRequest.file = asynchronousFileManager.openFileForReading(uploadRequest.filename);
-		uploadRequest.start = 0u;
-		uploadRequest.end = sizeof(DDSFileLoader::DdsHeaderDx12);
+		uploadRequest.start = uploadRequest.resourceLocation.start;
+		uploadRequest.end = uploadRequest.start + sizeof(DDSFileLoader::DdsHeaderDx12);
 		uploadRequest.fileLoadedCallback = [](AsynchronousFileManager::ReadRequest& request, AsynchronousFileManager&, void*, const unsigned char* buffer)
 		{
 			TextureStreamingRequest& uploadRequest = static_cast<TextureStreamingRequest&>(request);
@@ -184,7 +180,7 @@ private:
 			auto& streamingManager = request.virtualTextureManager->streamingManager;
 			streamingManager.addUploadRequest(&request, threadResources);
 		};
-		asynchronousFileManager.readFile(uploadRequest);
+		asynchronousFileManager.read(uploadRequest);
 	}
 
 	static void createVirtualTexture(GraphicsEngine& graphicsEngine, PageProvider& pageProvider, void(*callback)(PageProvider::AllocateTextureRequest& request, void* tr, VirtualTextureInfo& textureInfo),
@@ -193,9 +189,7 @@ private:
 	template<class ThreadResources>
 	void loadTexture(ThreadResources& executor, TextureStreamingRequest* request)
 	{
-		const wchar_t * filename = request->filename;
-
-		Texture& texture = textures[filename];
+		Texture& texture = textures[request->resourceLocation];
 		texture.numUsers += 1u;
 		if(texture.numUsers == 1u) //This is the first request, load the resource
 		{

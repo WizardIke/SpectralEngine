@@ -5,6 +5,7 @@
 #include <d3d12.h> //D3D12_GPU_VIRTUAL_ADDRESS
 #include "TextureManager.h"
 #include "AsynchronousFileManager.h"
+#include "ResourceLocation.h"
 
 class Font
 {
@@ -22,11 +23,7 @@ private:
 
 	struct FontFileLoadRequest : public AsynchronousFileManager::ReadRequest 
 	{
-		FontFileLoadRequest() {}
-		FontFileLoadRequest(const wchar_t* filename, File file, std::size_t start, std::size_t end,
-			void(*fileLoadedCallback)(ReadRequest& request, AsynchronousFileManager& asynchronousFileManager, void* tr, const unsigned char* data)) :
-			ReadRequest(filename, file, start, end, fileLoadedCallback)
-		{}
+		using AsynchronousFileManager::ReadRequest::ReadRequest;
 	};
 public:
 	struct Kerning
@@ -55,11 +52,12 @@ public:
 		void(*fontLoadedCallback)(LoadRequest& request, void* tr);
 		TextureManager* textureManager;
 	public:
-		LoadRequest(const wchar_t* filename, void(*fontLoadedCallback1)(LoadRequest& request, void* tr)) :
+		LoadRequest(ResourceLocation resourceLocation, void(*fontLoadedCallback1)(LoadRequest& request, void* tr)) :
 			fontLoadedCallback(fontLoadedCallback1)
 		{
 			auto& fileRequest = *static_cast<FontFileLoadRequest*>(this);
-			fileRequest.filename = filename;
+			fileRequest.start = resourceLocation.start;
+			fileRequest.end = resourceLocation.end;
 		}
 	};
 
@@ -69,11 +67,12 @@ public:
 		void(*fontUnloadedCallback)(UnloadRequest& request, void* tr);
 		AsynchronousFileManager* asynchronousFileManager;
 	public:
-		UnloadRequest(const wchar_t* filename, void(*fontUnloadedCallback1)(UnloadRequest& request, void* tr)) :
+		UnloadRequest(ResourceLocation resourceLocation, void(*fontUnloadedCallback1)(UnloadRequest& request, void* tr)) :
 			fontUnloadedCallback{ fontUnloadedCallback1 }
 		{
 			auto& fileRequest = *static_cast<FontFileLoadRequest*>(this);
-			fileRequest.filename = filename;
+			fileRequest.start = resourceLocation.start;
+			fileRequest.end = resourceLocation.end;
 		}
 	};
 private:
@@ -119,11 +118,8 @@ public:
 		loadRequest.textureManager = &textureManager;
 		loadRequest.font = this;
 		auto& fileRequest = static_cast<FontFileLoadRequest&>(loadRequest);
-		fileRequest.file = asynchronousFileManager.openFileForReading(fileRequest.filename);
-		fileRequest.start = 0u;
-		fileRequest.end = fileRequest.file.size();
 		fileRequest.fileLoadedCallback = fontFileLoaded<ThreadResources>;
-		asynchronousFileManager.readFile(fileRequest);
+		asynchronousFileManager.read(fileRequest);
 	}
 
 	template<class ThreadResources>
@@ -132,7 +128,8 @@ public:
 		unloadRequest.asynchronousFileManager = &asynchronousFileManager;
 
 		auto& textureRequest = static_cast<TextureManager::Message&>(unloadRequest);
-		textureRequest.filename = reinterpret_cast<const wchar_t*>(data);
+		textureRequest.start = *reinterpret_cast<const uint64_t*>(data);
+		textureRequest.end = *reinterpret_cast<const uint64_t*>(data + sizeof(uint64_t));
 		textureRequest.deleteReadRequest = [](AsynchronousFileManager::ReadRequest& request, void*)
 		{
 			auto& unloadRequest = static_cast<UnloadRequest&>(static_cast<TextureManager::Message&>(request));
@@ -142,8 +139,6 @@ public:
 		};
 
 		auto& fileRequest = static_cast<FontFileLoadRequest&>(unloadRequest);
-		fileRequest.start = 0u;
-		fileRequest.end = dataSize;
 		fileRequest.deleteReadRequest = [](AsynchronousFileManager::ReadRequest& request, void* tr)
 		{
 			auto& unloadRequest = static_cast<UnloadRequest&>(static_cast<FontFileLoadRequest&>(request));

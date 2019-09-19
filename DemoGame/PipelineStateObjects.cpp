@@ -46,7 +46,7 @@ PipelineStateObjects::PipelineLoaderImpl::PipelineLoaderImpl(GraphicsPipelineSta
 ) :
 	psoLoaders{ makeArray<numberOfComponents>([&](std::size_t i)
 		{
-			return ShaderLoader{*graphicsPipelineStateDescs[i], asynchronousFileManager, grphicsDevice, componentLoaded, &pipelineLoader, *output[i]};
+			return ShaderLoader{*graphicsPipelineStateDescs[i], grphicsDevice, componentLoaded, &pipelineLoader, *output[i]};
 		}) }
 {
 	for (auto graphicsPipelineStateDesc : graphicsPipelineStateDescs)

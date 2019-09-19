@@ -1077,7 +1077,10 @@ extern "C"
 		{
 			auto inputPath = baseInputPath / relativeInputPath;
 			auto outputPath = baseOutputPath / relativeInputPath;
-			outputPath += ".data";
+			while (outputPath.has_extension())
+			{
+				outputPath.replace_extension();
+			}
 
 			if (!forceReImport && std::filesystem::exists(outputPath) && std::filesystem::last_write_time(outputPath) > std::filesystem::last_write_time(inputPath))
 			{

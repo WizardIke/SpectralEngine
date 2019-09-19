@@ -119,7 +119,7 @@ private:
 					};
 					asynchronousFileManager.discard(request);
 				};
-				uploadRequest.pageProvider->asynchronousFileManager.readFile(uploadRequest);
+				uploadRequest.pageProvider->asynchronousFileManager.read(uploadRequest);
 			}, [](StreamingManager::StreamingRequest* requester, void*)
 			{
 				PageLoadRequest& request = static_cast<PageLoadRequest&>(*requester);
