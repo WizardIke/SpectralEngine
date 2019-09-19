@@ -301,7 +301,7 @@
     <ClInclude Include="EndOfFileException.h" />
     <ClInclude Include="EulerRotation.h" />
     <ClInclude Include="Mesh.h" />
-    <ClInclude Include="FixedSizeAllocator.h" />
+    <ClInclude Include="PoolAllocator.h" />
     <ClInclude Include="MeshManager.h" />
     <ClInclude Include="ResizingArray.h" />
     <ClInclude Include="Shaders\CameraConstantBuffer.h" />
@@ -357,7 +357,6 @@
     <ClInclude Include="TextureIndexOutOfRangeException.h" />
     <ClInclude Include="TextureManager.h" />
     <ClInclude Include="Timer.h" />
-    <ClInclude Include="UnkownCpuFrequencyException.h" />
     <ClInclude Include="GpuCompletionEventManager.h" />
     <ClInclude Include="Window.h" />
     <ClInclude Include="WindowsFileCreationException.h" />

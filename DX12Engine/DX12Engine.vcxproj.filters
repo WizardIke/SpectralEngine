@@ -16,9 +16,6 @@
     <Filter Include="Frustum">
       <UniqueIdentifier>{b98b5144-73ec-4c00-9718-d7bf2b5fde1e}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Light">
-      <UniqueIdentifier>{1da70e47-cc90-4d69-a53a-3e490b8c47e0}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Math">
       <UniqueIdentifier>{0df7bc28-63a3-4b44-9176-0799db138149}</UniqueIdentifier>
     </Filter>
@@ -91,6 +88,9 @@
     <Filter Include="TextRendering">
       <UniqueIdentifier>{6702ec9e-05d4-40ef-85a6-85de628ee38f}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Queues">
+      <UniqueIdentifier>{e5f1778f-584d-40c4-b614-f85ac979166e}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="HresultException.h">
@@ -145,9 +145,6 @@
       <Filter>Exceptions</Filter>
     </ClInclude>
     <ClInclude Include="ID3D12ResourceMapFailedException.h">
-      <Filter>Exceptions</Filter>
-    </ClInclude>
-    <ClInclude Include="UnkownCpuFrequencyException.h">
       <Filter>Exceptions</Filter>
     </ClInclude>
     <ClInclude Include="D3D12GraphicsCommandList.h">
@@ -209,9 +206,6 @@
     </ClInclude>
     <ClInclude Include="Quaternion.h">
       <Filter>Math\Quaternion</Filter>
-    </ClInclude>
-    <ClInclude Include="Light.h">
-      <Filter>Light</Filter>
     </ClInclude>
     <ClInclude Include="Win32Event.h">
       <Filter>D3D12</Filter>
@@ -285,7 +279,6 @@
     <ClInclude Include="VirtualTextureManager.h">
       <Filter>VirtualTexturing</Filter>
     </ClInclude>
-    <ClInclude Include="FixedSizeAllocator.h" />
     <ClInclude Include="Transform.h">
       <Filter>Transform</Filter>
     </ClInclude>
@@ -321,7 +314,6 @@
     <ClInclude Include="Shaders\VtFeedbackMaterialPS.h">
       <Filter>Shaders\Pixel</Filter>
     </ClInclude>
-    <ClInclude Include="IOCompletionQueue.h" />
     <ClInclude Include="StableQueue.h" />
     <ClInclude Include="AsynchronousFileManager.h">
       <Filter>AsynchronousFileManager</Filter>
@@ -338,9 +330,6 @@
     <ClInclude Include="WorkStealingQueue.h">
       <Filter>TaskShedular</Filter>
     </ClInclude>
-    <ClInclude Include="SingleProducerMultiConsumerQueue.h" />
-    <ClInclude Include="SingleProducerSingleConsumerQueue.h" />
-    <ClInclude Include="MultiProducerSingleConsumerQueue.h" />
     <ClInclude Include="GpuCompletionEventManager.h" />
     <ClInclude Include="SoundDecoder.h">
       <Filter>Sound</Filter>
@@ -356,7 +345,6 @@
     </ClInclude>
     <ClInclude Include="AtomicSinglyLinked.h" />
     <ClInclude Include="ThreadsafePoolAllocator.h" />
-    <ClInclude Include="ActorQueue.h" />
     <ClInclude Include="SinglyLinked.h" />
     <ClInclude Include="VirtualFeedbackSubPass.h">
       <Filter>VirtualTexturing</Filter>
@@ -364,7 +352,6 @@
     <ClInclude Include="GraphicsAdapterNotFound.h">
       <Filter>Exceptions</Filter>
     </ClInclude>
-    <ClInclude Include="RunnableIOCompletionQueue.h" />
     <ClInclude Include="World.h">
       <Filter>WorldStreaming</Filter>
     </ClInclude>
@@ -389,7 +376,6 @@
       <Filter>HashSets</Filter>
     </ClInclude>
     <ClInclude Include="EntityGenerator.h" />
-    <ClInclude Include="UnorderedMultiProducerSingleConsumerQueue.h" />
     <ClInclude Include="PrimaryTaskFromOtherThreadQueue.h">
       <Filter>TaskShedular</Filter>
     </ClInclude>
@@ -422,6 +408,29 @@
       <Filter>HashSets</Filter>
     </ClInclude>
     <ClInclude Include="ResourceLocation.h" />
+    <ClInclude Include="Light.h" />
+    <ClInclude Include="ActorQueue.h">
+      <Filter>Queues</Filter>
+    </ClInclude>
+    <ClInclude Include="MultiProducerSingleConsumerQueue.h">
+      <Filter>Queues</Filter>
+    </ClInclude>
+    <ClInclude Include="SingleProducerMultiConsumerQueue.h">
+      <Filter>Queues</Filter>
+    </ClInclude>
+    <ClInclude Include="SingleProducerSingleConsumerQueue.h">
+      <Filter>Queues</Filter>
+    </ClInclude>
+    <ClInclude Include="IOCompletionQueue.h">
+      <Filter>Queues</Filter>
+    </ClInclude>
+    <ClInclude Include="RunnableIOCompletionQueue.h">
+      <Filter>Queues</Filter>
+    </ClInclude>
+    <ClInclude Include="UnorderedMultiProducerSingleConsumerQueue.h">
+      <Filter>Queues</Filter>
+    </ClInclude>
+    <ClInclude Include="PoolAllocator.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DDSFileLoader.cpp">

@@ -1,6 +1,5 @@
 #pragma once
 #include <memory>
-#pragma warning (disable : 4624) // warns about Elements destructor being implicity deleted, but this is fine
 
 /*
 allocates and deallocates memory of a fixed size and alignment.
@@ -8,7 +7,7 @@ memory allocated with this FixedSizeAllocator can by deallocated with another, b
 when a FixedSizeAllocator goes out of scope all memory allocated by it is deallocated.
 */
 template<class T, size_t slabSize = 32u>
-class FixedSizeAllocator
+class PoolAllocator
 {
 public:
 	using value_type = T;
@@ -16,6 +15,9 @@ private:
 	union Element {
 		value_type data;
 		Element* next;
+
+		Element() {}
+		~Element() {}
 	};
 	char* currentSlab;
 	Element* currentFreeElement;
@@ -54,9 +56,9 @@ private:
 		}
 	}
 public:
-	FixedSizeAllocator() : currentSlab(nullptr), currentFreeElement(nullptr) {}
+	PoolAllocator() : currentSlab(nullptr), currentFreeElement(nullptr) {}
 
-	~FixedSizeAllocator()
+	~PoolAllocator()
 	{
 		auto slab = currentSlab;
 		while (slab)
