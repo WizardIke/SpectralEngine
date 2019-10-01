@@ -200,7 +200,23 @@ namespace
 
 	struct ResourceNamespace : public ResourceNode
 	{
-		std::unordered_map<std::string, std::unique_ptr<ResourceNode>> children;
+		struct Deleter
+		{
+			void operator()(ResourceNode* node)
+			{
+				if (node->isResourceLocation)
+				{
+					auto* resourceLocation = static_cast<ResourceLocation*>(node);
+					delete resourceLocation;
+				}
+				else
+				{
+					auto* resourceNamespace = static_cast<ResourceNamespace*>(node);
+					delete resourceNamespace;
+				}
+			}
+		};
+		std::unordered_map<std::string, std::unique_ptr<ResourceNode, Deleter>> children;
 
 		ResourceNamespace() : ResourceNode{ false } {}
 
@@ -214,7 +230,7 @@ namespace
 				++it;
 				if (it == pathNoExtentionsEnd)
 				{
-					currentNamespace->children.insert({std::move(value), std::unique_ptr<ResourceNode>{new ResourceLocation{ start, end }}});
+					currentNamespace->children.insert({std::move(value), std::unique_ptr<ResourceNode, Deleter>{new ResourceLocation{ start, end }}});
 					break;
 				}
 				else
