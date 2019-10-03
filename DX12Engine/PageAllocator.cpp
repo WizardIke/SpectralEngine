@@ -4,7 +4,7 @@
 #include <limits>
 #include "GraphicsEngine.h"
 #include <bitset>
-#include "FixedSizeFastIterationHashSet.h"
+#include "FixedCapacityFastIterationHashSet.h"
 
 template<UINT64 heapSizeInBytes, class Chunk>
 static void allocateChunk(ResizingArray<Chunk>& chunks, ID3D12Device* graphicsDevice)
@@ -335,8 +335,8 @@ void PageAllocator::decreaseNonPinnedCapacity(std::size_t newSize, VirtualTextur
 		commandList.ResourceBarrier(1u, &barrier);
 	}
 
-	FixedSizeFastIterationHashSet<unsigned char, 255u> uniqueResourcesToRemove;
-	FixedSizeFastIterationHashSet<ResourceDeleteInfo, 255u, ResourceDeleteInfo::Hasher> resourcesToRemove;
+	FixedCapacityFastIterationHashSet<unsigned char, 255u> uniqueResourcesToRemove;
+	FixedCapacityFastIterationHashSet<ResourceDeleteInfo, 255u, ResourceDeleteInfo::Hasher> resourcesToRemove;
 	std::size_t chunkDeleteRequestIndex = 0u;
 	for (auto i = chunksToRemove.nextFreeIndex; i != std::numeric_limits<decltype(chunksToRemove.nextFreeIndex)>::max(); i = allocatedChunks[i].nextFreeIndex)
 	{

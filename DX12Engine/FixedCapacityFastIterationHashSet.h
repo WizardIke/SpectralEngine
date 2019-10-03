@@ -5,9 +5,10 @@
 #include <array>
 #include <cassert>
 #include <new> //placement new, std::launder
+#include "FixedCapacityDynamicArray.h"
 
 template<class Key, std::size_t baseCapacity, class Hasher = std::hash<Key>, class EqualTo = std::equal_to<>>
-class FixedSizeFastIterationHashSet
+class FixedCapacityFastIterationHashSet
 {
 private:
 	static constexpr std::size_t roundUpToPowerOf2(std::size_t v)
@@ -30,6 +31,9 @@ public:
 		std::conditional_t<baseCapacity <= std::numeric_limits<uint_least16_t>::max(), uint_least16_t,
 		std::conditional_t<baseCapacity <= std::numeric_limits<uint_least32_t>::max(), uint_least32_t,
 		std::conditional_t<baseCapacity <= std::numeric_limits<uint_least64_t>::max(), uint_least64_t, std::size_t>>>>;
+private:
+	constexpr static size_type mCapacity = static_cast<size_type>(baseCapacity);
+public:
 	using difference_type = std::ptrdiff_t;
 	using hasher = Hasher;
 	using key_equal = EqualTo;
@@ -37,11 +41,9 @@ public:
 	using const_reference = const value_type&;
 	using pointer = value_type*;
 	using const_pointer = const value_type*;
-	using iterator = value_type*;
-	using const_iterator = const value_type*;
+	using iterator = typename FixedCapacityDynamicArray<key_type, mCapacity>::iterator;
+	using const_iterator = typename FixedCapacityDynamicArray<key_type, mCapacity>::const_iterator;
 private:
-	constexpr static size_type mCapacity = static_cast<size_type>(baseCapacity);
-
 	struct Node
 	{
 		size_type distanceFromIdealPosition;
@@ -71,63 +73,33 @@ private:
 		using HasherWrapper::hash;
 		using EqualToWrapper::equal;
 
-		using key_type = FixedSizeFastIterationHashSet::key_type;
-		using size_type = FixedSizeFastIterationHashSet::size_type;
-		using Node = FixedSizeFastIterationHashSet::Node;
-		constexpr static std::size_t maxBucketCount = FixedSizeFastIterationHashSet::maxBucketCount;
-		constexpr static size_type mCapacity = FixedSizeFastIterationHashSet::mCapacity;
+		using key_type = FixedCapacityFastIterationHashSet::key_type;
+		using size_type = FixedCapacityFastIterationHashSet::size_type;
+		using Node = FixedCapacityFastIterationHashSet::Node;
+		constexpr static std::size_t maxBucketCount = FixedCapacityFastIterationHashSet::maxBucketCount;
+		constexpr static size_type mCapacity = FixedCapacityFastIterationHashSet::mCapacity;
 
 #pragma warning(suppress: 4324) //warns about padding due to alignment
-		alignas(alignof(key_type)) unsigned char keysStorage[sizeof(key_type) * mCapacity];
+		FixedCapacityDynamicArray<key_type, mCapacity> keys;
 		std::array<Node, maxBucketCount> lookUp;
-		size_type size;
 	public:
 		Impl() noexcept :
-			lookUp{},
-			size(0u)
+			lookUp{}
 		{}
 
 		Impl(Impl&& other) noexcept :
 			HasherWrapper(std::move(static_cast<const HasherWrapper&>(other))),
 			EqualToWrapper(std::move(static_cast<const EqualToWrapper&>(other))),
 			lookUp{ other.lookUp },
-			size(other.size)
-		{
-			other.size = static_cast<size_type>(0u);
-			const auto currentSize = size;
-			for (size_type i = static_cast<size_type>(0u); i != currentSize; ++i)
-			{
-				auto* keyPtr = reinterpret_cast<key_type*>(&keysStorage) + i;
-				auto* otherKeyPtr = std::launder(reinterpret_cast<key_type*>(other.keysStorage) + i);
-				new(keyPtr) key_type{ std::move(*otherKeyPtr) };
-				otherKeyPtr->~key_type();
-			}
-		}
+			keys{ std::move(other.keys) }
+		{}
 
 		Impl(const Impl& other) :
 			HasherWrapper(static_cast<const HasherWrapper&>(other)),
 			EqualToWrapper(static_cast<const EqualToWrapper&>(other)),
 			lookUp{ other.lookUp },
-			size(other.size)
-		{
-			const auto currentSize = size;
-			for (size_type i = static_cast<size_type>(0u); i != currentSize; ++i)
-			{
-				auto* keyPtr = reinterpret_cast<key_type*>(&keysStorage) + i;
-				auto* otherKeyPtr = std::launder(reinterpret_cast<key_type*>(other.keysStorage) + i);
-				new(keyPtr) key_type{ *otherKeyPtr };
-			}
-		}
-
-		~Impl() noexcept
-		{
-			const auto currentSize = size;
-			for (size_type i = (size_type)0u; i != currentSize; ++i)
-			{
-				auto* keyPtr = std::launder(reinterpret_cast<key_type*>(keysStorage) + i);
-				keyPtr->~key_type();
-			}
-		}
+			keys(other.keys)
+		{}
 	};
 	Impl impl;
 
@@ -184,7 +156,7 @@ private:
 		while (impl.lookUp[bucketIndex].distanceFromIdealPosition >= distanceFromIdealBucket)
 		{
 			const size_type indexInData = impl.lookUp[bucketIndex].indexInData;
-			const auto& bucketKey = *std::launder(reinterpret_cast<const key_type*>(impl.keysStorage) + indexInData);
+			const auto& bucketKey = impl.keys[indexInData];
 			if (impl.equal(bucketKey, key)) return bucketIndex;
 			bucketIndex = (bucketIndex + (std::size_t)1u) & mask;
 			++distanceFromIdealBucket;
@@ -209,7 +181,7 @@ private:
 		while (impl.lookUp[bucketIndex].distanceFromIdealPosition >= distanceFromIdealBucket)
 		{
 			const size_type indexInData = impl.lookUp[bucketIndex].indexInData;
-			auto& bucketKey = *std::launder(reinterpret_cast<key_type*>(impl.keysStorage) + indexInData);
+			auto& bucketKey = impl.keys[indexInData];
 			if (impl.equal(bucketKey, keys...)) return { bucketIndex, &bucketKey };
 			bucketIndex = (bucketIndex + (std::size_t)1u) & mask;
 			++distanceFromIdealBucket;
@@ -232,78 +204,60 @@ private:
 		while (impl.lookUp[bucketIndex].distanceFromIdealPosition >= distanceFromIdealBucket)
 		{
 			const size_type indexInData = impl.lookUp[bucketIndex].indexInData;
-			const auto& bucketKey = *std::launder(reinterpret_cast<key_type*>(impl.keysStorage) + indexInData);
+			const auto& bucketKey = impl.keys[indexInData];
 			if (impl.equal(bucketKey, key)) return indexInData;
 			bucketIndex = (bucketIndex + std::size_t{ 1u }) & mask;
 			++distanceFromIdealBucket;
 		}
-		return impl.size;
+		return impl.keys.size();
 	}
 public:
-	FixedSizeFastIterationHashSet() noexcept = default;
+	FixedCapacityFastIterationHashSet() noexcept = default;
 
-	FixedSizeFastIterationHashSet(FixedSizeFastIterationHashSet&&) noexcept = default;
+	FixedCapacityFastIterationHashSet(FixedCapacityFastIterationHashSet&&) noexcept = default;
 
-	FixedSizeFastIterationHashSet(const FixedSizeFastIterationHashSet&) = default;
+	FixedCapacityFastIterationHashSet(const FixedCapacityFastIterationHashSet&) = default;
 
-	~FixedSizeFastIterationHashSet() noexcept = default;
+	~FixedCapacityFastIterationHashSet() noexcept = default;
 
 	iterator begin() noexcept
 	{
-		if (impl.size == size_type{ 0u })
-		{
-			return reinterpret_cast<key_type*>(impl.keysStorage);
-		}
-		return std::launder(reinterpret_cast<key_type*>(impl.keysStorage));
+		return impl.keys.begin();
 	}
 
 	const_iterator begin() const noexcept
 	{
-		if (impl.size == size_type{ 0u })
-		{
-			return reinterpret_cast<const key_type*>(impl.keysStorage);
-		}
-		return std::launder(reinterpret_cast<const key_type*>(impl.keysStorage));
+		return impl.keys.begin();
 	}
 
 	const_iterator cbegin() const noexcept
 	{
-		return begin();
+		return impl.keys.begin();
 	}
 
 	iterator end() noexcept
 	{
-		const auto size = impl.size;
-		if (size == size_type{ 0u })
-		{
-			return reinterpret_cast<key_type*>(impl.keysStorage) + size;
-		}
-		return std::launder(reinterpret_cast<key_type*>(impl.keysStorage)) + size;
+		impl.keys.end();
 	}
 
 	const_iterator end() const noexcept
 	{
-		const auto size = impl.size;
-		if (size == size_type{ 0u })
-		{
-			return reinterpret_cast<const key_type*>(impl.keysStorage) + size;
-		}
-		return std::launder(reinterpret_cast<const key_type*>(impl.keysStorage)) + size;
+		impl.keys.end();
 	}
 
 	const_iterator cend() const noexcept
 	{
-		return end();
+		impl.keys.end();
 	}
 
 	bool empty() const noexcept
 	{
-		return impl.size == (size_type)0u;
+		return impl.keys.size() == (size_type)0u;
 	}
 
 	size_type size() const noexcept
 	{
-		return impl.size;
+		return impl.keys.size();
 	}
 
 	static size_type capacity() noexcept
@@ -318,25 +272,21 @@ public:
 
 	void insert(key_type&& key)
 	{
-		assert(impl.size != mCapacity);
-		const size_type dataIndex = impl.size;
+		assert(impl.keys.size() != mCapacity);
+		const size_type dataIndex = impl.keys.size();
 		constexpr auto mask = maxBucketCount - std::size_t{ 1u };
 		const std::size_t bucketIndex = std::size_t{ impl.hash(key) } & mask;
-		++impl.size;
-		auto* keyPtr = reinterpret_cast<key_type*>(impl.keysStorage) + dataIndex;
-		new(keyPtr) key_type{ std::move(key) };
+		impl.keys.push_back(std::move(key));
 		swapInElement(dataIndex, bucketIndex, impl.lookUp.data());
 	}
 
 	void insert(const key_type& key)
 	{
-		assert(impl.size != mCapacity);
-		const size_type dataIndex = impl.size;
+		assert(impl.keys.size() != mCapacity);
+		const size_type dataIndex = impl.keys.size();
 		constexpr auto mask = maxBucketCount - std::size_t{ 1u };
 		const std::size_t bucketIndex = std::size_t{ impl.hash(key) } & mask;
-		++impl.size;
-		auto* keyPtr = reinterpret_cast<key_type*>(impl.keysStorage) + dataIndex;
-		new(keyPtr) key_type{ key };
+		impl.keys.push_back(key);
 		swapInElement(dataIndex, bucketIndex, impl.lookUp.data());
 	}
 
@@ -354,60 +304,42 @@ public:
 		std::size_t bucket = (previousBucket + (std::size_t)1u) & mask;
 
 		const auto indexInData = impl.lookUp[previousBucket].indexInData;
-		--impl.size;
-		const auto size = impl.size;
-		auto* endKeyPtr = std::launder(reinterpret_cast<key_type*>(impl.keysStorage) + size);
-		if (indexInData != size)
+		if (indexInData != impl.keys.size() - 1u)
 		{
-			auto keyPtr = std::launder(reinterpret_cast<key_type*>(impl.keysStorage) + indexInData);
-			*keyPtr = std::move(*endKeyPtr);
+			impl.keys[indexInData] = std::move(impl.keys[impl.keys.size() - 1u]);
 		}
-		endKeyPtr->~key_type();
+		impl.keys.pop_back();
 
 		swapOutElement(previousBucket, bucket, impl.lookUp.data());
 	}
 
 	iterator find(const key_type& key)
 	{
-		const auto indexInData = findIndexInData(key);
-		if (impl.size == size_type{ 0u })
-		{
-			return reinterpret_cast<key_type*>(impl.keysStorage) + indexInData;
-		}
-		return std::launder(reinterpret_cast<key_type*>(impl.keysStorage)) + indexInData;
+		return impl.keys.begin() + findIndexInData(key);
 	}
 
 	const_iterator find(const key_type& key) const
 	{
-		const auto indexInData = findIndexInData(key);
-		if (impl.size == size_type{ 0u })
-		{
-			return reinterpret_cast<const key_type*>(impl.keysStorage) + indexInData;
-		}
-		return std::launder(reinterpret_cast<const key_type*>(impl.keysStorage)) + indexInData;
+		return impl.keys.begin() + findIndexInData(key);
 	}
 
 	template<class F>
 	void consume(F&& f)
 	{
-		if (impl.size == 0u)
+		if (impl.keys.size() == 0u)
 		{
 			return;
 		}
-		key_type* const endData = reinterpret_cast<key_type*>(impl.keysStorage) + impl.size;
-		key_type* current = std::launder(reinterpret_cast<key_type*>(impl.keysStorage));
-		do
+		for (auto& value : impl.keys)
 		{
-			std::size_t previousBucket = findLookUpIndex(*current);
+			std::size_t previousBucket = findLookUpIndex(value);
 			constexpr auto mask = maxBucketCount - (std::size_t)1u;
 			std::size_t bucket = (previousBucket + (std::size_t)1u) & mask;
 			swapOutElement(previousBucket, bucket, impl.lookUp.data());
 
-			f(std::move(*current));
-			current->~key_type();
-			++current;
-		} while (current != endData);
-		impl.size = 0u;
+			f(std::move(value));
+		}
+		impl.keys.clear();
 	}
 private:
 	template<class KeyType>
@@ -428,11 +360,9 @@ public:
 		auto result = findOrGetLocationToCreate(keys...);
 		if (result.data == nullptr)
 		{
-			assert(impl.size != mCapacity);
-			const size_type dataIndex = impl.size;
-			++impl.size;
-			auto* keyPtr = reinterpret_cast<key_type*>(impl.keysStorage) + dataIndex;
-			new(keyPtr) key_type{ std::forward<Keys>(keys)... };
+			assert(impl.key.size() != mCapacity);
+			const size_type dataIndex = impl.keys.size();
+			impl.keys.emplace(std::forward<Keys>(keys)...);
 			swapInElement(dataIndex, result.lookUpIndex, impl.lookUp.data());
 			return true;
 		}
@@ -446,11 +376,9 @@ public:
 		auto result = findOrGetLocationToCreate(keys...);
 		if (result.data == nullptr)
 		{
-			assert(impl.size != mCapacity);
-			const size_type dataIndex = impl.size;
-			++impl.size;
-			auto* keyPtr = reinterpret_cast<key_type*>(impl.keysStorage) + dataIndex;
-			keyPtr = new(keyPtr) key_type{ std::forward<Keys>(keys)... };
+			assert(impl.key.size() != mCapacity);
+			const size_type dataIndex = impl.key.size();
+			impl.keys.emplace(std::forward<Keys>(keys)...);
 			swapInElement(dataIndex, result.lookUpIndex, impl.lookUp.data());
 			return *keyPtr;
 		}
