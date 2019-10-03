@@ -79,7 +79,6 @@ private:
 		constexpr static std::size_t maxBucketCount = FixedCapacityFastIterationHashSet::maxBucketCount;
 		constexpr static size_type mCapacity = FixedCapacityFastIterationHashSet::mCapacity;
 
-#pragma warning(suppress: 4324) //warns about padding due to alignment
 		FixedCapacityDynamicArray<key_type, mCapacity> keys;
 		std::array<Node, maxBucketCount> lookUp;
 	public:
