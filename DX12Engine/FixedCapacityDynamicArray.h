@@ -1,14 +1,15 @@
 #pragma once
 #include <cstddef>
 #include <cstdint>
-#include <type_traits> //std::is_trivially_constructible_v, std::is_trivially_destructible_v
+#include <type_traits> //std::is_trivially_constructible_v, std::is_trivially_destructible_v, std::is_trivially_copy_assignable_v, std::is_trivially_move_assignable_v, std::is_nothrow_destructible_v
 #include <limits> //std::numeric_limits
 #include <array>
 #include <new> //placement new, std::launder
 #include <iterator> //std::reverse_iterator, std::random_access_iterator_tag
 #undef max
 
-template<class T, std::size_t cap, bool isTriviallyConstructible = std::is_trivially_constructible_v<T> && std::is_trivially_destructible_v<T>>
+template<class T, std::size_t cap,
+	bool isTriviallyConstructible = std::is_trivially_constructible_v<T> && std::is_trivially_destructible_v<T> && std::is_trivially_copy_assignable_v<T> && std::is_trivially_move_assignable_v<T>>
 class FixedCapacityDynamicArray
 {
 public:
@@ -221,58 +222,159 @@ private:
 	alignas(alignof(value_type)) unsigned char data[sizeof(value_type) * cap];
 	size_type mSize = static_cast<size_type>(0u);
 
-	void removeAllData() noexcept
+	void removeAllData() noexcept(std::is_nothrow_destructible_v<value_type>)
 	{
-		if (mSize != 0u)
+		if constexpr (std::is_nothrow_destructible_v<value_type>)
+		{
+			if (mSize != 0u)
+			{
+				auto sizeInBytes = mSize * sizeof(value_type);
+				do
+				{
+					sizeInBytes -= sizeof(value_type);
+					std::launder(reinterpret_cast<value_type*>(data + sizeInBytes))->~value_type();
+				} while (sizeInBytes != 0u);
+			}
+		}
+		else
 		{
 			auto sizeInBytes = mSize * sizeof(value_type);
-			do
+			try
 			{
-				sizeInBytes -= sizeof(value_type);
-				std::launder(reinterpret_cast<value_type*>(data + sizeInBytes))->~value_type();
-			} while (sizeInBytes != 0u);
+				if (mSize != 0u)
+				{
+					do
+					{
+						sizeInBytes -= sizeof(value_type);
+						std::launder(reinterpret_cast<value_type*>(data + sizeInBytes))->~value_type();
+					} while (sizeInBytes != 0u);
+				}
+			}
+			catch (...)
+			{
+				mSize = sizeInBytes / sizeof(value_type);
+				throw;
+			}
 		}
 	}
 public:
 	constexpr FixedCapacityDynamicArray() noexcept {}
 
-	FixedCapacityDynamicArray(const FixedCapacityDynamicArray& other) : mSize{ other.mSize }
+	FixedCapacityDynamicArray(const FixedCapacityDynamicArray& other) noexcept(noexcept(value_type{ *(std::launder(reinterpret_cast<const value_type*>(other.data))) }))
+		: mSize{ other.mSize }
 	{
 		const auto sizeInBytes = mSize * sizeof(value_type);
-		for (size_type i = static_cast<size_type>(0u); i != sizeInBytes; i += sizeof(value_type))
+		if constexpr (noexcept(value_type{ *(std::launder(reinterpret_cast<const value_type*>(other.data))) }))
 		{
-			new(data + i) value_type{ *(std::launder(reinterpret_cast<const value_type*>(other.data + i))) };
+			for (size_type i = static_cast<size_type>(0u); i != sizeInBytes; i += sizeof(value_type))
+			{
+				new(data + i) value_type{ *(std::launder(reinterpret_cast<const value_type*>(other.data + i))) };
+			}
+		}
+		else
+		{
+			size_type i = static_cast<size_type>(0u);
+			try
+			{
+				for (; i != sizeInBytes; i += sizeof(value_type))
+				{
+					new(data + i) value_type{ *(std::launder(reinterpret_cast<const value_type*>(other.data + i))) };
+				}
+			}
+			catch (...)
+			{
+				mSize = i / sizeof(value_type);
+				throw;
+			}
 		}
 	}
 
-	FixedCapacityDynamicArray(FixedCapacityDynamicArray&& other) : mSize{ other.mSize }
+	FixedCapacityDynamicArray(FixedCapacityDynamicArray&& other) noexcept(noexcept(value_type{ std::move(*(std::launder(reinterpret_cast<value_type*>(other.data)))) }))
+		: mSize{ other.mSize }
 	{
 		const auto sizeInBytes = mSize * sizeof(value_type);
-		for (size_type i = static_cast<size_type>(0u); i != sizeInBytes; i += sizeof(value_type))
+		if constexpr (noexcept(value_type{ std::move(*(std::launder(reinterpret_cast<value_type*>(other.data)))) });)
 		{
-			new(data + i) value_type{ std::move(*(std::launder(reinterpret_cast<value_type*>(other.data + i)))) };
+			for (size_type i = static_cast<size_type>(0u); i != sizeInBytes; i += sizeof(value_type))
+			{
+				new(data + i) value_type{ std::move(*(std::launder(reinterpret_cast<value_type*>(other.data + i)))) };
+			}
+		}
+		else
+		{
+			size_type i = static_cast<size_type>(0u);
+			try
+			{
+				for (; i != sizeInBytes; i += sizeof(value_type))
+				{
+					new(data + i) value_type{ std::move(*(std::launder(reinterpret_cast<value_type*>(other.data + i)))) };
+				}
+			}
+			catch (...)
+			{
+				mSize = i / sizeof(value_type);
+				throw;
+			}
 		}
 	}
 
-	void operator=(const FixedCapacityDynamicArray& other)
+	void operator=(const FixedCapacityDynamicArray& other) noexcept(noexcept(removeAllData()) && noexcept(value_type{ *(std::launder(reinterpret_cast<const value_type*>(other.data))) }))
 	{
 		removeAllData();
 		mSize = other.mSize;
 		const auto sizeInBytes = mSize * sizeof(value_type);
-		for (size_type i = static_cast<size_type>(0u); i != sizeInBytes; i += sizeof(value_type))
+		if constexpr (noexcept(value_type{ *(std::launder(reinterpret_cast<const value_type*>(other.data))) }))
 		{
-			new(data + i) value_type{ *(std::launder(reinterpret_cast<const value_type*>(other.data + i))) };
+			for (size_type i = static_cast<size_type>(0u); i != sizeInBytes; i += sizeof(value_type))
+			{
+				new(data + i) value_type{ *(std::launder(reinterpret_cast<const value_type*>(other.data + i))) };
+			}
+		}
+		else
+		{
+			size_type i = static_cast<size_type>(0u);
+			try
+			{
+				for (; i != sizeInBytes; i += sizeof(value_type))
+				{
+					new(data + i) value_type{ *(std::launder(reinterpret_cast<const value_type*>(other.data + i))) };
+				}
+			}
+			catch (...)
+			{
+				mSize = i / sizeof(value_type);
+				throw;
+			}
 		}
 	}
 
-	void operator=(FixedCapacityDynamicArray&& other)
+	void operator=(FixedCapacityDynamicArray&& other) noexcept(noexcept(removeAllData()) && noexcept(value_type{ std::move(*(std::launder(reinterpret_cast<value_type*>(other.data)))) }))
 	{
 		removeAllData();
 		mSize = other.mSize;
 		const auto sizeInBytes = mSize * sizeof(value_type);
-		for (size_type i = static_cast<size_type>(0u); i != sizeInBytes; i += sizeof(value_type))
+		if constexpr (noexcept(value_type{ std::move(*(std::launder(reinterpret_cast<value_type*>(other.data)))) }))
 		{
-			new(data + i) value_type{ std::move(*(std::launder(reinterpret_cast<value_type*>(other.data + i)))) };
+			for (size_type i = static_cast<size_type>(0u); i != sizeInBytes; i += sizeof(value_type))
+			{
+				new(data + i) value_type{ std::move(*(std::launder(reinterpret_cast<value_type*>(other.data + i)))) };
+			}
+		}
+		else
+		{
+			size_type i = static_cast<size_type>(0u);
+			try
+			{
+				for (; i != sizeInBytes; i += sizeof(value_type))
+				{
+					new(data + i) value_type{ std::move(*(std::launder(reinterpret_cast<value_type*>(other.data + i)))) };
+				}
+			}
+			catch (...)
+			{
+				mSize = i / sizeof(value_type);
+				throw;
+			}
 		}
 	}
 
@@ -281,7 +383,7 @@ public:
 		removeAllData();
 	}
 
-	void clear() noexcept
+	void clear() noexcept(noexcept(removeAllData()))
 	{
 		removeAllData();
 		mSize = static_cast<size_type>(0u);
@@ -297,25 +399,26 @@ public:
 		return *(std::launder(reinterpret_cast<const value_type*>(data + i * sizeof(value_type))));
 	}
 
-	void push_back(const value_type& value)
+	void push_back(const value_type& value) noexcept(noexcept(value_type{ value }))
 	{
 		new(data + mSize * sizeof(value_type)) value_type{ value };
 		++mSize;
 	}
 
-	void push_back(T&& value)
+	void push_back(T&& value) noexcept(noexcept(value_type{ std::move(value) }))
 	{
 		new(data + mSize * sizeof(value_type)) value_type{ std::move(value) };
 		++mSize;
 	}
 
 	template<class... Args>
-	void emplace_back(Args&&... args)
+	void emplace_back(Args&&... args) noexcept(noexcept(value_type{ std::forward<Args>(args)... }))
 	{
 		new(data + mSize * sizeof(value_type)) value_type{ std::forward<Args>(args)... };
+		++mSize;
 	}
 
-	void pop_back() noexcept
+	void pop_back() noexcept(std::is_nothrow_destructible_v<value_type>)
 	{
 		--mSize;
 		auto* valuePtr = std::launder(reinterpret_cast<value_type*>(data + mSize * sizeof(value_type)));
@@ -412,12 +515,13 @@ public:
 	using reverse_iterator = std::reverse_iterator<iterator>;
 	using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 private:
-	std::array<value_type, cap> data;
+	std::array<std::remove_const_t<value_type>, cap> data;
 	size_type mSize = static_cast<size_type>(0u);
 public:
 	constexpr FixedCapacityDynamicArray() noexcept {}
 
-	FixedCapacityDynamicArray(const FixedCapacityDynamicArray& other) : mSize{ other.mSize }
+	constexpr FixedCapacityDynamicArray(const FixedCapacityDynamicArray& other) noexcept
+		: mSize{ other.mSize }
 	{
 		const auto size = mSize;
 		for (size_type i = static_cast<size_type>(0u); i != size; ++i)
@@ -426,7 +530,8 @@ public:
 		}
 	}
 
-	FixedCapacityDynamicArray(FixedCapacityDynamicArray&& other) : mSize{ other.mSize }
+	constexpr FixedCapacityDynamicArray(FixedCapacityDynamicArray&& other) noexcept
+		: mSize{ other.mSize }
 	{
 		const auto size = mSize;
 		for (size_type i = static_cast<size_type>(0u); i != size; ++i)
@@ -435,7 +540,7 @@ public:
 		}
 	}
 
-	void operator=(const FixedCapacityDynamicArray& other)
+	constexpr void operator=(const FixedCapacityDynamicArray& other) noexcept
 	{
 		mSize = other.mSize;
 		const auto size = mSize;
@@ -445,7 +550,7 @@ public:
 		}
 	}
 
-	void operator=(FixedCapacityDynamicArray&& other)
+	constexpr void operator=(FixedCapacityDynamicArray&& other) noexcept
 	{
 		mSize = other.mSize;
 		const auto size = mSize;
@@ -470,27 +575,27 @@ public:
 		return data[i];
 	}
 
-	constexpr void push_back(const value_type& value)
+	constexpr void push_back(const value_type& value) noexcept
 	{
 		data[mSize] = value;
 		++mSize;
 	}
 
-	constexpr void push_back(value_type&& value)
+	constexpr void push_back(value_type&& value) noexcept
 	{
 		data[mSize] = std::move(value);
 		++mSize;
 	}
 
 	template<class... Args>
-	constexpr void emplace_back(Args&&... args)
+	constexpr void emplace_back(Args&&... args) noexcept(noexcept(value_type{ std::forward<Args>(args)... }))
 	{
-		data[mSize] = { std::forward<Args>(args)... };
+		data[mSize] = value_type{ std::forward<Args>(args)... };
 		++mSize;
 	}
 
 	template<class Arg>
-	constexpr void emplace_back(Arg&& arg)
+	constexpr void emplace_back(Arg&& arg) noexcept
 	{
 		data[mSize] = std::forward<Arg>(arg);
 		++mSize;
